@@ -29,9 +29,11 @@ version of this script emit TWO FALSE `EXACT`s, so the extraction rules below ar
 """
 import argparse, bisect, hashlib, json, os, re, struct, subprocess, sys
 
-HERE   = os.path.dirname(os.path.abspath(__file__))
-XR     = os.path.dirname(HERE)                       # xr-work/
-GHIDRA = os.path.join(os.path.dirname(XR), "ghidra_futari_decomp")
+HERE   = os.path.dirname(os.path.abspath(__file__))   # tools/matchlab/
+ROOT   = os.path.dirname(os.path.dirname(HERE))      # repo root
+# Guest images + function tables live with the rest of the reference material (untracked: large
+# binaries). 2026-08-07: this used to reach out of the old `xr-work/` sibling layout.
+GHIDRA = os.environ.get("MATCHLAB_IMAGES", os.path.join(ROOT, "reference", "ghidra_futari_decomp"))
 # XDK 9328's cl 15.00.8327 for PowerPC -- the build the XEX names, and the one all ASM-EXACT
 # targets were matched with.  MATCHLAB_CL overrides it so a different compiler build can be
 # tested without editing the harness (9328 also ships 15.00.8153 as xdk9328_ship/cl.exe).

@@ -122,7 +122,7 @@ def main():
 
     # ---- truth side: the census's per-address expectation ----
     cen = {}
-    cpath = os.path.join(REPO, '_tmpscripts/abn_hook_census.json')
+    cpath = os.path.join(REPO, 'config/abn_hook_census.json')   # 2026-08-07: was _tmpscripts/
     for row in json.load(open(cpath))['rows']:
         if row.get('kind') == 'CODE' and row.get('expected_abn_addr'):
             cen[row['addr_int']] = int(row['expected_abn_addr'], 16)
