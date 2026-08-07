@@ -1,6 +1,12 @@
 #include "ppc_recomp_shared.h"
 #include <file.h>
 #include <image.h>
+// L4/E5: in a COMBINED build the game function table arrives from a module DLL, not from this
+// image's PPCFuncMappings.  Relative path on purpose — no build script has to gain an -I.
+#ifdef FUTARI_COMBINED
+#include "../host/module_registry.h"
+#include "../host/futari_module_desc.h"
+#endif
 #include <cstdio>
 #include <cstdint>
 #include <cstdlib>
@@ -48,6 +54,41 @@ static std::map<uint32_t,uint32_t> g_allocSz;        // addr -> aligned size (li
 // freshly-freed physical block can still have pending host reads; RT_FREEPOOL=0 run was clean,
 // immediate-reuse run was navy). A freed block becomes reusable only after RT_FREEPOOL_QUAR_MS
 // (default 5000) — far past any deferred read, far under the ~90s leak cycle.
+// ===== ALLOCATION EPOCH TABLE (2026-08-07) ==============================================
+// AN EYES-FREE DETECTOR FOR HOST/GUEST IDENTITY COLLISIONS.
+//
+// The renderer caches decoded textures keyed on GUEST BASE ADDRESS. If the guest frees that
+// memory and the allocator hands the same address to a DIFFERENT asset, the cache keeps serving
+// the old decode under a base that now means something else — "backdrop pages painted over the
+// plates". That is the standing suspect for the 360 select corruption, and it is the same class
+// as the 08-04 512MB physical-alias identity break.
+//
+// Every attempt to judge that defect so far has been a human looking at a screen, on a defect
+// whose severity tracks ALLOCATION LAYOUT (it moves with RT_FREEPOOL_QUAR_MS) — so every verdict
+// was N=1 on a nondeterministic input, which is how a "screen-drive verified clean" config from
+// 08-04 turned out not to reproduce on 08-07. This makes the question mechanical instead.
+//
+// A FREE is the necessary event: memory cannot be re-handed to another asset without first being
+// freed. So bumping only on free catches every collision, and costs one write per free.
+// Granularity is 16KB to match the allocator's own granule (RT_HEAPGRAN) — coarser buckets would
+// alias distinct small allocations onto one counter and manufacture false positives.
+enum { RT_EPOCH_SHIFT = 14 };                     // 16KB buckets
+static uint32_t g_memEpoch[1u << 16];             // covers 1GB of guest space (256KB table)
+static inline void rt_epochBump(uint32_t addr, uint32_t sz){
+  uint32_t a = addr >> RT_EPOCH_SHIFT, b = (addr + (sz ? sz - 1 : 0)) >> RT_EPOCH_SHIFT;
+  if (b >= (1u << 16)) b = (1u << 16) - 1;
+  for (uint32_t i = a; i <= b; ++i) ++g_memEpoch[i];
+}
+// Query the epoch covering [addr, addr+bytes). The renderer records this at texture UPLOAD and
+// re-checks it at SAMPLE; any change means the backing memory was freed in between.
+extern "C" uint32_t rt_mem_epoch(uint32_t addr, uint32_t bytes){
+  uint32_t a = addr >> RT_EPOCH_SHIFT, b = (addr + (bytes ? bytes - 1 : 0)) >> RT_EPOCH_SHIFT;
+  if (b >= (1u << 16)) b = (1u << 16) - 1;
+  uint32_t s = 0;
+  for (uint32_t i = a; i <= b; ++i) s = s * 0x01000193u + g_memEpoch[i];
+  return s;
+}
+
 struct FreeEnt { uint32_t addr; uint64_t freedMs; };
 static std::multimap<uint32_t,FreeEnt> g_freePool;
 // 2026-07-31 BIG-RESERVE (session 100006): >=4MB frees park here (cap 6), drawable only by
@@ -55,7 +96,10 @@ static std::multimap<uint32_t,FreeEnt> g_freePool;
 // ("take=1.2MB of 4.0MB"), starving late-stage 4MB align=0x10000 loads into bumping past the
 // 512MB line. Line defense may raid it at relaxed age as last resort. RT_FREEPOOL_BIGRES=0 reverts.
 static std::multimap<uint32_t,FreeEnt> g_bigReserve;
-static int rt_bigresOn(){ static int v=[](){ const char* e=getenv("RT_FREEPOOL_BIGRES"); return e?atoi(e):1; }(); return v; }
+// 2026-08-04 HW-true: default OFF — the diversion bypasses insert-time coalescing, hiding 4MB+
+// blocks from merge chains exactly when the post-swap bulk-free needs them to form big runs.
+// Its original job (split-cannibalization starving 4MB asks) is covered by age-0 best-fit now.
+static int rt_bigresOn(){ static int v=[](){ const char* e=getenv("RT_FREEPOOL_BIGRES"); return e?atoi(e):0; }(); return v; }
 static uint64_t rt_nowms(){ return (uint64_t)std::chrono::duration_cast<std::chrono::milliseconds>(
   std::chrono::steady_clock::now().time_since_epoch()).count(); }
 static void rt_decomSweep(uint64_t now);   // defined below (NtVA DECOMMIT quarantine)
@@ -67,12 +111,11 @@ static void rt_poolInsertCoalesced(uint32_t addr, uint32_t sz, uint64_t freedMs)
   // BIG-RESERVE diversion: park >=4MB blocks away from the split path's cannibalization.
   if(rt_bigresOn() && sz>=0x400000u && g_bigReserve.size()<6){
     g_bigReserve.emplace(sz, FreeEnt{addr, freedMs}); return; }
-  // ⚠ COALESCING DEFAULT OFF (2026-07-31, same session): with it ON, menu DOWN navigation DIED
-  // (3 consecutive boots select ARCADE with up to 8 spammed DOWNs — the allocator's documented
-  // poison class: merged small kernel-freed spans reused+zeroed under live shell references).
-  // The 512MB line defense below survives without it as long as single pooled blocks >= the
-  // request exist. RT_FREEPOOL_COALESCE=1 re-arms for a future properly-gated leg.
-  static int coalesceOn=[](){ const char* e=getenv("RT_FREEPOOL_COALESCE"); return e?atoi(e):0; }();
+  // COALESCING history: default OFF 07-31 after menu-DOWN died — "merged small kernel-freed
+  // spans reused+ZEROED under live shell references". 2026-08-04 decomp verdict: the killer in
+  // that sentence was ZEROED, not merged — the kernel never zeroes, and raw reuse now matches
+  // hardware (stale readers see old bytes). Re-armed ON; RT_FREEPOOL_COALESCE=0 reverts.
+  static int coalesceOn=[](){ const char* e=getenv("RT_FREEPOOL_COALESCE"); return e?atoi(e):1; }();
   if(!coalesceOn){ g_freePool.emplace(sz, FreeEnt{addr, freedMs}); return; }
   bool merged = true;
   while (merged){
@@ -95,18 +138,82 @@ static void rt_poolInsertCoalesced(uint32_t addr, uint32_t sz, uint64_t freedMs)
 // if >=64KB, else leaked untracked — nothing references it), and round the tail remainder's
 // start UP to 4KB so progeny stay usable. Accounting stays exact: the taken entry absorbs its
 // own alignment pads, so reuse still cannot alias a neighbour.
+// 2026-08-04 GRANULE QUANTIZATION (containment part 3 — the near-miss disease): the swapbounce
+// P7 run breached 51x with asz=0.50MB vs maxpooled=0.496MB — split progeny land a few KB short
+// of the repetitive streaming request sizes, so once a block is split its descendants can NEVER
+// serve that size class again and the pool decays into thousands of near-miss fragments
+// (2407 pooled, all <=0.5MB, while 0.5MB requests bump past the line). Cure: round every
+// allocation >=granule up to a granule multiple (and carve on granule boundaries, and start
+// granule blocks granule-ALIGNED so exact reuse never fails the alignment check). Repetitive
+// sizes then recycle exact-fit instead of fragmenting. Granule dropped 64KB->16KB 2026-08-04
+// (4th P7 pass): 64KB inflation across ~720 live blocks (~23MB) was itself the size of the
+// remaining burst-peak overshoot (528MB high-water = 19MB over). RT_HEAPGRAN=0 reverts to
+// 16-byte rounding; RT_HEAPGRAN_SZ overrides the granule.
+static int rt_granOn(){ static int v=[](){ const char* e=getenv("RT_HEAPGRAN"); return e?atoi(e):1; }(); return v; }
+static uint32_t rt_granSz(){ static uint32_t v=[](){ const char* e=getenv("RT_HEAPGRAN_SZ"); return e?(uint32_t)strtoul(e,nullptr,0):0x4000u; }(); return v; }
 static inline bool rt_carveFit(uint32_t p,uint32_t bsz,uint32_t asz,uint32_t align,uint32_t& ap){
   ap=(p+align-1)&~(align-1); return (uint64_t)ap+asz<=(uint64_t)p+bsz; }
-static uint32_t rt_takeCarved(uint32_t p,uint32_t bsz,uint64_t fm,uint32_t asz,uint32_t align){
+// 2026-08-04 HARDWARE-TRUE ZEROING (decomp verdict, ends the poison-class era): the shell and
+// game allocator wrappers (shell FUN_82089ed8 caller / game FUN_880836d0 caller — IDENTICAL
+// XAPI code) memset their physical allocations THEMSELVES, and only when flag 0x40000000 is
+// set. The 360 kernel does NOT zero physical allocations — and those caller-side memsets are
+// recompiled guest code that already runs in this port. Every historical "poison class"
+// (select blanking 07-20, menu-DOWN death 07-31, navy) was OUR memset-on-reuse showing zeros
+// where hardware shows stale-but-plausible old bytes. Mm-path allocations therefore reuse RAW
+// (rt_alloc_raw); NtVA commits keep zeroing (VirtualAlloc semantics really do zero on 360);
+// internal host callers keep the legacy zeroed rt_alloc. RT_ALLOCZERO=1 forces the old
+// zero-everything behavior as the master revert lever.
+static int rt_zeroForce(){ static int v=[](){ const char* e=getenv("RT_ALLOCZERO"); return e?atoi(e):0; }(); return v; }
+static uint32_t rt_takeCarved(uint32_t p,uint32_t bsz,uint64_t fm,uint32_t asz,uint32_t align,int zero){
   uint32_t ap; rt_carveFit(p,bsz,asz,align,ap);
   uint32_t pad=ap-p;
-  if(pad>=0x10000u) rt_poolInsertCoalesced(p,pad,fm);
-  uint32_t tstart=(ap+asz+0xFFFu)&~0xFFFu, bend=p+bsz, take;
-  if(bend>tstart && bend-tstart>=0x10000u){ rt_poolInsertCoalesced(tstart,bend-tstart,fm); take=tstart-ap; }
+  uint32_t gm=rt_granOn()?rt_granSz():0x1000u;
+  if(pad>=gm) rt_poolInsertCoalesced(p,pad,fm);   // re-pool pads down to granule size (was 64KB — leaked)
+  uint32_t tgran=gm-1;                            // granule mode: tail progeny stay granule-aligned multiples
+  uint32_t tstart=(ap+asz+tgran)&~tgran, bend=p+bsz, take;
+  if(bend>tstart && bend-tstart>=gm){ rt_poolInsertCoalesced(tstart,bend-tstart,fm); take=tstart-ap; }
   else take=bend-ap;                        // tail too small to track: absorb (exact accounting)
-  g_allocSz[ap]=take; if(g_base) std::memset(g_base+ap,0,take);
+  g_allocSz[ap]=take; if(g_base && (zero||rt_zeroForce())) std::memset(g_base+ap,0,take);
   return ap; }
-extern "C" uint32_t rt_alloc(uint32_t size,uint32_t align){ std::lock_guard<std::mutex> lk(g_heap_mu); if(align<1)align=1;
+// 2026-08-04 ALLOCATOR CONTAINMENT (the sharpened 512MB root, see NOTE_campaign_decomp.md):
+// the bump frontier only ever CLIMBS. Blocks freed adjacent to the frontier (the post-swap
+// pattern: outgoing module's assets die at the top of the heap) sit in the pool at high
+// addresses forever, and every post-swap load burst bumps from the previous session's
+// high-water mark until it crosses 0x20000000 — where addresses are UNPHYSICAL on hardware
+// (the &0x1FFFFFFF fetch mask aliases them onto low memory; RVK_PHYSKEY fixed the resolve
+// keys but streamed guest-RAM decodes above the line are unrecoverable renderer-side).
+// FRONTIER RETREAT: when every reuse path misses and we are about to bump, first pop pool /
+// big-reserve entries that end EXACTLY at the frontier (quarantine-expired only — same
+// deferred-reader hazard ladder as reuse) and lower g_heap through them. Effect = coalescing
+// at the frontier only, which sidesteps the insert-time-coalescing poison class (merged small
+// kernel spans reused under live shell references — those small frees never enter the pool,
+// so they act as live barriers that naturally bound retreat depth). Re-bumped territory is
+// memset (bump pages are only fresh-zero the FIRST time — see g_bumpHigh). RT_HEAPRETREAT=0
+// reverts to climb-only.
+static uint32_t g_bumpHigh=0;    // historic max frontier: bumps below it re-cover old bytes
+static int rt_retreatOn(){ static int v=[](){ const char* e=getenv("RT_HEAPRETREAT"); return e?atoi(e):1; }(); return v; }
+static bool rt_frontierRetreat(uint64_t now, uint32_t minAgeMs){
+  bool any=false;
+  for(;;){
+    bool popped=false;
+    for(auto it=g_freePool.begin(); it!=g_freePool.end(); ++it)
+      if(it->second.addr+it->first==g_heap && now-it->second.freedMs>=minAgeMs){
+        g_heap=it->second.addr; g_freePool.erase(it); popped=true; any=true; break; }
+    if(!popped && rt_bigresOn())
+      for(auto it=g_bigReserve.begin(); it!=g_bigReserve.end(); ++it)
+        if(it->second.addr+it->first==g_heap && now-it->second.freedMs>=minAgeMs){
+          g_heap=it->second.addr; g_bigReserve.erase(it); popped=true; any=true; break; }
+    if(!popped) break; }
+  return any; }
+// 2026-08-04 containment part 2: NEVER hand out pooled blocks at/above the line from the
+// normal reuse paths — those addresses cannot exist on hardware, so reusing them perpetuates
+// the identity break even when low space is available. They drain only via frontier retreat
+// (which removes them from circulation entirely). Emergency at-line paths keep them: at the
+// line, a high reuse is no worse than a high bump. RT_POOLNOHI=0 reverts.
+static bool rt_poolHiSkip(uint32_t addr){
+  static int v=[](){ const char* e=getenv("RT_POOLNOHI"); return e?atoi(e):1; }();
+  return v && addr>=0x20000000u; }
+static uint32_t rt_alloc_impl(uint32_t size,uint32_t align,int zero){ std::lock_guard<std::mutex> lk(g_heap_mu); if(align<1)align=1;
   // RT_HEAPPAD=<MB> [RT_HEAPPAD_MS=<ms>] (2026-08-01 shadow repro): one-shot bump of the heap
   // pointer so a cold-boot scripted run reaches the HIGH-HEAP regime the ranking-box defect
   // needs (user real-play sessions cross 544MB; scripted attract plateaus ~432MB and stays
@@ -120,28 +227,48 @@ extern "C" uint32_t rt_alloc(uint32_t size,uint32_t align){ std::lock_guard<std:
         g_heap=(g_heap+0xFFFFu)&~0xFFFFu; uint32_t pp=g_heap; g_heap+=padMB*0x100000u;
         std::fprintf(stderr,"[heap] RT_HEAPPAD engaged: +%uMB hole at 0x%X -> heap now 0x%X (%.0fMB)\n",
           padMB,pp,g_heap,g_heap/(1024.0*1024.0)); } } }
-  uint32_t asz=((size+15)&~15u);
+  uint32_t asz; { uint32_t g=rt_granSz();
+    if(rt_granOn() && size>=g){ asz=(size+g-1)&~(g-1); if(align<g) align=g; }
+    else asz=((size+15)&~15u); }
   // exact-size pool reuse (first entry whose address satisfies the requested alignment)
-  static uint32_t quarMs=[](){ const char* e=getenv("RT_FREEPOOL_QUAR_MS"); return e?(uint32_t)atoi(e):5000u; }();
+  // 2026-08-04 HW-true FINAL (third P7 forensics pass): even 250ms rejected the streamer's
+  // ~16ms hot rotation below the line, so every cycle bumped fresh space — THE climb engine.
+  // Hardware's free-list reuses instantly (LIFO, age 0); with raw no-zero reuse the quarantine
+  // no longer protects anything the hardware protects. The async walker's ~50ms late-read is a
+  // renderer-timing divergence to be judged by eyes and fixed renderer-side if real.
+  // RT_FREEPOOL_QUAR_MS=5000 reverts to the beta1 guard.
+  static uint32_t quarMs=[](){ const char* e=getenv("RT_FREEPOOL_QUAR_MS"); return e?(uint32_t)atoi(e):0u; }();
+  // 2026-08-04 LIFO REUSE (eyeball verdict on the first HW-true build): serving the OLDEST
+  // freed block first (multimap insertion order = FIFO) recycled long-freed select-compose
+  // pages the shell still references — black/displaced chunks on the 360 shot select. The
+  // kernel's free-list is a LIFO stack: the hot streaming rotation reuses its OWN just-freed
+  // block forever and old freed pages survive for minutes, exactly the persistence the game
+  // was written against. Pick the NEWEST fitting entry in the size class. RT_POOLFIFO=1 reverts.
+  static int lifoOn=[](){ const char* e=getenv("RT_POOLFIFO"); return !(e&&e[0]=='1'); }();
   auto rng=g_freePool.equal_range(asz);
   { uint64_t now=rt_nowms();
     rt_decomSweep(now);
+    auto best=g_freePool.end();
     for(auto it=rng.first;it!=rng.second;++it){
+      if(rt_poolHiSkip(it->second.addr)) continue;
       if((it->second.addr&(align-1))==0 && now-it->second.freedMs>=quarMs){
-        uint32_t p=it->second.addr; g_freePool.erase(it); g_allocSz[p]=asz;
-        if(g_base) std::memset(g_base+p,0,asz);   // committed guest pages arrive zeroed on HW; reuse must match
+        if(best==g_freePool.end() || (lifoOn && it->second.freedMs>best->second.freedMs)) best=it;
+        if(!lifoOn) break; } }
+    if(best!=g_freePool.end()){
+        uint32_t p=best->second.addr; g_freePool.erase(best); g_allocSz[p]=asz;
+        if(g_base && (zero||rt_zeroForce())) std::memset(g_base+p,0,asz);   // NtVA-commit semantics only; Mm reuse stays raw (HW-true)
         { static long rn=0; if(rn++<20) std::fprintf(stderr,"[pool] REUSE 0x%X size=%.1fMB\n",p,asz/(1024.0*1024.0)); }
-        return p; }
-    } }
+        return p; } }
   // BIG-RESERVE draw: only >=2MB requests may take parked big blocks (normal quarantine age).
   if(rt_bigresOn() && asz>=0x200000u){
     uint64_t now=rt_nowms();
     for(auto bit=g_bigReserve.lower_bound(asz); bit!=g_bigReserve.end(); ++bit){
       if(now-bit->second.freedMs<quarMs) continue;
+      if(rt_poolHiSkip(bit->second.addr)) continue;
       uint32_t p=bit->second.addr, bsz=bit->first; uint64_t fm=bit->second.freedMs; uint32_t ap;
       if(!rt_carveFit(p,bsz,asz,align,ap)) continue;
       g_bigReserve.erase(bit);
-      uint32_t r=rt_takeCarved(p,bsz,fm,asz,align);
+      uint32_t r=rt_takeCarved(p,bsz,fm,asz,align,zero);
       { static long rn=0; if(rn++<20) std::fprintf(stderr,"[pool] BIGRES-REUSE 0x%X take=%.1fMB of %.1fMB\n",
           r,g_allocSz[r]/(1024.0*1024.0),bsz/(1024.0*1024.0)); }
       return r; } }
@@ -157,48 +284,85 @@ extern "C" uint32_t rt_alloc(uint32_t size,uint32_t align){ std::lock_guard<std:
   { static int splitOn=[](){ const char* e=getenv("RT_FREEPOOL_SPLIT"); return e?atoi(e):1; }();
     if(splitOn && asz>=0x40000u){
       uint64_t now=rt_nowms();
-      for(auto bit=g_freePool.lower_bound(asz<0x100000u?0x100000u:asz); bit!=g_freePool.end(); ++bit){
+      // Split = SMALLEST-fit first (drains shards; LIFO-windowing here cost 17MB of footprint
+      // and re-grazed the line — 5th P7 pass). Newest-first applies only as the tie-break
+      // WITHIN the smallest fitting size class; the compose-page protection lives in the
+      // exact-fit LIFO above, which serves the hot rotation before split ever runs.
+      auto sbest=g_freePool.end(); auto sfall=g_freePool.end();
+      // 2026-08-04 6th P7 pass: the old >=1MB scan floor (small-free poison relic, dead since
+      // raw reuse) made every sub-1MB pooled block invisible to all but its exact size class —
+      // 101MB of 0.48MB shards unservable while 0.50MB asks grazed the line. Scan from asz.
+      for(auto bit=g_freePool.lower_bound(asz); bit!=g_freePool.end(); ++bit){
         if(now-bit->second.freedMs<quarMs) continue;
-        uint32_t p=bit->second.addr, bsz=bit->first;
-        uint64_t fm=bit->second.freedMs; uint32_t ap;
+        if(rt_poolHiSkip(bit->second.addr)) continue;
+        uint32_t p=bit->second.addr, bsz=bit->first; uint32_t ap;
         if(!rt_carveFit(p,bsz,asz,align,ap)) continue;   // align-carve: block need not START aligned
-        g_freePool.erase(bit);
-        uint32_t r=rt_takeCarved(p,bsz,fm,asz,align);
-        { static long sn=0; if(sn++<20) std::fprintf(stderr,"[pool] SPLIT-REUSE 0x%X take=%.1fMB of %.1fMB\n",
-            r,g_allocSz[r]/(1024.0*1024.0),bsz/(1024.0*1024.0)); }
-        return r; }
+        if(sfall==g_freePool.end()) sfall=bit;           // first fit = smallest size (map order)
+        else if(bit->first!=sfall->first) break;         // left the smallest fitting class: done
+        if(lifoOn && bit->second.freedMs>sfall->second.freedMs) sfall=bit;   // newest within class
+        if(!lifoOn) break; }
+      { auto take=(sbest!=g_freePool.end())?sbest:sfall;
+        if(take!=g_freePool.end()){
+          uint32_t p=take->second.addr, bsz=take->first; uint64_t fm=take->second.freedMs;
+          g_freePool.erase(take);
+          uint32_t r=rt_takeCarved(p,bsz,fm,asz,align,zero);
+          { static long sn=0; if(sn++<20) std::fprintf(stderr,"[pool] SPLIT-REUSE 0x%X take=%.1fMB of %.1fMB\n",
+              r,g_allocSz[r]/(1024.0*1024.0),bsz/(1024.0*1024.0)); }
+          return r; } }
     } }
+  // FRONTIER RETREAT (2026-08-04 containment; see header comment above rt_frontierRetreat):
+  // every reuse path missed and we are about to bump — first walk the frontier back down
+  // through quarantine-expired pooled blocks that end exactly at it.
+  if(rt_retreatOn()){
+    uint64_t now=rt_nowms();
+    // 2s floor: a retreated block is re-bumped (= reused) almost immediately, so the normal
+    // path only consumes settled frees; the at-line retreat below stays age-0 (desperation).
+    if(rt_frontierRetreat(now,2000u)){
+      static long rn=0; if(rn++<40) std::fprintf(stderr,"[heap] RETREAT frontier -> 0x%X (%.0fMB) pooled=%zu\n",
+        g_heap,g_heap/(1024.0*1024.0),g_freePool.size()); } }
   // FIX-A part 2 (2026-07-31): 512MB LINE DEFENSE. If the bump would cross the physical line,
   // crossing is strictly worse than a relaxed quarantine (the crossing GUARANTEES aliasing;
   // relaxed reuse merely risks a transient stale read, and the floors below stay far above the
   // deferred walker's ~50ms read window — the historic navy poison was IMMEDIATE reuse).
   // Best-fit ANY block >= asz with progressively relaxed age floors, loudly.
   { uint32_t nheap=((g_heap+align-1)&~(align-1))+asz;
+    // At-line relaxed retreat (2026-08-04): the post-swap load burst arrives inside the 5s
+    // quarantine, so the normal retreat above may not fire yet — at the line, retreat at the
+    // ladder's 120ms floor (same age the EMERGENCY-REUSE paths already hand blocks out at;
+    // crossing the line GUARANTEES aliasing, a 120ms-old re-bump merely risks a stale read).
+    if(nheap>=0x20000000u && rt_retreatOn() && rt_frontierRetreat(rt_nowms(),0u)){
+      nheap=((g_heap+align-1)&~(align-1))+asz;
+      static long rn=0; if(rn++<40) std::fprintf(stderr,"[heap] RETREAT-LINE frontier -> 0x%X (%.0fMB) %s\n",
+        g_heap,g_heap/(1024.0*1024.0),nheap<0x20000000u?"(back under 512MB)":"(still at line)"); }
     if(nheap>=0x20000000u){
       // 2026-07-31 stage-4 verdict (log 093405): added 4th floor 120ms — asz=0.50 vs
       // maxpooled=0.51 breaches were AGE misses, not size; 120ms is still >2x the deferred
       // walker's ~50ms window, and crossing the line GUARANTEES aliasing.
-      static const uint32_t relax[4] = {2000u, 750u, 250u, 120u};
+      // 2026-08-04 forensics verdict (swapbounce breach dump): all 61 breaches had low-address
+      // carvefit=1 candidates aged 1-37ms — the streamer cycles blocks at ~17ms, faster than
+      // every floor. Hardware's free-list reuses instantly; final floor 0ms — at the line a
+      // possible one-frame stale read strictly beats guaranteed physical-alias corruption.
+      static const uint32_t relax[5] = {2000u, 750u, 250u, 120u, 0u};
       uint64_t now=rt_nowms();
-      for (int ri=0; ri<4; ++ri){
+      for (int ri=0; ri<5; ++ri){
         for (auto bit=g_freePool.lower_bound(asz); bit!=g_freePool.end(); ++bit){
           if(now-bit->second.freedMs<relax[ri]) continue;
           uint32_t p=bit->second.addr, bsz=bit->first; uint64_t fm=bit->second.freedMs; uint32_t ap;
           if(!rt_carveFit(p,bsz,asz,align,ap)) continue;   // align-carve: block need not START aligned
           g_freePool.erase(bit);
-          uint32_t r=rt_takeCarved(p,bsz,fm,asz,align);
+          uint32_t r=rt_takeCarved(p,bsz,fm,asz,align,zero);
           { static long en=0; if(en++<40) std::fprintf(stderr,"[pool] EMERGENCY-REUSE 0x%X take=%.1fMB age>=%ums (512MB line defense)\n",r,g_allocSz[r]/(1024.0*1024.0),relax[ri]); }
           return r; }
       }
       // Line-defense reserve raid: at the line ANY size may draw the big reserve, relaxed age.
       if(rt_bigresOn()){
-        for (int ri=0; ri<4; ++ri){
+        for (int ri=0; ri<5; ++ri){
           for(auto bit=g_bigReserve.lower_bound(asz); bit!=g_bigReserve.end(); ++bit){
             if(now-bit->second.freedMs<relax[ri]) continue;
             uint32_t p=bit->second.addr, bsz=bit->first; uint64_t fm=bit->second.freedMs; uint32_t ap;
             if(!rt_carveFit(p,bsz,asz,align,ap)) continue;
             g_bigReserve.erase(bit);
-            uint32_t r=rt_takeCarved(p,bsz,fm,asz,align);
+            uint32_t r=rt_takeCarved(p,bsz,fm,asz,align,zero);
             { static long bn2=0; if(bn2++<20) std::fprintf(stderr,"[pool] EMERGENCY-BIGRES 0x%X take=%.1fMB (512MB line defense)\n",
                 r,g_allocSz[r]/(1024.0*1024.0)); }
             return r; } } }
@@ -222,7 +386,7 @@ extern "C" uint32_t rt_alloc(uint32_t size,uint32_t align){ std::lock_guard<std:
             uint32_t ap=(rs+align-1)&~(align-1);
             if(j>i && (uint64_t)ap+asz<=re){
               for(size_t k=i;k<=j;++k) g_freePool.erase(v[k].it);
-              uint32_t r=rt_takeCarved(rs,re-rs,fm,asz,align);
+              uint32_t r=rt_takeCarved(rs,re-rs,fm,asz,align,zero);
               { static long mn=0; if(mn++<40) std::fprintf(stderr,"[pool] EMERGENCY-MERGE %zu blocks -> %.1fMB run, take=%.1fMB (512MB line defense)\n",
                   j-i+1,(re-rs)/(1024.0*1024.0),g_allocSz[r]/(1024.0*1024.0)); }
               return r; }
@@ -234,9 +398,21 @@ extern "C" uint32_t rt_alloc(uint32_t size,uint32_t align){ std::lock_guard<std:
       // maxpooled < asz  => fragmentation (coalescing territory); maxpooled >= asz => age/align.
       { static long bn=0; if(bn++<60){ uint32_t maxb=g_freePool.empty()?0:g_freePool.rbegin()->first;
           std::fprintf(stderr,"[pool] LINE-BREACH asz=%.2fMB maxpooled=%.2fMB pooled=%zu align=0x%X (no fit; bumping past 512MB)\n",
-            asz/(1024.0*1024.0),maxb/(1024.0*1024.0),g_freePool.size(),align); } }
+            asz/(1024.0*1024.0),maxb/(1024.0*1024.0),g_freePool.size(),align);
+          // 2026-08-04 breach forensics: name WHY the top candidates were rejected (age vs
+          // align-carve vs size) — the second P7 run rejected 0.56MB blocks for 0.50MB asks
+          // 48x and the reason was not derivable from the summary line alone.
+          int k=0; uint64_t nw=rt_nowms();
+          for(auto cit=g_freePool.rbegin(); cit!=g_freePool.rend() && k<3; ++cit,++k){
+            uint32_t cap2; bool cf=rt_carveFit(cit->second.addr,cit->first,asz,align,cap2);
+            std::fprintf(stderr,"[pool]   cand sz=0x%X addr=0x%X age=%llums carvefit=%d\n",
+              cit->first,cit->second.addr,(unsigned long long)(nw-cit->second.freedMs),(int)cf); } } }
     } }
   g_heap=(g_heap+align-1)&~(align-1); uint32_t p=g_heap; g_heap+=asz; g_allocSz[p]=asz;
+  // Re-bumped retreated territory carries old bytes — fresh-zero only holds the first time the
+  // frontier passes an address (mmap pages). Zero only for zeroed-semantics callers (HW-true).
+  if(p<g_bumpHigh && g_base && (zero||rt_zeroForce())) std::memset(g_base+p,0,asz);
+  if(g_heap>g_bumpHigh) g_bumpHigh=g_heap;
   // FIX-C: the 512MB line is a HARD physical boundary on real hardware -- crossing it means
   // guest &0x1FFFFFFF masks alias. Die-loud-adjacent: warn once, unmissable.
   { static bool warned512=false;
@@ -246,8 +422,14 @@ extern "C" uint32_t rt_alloc(uint32_t size,uint32_t align){ std::lock_guard<std:
   // Heap high-water census: print each 16MB boundary crossing (post-fix this should plateau
   // once the attract reaches steady state).
   { static uint32_t hwMark=0; if((g_heap>>24)!=(hwMark>>24)){ hwMark=g_heap;
-      std::fprintf(stderr,"[heap] high-water 0x%X (%.0fMB) live=%zu pooled=%zu\n",g_heap,g_heap/(1024.0*1024.0),g_allocSz.size(),g_freePool.size()); } }
+      double lMB=0,pMB=0; for(auto&kv:g_allocSz)lMB+=kv.second; for(auto&kv:g_freePool)pMB+=kv.first;
+      std::fprintf(stderr,"[heap] high-water 0x%X (%.0fMB) live=%zu (%.0fMB) pooled=%zu (%.0fMB)\n",
+        g_heap,g_heap/(1024.0*1024.0),g_allocSz.size(),lMB/(1024.0*1024.0),g_freePool.size(),pMB/(1024.0*1024.0)); } }
   return p; }
+// Legacy zeroed entry (internal host callers + NtVA commit path) and the HW-true raw entry
+// for the Mm physical path — see the HARDWARE-TRUE ZEROING block above rt_takeCarved.
+extern "C" uint32_t rt_alloc(uint32_t size,uint32_t align){ return rt_alloc_impl(size,align,1); }
+extern "C" uint32_t rt_alloc_raw(uint32_t size,uint32_t align){ return rt_alloc_impl(size,align,0); }
 // Return an allocation to the pool. Safe no-op for addresses rt_alloc never handed out
 // (reqbase-honored NtVA regions, interior pointers, double frees). SIZE-GATED (2026-07-20
 // hookcheck regression): pooling SMALL frees blanked the select-screen renderer — the shell
@@ -274,12 +456,18 @@ extern "C" void rt_free_ex(uint32_t addr,uint64_t callerLr){ if(!addr) return;
   // so its frees were never recycled. The 1MB floor predates the quarantine (the select
   // breakage was IMMEDIATE-reuse; gate and quarantine were never tested independently) —
   // RT_FREEPOOL_MIN lets the floor drop with the quarantine still protecting deferred readers.
-  { static uint32_t poolMin=[](){ const char* e=getenv("RT_FREEPOOL_MIN"); return e?(uint32_t)strtoul(e,nullptr,0):0x100000u; }();
-    if(it->second < poolMin) return; }
+  // 2026-08-04 containment part 4 + HW-true: the 1MB floor swallowed the shell streamer's
+  // 0.2-0.3MB frees (alloc lr=0x82089F34, 489MB cumulative) — each stayed registered "live"
+  // forever, a ~20MB/swap leak staircase (471MB live, frontier 672MB in swapbounce P7). The
+  // floor only ever existed to keep zero-on-reuse away from stale-referenced blocks; with raw
+  // reuse (kernel never zeroes — decomp verdict) the kernel-true floor is NONE: every tracked
+  // free recycles, exactly like hardware. RT_FREEPOOL_MIN=0x100000 reverts to the beta1 floor.
+  { static uint32_t poolMin=[](){ const char* e=getenv("RT_FREEPOOL_MIN"); return e?(uint32_t)strtoul(e,nullptr,0):0u; }();
+    if(poolMin && it->second < poolMin) return; }
 pool_ok:
   { static long fN=0; static double fMB=0.0; fMB+=it->second/(1024.0*1024.0);
     if((++fN%500)==0) std::fprintf(stderr,"[pool] freed n=%ld cum=%.0fMB pooled=%zu\n",fN,fMB,g_freePool.size()+1); }
-  { uint32_t sz=it->second; g_allocSz.erase(it); rt_poolInsertCoalesced(addr,sz,rt_nowms()); } }
+  { uint32_t sz=it->second; rt_epochBump(addr,sz); g_allocSz.erase(it); rt_poolInsertCoalesced(addr,sz,rt_nowms()); } }
 extern "C" void rt_free(uint32_t addr){ rt_free_ex(addr,0); }
 // --- NtVA DECOMMIT handling (2026-07-20 soak6: the attract leak's REAL class) ---
 // The guest allocator's 8/16MB arena segments are freed via NtFreeVirtualMemory DECOMMIT
@@ -571,8 +759,23 @@ int main(int argc,char**argv){
       std::fprintf(stderr,"[harness] SHELL self-test: slot for 0x%08X = %p (%s)\n",probe,(void*)pf,pf?"REGISTERED":"NULL");
     }
   }
+  // ---- GAME function table -----------------------------------------------------------------
+  // L4/E5 of _tmpscripts/dll_packaging_plan.md.  In a COMBINED build the generated game tree —
+  // and therefore PPCFuncMappings — is no longer in this image at all; it lives in a module DLL.
+  // futari_registry_boot() loads and binds every module DLL, then activates the boot module,
+  // which registers its slots through exactly this formula.  It is called HERE, at the same
+  // point in main() the eager loop occupied, so the table is populated before the shell boots
+  // and the boot order is bit-for-bit the per-module exes'.
+#ifdef FUTARI_COMBINED
+  if(futari_registry_boot(base)!=0){
+    std::fprintf(stderr,"[harness] FATAL: no game module bound — cannot continue.\n");
+    std::fflush(stderr); return 1;
+  }
+  long n = (long)futari_desc()->mapping_count;
+#else
   long n=0; for(PPCFuncMapping* m=PPCFuncMappings; m->guest||m->host; ++m){ if(!m->host)continue; uint32_t g=(uint32_t)m->guest;
     *(PPCFunc**)(base+PPC_IMAGE_BASE+PPC_IMAGE_SIZE+(uint64_t)(uint32_t)(g-PPC_CODE_BASE)*2)=m->host; ++n; }
+#endif
   const uint32_t PCR=0xAB0,TLS=0x100,TEB=0x2E0,STK=0x40000,TOT=PCR+TLS+TEB+STK;
   uint32_t tb=rt_alloc(TOT,0x1000); uint8_t* t=base+tb; std::memset(t,0,TOT);
   *(uint32_t*)t=__builtin_bswap32(tb+PCR); *(uint32_t*)(t+0x100)=__builtin_bswap32(tb+PCR+TLS); t[0x10C]=0;
