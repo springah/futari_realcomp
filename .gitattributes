@@ -1,0 +1,24 @@
+# Normalise line endings so the repo is identical on every machine and git stops warning on
+# every commit. Text is stored LF in git; Windows checkouts get native endings.
+* text=auto
+
+# Shell scripts MUST stay LF — they are run under Git Bash, and CRLF breaks the shebang.
+*.sh    text eol=lf
+*.py    text eol=lf
+
+# Windows-only entry points keep CRLF.
+*.cmd   text eol=crlf
+*.bat   text eol=crlf
+*.ps1   text eol=crlf
+
+# Binary — never touch, never diff.
+*.png   binary
+*.wav   binary
+*.bin   binary
+*.xex   binary
+*.exe   binary
+*.dll   binary
+*.lib   binary
+*.obj   binary
+*.o     binary
+*.gbf   binary
