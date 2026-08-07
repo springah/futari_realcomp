@@ -1,0 +1,58 @@
+# === futari_realcomp — .gitignore ===
+# Rule of thumb: if it is copyrighted game data, a build product, or a capture, it does not
+# belong in git. Everything tracked here should be hand-written source, docs, or config.
+
+# --- Copyrighted game data — NEVER commit ---
+assets/
+dlc/
+*.xex
+*.bin
+
+# --- Local working area: captures, logs, saves, archives, banked evidence ---
+# Nothing here is required to build or run; it is all regenerable or historical.
+_local/
+
+# --- Build products ---
+obj/
+obj_*/
+build/
+*.exe
+*.dll
+*.lib
+*.map
+*.obj
+*.pdb
+*.ilk
+*.exp
+
+# --- Host save data produced by test runs ---
+save/
+save_*/
+!save_freshcard/          # template the drive scripts copy from — keep
+
+# --- Generated recompiler output ---
+# out_reco/ and out_reco_abn/ are produced by the recompiler from config/*.toml.
+# The hand-written files inside them (harness.cpp, rt.cpp) ARE tracked; see .gitattributes
+# note in docs/ARCHITECTURE.md if this ever needs splitting properly.
+out_reco/ppc_recomp.*.cpp
+out_reco_abn/ppc_recomp.*.cpp
+
+# --- Editor / OS noise ---
+.vs/
+.vscode/
+*.user
+Thumbs.db
+desktop.ini
+
+# --- Matching workbench scratch (compiler objects, listings, caches) ---
+tools/matchlab/_build/
+__pycache__/
+*.pyc
+
+# --- Reference material: Ghidra project databases, reference audio/screenshots ---
+# Large binary data that is re-derivable and has no business in git. Kept on disk, documented
+# in README.md. This is the class of file that bloated the previous history to 4.9GB.
+reference/
+
+# --- External dependencies are their own git repos, cloned/vendored separately ---
+external/

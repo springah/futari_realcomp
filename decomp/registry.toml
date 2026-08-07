@@ -1,0 +1,2549 @@
+# registry.toml -- futariRealcomp matching-decomp function registry
+# Governing doc: ghidra_futari_decomp/HUMAN_READABLE_DECOMP_PLAN.md (section 2 statuses, section 3 mechanics).
+# Seeded 2026-07-28 from the named-function census in ghidra_futari_decomp/ATLAS_INDEX.md
+# section 1 "MASTER FUNCTION INDEX" (the 243-fn consolidation of the 8 atlases).
+# Status ladder (plan section 2): RAW -> NAMED -> DRAFT -> MATCHED -> LOCKED.
+#   All seeded entries start at NAMED (atlas role known, no C written).
+# Fields per [[fn]]:
+#   addr       = guest address (0x-prefixed, uppercase)
+#   module     = "game" (0x88, reco_normal.img.bin) | "shell" (0x82, default.img.bin)
+#   name       = current symbol (recomp default sub_XXXXXXXX until a Namespace_VerbNoun name is assigned at DRAFT)
+#   role       = atlas role wording (verbatim; keep the shared vocabulary)
+#   status     = ladder position
+#   provenance = atlas reference(s) with confidence tags, from the master index row
+#   file       = decomp/ source file once DRAFT ("" until then)
+#   gate       = acceptance gate once assigned per plan section 3.3 ("" until then)
+
+# ============ module: game (140 fns -- 139 from the census + the 07-30 reco_abnormal twin) ============
+
+[[fn]]
+addr = "0x88070000"
+module = "game"
+name = "sub_88070000"
+role = "Blend-mode SELECT from packed render-state word (bit 0x2000000)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8807113C"
+module = "game"
+name = "sub_8807113c"
+role = "Getter thunk: current render-state word (flattened, unmodeled)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[INF]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8807114C"
+module = "game"
+name = "sub_8807114c"
+role = "Active-slot index getter (active-voice array)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[INF]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88072260"
+module = "game"
+name = "sub_88072260"
+role = "Shared memcpy utility (224 refs)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RT], AP§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88075C38"
+module = "game"
+name = "sub_88075c38"
+role = "Alpha-ref/blend-factor companion setter"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88077AA8"
+module = "game"
+name = "sub_88077aa8"
+role = "RB_BLENDCONTROL writer (D3D SetRenderState→PM4), slot 0xa4e"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88079970"
+module = "game"
+name = "sub_88079970"
+role = "GPU texture-object constructor (CreateTexture wrapper)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AP§2[RD]"
+file = ""
+gate = ""
+asm_exact = true
+asm_sha1 = "2e4f6fb568f65e4aab5720a9ff8ce06fa85ab9f0"
+matchlab = "Gpu_CreateTexture"
+
+[[fn]]
+addr = "0x88081EF0"
+module = "game"
+name = "sub_88081ef0"
+role = "Tiled/detile blit — swizzle row-chunk memcpy into GPU tiled page [addr-cell note: (+thunk clone 12358)]"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RT], AP§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8808CE90"
+module = "game"
+name = "sub_8808ce90"
+role = "Tracked heap alloc (wraps FUN_880836d0, bulk-free bookkeeping list)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RT], AP§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8808D640"
+module = "game"
+name = "sub_8808d640"
+role = "Staging alloc+copy: memcpy decode-buf+0x10 into upload table DAT_887518d0"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RT], AP§2[RT]"
+file = ""
+gate = ""
+asm_exact = true
+asm_sha1 = "d0122ee89e5df4258bc155879b034c184e734e6a"
+matchlab = "Page_StageUpload"
+
+[[fn]]
+addr = "0x8808D838"
+module = "game"
+name = "sub_8808d838"
+role = "Texture-object ENSURE (dim-code gated 1-2), fixed fmt 0x18280143"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RT], AP§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8808DF70"
+module = "game"
+name = "sub_8808df70"
+role = "Pending-upload FLUSH: scans 512 upload slots, texture ensure + detile blit"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RD], AP§2[RT]"
+file = ""
+gate = ""
+asm_exact = true
+asm_sha1 = "26025ea09a3f961e76ca5408e6809cb76b055b40"
+matchlab = "Page_FillFromCpu"
+
+[[fn]]
+addr = "0x8808E298"
+module = "game"
+name = "sub_8808e298"
+role = "Per-quad EMIT: builds 12-dword quad, applies blend via 88070000"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8808E468"
+module = "game"
+name = "sub_8808e468"
+role = "Frame sprite-batch FLUSH (calls 8808df70 first, then drains sprite queue)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RD], AP§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8808EB10"
+module = "game"
+name = "sub_8808eb10"
+role = "Session-FSM state-8 result fallthrough"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§1[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8808EDA8"
+module = "game"
+name = "sub_8808eda8"
+role = "Reset: zeros options-record tail + 4× 0x34bc0-byte buffers (replay/ghost?)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SS§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8808EEC8"
+module = "game"
+name = "sub_8808eec8"
+role = "Stage 0x2d0-byte (720B) block @DAT_885c6548 — GameEntry msg 20"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SS§2[RD], SH§2(msg20)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8808EFA8"
+module = "game"
+name = "sub_8808efa8"
+role = "Stage 44-byte char/shot/mode-selection record @DAT_88699868 — msg 18 / preset mode 2"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SS§2[RD], SH§2(msg18)[RD], SCN§3.2(mode2 preset)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8808F098"
+module = "game"
+name = "sub_8808f098"
+role = "Validate+accept loaded record (magic 0xd3050/0x9092400) — msg 17 / replay mode 1"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SS§2[RD], SH§2(msg17)[RD], SCN§3.2(mode1 replay)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8808F150"
+module = "game"
+name = "sub_8808f150"
+role = "Stage factory-default options from ROM table — msg 16 / normal mode 0"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SS§2[RD], SH§2(msg16)[RD], SCN§3.2(mode0)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8808F1E8"
+module = "game"
+name = "sub_8808f1e8"
+role = "Stage 16-byte options record @DAT_885c6820 — msg 15 / normal mode 0"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SS§2[RD], SH§2(msg15)[RD], SCN§3.2(mode0)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8808FA68"
+module = "game"
+name = "sub_8808fa68"
+role = "Per-frame handshake: ResetEvent evt0→SetEvent evt3→Wait evt0"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RT], SH§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8808FDF8"
+module = "game"
+name = "sub_8808fdf8"
+role = "BOOT: 8× NtCreateEvent → 0x885C651C[], spawn+resume worker 88168D48"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88090360"
+module = "game"
+name = "sub_88090360"
+role = "Resource-KIND registration: 3 handler objs (0x885C5BB4), 157 entries"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88090480"
+module = "game"
+name = "sub_88090480"
+role = "Game audio service-pump cb (drains sound-cmd queue)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88090588"
+module = "game"
+name = "sub_88090588"
+role = "★ VOICE-BIND CRUX ★ gate ladder A-E → PREPARE → RegisterNotification"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x880906D8"
+module = "game"
+name = "sub_880906d8"
+role = "Audio-state INIT/reset (zero cue table + active-voice region)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88090CB8"
+module = "game"
+name = "sub_88090cb8"
+role = "Cache-manager wrapper (routes to FUN_8808d640)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RD], AP§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88090D50"
+module = "game"
+name = "sub_88090d50"
+role = "500-slot texture cache manager (DAT_885c3480/4420)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AP§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88090E58"
+module = "game"
+name = "sub_88090e58"
+role = "500-slot cache manager, alt entry"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RD], AP§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88091448"
+module = "game"
+name = "sub_88091448"
+role = "Per-frame tick (top-level main loop, role not detailed)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§1[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88091DE8"
+module = "game"
+name = "sub_88091de8"
+role = "Sprite-entry get/alloc → queue DAT_886998a0"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88092228"
+module = "game"
+name = "sub_88092228"
+role = "Job-ring enqueue (producer side of 0x885c3280)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- TK§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88092310"
+module = "game"
+name = "sub_88092310"
+role = "Writes DAT_885c32d0[head], advances DAT_887ad4b8"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- TK§2[RD], AP§4(callee, unnamed caller trace)[INF]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x880924E8"
+module = "game"
+name = "sub_880924e8"
+role = "ASYNC enqueue onto background-worker ring DAT_885c1a80"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AP§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88092668"
+module = "game"
+name = "sub_88092668"
+role = "Opens small header/check file (magic 0xc70)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AP§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x880927A8"
+module = "game"
+name = "sub_880927a8"
+role = "File-offset READ (NtReadFile-equivalent), zero-fills on short read"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AP§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x880929C8"
+module = "game"
+name = "sub_880929c8"
+role = "Archive TEARDOWN incl. worker shutdown: signal wake evt + wait ack + close evts, free TOC caches/array, close file, free scratch (d2 RESOLVED 07-23)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AP§2[RD] + TK§2[RD], merged"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88092AA8"
+module = "game"
+name = "sub_88092aa8"
+role = "**id → raw bytes** recipe: bound-check, entry=TOC+id*0x14, read entry+8@entry+4"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AP§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88092B20"
+module = "game"
+name = "sub_88092b20"
+role = "Synchronous immediate resource-read path (no ring hop)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AP§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88092B80"
+module = "game"
+name = "sub_88092b80"
+role = "Allocates TOC[id]+0xc persistent cache buffer, fills via 88092aa8"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AP§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88092C28"
+module = "game"
+name = "sub_88092c28"
+role = "Background worker THREAD: drains DAT_885c1a80, per-id cache dispatch"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AP§2[RD], TK§1[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88092ED8"
+module = "game"
+name = "sub_88092ed8"
+role = "Archive INIT: opens file, reads header, allocs+expands TOC (0xc→0x14/entry)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RD], AP§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88093418"
+module = "game"
+name = "sub_88093418"
+role = "Present/vblank tail call (main loop)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§1[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88093760"
+module = "game"
+name = "sub_88093760"
+role = "Looping/BGM cue funnel → crux(cueId, param4=1)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x880937C8"
+module = "game"
+name = "sub_880937c8"
+role = "One-shot SE cue funnel → crux(cueId, param4=0)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88093950"
+module = "game"
+name = "sub_88093950"
+role = "Present/vblank tail call (main loop)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§1[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88095BD0"
+module = "game"
+name = "sub_88095bd0"
+role = "Select-build scene factory (id 0x24)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88097298"
+module = "game"
+name = "sub_88097298"
+role = "Drawer for reload/recover scene (id 0x1d)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3.2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88097370"
+module = "game"
+name = "sub_88097370"
+role = "Watchdog reload/recover scene factory"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x880E31B0"
+module = "game"
+name = "sub_880e31b0"
+role = "Sound-cmd queue PRODUCER (busy-spins on DAT_884EB394)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x880E3888"
+module = "game"
+name = "sub_880e3888"
+role = "**⚠MIS**: SFX voice-priority allocator (NOT a draw-list registration)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§0[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x880E4CD0"
+module = "game"
+name = "sub_880e4cd0"
+role = "Real sound-cmd queue CONSUMER (installed by audio thread)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x880E7320"
+module = "game"
+name = "sub_880e7320"
+role = "Scene factory → DAT_884e7d50 (id 0x32)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x880EA4E8"
+module = "game"
+name = "sub_880ea4e8"
+role = "Transient sub-scene (id 0x33)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x880EDC18"
+module = "game"
+name = "sub_880edc18"
+role = "Transient sub-scene (id 0x31)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x880F09F8"
+module = "game"
+name = "sub_880f09f8"
+role = "Transient sub-scene (id 0x31)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x880F2678"
+module = "game"
+name = "sub_880f2678"
+role = "Field-manager (881e2c58) callees, not individually detailed"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3.2(mentioned)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x880F3430"
+module = "game"
+name = "sub_880f3430"
+role = "Field-manager (881e2c58) callees, not individually detailed"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3.2(mentioned)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x880F53D0"
+module = "game"
+name = "sub_880f53d0"
+role = "Field-manager (881e2c58) callees, not individually detailed"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3.2(mentioned)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x880F8320"
+module = "game"
+name = "sub_880f8320"
+role = "Field-manager (881e2c58) callees, not individually detailed"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3.2(mentioned)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x880FA0D8"
+module = "game"
+name = "sub_880fa0d8"
+role = "Name-entry widget input handler (4-char initials buffer)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SS§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x880FBB08"
+module = "game"
+name = "sub_880fbb08"
+role = "NAME-ENTRY scene factory (id 0x2f)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88100800"
+module = "game"
+name = "sub_88100800"
+role = "Boot/logo scene factory (id 0x1d), outer-FSM state 0"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88102A78"
+module = "game"
+name = "sub_88102a78"
+role = "Screen constructor → calls FUN_88136030 (confirm arm)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- IC§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88104230"
+module = "game"
+name = "sub_88104230"
+role = "Game-over/continue per-side processing (join+credit gate)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SS§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88104A30"
+module = "game"
+name = "sub_88104a30"
+role = "Player/shot state init factory (id 0x20) — gameplay data"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3.2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x881325C8"
+module = "game"
+name = "sub_881325c8"
+role = "Char/loadout select builder factory (id 0x2b) — select-screen scene"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88132A98"
+module = "game"
+name = "sub_88132a98"
+role = "Drawer for small UI overlay (cursor/marker)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3.2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88132CC0"
+module = "game"
+name = "sub_88132cc0"
+role = "Small UI overlay factory (id 0x2c)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88133B68"
+module = "game"
+name = "sub_88133b68"
+role = "Init 2-entry 0xc4-stride slot array @DAT_884d6d68"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SS§2[RD], SCN§1(state-2 FULL RESET)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88133BB8"
+module = "game"
+name = "sub_88133bb8"
+role = "Per-side table pick (3 static tables by settings byte DAT_88449a15/16/17)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SS§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88133E30"
+module = "game"
+name = "sub_88133e30"
+role = "Timeout advance (per-tick sub-screen step, no input)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88134658"
+module = "game"
+name = "sub_88134658"
+role = "Per-side slot record INIT; lives byte a1b written then overwritten by a1a"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SS§2[RD] — see §3(c)"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88135BA8"
+module = "game"
+name = "sub_88135ba8"
+role = "Command dispatch #2 (2 join records, gate bit0 only)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- IC§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88135D20"
+module = "game"
+name = "sub_88135d20"
+role = "Command handler: edge→DAT_884d6ec8[idx], magnitude→6ed0[idx]"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- IC§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88135D98"
+module = "game"
+name = "sub_88135d98"
+role = "Side-select JOIN reader: counts records bit0 & +0x8c → #joined"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- IC§1[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88136030"
+module = "game"
+name = "sub_88136030"
+role = "**CONFIRM SETTER**: DAT_884d6878=1 (screen-entry arm); zeroes session state 678c"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- IC§2[RD], SCN§0/§5[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88136178"
+module = "game"
+name = "sub_88136178"
+role = "Clears confirm=0, sets 67cc wait=1"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RT], IC§2[RT], SCN§0[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88136368"
+module = "game"
+name = "sub_88136368"
+role = "Command dispatch #3 (2 records, gate bit0+widget-ready)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- IC§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x881363E0"
+module = "game"
+name = "sub_881363e0"
+role = "Command dispatch #1 (2 join records, gate bit0+widget-ready+busy)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- IC§1[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88136460"
+module = "game"
+name = "sub_88136460"
+role = "Session-FSM state-8 result fallthrough"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§1[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88136778"
+module = "game"
+name = "sub_88136778"
+role = "Name-entry monitor (session FSM state 6)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§1[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88136890"
+module = "game"
+name = "sub_88136890"
+role = "g-wait: waits id46 fade death → name-entry/results (session FSM state 5)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§1[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88136978"
+module = "game"
+name = "sub_88136978"
+role = "id48 monitor (session FSM state 7)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§1[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88136A58"
+module = "game"
+name = "sub_88136a58"
+role = "Subscreen latch site (DAT_887ad54e)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3.3[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88136E88"
+module = "game"
+name = "sub_88136e88"
+role = "Input fetch/cursor placement into join records (+0x40/+0x44)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- IC§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88136FF0"
+module = "game"
+name = "sub_88136ff0"
+role = "Per-slot machine; +0x8c confirm latch; DAT_88449a0f auto-branch (RESOLVED by SS)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RT], IC§2[RT], SS§2(resolves gate)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88137168"
+module = "game"
+name = "sub_88137168"
+role = "Screen SETUP: latches subscreen 887ad54e from table 8828cb90"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RT], SCN§1(session state 2)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88137498"
+module = "game"
+name = "sub_88137498"
+role = "BROWSE HANDLER: input fetch, activity/grace clear, command dispatch"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RT], IC§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88137708"
+module = "game"
+name = "sub_88137708"
+role = "Session FSM state 4 \"start\": decides credited-play begin (id46 fade vs stage-8) — KEY"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§1/§4[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x881378A0"
+module = "game"
+name = "sub_881378a0"
+role = "**Select FSM driver**, state 0→1→2, mode-dispatch (0/1/2/3), browse timer"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RT], IC§2[RT], SS§2[RD], SCN§1[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88137C28"
+module = "game"
+name = "sub_88137c28"
+role = "Session FSM state 1 \"title\" — mode dispatch (0/1/2/3)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§1/§3.2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88137ED8"
+module = "game"
+name = "sub_88137ed8"
+role = "MENU/SESSION FSM (state DAT_884d678c, 0..8)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§1[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88138630"
+module = "game"
+name = "sub_88138630"
+role = "Screen-entry art request: switch on category, arms 3-4 FUN_8813a4d0 submissions"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AP§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88138D68"
+module = "game"
+name = "sub_88138d68"
+role = "One-time init: zero 0x884D66A8 (0x90 bytes)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§1[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88138E38"
+module = "game"
+name = "sub_88138e38"
+role = "Watchdog (0x78-frame stall → reload scene)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§1[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88138F00"
+module = "game"
+name = "sub_88138f00"
+role = "**OUTER world/stage FSM** (DAT_884d66a8, 0-6) + settings commit block"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SS§2[RD], SCN§1[RD] (SS only documents states 0-5, SCN adds state 6 watchdog)"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88139A88"
+module = "game"
+name = "sub_88139a88"
+role = "Mode 4 decode: 'ZZ'-magic variant B, bit-level adaptive window"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RD], AP§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88139D90"
+module = "game"
+name = "sub_88139d90"
+role = "Mode 3 decode: 'ZZ'-magic variant A"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RD], AP§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8813A118"
+module = "game"
+name = "sub_8813a118"
+role = "Mode 2 decode: LZSS (hdr {decoded,symbols,dataoff})"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RD], AP§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8813A248"
+module = "game"
+name = "sub_8813a248"
+role = "Mode 1 decode: LZ77, 4KB ring dict"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RD], AP§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8813A460"
+module = "game"
+name = "sub_8813a460"
+role = "Walks descriptor id-CHAIN (12B records, +2=next-id, sentinel -1)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AP§2[INF]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8813A4D0"
+module = "game"
+name = "sub_8813a4d0"
+role = "**Job submit**: arms free ring slot from static descriptor table PTR_DAT_88290cd0"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AP§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8813A6A0"
+module = "game"
+name = "sub_8813a6a0"
+role = "Async job completion callback"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AP§1(mentioned)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8813A738"
+module = "game"
+name = "sub_8813a738"
+role = "**Per-frame asset job pump**: 16-slot ring, state machine, mode-dispatch decode"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RT], AP§2[RT], SCN§1(main loop)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8814B378"
+module = "game"
+name = "sub_8814b378"
+role = "Widget sprite emitter"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8814B930"
+module = "game"
+name = "sub_8814b930"
+role = "Widget confirm handler"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8814BA58"
+module = "game"
+name = "sub_8814ba58"
+role = "Per-char plaque/tint builder (layout tables 8830ec00/10/20)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8814BF10"
+module = "game"
+name = "sub_8814bf10"
+role = "Widget caller (dispatches to 8814ba58/b930)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2(cited as caller)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8814BFB0"
+module = "game"
+name = "sub_8814bfb0"
+role = "+0x54 confirm-flash machine 3→4→5"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8814D400"
+module = "game"
+name = "sub_8814d400"
+role = "Per-frame card widget driver"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8814DDC8"
+module = "game"
+name = "sub_8814ddc8"
+role = "Widget builder (0xf8 structs @DAT_8844A6A8); also scene factory id 0x27/0x28"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RT], SCN§3[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8814F558"
+module = "game"
+name = "sub_8814f558"
+role = "**Confirm-widget FSM** (state DAT_8844a3b8); case 0xC = commit → sets DAT_884d68a0 — KEY"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§4[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88152660"
+module = "game"
+name = "sub_88152660"
+role = "Find+cancel a still-pending scene create by handle"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§2.2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x881526C0"
+module = "game"
+name = "sub_881526c0"
+role = "Scene create-REQUEST → pending array DAT_88449a20, returns HANDLE"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§2.2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88152738"
+module = "game"
+name = "sub_88152738"
+role = "Scene-table RESET (used by outer-state 2 & watchdog)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§2.2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x881527B8"
+module = "game"
+name = "sub_881527b8"
+role = "Draw-list REMOVE (unlink node, call dtor)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§2.2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88152900"
+module = "game"
+name = "sub_88152900"
+role = "Draw-list INSERT (sorted ascending by priority)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§2.2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88152B00"
+module = "game"
+name = "sub_88152b00"
+role = "Scene \"alive?\" query (pending array + draw list scan)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§2.2[RD], IC§1(cited as \"widget-ready\" gate)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88152C60"
+module = "game"
+name = "sub_88152c60"
+role = "Queue scene DESTROY"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2(widget dormant note)[RT], SCN§2.2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88152CF0"
+module = "game"
+name = "sub_88152cf0"
+role = "Scene manager PER-FRAME PUMP: destroy→create→walk draw list"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§1/§2.2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8815CD68"
+module = "game"
+name = "sub_8815cd68"
+role = "Field-manager callee (not detailed)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3.2(mentioned)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88160D00"
+module = "game"
+name = "sub_88160d00"
+role = "Field-manager callee (not detailed)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3.2(mentioned)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x881624A0"
+module = "game"
+name = "sub_881624a0"
+role = "Drawer for gameplay object pool"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3.2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88162610"
+module = "game"
+name = "sub_88162610"
+role = "Gameplay object pool factory (id 0x23) — bullets/enemies pool, drawer 881624a0"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3/§3.2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88168630"
+module = "game"
+name = "sub_88168630"
+role = "Post-commit scene / large gameplay data grid factory (id 0x30)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3/§3.2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88168D48"
+module = "game"
+name = "sub_88168d48"
+role = "**DUP-DIFF**: \"Audio thread — installs consumer\" vs believed body of UI/render/asset-pump main loop"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RT] / TK§1[INF-body] — see §3(e)"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x881E2C58"
+module = "game"
+name = "sub_881e2c58"
+role = "Main stage/field manager factory (id 0x22)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3/§3.2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x881E7030"
+module = "game"
+name = "sub_881e7030"
+role = "Select/field aux scene factory (id 0x26)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88226C58"
+module = "game"
+name = "sub_88226c58"
+role = "Drawer for id46 FADE (continue variant)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88226EB0"
+module = "game"
+name = "sub_88226eb0"
+role = "**⚠MIS**: id46 fade drawer — NOT gameplay; 3-phase alpha ramp, self-destructs"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§0/§1[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88227160"
+module = "game"
+name = "sub_88227160"
+role = "id46 FADE/WIPE factory (continue variant)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x88227220"
+module = "game"
+name = "sub_88227220"
+role = "id46 FADE/WIPE factory (fresh start) → drawer 88226eb0"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x882272E8"
+module = "game"
+name = "sub_882272e8"
+role = "In-stage sprite/effect scene factory (id 0x21)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SCN§3[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8824E698"
+module = "game"
+name = "GameEntry_Dispatch"
+role = "**GameEntry(msg,arg)** cross-module dispatch, 20-way switch (msg = case+1)"
+status = "MATCHED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RT], AP§2[RT], SS§2[RD], SH§2(full 20-case map)[RT]"
+file = "decomp/game/game_entry_msgs.cpp"
+gate = "c1_gate.sh drive 2026-07-28: control-vs-pilot 42/42 canonical-identical (pointer fields masked; drift class proven translation-independent by baseline-vs-control). Determinism control PASS. See NOTE_campaign_decomp.md."
+
+
+[[fn]]
+addr = "0x8824E6A0"
+module = "game"
+image = "reco_abnormal.xex"   # NEW KEY (2026-07-30): which game module image this row belongs to; rows without it are reco_normal
+name = "GameEntry_Dispatch"
+role = "**GameEntry(msg,arg)** cross-module dispatch, 20-way switch — reco_abnormal twin of 0x8824E698 (+8 law; body identical mod shift; msg-2 strcpy source = Rom\cg_v154hi.bin = module identity)"
+status = "MATCHED"
+# Gate 2026-07-30: decomp/game_abn/game_entry_msgs_abn.cpp vs generated-only ctrl exe, identical
+# 120s modeIdx-1 drive: determinism control PASS (2 pilot runs canonically identical), ctrl-vs-
+# pilot canonically identical 36/36 lines (canon masks guest-heap ptr drift, the documented
+# class). Coverage msgs {1,2,5,6,7,8,9,15,20}; 12/13/14 = attended quit live-fire debt (same
+# as original C1; drive: user A,B,A recipe with RT_MSGLOG armed).
+
+[[fn]]
+addr = "0x8824EAD0"
+module = "game"
+name = "sub_8824ead0"
+role = "No-op lock ACQUIRE thunk (flattened import; guards ≥4 distinct lock objects)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- TK§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8824EAE0"
+module = "game"
+name = "sub_8824eae0"
+role = "No-op lock RELEASE thunk"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- TK§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8824EAF0"
+module = "game"
+name = "sub_8824eaf0"
+role = "Lock INIT thunk"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- TK§2[RD]"
+file = ""
+gate = ""
+
+# ============ module: shell (104 fns) ============
+
+[[fn]]
+addr = "0x82014C74"
+module = "shell"
+name = "sub_82014c74"
+role = "Streaming wave sub-driver ptr (mentioned, not a function body)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2(mentioned)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x82079FD8"
+module = "shell"
+name = "sub_82079fd8"
+role = "Alloc helper (0x68 shell↔game handoff struct, mentioned)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2(mentioned)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x82088928"
+module = "shell"
+name = "sub_82088928"
+role = "Creates events (×2, used by shell service-worker spawn)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- TK§1(mentioned)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x82088D88"
+module = "shell"
+name = "sub_82088d88"
+role = "ExCreateThread wrapper (shell service-worker spawn)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- TK§1(mentioned)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x82088DD0"
+module = "shell"
+name = "sub_82088dd0"
+role = "XexGetProcAddr(ordinal 1) → GameEntry ptr"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x82088E10"
+module = "shell"
+name = "sub_82088e10"
+role = "XexLoadImage wrapper"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x82089DB8"
+module = "shell"
+name = "sub_82089db8"
+role = "Thin wrapper → thunk_FUN_821d52f4 (XamInput poll import)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- IC§2[INF]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820995F0"
+module = "shell"
+name = "sub_820995f0"
+role = "Shell RB_BLENDCONTROL writer — byte-identical twin of 88077aa8 (slot 0xa4e)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RD], SH§(⇄ ref)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8209A928"
+module = "shell"
+name = "sub_8209a928"
+role = "Fetch-constant packet builder (0x8d00 tex fetch, 112-slot loop)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8209B180"
+module = "shell"
+name = "sub_8209b180"
+role = "Static UI command-blob authoring (CreateDevice-time, ~48 DRAW_INDX_2)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8209D400"
+module = "shell"
+name = "sub_8209d400"
+role = "CreateTexture"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8209D800"
+module = "shell"
+name = "sub_8209d800"
+role = "Immediate DRAW (flush state + DRAW_INDX) — the game-frame draw path"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8209FC30"
+module = "shell"
+name = "sub_8209fc30"
+role = "Draw flush (reads bound VB/decl/IB)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820A1218"
+module = "shell"
+name = "sub_820a1218"
+role = "Clear (TYPE0 to RB regs), per-frame"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820A5408"
+module = "shell"
+name = "sub_820a5408"
+role = "Present (VdGetSystemCommandBuffer + VdSwap)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820B4248"
+module = "shell"
+name = "sub_820b4248"
+role = "Shell worker thread ENTRY (spawned 2×/boot; body not in dump)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- TK§1[RT-entry only]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820E6A10"
+module = "shell"
+name = "sub_820e6a10"
+role = "Engine lock/guard helper (ret<0 aborts)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820E8400"
+module = "shell"
+name = "sub_820e8400"
+role = "Driver SUBMIT: queues wave-inst node into engine+0xA0/0xA8"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820E8970"
+module = "shell"
+name = "sub_820e8970"
+role = "Engine COMMIT/DoWork notif: walks engine+0xA0"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820E8AC8"
+module = "shell"
+name = "sub_820e8ac8"
+role = "**ENROLL**: splice wave+0xc into engine+0x58 std::list"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820E8F88"
+module = "shell"
+name = "sub_820e8f88"
+role = "**IXACT3Engine::DoWork** (vtable+0x1c); walks active-instance list engine+0x58"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820ECBA0"
+module = "shell"
+name = "sub_820ecba0"
+role = "Streaming per-instance update → sub_820F8168"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820ECC18"
+module = "shell"
+name = "sub_820ecc18"
+role = "In-memory class per-instance tick (vt+0x4c) — no deferred-attach"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820ED268"
+module = "shell"
+name = "sub_820ed268"
+role = "Wave PLAY: iterate send-list (no-op while gate wave+0x160==0)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820ED3C0"
+module = "shell"
+name = "sub_820ed3c0"
+role = "IXACT3Wave::SetOutputMatrix (fires 0× on all runs)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820EDD40"
+module = "shell"
+name = "sub_820edd40"
+role = "Wave ctor: inits send-list empty, gate=0"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820EE2C8"
+module = "shell"
+name = "sub_820ee2c8"
+role = "IXACT3Wave::SetOutputVoices (fires 0× on all runs)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820EE800"
+module = "shell"
+name = "sub_820ee800"
+role = "In-memory base wave ctor (0x170, vtable 0x82014688)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820EEC10"
+module = "shell"
+name = "sub_820eec10"
+role = "**CreateWave — CLASS PICK** (desc byte0 bit0x2: in-memory vs streaming)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820EEE00"
+module = "shell"
+name = "sub_820eee00"
+role = "WaveBank/SoundBank::Prepare (CreateWave then wave START)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820EFC38"
+module = "shell"
+name = "sub_820efc38"
+role = "Renderer Setup (device@+0x1d0, master voice@+0x1d8)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820F14A8"
+module = "shell"
+name = "sub_820f14a8"
+role = "Fmt-source: per-wave descriptor ptr (byte0 bit0x2 = streaming selector)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[INF]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820F6990"
+module = "shell"
+name = "sub_820f6990"
+role = "Subvoice state advance (→3 on decoder ready-poll)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820F7180"
+module = "shell"
+name = "sub_820f7180"
+role = "Wave send-list walk (mentioned, gate/head/sentinel)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§1(mentioned)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820F7F88"
+module = "shell"
+name = "sub_820f7f88"
+role = "**Wave START** — gates attach on inst state==3; sets pending flag 0x40 if not ready"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820F8168"
+module = "shell"
+name = "sub_820f8168"
+role = "**Deferred-attach RETRIGGER**: clear pending flag, re-call START"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820FBDD8"
+module = "shell"
+name = "sub_820fbdd8"
+role = "**STREAMING wave ctor** (0x1CC, vtable 0x82015690) — never hit for BGM in port"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820FBF40"
+module = "shell"
+name = "sub_820fbf40"
+role = "Buffer-ready check (mentioned, streaming tick callee)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§1(mentioned)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820FC8B8"
+module = "shell"
+name = "sub_820fc8b8"
+role = "**Streaming cue-instance tick** (vtable+0x48 — DoWork never calls this slot)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820FD530"
+module = "shell"
+name = "sub_820fd530"
+role = "Per-instance driver DoWork actually calls (vtable+0x4c)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820FD820"
+module = "shell"
+name = "sub_820fd820"
+role = "Shell service worker loop body (not read)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- TK§1[RT-entry, RD-partial]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820FD920"
+module = "shell"
+name = "sub_820fd920"
+role = "Shell service worker thread entry"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- TK§1[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820FD948"
+module = "shell"
+name = "sub_820fd948"
+role = "Creates 2 events + ExCreateThread (spawns 820fd920)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- TK§1(mentioned)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x820FEA40"
+module = "shell"
+name = "sub_820fea40"
+role = "Renderer CreateSourceVoice (DEFAULT routes to MASTER voice)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x821000A0"
+module = "shell"
+name = "sub_821000a0"
+role = "**ATTACH**: CreateSourceVoice(send)+SubmitSourceBuffer+flag 0x4000"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x82136138"
+module = "shell"
+name = "sub_82136138"
+role = "XAudio engine worker body (WaitAny×3)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§1(cited)[RT], TK§1[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x821361F8"
+module = "shell"
+name = "sub_821361f8"
+role = "XAudio engine worker THREAD entry"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§1(cited)[RT], TK§1[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x82137218"
+module = "shell"
+name = "sub_82137218"
+role = "XAudio2 submix SUMMER (walks node+556 active-voice list)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x82137390"
+module = "shell"
+name = "sub_82137390"
+role = "Mix pump (calls submix summer)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2(mentioned)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x821396C0"
+module = "shell"
+name = "sub_821396c0"
+role = "Render-driver submit → XAudioSubmitRenderDriverFrame"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8214E3E0"
+module = "shell"
+name = "sub_8214e3e0"
+role = "Per-voice render: writes contribution into *(voice+120)+56"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x82165A68"
+module = "shell"
+name = "sub_82165a68"
+role = "Subsystem init (boot)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§1(mentioned)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x82167E58"
+module = "shell"
+name = "sub_82167e58"
+role = "Subsystem init (boot)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§1(mentioned)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8216A860"
+module = "shell"
+name = "sub_8216a860"
+role = "Resource submit (shell resource-lifecycle chain)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RT], SH§(⇄ ref)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8216ACF8"
+module = "shell"
+name = "sub_8216acf8"
+role = "Resource lifecycle entry (shell resource-lifecycle chain)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RT], SH§(⇄ ref)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8216B148"
+module = "shell"
+name = "sub_8216b148"
+role = "Vblank present/sync (device+0x98, null-GPU spin site)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8216C550"
+module = "shell"
+name = "sub_8216c550"
+role = "Device creation (mentioned)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§1(mentioned)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8216D2F8"
+module = "shell"
+name = "sub_8216d2f8"
+role = "Resource-chain link (unresolved — thunk/renamed, not landed to a def line)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[INF], SH§(⇄, same gap)[INF]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8216EA68"
+module = "shell"
+name = "sub_8216ea68"
+role = "Per-frame pace+present (busy-wait to period, tick, →8216b148)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x8216EF48"
+module = "shell"
+name = "sub_8216ef48"
+role = "Gfx/timer dims init (mentioned)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§1(mentioned)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x821706E8"
+module = "shell"
+name = "sub_821706e8"
+role = "**MAIN LOOP**: per-frame tick of app-state Task tree"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x82170880"
+module = "shell"
+name = "sub_82170880"
+role = "Scheduler/loop object ctor (vtable PTR_LAB_8205162c)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x82182D28"
+module = "shell"
+name = "sub_82182d28"
+role = "Meter/bar draw (blend 0x1060106 additive/0x1860186)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RD], SH§(⇄ ref)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x82183A20"
+module = "shell"
+name = "sub_82183a20"
+role = "Shadow/darken draw (blend 0x4000400 multiply)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RD], SH§(⇄ ref)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x82183C68"
+module = "shell"
+name = "sub_82183c68"
+role = "Two-phase overlay draw (blend 0x10001→0x7060706)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RD], SH§(⇄ ref)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x821841F8"
+module = "shell"
+name = "sub_821841f8"
+role = "HUD overlay draw (blend 0x10001→0x7060706) [addr-cell note: (region)]"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RD], SH§(⇄ ref)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x82188F90"
+module = "shell"
+name = "sub_82188f90"
+role = "Named-scene launcher: id→name table DAT_82045a84 → FUN_821ca7e0"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x821905A0"
+module = "shell"
+name = "sub_821905a0"
+role = "Keystroke/state LATCH into per-user record (stride 0x84)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- IC§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x82190A90"
+module = "shell"
+name = "sub_82190a90"
+role = "Command-derive: scan 4 input records, mask &9 (A/START) → idx 0..3"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x82190AE0"
+module = "shell"
+name = "sub_82190ae0"
+role = "Command-derive variant (caller-supplied mask)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x82190B38"
+module = "shell"
+name = "sub_82190b38"
+role = "**DUP-DIFF**: \"Raw XInput→LOGICAL 64-bit word\" (LUT DAT_8205100c, sticks) vs \"Replay/demo-input decode\""
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- IC§2[RD] / SH§2[INF] — see §3(d1)"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x821911D0"
+module = "shell"
+name = "sub_821911d0"
+role = "Shell worker thread ENTRY (bodies not in dump)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- TK§1[RT-entry only]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x821915C0"
+module = "shell"
+name = "sub_821915c0"
+role = "Per-user input entry (user<4); latch + mask-convert + repack"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- IC§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x82192E38"
+module = "shell"
+name = "sub_82192e38"
+role = "Shell worker thread ENTRY (bodies not in dump)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- TK§1[RT-entry only]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x821B7F30"
+module = "shell"
+name = "sub_821b7f30"
+role = "TOP MENU = game-version select (1.5/Arrange/Black Label/1.01)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x821BFCC0"
+module = "shell"
+name = "sub_821bfcc0"
+role = "Case-3 module-load handler (allocs 0x68 shell↔game handoff struct)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x821C2B90"
+module = "shell"
+name = "sub_821c2b90"
+role = "Single-param config setter — msg 19"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RD]"
+file = ""
+gate = ""
+asm_exact = true
+asm_sha1 = "9ea05dc434e68da13027916c12caae56421e9c73"
+matchlab = "Driver_SetConfig19"
+
+[[fn]]
+addr = "0x821C2C20"
+module = "shell"
+name = "sub_821c2c20"
+role = "Single-param config setter — msg 16"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RD]"
+file = ""
+gate = ""
+asm_exact = true
+asm_sha1 = "27e72798e701b074435b3c0de71a3f832f13433f"
+matchlab = "Driver_SetConfig16"
+
+[[fn]]
+addr = "0x821C2CB0"
+module = "shell"
+name = "sub_821c2cb0"
+role = "Mode-arm SIMPLE — msg 10 (+0x78=0/5)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RD]"
+file = ""
+gate = ""
+asm_exact = true
+asm_sha1 = "22b85e85c19a70c888397663de43fc00a81f87ee"
+matchlab = "Driver_ArmMode"
+
+[[fn]]
+addr = "0x821C2D00"
+module = "shell"
+name = "sub_821c2d00"
+role = "Mode-arm EXTENDED — msg 10 (+0x78=1, +0x8c/+0x90 = 2 params — **training stage/boss candidate**)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RD]"
+file = ""
+gate = ""
+asm_exact = true
+asm_sha1 = "30c22a94319955db7079634038ebfe947f457e92"
+matchlab = "Driver_ArmModeEx"
+
+[[fn]]
+addr = "0x821C2DC0"
+module = "shell"
+name = "sub_821c2dc0"
+role = "Region/config setter — msg 15 (0x10-byte block)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RD]"
+file = ""
+gate = ""
+asm_exact = true
+asm_sha1 = "a066764c61c36475bb2241d40aa749d94c393996"
+matchlab = "Driver_SendRegionConfig"
+
+[[fn]]
+addr = "0x821C2EF0"
+module = "shell"
+name = "sub_821c2ef0"
+role = "GameDriverTask destructor — msg 3 (shutdown+XexUnload)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RD]"
+file = ""
+gate = ""
+asm_exact = true
+asm_sha1 = "2855b50f4596de0b2d08cbcfe55318116db0e340"
+matchlab = "Driver_Destroy"
+
+[[fn]]
+addr = "0x821C2F58"
+module = "shell"
+name = "sub_821c2f58"
+role = "Mode LOADER ×8 (XexLoadImage per mode: 154_3/_HI, ARRANGE, EASY, BLACK/_HI, 102/_HI) [addr-cell note: (+7 clone sites)]"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x821C30B8"
+module = "shell"
+name = "sub_821c30b8"
+role = "Init driver (8 clones): msg 6,7,1,2,8,9 burst + vt+0x34 start"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x821C3530"
+module = "shell"
+name = "sub_821c3530"
+role = "Post-load driver entry (mentioned, case-3 continuation)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2(mentioned)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x821C35E0"
+module = "shell"
+name = "sub_821c35e0"
+role = "**MODE DISPATCHER** (label LAB_821c3b90 inside it); switch scene+0x6c, case 3=module load"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x821C5230"
+module = "shell"
+name = "sub_821c5230"
+role = "Game→shell cb: RT-slot ownership toggle (mode+0x88 bitmask)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x821C5618"
+module = "shell"
+name = "sub_821c5618"
+role = "Per-frame distributor / cb \"input-pad provider\" (packs 2P pad+cmd state)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- IC§2[RD], SH§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x821C57B8"
+module = "shell"
+name = "sub_821c57b8"
+role = "GameDriverTask ctor (mode index, module path, per-mode cfg)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x821C8BE0"
+module = "shell"
+name = "sub_821c8be0"
+role = "Init driver (8 clones): msg 6,7,1,2,8,9 burst + vt+0x34 start"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x821C8DA8"
+module = "shell"
+name = "sub_821c8da8"
+role = "Per-frame msg-5 pump (⇄; NOT present in either bulk dump)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SC§(⇄, unresolved)[INF], SH§2(named, not in dump)[RD]"
+file = ""
+gate = ""
+asm_exact = true
+asm_sha1 = "fbb1f8b720ddd39dc9c9fee9e4ed1179096615ac"
+matchlab = "Driver_Start@821C8DA8"
+
+[[fn]]
+addr = "0x821C8E20"
+module = "shell"
+name = "sub_821c8e20"
+role = "Rank/level setter — msg 11 (signed mask -4..+4)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RD]"
+file = ""
+gate = ""
+asm_exact = true
+asm_sha1 = "67d6792f1ce3180de22f425af9156d34e633766c"
+matchlab = "Driver_SetRankLevel"
+
+[[fn]]
+addr = "0x821C8F38"
+module = "shell"
+name = "sub_821c8f38"
+role = "Single-param setter clone — msg 19"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RD]"
+file = ""
+gate = ""
+asm_exact = true
+asm_sha1 = "9ea05dc434e68da13027916c12caae56421e9c73"
+matchlab = "Driver_SetConfig19@821C8F38"
+
+[[fn]]
+addr = "0x821C8FC8"
+module = "shell"
+name = "sub_821c8fc8"
+role = "Single-param setter clone — msg 16"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RD]"
+file = ""
+gate = ""
+asm_exact = true
+asm_sha1 = "27e72798e701b074435b3c0de71a3f832f13433f"
+matchlab = "Driver_SetConfig16@821C8FC8"
+
+[[fn]]
+addr = "0x821CA5B8"
+module = "shell"
+name = "sub_821ca5b8"
+role = "Cross-module callback (game invokes during msg-1/msg-2; 2 RtlEnter/Leave critsec)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x821CA7E0"
+module = "shell"
+name = "sub_821ca7e0"
+role = "Create-scene-by-name (mentioned, callee of 82188f90)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§1(mentioned)[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x821CB190"
+module = "shell"
+name = "sub_821cb190"
+role = "Shell worker thread ENTRY (bodies not in dump)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- TK§1[RT-entry only]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x821CBFF0"
+module = "shell"
+name = "sub_821cbff0"
+role = "Press-start/mode-arm item (blink, cmd-derive, advance scene)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RT]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x821CC0D0"
+module = "shell"
+name = "sub_821cc0d0"
+role = "Title fade-in (0x3c frames) → hands off to 821cbff0"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x821CE720"
+module = "shell"
+name = "sub_821ce720"
+role = "Create ROOT Task + install + enter loop"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x821D2628"
+module = "shell"
+name = "sub_821d2628"
+role = "Version-panel builder (menu_game_select_panel variants)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x821D3C68"
+module = "shell"
+name = "sub_821d3c68"
+role = "App boot: gfx/timer init, scheduler alloc, device, subsys"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- SH§2[RD]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x821D52F4"
+module = "shell"
+name = "sub_821d52f4"
+role = "Thunk = XamInput poll import (thunk_FUN_821d52f4)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- IC§2(cited)[INF]"
+file = ""
+gate = ""
+
+[[fn]]
+addr = "0x821D5384"
+module = "shell"
+name = "sub_821d5384"
+role = "Engine critical-section helper (mentioned)"
+status = "NAMED"
+provenance = "ATLAS_INDEX.md section 1 -- AU§2(mentioned)[RD]"
+file = ""
+gate = ""
+
+
+# ============ 2026-08-04 seed: ASM-EXACT cross-references ============
+# These three rows were seeded by the byte-matching leg (plan §10), NOT by the ATLAS_INDEX
+# census — they are the first rows whose `file` points outside decomp/.
+# ⚠ `status` here stays BEHAVIOURAL: DRAFT = human C exists, no behavioural gate passed, not
+# linked into any build. The asm-exact fact lives in the optional `asm_exact`/`matchlab` fields
+# and is authoritative in ../matchlab/functions.json. See decomp/README.md for the two-axis table.
+
+[[fn]]
+addr = "0x8206D328"
+module = "shell"
+name = "ColorMul"
+role = "Per-channel colour multiply, 0x80 == 1.0 (SPEC_shell_compose_1to1.md §5.5)"
+status = "DRAFT"
+provenance = "SPEC_shell_compose_1to1.md §5.5 [RD]; plan §9.1 #6"
+file = "matchlab/src/shell_8206D328_ColorMul.cpp"
+gate = ""
+asm_exact = true
+asm_sha1 = "eeb202580b31ef34f87306dfbd6176a28eef1e34"
+matchlab = "ColorMul"
+
+[[fn]]
+addr = "0x820619F0"
+module = "shell"
+name = "Task_Kill"
+role = "Self-kill action: *(task+8) = 2 (70 refs, all address-taken -- registered as a delegate, never directly called; refs_filter_0729.txt)"
+status = "MATCHED"
+provenance = "plan §8.1 rank 1 / §9.1 #3 [RD]"
+file = "decomp/shell/task_kill.inl (+ task_kill.cpp adapter; matchlab/src/shell_820619F0_TaskKill.cpp compiles the SAME .inl for the byte check)"
+gate = "c1_gate.sh DUR=40 2026-08-05 — control (generated-only) vs pilot: CANONICAL-IDENTICAL 24/24, raw 22/24 (the 2 deltas are guest-heap pointers = the documented C1 drift class; masked by _tmpscripts/canon_seq.py). Seam proven in a FRESH futari_merged.map (sub_820619F0 -> decomp_task_kill.o); EXECUTION proven by a one-shot RT_TKCANARY print, since removed."
+asm_exact = true
+asm_sha1 = "015b3946cb3a3ea2ca7146eeea91aa1a32c2a0b8"
+matchlab = "Task_Kill"
+
+[[fn]]
+addr = "0x82073638"
+module = "shell"
+name = "Action_Run"
+role = "Deferred-action delegate: invoke stored callback fn(arg), then self-kill"
+status = "DRAFT"
+provenance = "plan §8.1 rank 1 / §9.1 #3 [RD]"
+file = "matchlab/src/shell_82073638_ActionRun.cpp"
+gate = ""
+asm_exact = true
+asm_sha1 = "b453eb9f39f4e26b59c4621ad34e6ca6788097bd"
+matchlab = "Action_Run"

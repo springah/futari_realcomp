@@ -1,0 +1,204 @@
+// merged_xex.cpp — Gate 2: make the booted shell load+drive the reco_normal game module.
+// Linked into futari_merged ONLY (out_reco/merged/, excluded from both default *.cpp globs).
+// Compiled with GAME headers (-I out_reco). Two parts:
+//   (1) Xex loader BRIDGE — the game module is already resident in the merged address space,
+//       so the shell's own load path (loader sub_821C8A80 → XexLoadImage +
+//       XexGetProcedureAddress(ordinal 1)) resolves to it instead of re-loading.
+//   (2) INJECTION — override the shell idle/render loop sub_821706E8 so that, on first entry
+//       (after full shell boot, before idling), we run the shell's mode-select dispatcher
+//       sub_821C3B90 (one level above the loader) + driver, then fall through to the real
+//       loop (which now renders with the game active). This is the code-path equivalent of
+//       a menu "start game", bypassing the terminate-on-advance menu.
+//
+// Recipe (verified by RE agent against decompressed default.xex strings):
+//   Entry point is now sub_821C3B90, the shell's mode-select dispatcher: it reads a mode
+//   selector out of modectx+104 and, internally, runs the modectx ctor sub_821C57B8, the
+//   reco_normal loader clone sub_821C8A80 (NOT sub_821C2F58 = palm_abnormal; builds
+//   "game:\media\Module\reco_normal.xex", calls XexLoadImage →hmodule@modectx+248 +
+//   XexGetProcedureAddress(ord 1) →GameEntry@modectx+252), AND the critical tail setup our
+//   old direct-loader-call bypass used to skip (this is why we now enter one level higher).
+//   Selector value 8 routes the dispatcher's default branch to reco_normal.
+//   driver sub_821C30B8 then sends GameEntry msgs 6,7,1,2,8,9 + a finalize vtable call.
+//   modectx = zeroed >=256 bytes (use 512 — dispatcher touches more fields than the bare
+//   loader did); single r3=modectx arg to every function.
+#include "ppc_recomp_shared.h"
+#include <cstdio>
+#include <cstring>
+#include <cstdint>
+#include <cstdlib>
+#include <atomic>
+extern std::atomic<long> g_import_calls;
+extern "C" uint32_t rt_alloc(uint32_t size, uint32_t align);
+extern "C" void rt_indirect_call(PPCContext& ctx, uint8_t* base, uint32_t target);
+extern "C" void __imp__sub_821706E8(PPCContext& __restrict ctx, uint8_t* base);  // real idle/render loop
+
+// The resident game module: handle = image base (x360 convention), GameEntry = export ord 1.
+static const uint32_t GAME_HMODULE    = 0x88000000u;
+static const uint32_t GAME_ENTRY_ORD1 = 0x8824E698u;
+static const uint32_t RECO_LOADER     = 0x821C8A80u;  // reco_normal loader clone (no longer called directly; see sub_821C3B90)
+static const uint32_t GAME_DRIVER     = 0x821C30B8u;  // GameEntry message driver
+static const uint32_t MODE_DISPATCH   = 0x821C3B90u;  // shell mode-select dispatcher (ctor+loader+tail setup)
+static const uint32_t SINGLETON_ADDR  = 0x821F8588u;  // shell singleton watched pre/post dispatch
+
+static bool path_is_game(const uint8_t* base, uint32_t p){
+  if(!p) return false;
+  const char* s = (const char*)(base + p);
+  return std::strstr(s,"reco")||std::strstr(s,"RECO")||std::strstr(s,"Module")||std::strstr(s,"module");
+}
+
+extern "C" {
+
+// ---- (1) Xex bridge (strong; build_merged.sh weakens the shell-kernel return-0 stubs) ----
+PPC_FUNC(__imp__XexLoadImage){
+  g_import_calls++;
+  uint32_t path=ctx.r3.u32, hout=ctx.r6.u32;
+  const char* s = path ? (const char*)(base+path) : "(null)";
+  if(path_is_game(base,path)){
+    if(hout) *(uint32_t*)(base+hout)=__builtin_bswap32(GAME_HMODULE);
+    std::fprintf(stderr,"  [xex] XexLoadImage(\"%s\") -> resident hmodule=0x%08X\n",s,GAME_HMODULE);
+    ctx.r3.u32=0;
+  } else {
+    std::fprintf(stderr,"  [xex] XexLoadImage(\"%s\") -> not the game module\n",s);
+    if(hout) *(uint32_t*)(base+hout)=0;
+    ctx.r3.u32=0xC0000135u;
+  }
+}
+PPC_FUNC(__imp__XexGetProcedureAddress){
+  g_import_calls++;
+  uint32_t hmod=ctx.r3.u32, ordinal=ctx.r4.u32, fout=ctx.r5.u32;
+  if(hmod==GAME_HMODULE && ordinal==1){
+    if(fout) *(uint32_t*)(base+fout)=__builtin_bswap32(GAME_ENTRY_ORD1);
+    std::fprintf(stderr,"  [xex] XexGetProcedureAddress(0x%08X, ord=%u) -> 0x%08X\n",hmod,ordinal,GAME_ENTRY_ORD1);
+    ctx.r3.u32=0;
+  } else {
+    std::fprintf(stderr,"  [xex] XexGetProcedureAddress(0x%08X, ord=%u) -> not found\n",hmod,ordinal);
+    if(fout) *(uint32_t*)(base+fout)=0;
+    ctx.r3.u32=0xC0000225u;
+  }
+}
+PPC_FUNC(__imp__XexGetModuleHandle){
+  g_import_calls++;
+  uint32_t name=ctx.r3.u32;
+  ctx.r3.u32 = path_is_game(base,name) ? GAME_HMODULE : 0;
+}
+
+} // extern "C"
+
+// ---- DEBUG wrappers (RT_DBGSPAWN=1): trace the game msg-2 boot routine + thread-spawn
+// trampoline to see whether the game-main ExCreateThread(ctx=0x88168D48) is reached. ----
+extern "C" void __imp__sub_8808FDF8(PPCContext& __restrict, uint8_t*);
+extern "C" void __imp__sub_88083200(PPCContext& __restrict, uint8_t*);
+extern "C" void __imp__sub_8807C0A8(PPCContext& __restrict, uint8_t*);
+extern "C" void __imp__sub_8808DA28(PPCContext& __restrict, uint8_t*);
+static bool dbgspawn(){ static bool on=std::getenv("RT_DBGSPAWN")!=nullptr; return on; }
+
+// sub_8807C0A8: suspected grind loop; iteration count comes from *(u32*)(r5+28).
+// Log the first 20 calls in full, then every 1,000,000th call; track total calls + max count seen.
+static std::atomic<long long> g_c0a8_calls{0};
+static std::atomic<uint32_t> g_c0a8_max_count{0};
+PPC_FUNC(sub_8807C0A8){
+  bool d=dbgspawn();
+  long long n = g_c0a8_calls.fetch_add(1)+1;
+  if(d){
+    uint32_t r5=ctx.r5.u32;
+    uint32_t cnt = r5 ? PPC_LOAD_U32(r5+28) : 0;
+    uint32_t prev = g_c0a8_max_count.load();
+    while(cnt>prev && !g_c0a8_max_count.compare_exchange_weak(prev,cnt)) {}
+    if(n<=20 || (n%1000000)==0){
+      std::fprintf(stderr,"[dbg] sub_8807C0A8 call#%lld r3=0x%X r4=0x%X r5=0x%X *(r5+28)=%u\n",
+        n,ctx.r3.u32,ctx.r4.u32,r5,cnt);
+    }
+  }
+  __imp__sub_8807C0A8(ctx,base);
+}
+
+// sub_8808DA28: cheap ENTER/EXIT trace, first 20 calls only.
+static std::atomic<long long> g_da28_calls{0};
+PPC_FUNC(sub_8808DA28){
+  bool d=dbgspawn();
+  long long n = g_da28_calls.fetch_add(1)+1;
+  bool log = d && n<=20;
+  if(log) std::fprintf(stderr,"[dbg] sub_8808DA28 ENTER call#%lld r3=0x%X r4=0x%X r5=0x%X\n",n,ctx.r3.u32,ctx.r4.u32,ctx.r5.u32);
+  __imp__sub_8808DA28(ctx,base);
+  if(log) std::fprintf(stderr,"[dbg] sub_8808DA28 EXIT call#%lld r3=0x%X\n",n,ctx.r3.u32);
+}
+
+PPC_FUNC(sub_8808FDF8){
+  bool d=dbgspawn();
+  if(d){
+    uint32_t guard568 = PPC_LOAD_U32(0x887AD568u);
+    uint32_t guard56C = PPC_LOAD_U32(0x887AD56Cu);
+    std::fprintf(stderr,"[dbg] sub_8808FDF8 ENTER r3=0x%X r4=0x%X (imports=%ld) guard[0x887AD568]=0x%X guard[0x887AD56C]=0x%X\n",
+      ctx.r3.u32,ctx.r4.u32,g_import_calls.load(),guard568,guard56C);
+  }
+  __imp__sub_8808FDF8(ctx,base);
+  if(d) std::fprintf(stderr,"[dbg] sub_8808FDF8 EXIT r3=0x%X (imports=%ld) c0a8_calls=%lld c0a8_max(r5+28)=%u\n",
+    ctx.r3.u32,g_import_calls.load(),g_c0a8_calls.load(),g_c0a8_max_count.load());
+}
+PPC_FUNC(sub_88083200){
+  if(dbgspawn()) std::fprintf(stderr,"[dbg] sub_88083200 SPAWN-trampoline ctx(r6)=0x%X start(r7)=0x%X lr=0x%X\n",ctx.r6.u32,ctx.r7.u32,(uint32_t)ctx.lr);
+  __imp__sub_88083200(ctx,base);
+}
+
+// ---- (2) idle-loop injection: load+drive reco_normal once, then run the real loop.
+// NOTE: this MUST have C++ linkage (NOT extern "C") to override the recompiler's weak
+// `sub_821706E8` (which the func-mapping table references by its C++-mangled name).
+// Only __imp__sub_821706E8 is extern "C"; sub_X (the weak alias) is C++-mangled. ----
+PPC_FUNC(sub_821706E8){
+  static std::atomic<int> once{0};
+  int exp=0;
+  if(std::getenv("RT_LOADGAME") && once.compare_exchange_strong(exp,1)){
+    uint32_t modectx = rt_alloc(512,16);
+    std::memset(base+modectx,0,512);
+    std::fprintf(stderr,"\n[loadgame] shell booted; injecting via mode-select dispatcher sub_821C3B90. modectx=0x%08X\n",modectx);
+    // Mode selector: value 8 routes the dispatcher's default branch to reco_normal.
+    PPC_STORE_U32(modectx+104, 8);
+    uint32_t singleton_pre = PPC_LOAD_U32(SINGLETON_ADDR);
+    std::fprintf(stderr,"[loadgame] singleton *(0x%08X)=%x\n",SINGLETON_ADDR,singleton_pre);
+    { PPCContext ic=ctx; ic.r3.u32=modectx; rt_indirect_call(ic,base,MODE_DISPATCH); }
+    uint32_t p104=PPC_LOAD_U32(modectx+104);
+    uint32_t p184=PPC_LOAD_U32(modectx+184);
+    uint32_t p248=PPC_LOAD_U32(modectx+248);
+    uint32_t p252=PPC_LOAD_U32(modectx+252);
+    uint32_t p76 =PPC_LOAD_U32(modectx+76);
+    uint32_t p80 =PPC_LOAD_U32(modectx+80);
+    std::fprintf(stderr,"[loadgame] post-3B90 modectx: +104=%x +184=%x +248=%x +252=%x +76=%x +80=%x\n",
+      p104,p184,p248,p252,p76,p80);
+    // The parent (mode-select) object only holds a pointer to the dispatcher's internally
+    // pool-allocated REAL modectx (256B) at +184. GameEntry/hmodule live in THAT inner
+    // object at +248/+252, not in the parent.
+    uint32_t inner = PPC_LOAD_U32(modectx+184);
+    std::fprintf(stderr,"[loadgame] inner modectx=0x%08X\n",inner);
+    uint32_t inner_entry=0;
+    if(inner){
+      uint32_t i0   = PPC_LOAD_U32(inner+0);
+      uint32_t i104 = PPC_LOAD_U32(inner+104);
+      uint32_t i164 = PPC_LOAD_U32(inner+164);
+      uint32_t i180 = PPC_LOAD_U32(inner+180);
+      uint32_t i248 = PPC_LOAD_U32(inner+248);
+      uint32_t i252 = PPC_LOAD_U32(inner+252);
+      std::fprintf(stderr,"[loadgame] inner: +0=%x +104=%x +164=%x +180=%x +248=%x +252=%x\n",
+        i0,i104,i164,i180,i248,i252);
+      inner_entry=i252;
+    }
+    if(inner && inner_entry){
+      { PPCContext ic=ctx; ic.r3.u32=inner; rt_indirect_call(ic,base,GAME_DRIVER); }
+      std::fprintf(stderr,"[loadgame] after driver sub_821C30B8 (r3=inner): GameEntry init sequence sent. imports=%ld\n",g_import_calls.load());
+    } else if(inner){
+      std::fprintf(stderr,"[loadgame] inner modectx+252 (GameEntry) is 0 — aborting drive. Dumping inner[+0..+0x3F] words:\n");
+      for(int row=0; row<4; ++row){
+        std::fprintf(stderr,"[loadgame] inner[+0x%02x]:",row*16*4);
+        for(int col=0; col<16; ++col){
+          int idx = row*16+col;
+          uint32_t w = PPC_LOAD_U32(inner + idx*4);
+          std::fprintf(stderr," %08x",w);
+        }
+        std::fprintf(stderr,"\n");
+      }
+    } else {
+      std::fprintf(stderr,"[loadgame] dispatcher did NOT resolve inner modectx (parent+184==0) — aborting drive\n");
+    }
+    std::fprintf(stderr,"[loadgame] entering real shell idle/render loop with game active\n\n");
+  }
+  __imp__sub_821706E8(ctx,base);
+}

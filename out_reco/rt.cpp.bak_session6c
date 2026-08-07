@@ -1,0 +1,415 @@
+#include "ppc_recomp_shared.h"
+#include <cstdio>
+#include <atomic>
+#include <cstdint>
+#include <mutex>
+#include <condition_variable>
+#include <unordered_map>
+#include <chrono>
+#include <unistd.h>
+extern std::atomic<long> g_import_calls;
+extern "C" uint32_t rt_alloc(uint32_t size, uint32_t align);   // bump allocator (in harness)
+#define LOGN(n) do{static bool o=false;if(!o){o=true;std::fprintf(stderr,"  [import] " n "\n");}g_import_calls++;}while(0)
+static bool crt_trace(){ static bool on=getenv("RT_CRTTRACE")!=nullptr; return on; }
+
+// --- event/wait machinery (game kernel) -----------------------------------
+// Minimal RtEvent registry mirroring shell/gen/rt.cpp's design, scoped to the
+// game module's own handle space so NtCreateEvent/NtSetEvent/NtWaitForSingleObjectEx
+// interoperate here even when the game kernel wins the shared import in the
+// merged binary. Handles allocated starting at 0x50000000 to stay clear of the
+// 0xE000/0xF100 thread/file handle ranges used elsewhere in this TU.
+struct RtObj{ virtual ~RtObj(){} };
+struct RtEvent:RtObj{ std::mutex m; std::condition_variable cv; bool sig=false, manual=false; };
+static std::mutex g_rtevm; static std::unordered_map<uint32_t,RtObj*> g_rteht; static uint32_t g_rtenh=0x50000000;
+static uint32_t rt_add(RtObj*o){ std::lock_guard<std::mutex> l(g_rtevm); uint32_t h=g_rtenh; g_rtenh+=4; g_rteht[h]=o; return h; }
+static RtObj* rt_get(uint32_t k){ std::lock_guard<std::mutex> l(g_rtevm); auto it=g_rteht.find(k); return it==g_rteht.end()?nullptr:it->second; }
+static RtEvent* rt_ev(uint32_t k,bool create){ RtObj*o=rt_get(k); if(auto*e=dynamic_cast<RtEvent*>(o))return e; if(!create)return nullptr;
+  RtEvent*e=new RtEvent(); { std::lock_guard<std::mutex> l(g_rtevm); g_rteht[k]=e; } return e; }
+static void rt_setev(uint32_t k){ if(auto*e=rt_ev(k,true)){ std::lock_guard<std::mutex> l(e->m); e->sig=true; e->cv.notify_all(); } }
+static void rt_rstev(uint32_t k){ if(auto*e=rt_ev(k,true)){ std::lock_guard<std::mutex> l(e->m); e->sig=false; } }
+// --- memory ---
+PPC_FUNC_IMPL(__imp__MmAllocatePhysicalMemoryEx){ LOGN("MmAllocatePhysicalMemoryEx"); uint32_t sz=ctx.r4.u32; ctx.r3.u32=rt_alloc(sz?sz:0x1000,0x1000); (void)base; }
+PPC_FUNC_IMPL(__imp__NtAllocateVirtualMemory){ LOGN("NtAllocateVirtualMemory");
+  // x360 ABI (rexglue xboxkrnl_memory.cpp): r3=&BaseAddress(in/out), r4=&RegionSize(in/out),
+  // r5=alloc_type, r6=protect, r7=debug_memory. Flat 4GB mmap = every address is backed:
+  // honor a requested base as-is; bump-alloc only when base==0.
+  uint32_t baseptr=ctx.r3.u32, sizeptr=ctx.r4.u32;
+  if(!baseptr||!sizeptr){ ctx.r3.u32=0xC000000D; return; }
+  uint32_t reqbase=__builtin_bswap32(*(uint32_t*)(base+baseptr));
+  uint32_t reqsize=__builtin_bswap32(*(uint32_t*)(base+sizeptr));
+  if(!reqsize){ ctx.r3.u32=0xC000000D; return; }
+  uint32_t sz=(reqsize+0xFFFu)&~0xFFFu;
+  uint32_t addr=reqbase? (reqbase&~0xFFFu) : rt_alloc(sz,0x10000);
+  *(uint32_t*)(base+baseptr)=__builtin_bswap32(addr);
+  *(uint32_t*)(base+sizeptr)=__builtin_bswap32(sz);
+  if(crt_trace()) std::fprintf(stderr,"  [NtAllocVM] req base=0x%X size=0x%X type=0x%X prot=0x%X -> addr=0x%X size=0x%X\n",reqbase,reqsize,ctx.r5.u32,ctx.r6.u32,addr,sz);
+  ctx.r3.u32=0; /* STATUS_SUCCESS */ }
+// --- TLS ---
+static uint32_t g_tls_next=1; static thread_local uint32_t g_tls[256];
+PPC_FUNC_IMPL(__imp__KeTlsAlloc){ LOGN("KeTlsAlloc"); ctx.r3.u32=g_tls_next++; (void)base; }
+PPC_FUNC_IMPL(__imp__KeTlsFree){ LOGN("KeTlsFree"); ctx.r3.u32=1; (void)base; }
+PPC_FUNC_IMPL(__imp__KeTlsGetValue){ LOGN("KeTlsGetValue"); uint32_t i=ctx.r3.u32; ctx.r3.u32=(i<256)?g_tls[i]:0; (void)base; }
+PPC_FUNC_IMPL(__imp__KeTlsSetValue){ LOGN("KeTlsSetValue"); uint32_t i=ctx.r3.u32; if(i<256)g_tls[i]=ctx.r4.u32; ctx.r3.u32=1; (void)base; }
+// --- critical sections (no-op) ---
+PPC_FUNC_IMPL(__imp__RtlInitializeCriticalSection){ LOGN("RtlInitializeCriticalSection"); ctx.r3.u32=0; (void)base; }
+PPC_FUNC_IMPL(__imp__RtlInitializeCriticalSectionAndSpinCount){ LOGN("RtlInitializeCriticalSectionAndSpinCount"); ctx.r3.u32=0; (void)base; }
+PPC_FUNC_IMPL(__imp__RtlEnterCriticalSection){ LOGN("RtlEnterCriticalSection"); (void)base; }
+PPC_FUNC_IMPL(__imp__RtlLeaveCriticalSection){ LOGN("RtlLeaveCriticalSection"); (void)base; }
+// x360 ExCreateThread(r3=&handle_out, r4=stack_size, r5=&tid_out, r6=xapi_startup,
+// r7=start_addr, r8=start_ctx, r9=creation_flags). Log-only for now: report what thread
+// the game wants, hand back a dummy handle, do NOT run it yet.
+extern "C" uint32_t g_thread_xapi, g_thread_entry, g_thread_ctx;
+// --- real thread model (RT_THREADS=1): pthread per ExCreateThread, per-thread guest
+// stack/PCR/TLS block (same layout the harness builds for the main thread).
+// Handles: 0xE000+idx. CREATE_SUSPENDED honored via a resume flag; NtResumeThread sets it.
+#include <pthread.h>
+#include <unistd.h>
+static bool rt_threads_on(){ static bool on=getenv("RT_THREADS")!=nullptr; return on; }
+struct RtThread { std::atomic<int> resumed{0}; uint32_t xapi=0,entry=0,tctx=0; uint8_t* base=nullptr; bool used=false; };
+static RtThread g_thr[16];
+static std::atomic<long> g_thr_live{0};
+static void* rt_thread_main(void* p){
+  RtThread* T=(RtThread*)p; uint8_t* base=T->base;
+  while(!T->resumed.load()) usleep(1000);
+  const uint32_t PCR=0xAB0,TLS=0x100,TEB=0x2E0,STK=0x40000,TOT=PCR+TLS+TEB+STK;
+  uint32_t tb=rt_alloc(TOT,0x1000); uint8_t* t=base+tb; std::memset(t,0,TOT);
+  *(uint32_t*)t=__builtin_bswap32(tb+PCR); *(uint32_t*)(t+0x100)=__builtin_bswap32(tb+PCR+TLS); t[0x10C]=0;
+  *(uint32_t*)(t+PCR+0x10)=0xFFFFFFFF; *(uint32_t*)(t+PCR+TLS+0x14C)=__builtin_bswap32(1);
+  PPCContext c{}; c.r1.u64=tb+PCR+TLS+TEB+STK; c.r13.u64=tb; c.fpscr.loadFromHost();
+  uint32_t start = T->xapi ? T->xapi : T->entry;
+  if(T->xapi){ c.r3.u64=T->entry; c.r4.u64=T->tctx; } else { c.r3.u64=T->tctx; }
+  std::fprintf(stderr,"  [thread] START start=0x%X entry=0x%X ctx=0x%X (host tid live=%ld)\n",start,T->entry,T->tctx,g_thr_live.fetch_add(1)+1);
+  // Cross-module dispatch: start may be a GAME (0x88070000+) or SHELL (0x82060000+)
+  // range address in the merged binary. rt_indirect_call() (declared in rt_indirect.h,
+  // force-included ahead of this TU) range-dispatches both (shell table null-guarded so
+  // standalone futari_mode still works); use it here instead of the game-only
+  // PPC_CODE_BASE table lookup.
+  bool resolved = (start>=PPC_CODE_BASE && start<PPC_CODE_BASE+PPC_CODE_SIZE)
+    || (start>=0x88070000u && start<0x88070000u+0x1DEEB0u)
+    || (start>=0x82060000u && start<0x82060000u+0x175BF4u);
+  if(resolved){
+    rt_indirect_call(c, base, start);
+  } else {
+    std::fprintf(stderr,"  [thread] START-UNRESOLVED start=0x%X\n",start);
+  }
+  g_thr_live.fetch_add(-1);
+  std::fprintf(stderr,"  [thread] EXIT entry=0x%X r3=0x%llX\n",T->entry,(unsigned long long)c.r3.u64);
+  return nullptr;
+}
+PPC_FUNC_IMPL(__imp__ExCreateThread){ LOGN("ExCreateThread");
+  std::fprintf(stderr,"  [thread] ExCreateThread stack=0x%X xapi=0x%X entry=0x%X ctx=0x%X flags=0x%X\n",
+    ctx.r4.u32,ctx.r6.u32,ctx.r7.u32,ctx.r8.u32,ctx.r9.u32);
+  g_thread_xapi=ctx.r6.u32; g_thread_entry=ctx.r7.u32; g_thread_ctx=ctx.r8.u32;
+  if(!rt_threads_on()){
+    if(ctx.r3.u32) *(uint32_t*)(base+ctx.r3.u32)=__builtin_bswap32(0x1234);
+    if(ctx.r5.u32) *(uint32_t*)(base+ctx.r5.u32)=__builtin_bswap32(0x22);
+    ctx.r3.u32=0; return;
+  }
+  int idx=-1; for(int i=0;i<16;i++) if(!g_thr[i].used){idx=i;break;}
+  if(idx<0){ ctx.r3.u32=0xC0000001u; return; }
+  RtThread* T=&g_thr[idx]; T->used=true; T->xapi=ctx.r6.u32; T->entry=ctx.r7.u32; T->tctx=ctx.r8.u32; T->base=base;
+  if(!(ctx.r9.u32&1)) T->resumed.store(1);   // not suspended -> run now
+  pthread_t th; pthread_attr_t at; pthread_attr_init(&at); pthread_attr_setdetachstate(&at,PTHREAD_CREATE_DETACHED);
+  pthread_create(&th,&at,rt_thread_main,T);
+  if(ctx.r3.u32) *(uint32_t*)(base+ctx.r3.u32)=__builtin_bswap32(0xE000u+idx);
+  if(ctx.r5.u32) *(uint32_t*)(base+ctx.r5.u32)=__builtin_bswap32(0x30+idx);
+  ctx.r3.u32=0; }
+PPC_FUNC_IMPL(__imp__NtResumeThread){ LOGN("NtResumeThread");
+  uint32_t h=ctx.r3.u32;
+  if(h>=0xE000u&&h<0xE010u){ g_thr[h-0xE000u].resumed.store(1); std::fprintf(stderr,"  [thread] resume h=0x%X\n",h); }
+  if(ctx.r4.u32) *(uint32_t*)(base+ctx.r4.u32)=__builtin_bswap32(1);
+  ctx.r3.u32=0; (void)base; }
+PPC_FUNC_IMPL(__imp__KeDelayExecutionThread){ LOGN("KeDelayExecutionThread");
+  // r5 = &interval (be64, negative = relative 100ns units)
+  long long us=1000;
+  if(ctx.r5.u32){ long long v=(long long)__builtin_bswap64(*(uint64_t*)(base+ctx.r5.u32)); if(v<0) us=(-v)/10; }
+  if(us<100) us=100; if(us>50000) us=50000;
+  usleep((useconds_t)us);
+  ctx.r3.u32=0; }
+// --- misc ---
+PPC_FUNC_IMPL(__imp__KeGetCurrentProcessType){ LOGN("KeGetCurrentProcessType"); ctx.r3.u32=1; (void)base; }
+PPC_FUNC_IMPL(__imp__RtlInitAnsiString){ LOGN("RtlInitAnsiString");
+  uint32_t dst=ctx.r3.u32, src=ctx.r4.u32; uint16_t len=0; if(src){const char*s=(const char*)(base+src); while(s[len]&&len<0xFFFE)++len;}
+  if(dst){ *(uint16_t*)(base+dst)=__builtin_bswap16(len); *(uint16_t*)(base+dst+2)=__builtin_bswap16(src?len+1:0); *(uint32_t*)(base+dst+4)=__builtin_bswap32(src);} (void)base; }
+
+// Checked indirect call (see rt_indirect.h): log + skip unmapped targets, r3=0.
+// Cross-module dispatch (futari_merged / RT_SHELL probe): the flat guest lookup-table
+// region normally reserved for one module's own code range is, in the merged binary,
+// ALSO populated (by harness.cpp under RT_SHELL) for the shell module's code range at a
+// second, disjoint host offset. These bounds are HARDCODED (not the PPC_CODE_BASE/SIZE
+// macros, which resolve per-TU to whichever module that TU was compiled as) so this one
+// function is module-agnostic and works whether compiled into the game or shell object.
+extern "C" void rt_indirect_call(PPCContext& ctx, uint8_t* base, uint32_t target){
+  PPCFunc* f=nullptr;
+  // RT_STUBREG experiment (task 11): the game's resource-kind registration loop
+  // (sub_88090360) dispatches handler->vtable[0](r3=handler, r4=descriptor) -> 16-bit id at
+  // lr=0x880903F8. The 3 handlers are null (the shell resource-kind managers at CB248
+  // singleton S+12 are never installed by our bypass), so ids come back garbage and nothing
+  // renders. This stub hands out valid unique ids to TEST whether valid-ids-alone lets the
+  // game proceed to draw (via its msg-9 shell callbacks) or whether real shell resource
+  // storage is required for pixels -- and logs the first descriptors being registered (RE).
+  if((uint32_t)ctx.lr==0x880903F8u && getenv("RT_STUBREG")){
+    static std::atomic<unsigned> g_stubid{0};
+    static std::atomic<long> g_stublog{0};
+    unsigned myid = (g_stubid.fetch_add(1)+1) & 0x7FFF;  // valid 16-bit id, != 0xFFFF
+    long ln = g_stublog.fetch_add(1);
+    if(ln<24){
+      uint32_t d=ctx.r4.u32;
+      auto rd=[&](uint32_t a){ return (a && a<0xF0000000u)? __builtin_bswap32(*(uint32_t*)(base+a)) : 0u; };
+      std::fprintf(stderr,"[stubreg] #%ld this=0x%X desc=0x%X [%08x %08x %08x %08x] -> id=%u\n",
+        ln, ctx.r3.u32, d, rd(d), rd(d+4), rd(d+8), rd(d+12), myid);
+    }
+    ctx.r3.u32 = myid;
+    return;
+  }
+  if(target==0x8204FDB8u){  // recurring UNMAPPED game->shell vtable[0] call; dump this/vtable to diagnose
+    static long f8=0;
+    if(f8++<3){
+      uint32_t o=ctx.r3.u32;
+      uint32_t vt=(o && o<0xF0000000u)? __builtin_bswap32(*(uint32_t*)(base+o)) : 0;
+      uint32_t s0=(vt && vt<0xF0000000u)? __builtin_bswap32(*(uint32_t*)(base+vt)) : 0;
+      std::fprintf(stderr,"[f8] call 0x8204FDB8 this=0x%X vtable=0x%X vt[0]=0x%X lr=0x%X\n",o,vt,s0,(uint32_t)ctx.lr);
+    }
+  }
+  if(target>=PPC_CODE_BASE && target<PPC_CODE_BASE+PPC_CODE_SIZE){
+    f=*(PPCFunc**)(base+PPC_IMAGE_BASE+PPC_IMAGE_SIZE+(uint64_t)(target-PPC_CODE_BASE)*2);
+  } else if(target>=0x88070000u && target<0x88070000u+0x1DEEB0u){
+    // GAME table region: base + 0x88000000 + 0x7B0000 + (t-0x88070000)*2
+    f=*(PPCFunc**)(base+0x887B0000ull+(uint64_t)(target-0x88070000u)*2);
+  } else if(target>=0x82060000u && target<0x82060000u+0x175BF4u){
+    // SHELL table region: base + 0x82000000 + 0x2B0000 + (t-0x82060000)*2
+    f=*(PPCFunc**)(base+0x822B0000ull+(uint64_t)(target-0x82060000u)*2);
+    static long shellhits=0;
+    if(f && shellhits++<10) std::fprintf(stderr,"[indirect] SHELL target=0x%08X -> dispatched\n",target);
+  }
+  if(f){
+    // r26-clobber hunt: the indirect call at ppc_recomp.4.cpp:15012 (sub_8808FDF8, ret
+    // lr=0x8808FEE4) is the prime suspect for clobbering non-volatile r26 (game-main fn ptr
+    // 0x88168D48) on the real-.data path. Name its target + report if r26 isn't preserved.
+    if((uint32_t)ctx.lr==0x8808FEE4u){
+      uint32_t pre=ctx.r26.u32; f(ctx,base);
+      std::fprintf(stderr,"[clob] indirect@15012 target=0x%08X r26 0x%X -> 0x%X%s\n",
+        target,pre,ctx.r26.u32,(pre==0x88168D48u&&ctx.r26.u32!=pre)?"  <<< CLOBBER":"");
+      return;
+    }
+    // RT_WATCHS: software watchpoint on the CB248 singleton (S=*(0x821F857C)) fields S+0
+    // (engine-root install), S+16/S+0x30/S+0x50 (the 3 render-kind-handler ptr slots). Polls
+    // after each indirect call; logs the just-called target+lr the moment a slot first flips
+    // 0->nonzero. S+0 DOES flip in our bypass (dispatcher builds the engine root) so this
+    // locates the resource/engine subsystem; S+16/+30/+50 do NOT flip yet (the factory that
+    // fills them never runs) -- if driving more mode-enter makes them flip, this names the fn.
+    if(getenv("RT_WATCHS")){
+      static uint32_t s0s=0,s16s=0,s30s=0,s50s=0;
+      uint32_t S = __builtin_bswap32(*(uint32_t*)(base+0x821F857Cu));
+      f(ctx,base);
+      if(S && S<0xF0000000u){
+        auto g=[&](uint32_t o){ return __builtin_bswap32(*(uint32_t*)(base+S+o)); };
+        uint32_t v0=g(0),v16=g(16),v30=g(0x30),v50=g(0x50);
+        if(v0&&!s0s){s0s=v0;std::fprintf(stderr,"[watchS] S+0   =0x%X  after tgt=0x%08X lr=0x%08X\n",v0,target,(uint32_t)ctx.lr);}
+        if(v16&&!s16s){s16s=v16;std::fprintf(stderr,"[watchS] S+16  =0x%X  after tgt=0x%08X lr=0x%08X\n",v16,target,(uint32_t)ctx.lr);}
+        if(v30&&!s30s){s30s=v30;std::fprintf(stderr,"[watchS] S+0x30=0x%X  after tgt=0x%08X lr=0x%08X\n",v30,target,(uint32_t)ctx.lr);}
+        if(v50&&!s50s){s50s=v50;std::fprintf(stderr,"[watchS] S+0x50=0x%X  after tgt=0x%08X lr=0x%08X\n",v50,target,(uint32_t)ctx.lr);}
+      }
+      return;
+    }
+    f(ctx,base); return;
+  }
+  static long miss=0;
+  if(miss++<40) std::fprintf(stderr,"[indirect] UNMAPPED guest target=0x%08X (lr=0x%08X) -> skipped, r3=0\n",target,(uint32_t)ctx.lr);
+  ctx.r3.u64=0;
+}
+
+// futari_merged only: the shell/gen tree's OWN generated ppc_recomp_shared.h independently
+// hardcodes a legacy indirect-call shim (`#define PPC_CALL_INDIRECT_FUNC(x) rt_indirect((x),
+// ctx, base)`, predating this task) which wins over rt_indirect.h's #define once a shell TU's
+// own `#include "ppc_recomp_shared.h"` runs (see rt_indirect.h for why). Rather than hand-edit
+// the generated shell header, satisfy that legacy call convention directly: same dispatch,
+// different argument order/signature.
+extern "C" void rt_indirect(uint32_t target, PPCContext& ctx, uint8_t* base){
+  rt_indirect_call(ctx, base, target);
+}
+
+// --- CRT_INIT diagnostics: trace the 4 sub-calls whose return values gate a
+// successful DllMain attach (sub_88070318). RT_CRTTRACE=1 to enable. ---
+PPC_FUNC_IMPL(__imp__sub_88083920);
+PPC_FUNC(sub_88083920){ __imp__sub_88083920(ctx,base); if(crt_trace()) std::fprintf(stderr,"[crt] sub_88083920 -> r3=0x%X\n",ctx.r3.u32); }
+PPC_FUNC_IMPL(__imp__sub_88070E30);
+PPC_FUNC(sub_88070E30){ __imp__sub_88070E30(ctx,base); if(crt_trace()) std::fprintf(stderr,"[crt] sub_88070E30 -> r3=0x%X\n",ctx.r3.u32); }
+PPC_FUNC_IMPL(__imp__sub_88083848);
+// _initterm_e: bounds are HARD-CODED in the body: lis -30683 = 0x88250000..0x88250008
+// (2 entries; earlier notes said 0x88510000 -- wrong). Replicate the walk with per-entry tracing.
+PPC_FUNC(sub_88083848){
+  bool tr=crt_trace();
+  ctx.r3.s64=0;
+  for(uint32_t ea=0x88250000; ea<0x88250008 && ctx.r3.u32==0; ea+=4){
+    uint32_t fp=__builtin_bswap32(*(uint32_t*)(base+ea));
+    if(tr) std::fprintf(stderr,"[crt] _initterm_e entry @0x%08X = 0x%08X%s\n",ea,fp,fp?"":" (null, skip)");
+    if(!fp) continue;
+    PPCFunc* f=PPC_LOOKUP_FUNC(base,fp);
+    if(!f){ if(tr) std::fprintf(stderr,"[crt]   !! no host func for 0x%08X\n",fp); continue; }
+    long ic0=g_import_calls.load();
+    f(ctx,base);
+    if(tr) std::fprintf(stderr,"[crt]   init 0x%08X -> r3=0x%X (%ld import calls)\n",fp,ctx.r3.u32,g_import_calls.load()-ic0);
+  }
+  if(tr) std::fprintf(stderr,"[crt] sub_88083848 (_initterm_e) -> r3=0x%X\n",ctx.r3.u32);
+}
+PPC_FUNC_IMPL(__imp__sub_88083768);
+PPC_FUNC(sub_88083768){ __imp__sub_88083768(ctx,base); if(crt_trace()) std::fprintf(stderr,"[crt] sub_88083768 -> r3=0x%X\n",ctx.r3.u32); }
+PPC_FUNC_IMPL(__imp__sub_88070318);
+PPC_FUNC(sub_88070318){ __imp__sub_88070318(ctx,base); if(crt_trace()) std::fprintf(stderr,"[crt] sub_88070318 (_CRT_INIT) -> r3=0x%X\n",ctx.r3.u32); }
+
+// ================= file I/O backend: serve game assets from host FS =================
+// ABI ground truth: rexglue src/kernel/xboxkrnl/xboxkrnl_io.cpp (+xio.h structs).
+// RT_GAME_ROOT overrides the asset root. Handles are 0xF100+idx into g_files.
+#include <cstdlib>
+#include <cstring>
+#include <strings.h>
+static struct { FILE* f; unsigned long long pos; } g_files[64];
+static const char* rt_game_root(){ const char* e=getenv("RT_GAME_ROOT"); return e?e:"/mnt/c/Users/shant/Desktop/projects/futari_recomp/assets"; }
+static uint32_t rt_h2i(uint32_t h){ return (h>=0xF100u&&h<0xF140u)?h-0xF100u:0xFFFFFFFFu; }
+static void rt_guest_path(uint8_t* base, uint32_t oa, char* out, size_t cap){
+  out[0]=0; if(!oa) return;
+  uint32_t np=__builtin_bswap32(*(uint32_t*)(base+oa+4)); if(!np) return;
+  uint16_t len=__builtin_bswap16(*(uint16_t*)(base+np));
+  uint32_t sp=__builtin_bswap32(*(uint32_t*)(base+np+4));
+  if(!sp||len+1>=cap) return;
+  std::memcpy(out, base+sp, len); out[len]=0;
+}
+static FILE* rt_open_host(const char* gp, char* hp, size_t cap){
+  const char* p=gp;
+  if(!strncasecmp(p,"\\??\\",4)) p+=4;
+  if(!strncasecmp(p,"game:",5)) p+=5;
+  else if(!strncasecmp(p,"d:",2)) p+=2;
+  else if(!strncasecmp(p,"\\Device\\Cdrom0",14)) p+=14;
+  std::snprintf(hp,cap,"%s%s%s",rt_game_root(),(*p=='\\'||*p=='/')?"":"/",p);
+  for(char* c=hp;*c;++c) if(*c=='\\') *c='/';
+  return fopen(hp,"rb");
+}
+static void rt_w32(uint8_t* base,uint32_t a,uint32_t v){ if(a)*(uint32_t*)(base+a)=__builtin_bswap32(v); }
+static void rt_w64(uint8_t* base,uint32_t a,unsigned long long v){ if(a)*(uint64_t*)(base+a)=__builtin_bswap64(v); }
+static void rt_iosb(uint8_t* base,uint32_t io,uint32_t st,uint32_t info){ rt_w32(base,io,st); if(io) rt_w32(base,io+4,info); }
+static unsigned long long rt_fsize(FILE* f){ long long c=ftello(f); fseeko(f,0,SEEK_END); long long s=ftello(f); fseeko(f,c,SEEK_SET); return (unsigned long long)s; }
+static void rt_create_common(PPCContext& ctx, uint8_t* base, uint32_t iosb_reg){
+  char gp[512],hp[1024];
+  rt_guest_path(base,ctx.r5.u32,gp,sizeof gp);
+  int idx=-1; for(int i=0;i<64;i++) if(!g_files[i].f){idx=i;break;}
+  FILE* f=(idx>=0&&gp[0])?rt_open_host(gp,hp,sizeof hp):nullptr;
+  static long n=0; if(n++<48) std::fprintf(stderr,"  [file] open \"%s\" -> %s\n",gp,f?hp:"MISS");
+  if(f){ g_files[idx].f=f; g_files[idx].pos=0; rt_w32(base,ctx.r3.u32,0xF100u+idx); rt_iosb(base,iosb_reg,0,1); ctx.r3.u32=0; }
+  else { rt_w32(base,ctx.r3.u32,0xFFFFFFFFu); rt_iosb(base,iosb_reg,0xC0000034u,0); ctx.r3.u32=0xC0000034u; }
+}
+PPC_FUNC_IMPL(__imp__NtCreateFile){ LOGN("NtCreateFile"); rt_create_common(ctx,base,ctx.r6.u32); }
+PPC_FUNC_IMPL(__imp__NtOpenFile){ LOGN("NtOpenFile"); rt_create_common(ctx,base,ctx.r6.u32); }
+PPC_FUNC_IMPL(__imp__NtReadFile){ LOGN("NtReadFile");
+  uint32_t h=ctx.r3.u32, io=ctx.r7.u32, buf=ctx.r8.u32, len=ctx.r9.u32, offp=ctx.r10.u32;
+  uint32_t i=rt_h2i(h);
+  if(i==0xFFFFFFFFu||!g_files[i].f){ rt_iosb(base,io,0xC0000008u,0); ctx.r3.u32=0xC0000008u; return; }
+  unsigned long long off = offp? __builtin_bswap64(*(uint64_t*)(base+offp)) : g_files[i].pos;
+  fseeko(g_files[i].f,(off_t)off,SEEK_SET);
+  size_t rd=fread(base+buf,1,len,g_files[i].f);
+  g_files[i].pos=off+rd;
+  // x360 NtReadFile ABI: r4=Event, r5=ApcRoutine. Our read is fully synchronous, so signal the
+  // async-completion Event here — the game issues an overlapped read (status=STATUS_PENDING) then
+  // blocks in NtWaitForSingleObjectEx on this event (e.g. sub_88092ED8 waiting on 0x5000003C);
+  // without the signal it waits forever. Only touch real event handles (>=0x50000000).
+  uint32_t ev=ctx.r4.u32;
+  static long n=0; if(n++<16) std::fprintf(stderr,"  [file] read h=0x%X len=0x%X off=0x%llX -> %zu evt=0x%X apc=0x%X\n",h,len,off,rd,ev,ctx.r5.u32);
+  rt_iosb(base,io,rd?0:0xC0000011u,(uint32_t)rd);
+  if(ev>=0x50000000u) rt_setev(ev);
+  ctx.r3.u32=rd?0:0xC0000011u;
+}
+PPC_FUNC_IMPL(__imp__NtQueryInformationFile){ LOGN("NtQueryInformationFile");
+  uint32_t h=ctx.r3.u32, io=ctx.r4.u32, info=ctx.r5.u32, len=ctx.r6.u32, cls=ctx.r7.u32;
+  uint32_t i=rt_h2i(h);
+  static long n=0; if(n++<16) std::fprintf(stderr,"  [file] queryinfo h=0x%X class=%u len=%u\n",h,cls,len);
+  if(i==0xFFFFFFFFu||!g_files[i].f){ rt_iosb(base,io,0xC0000008u,0); ctx.r3.u32=0xC0000008u; return; }
+  if(info&&len) std::memset(base+info,0,len);
+  unsigned long long sz=rt_fsize(g_files[i].f);
+  if(cls==5&&len>=24){ rt_w64(base,info,sz); rt_w64(base,info+8,sz); rt_w32(base,info+16,1); }       // standard: alloc,eof,links
+  else if(cls==14&&len>=8){ rt_w64(base,info,g_files[i].pos); }                                      // position
+  else if(cls==34&&len>=56){ rt_w64(base,info+32,sz); rt_w64(base,info+40,sz); rt_w32(base,info+48,0x80); } // network-open
+  rt_iosb(base,io,0,len);
+  ctx.r3.u32=0;
+}
+PPC_FUNC_IMPL(__imp__NtSetInformationFile){ LOGN("NtSetInformationFile");
+  uint32_t h=ctx.r3.u32, io=ctx.r4.u32, info=ctx.r5.u32, len=ctx.r6.u32, cls=ctx.r7.u32;
+  uint32_t i=rt_h2i(h);
+  static long n=0; if(n++<16) std::fprintf(stderr,"  [file] setinfo h=0x%X class=%u len=%u\n",h,cls,len);
+  if(i!=0xFFFFFFFFu&&g_files[i].f&&cls==14&&len>=8&&info)
+    g_files[i].pos=__builtin_bswap64(*(uint64_t*)(base+info));
+  rt_iosb(base,io,0,0);
+  ctx.r3.u32=0;
+}
+PPC_FUNC_IMPL(__imp__NtQueryFullAttributesFile){ LOGN("NtQueryFullAttributesFile");
+  char gp[512],hp[1024];
+  rt_guest_path(base,ctx.r3.u32,gp,sizeof gp);
+  FILE* f=gp[0]?rt_open_host(gp,hp,sizeof hp):nullptr;
+  static long n=0; if(n++<24) std::fprintf(stderr,"  [file] attrs \"%s\" -> %s\n",gp,f?hp:"MISS");
+  uint32_t info=ctx.r4.u32;
+  if(info) std::memset(base+info,0,56);
+  if(f){ unsigned long long sz=rt_fsize(f); rt_w64(base,info+32,sz); rt_w64(base,info+40,sz); rt_w32(base,info+48,0x80); fclose(f); ctx.r3.u32=0; }
+  else ctx.r3.u32=0xC0000034u;
+}
+PPC_FUNC_IMPL(__imp__NtClose){ LOGN("NtClose");
+  uint32_t i=rt_h2i(ctx.r3.u32);
+  if(i!=0xFFFFFFFFu&&g_files[i].f){ fclose(g_files[i].f); g_files[i].f=nullptr; g_files[i].pos=0; }
+  ctx.r3.u32=0;
+}
+
+// ================= events + NtWaitForSingleObjectEx (game kernel) =================
+// x360 ABI (xboxkrnl): NtCreateEvent(r3=&handle_out, r4=obj_attrs, r5=EVENT_TYPE
+// (0=NotificationEvent/manual, 1=SynchronizationEvent/auto), r6=InitialState).
+// NtSetEvent(r3=handle). NtClearEvent/NtResetEvent(r3=handle).
+PPC_FUNC_IMPL(__imp__NtCreateEvent){ LOGN("NtCreateEvent");
+  uint32_t hp=ctx.r3.u32, type=ctx.r5.u32, state=ctx.r6.u32;
+  RtEvent*e=new RtEvent(); e->manual=(type==0); e->sig=(state!=0);
+  uint32_t h=rt_add(e);
+  if(hp) *(uint32_t*)(base+hp)=__builtin_bswap32(h);
+  ctx.r3.u32=0; }
+PPC_FUNC_IMPL(__imp__NtSetEvent){ LOGN("NtSetEvent"); rt_setev(ctx.r3.u32); ctx.r3.u32=0; (void)base; }
+PPC_FUNC_IMPL(__imp__NtClearEvent){ LOGN("NtClearEvent"); rt_rstev(ctx.r3.u32); ctx.r3.u32=0; (void)base; }
+
+// x360 ABI: NtWaitForSingleObjectEx(r3=handle, r4=WaitMode, r5=Alertable, r6=&Timeout
+// (LARGE_INTEGER*, NULL/0 = infinite; negative = relative 100ns units)). Returns
+// STATUS_SUCCESS(0) on signal, STATUS_TIMEOUT(0x102) on timeout. If the handle can't be
+// resolved to a known RtEvent (e.g. a service-thread event we haven't modeled, or a
+// handle from a code path we don't yet track), do NOT fail the wait -- that previously
+// caused callers to treat a negative/error return as a shutdown signal and self-terminate
+// after one iteration. Instead: log once, back off briefly, and return SUCCESS so the
+// caller's loop keeps spinning until something (e.g. the shell's per-frame kick) signals
+// the real event out from under us on a later pass.
+PPC_FUNC_IMPL(__imp__NtWaitForSingleObjectEx){ LOGN("NtWaitForSingleObjectEx");
+  uint32_t h=ctx.r3.u32, timeoutp=ctx.r6.u32;
+  RtEvent* e=rt_ev(h,false);
+  if(!e){
+    static bool warned=false;
+    if(!warned){ warned=true; std::fprintf(stderr,"[wait] NtWaitForSingleObjectEx unresolved h=0x%X\n",h); }
+    usleep(1000);
+    ctx.r3.u32=0;
+    return;
+  }
+  bool infinite = (timeoutp==0);
+  long long rel100ns=0;
+  if(!infinite){
+    rel100ns=(long long)__builtin_bswap64(*(uint64_t*)(base+timeoutp));
+  }
+  std::unique_lock<std::mutex> l(e->m);
+  bool signaled;
+  if(infinite){
+    e->cv.wait(l,[&]{return e->sig;});
+    signaled=true;
+  } else if(rel100ns<0){
+    long long us=(-rel100ns)/10; if(us<0) us=0;
+    signaled=e->cv.wait_for(l,std::chrono::microseconds(us),[&]{return e->sig;});
+  } else {
+    // Absolute timeout: treat conservatively as "already due" -> poll once.
+    signaled=e->sig;
+  }
+  if(signaled){
+    if(!e->manual) e->sig=false;
+    ctx.r3.u32=0; /* STATUS_SUCCESS */
+  } else {
+    ctx.r3.u32=0x102; /* STATUS_TIMEOUT */
+  }
+  (void)base;
+}

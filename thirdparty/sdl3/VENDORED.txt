@@ -1,0 +1,2 @@
+SDL3 vendored from rexglue-sdk/thirdparty/sdl3 @ 8bf3b7215 (Sync SDL3 wiki -> header, Sat Mar 14 18:58:22 2026 +0000)
+audio-only static build: SDL_VIDEO/JOYSTICK/etc OFF; audio drivers: wasapi dsound disk dummy

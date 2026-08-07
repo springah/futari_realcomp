@@ -1,0 +1,100 @@
+# XenonRecomp config for reco_abnormal.xex
+#   = Mushihimesama Futari Ver 1.5 "Xbox 360 mode" / MODULE_154_3_HI / modeIdx 1
+#     (ROM Rom\cg_v154hi.bin).  Sibling of futari_reco.toml (reco_normal, modeIdx 0).
+#   NOTE_other_modes.md §3/§8 + "First leg" step 3.  Authored 2026-07-30.
+#
+# Invocation (from xr-work/, same as the reco_normal tree):
+#   ../xr-derisk/build-win/XenonRecomp/XenonRecomp.exe futari_reco_abn.toml \
+#       ../xr-derisk/XenonUtils/ppc_context.h
+#   then the postregen extern "C" wrap of the __imp__ import decls in
+#   out_reco_abn/ppc_recomp_shared.h (keep_reco/postregen_wrap_imports.py, path-adjusted) --
+#   without it rt.cpp/stubs.cpp fail with "__imp__X has a different language linkage".
+#
+# Section layout (ghidra_futari_decomp/xexdump.exe, re-verified 2026-07-30):
+#   entry 0x88070588 | .text 0x88070000..0x8824EEB8 | .data 0x88250000 | image 0x7B0000
+#   -- identical to reco_normal except .text is 8 bytes longer (0x8824EEB0 -> 0x8824EEB8).
+#   BASIC-compression block sum == security->imageSize here (delta 0), so the
+#   XenonUtils/xex.cpp over-read that truncates kiniro_*/palm_normal does NOT bite this module.
+#
+# ***** THE +8 SPLIT RULE (supersedes NOTE_other_modes.md §3's 28.1% / 22.41%) *****
+# reco_abnormal is NOT a 22%-similar sibling.  It is reco_normal with ONE 2-instruction
+# insertion inside sub_880DEF88, after which the whole .text shifts by +8:
+#       addr <  0x880DEF88   ->  same address
+#       addr >= 0x880DF080   ->  address + 8
+# §3's 28.1% function-start / 22.41% word figures were delta-0-only measurements and therefore
+# undercounted everything above the split by construction.  Re-measured under the split map
+# (scratchpad/abn/, independent of the parallel census agent's matcher, same conclusion):
+#   .pdata function starts : 1016/1016 identical below the split, 2601/2601 identical at +8
+#                            above it, plus sub_880DEF88 itself = 3618/3618, i.e. 100%.
+#   .text words            : 93.37% raw / 96.29% with bl/bc displacement fields masked.
+# Cross-check: the 57 jump tables discovered INDEPENDENTLY from reco_abnormal's own image
+# (see futari_switches_abn.toml) agree with the split-rule prediction 57/57, zero mismatches.
+# Residual non-structural diffs are mostly .data-global immediates offset by +0x60 (the .rdata
+# 0x30 / .data 0x60 size deltas), e.g. sub_880714E0 @0x8807156C and @0x8807202C.
+#
+# Millicode anchors: IDENTICAL addresses to reco_normal, and VERIFIED 2026-07-30 by decoding
+# the raw image at each address in BOTH modules (scratchpad/abn/anchors.py) -- all four are
+# canonical Xenon millicode and the 0x54 bytes at each anchor are byte-for-byte equal across
+# reco_normal and reco_abnormal:
+#   0x88071120 __savegprlr_14 : std  r14,-152(r1) .. std  r31,-16(r1); stw r12,-8(r1); blr
+#   0x88071170 __restgprlr_14 : ld   r14,-152(r1) .. ld   r31,-16(r1); lwz r12,-8(r1); mtlr r12; blr
+#   0x88088230 __savefpr_14   : stfd f14,-144(r12) .. stfd f31,-8(r12); blr
+#   0x8808827C __restfpr_14   : lfd  f14,-144(r12) .. lfd  f31,-8(r12); blr
+# (Each save/rest pair is exactly 20 resp. 19 instructions long, which is what puts the next
+#  anchor at +0x50 / +0x4C -- an independent consistency check on the addresses.)
+
+[main]
+file_path = "assets/media/Module/reco_abnormal.xex"
+out_directory_path = "out_reco_abn"
+restgprlr_14_address = 0x88071170
+savegprlr_14_address = 0x88071120
+restfpr_14_address = 0x8808827C
+savefpr_14_address = 0x88088230
+switch_table_file_path = "futari_switches_abn.toml"
+
+# LEG-21 indirect-call-only gameplay-callback functions, PORTED BY THE +8 SPLIT RULE.
+#
+# futari_reco.toml carries 25 hand-harvested functions that XenonRecomp's static analysis cannot
+# discover (reachable only through runtime callbacks/vtables); they were harvested from the SDK
+# oracle's LIVE reco_normal gameplay memory.  Without them every indirect `bctrl` into a
+# gameplay object's update/draw callback hits rt_indirect_call's
+# `[indirect] UNMAPPED guest target=0x88...` path and is SILENTLY DROPPED.
+#
+# All 25 addresses are ABOVE the 0x880DF080 split, so all 25 shift by exactly +8.  Sizes are
+# unchanged: `size` is the distance to the next real function start, and that distance is
+# preserved by a uniform shift.  Each entry was verified by comparing the function body word by
+# word against reco_normal's (bl/bc displacement fields masked, since a shifted callee changes
+# them); the per-entry identity ratio is in the comment.  The handful of remaining diffs are
+# .data-global immediates (+0x60), e.g. 0x8810E378+0x00 `stw r3,0x305C(r23)`->`0x30BC` and
+# 0x881A96C8+0x00 `lwz r11,-0x2ED0(r11)`->`-0x2E70` -- data addressing, not control flow.
+functions = [
+    { address = 0x8810BE20, size = 0x10 },   # <- reco_normal 0x8810BE18 +8; body 4/4 words identical (reloc-masked)
+    { address = 0x8810C2F0, size = 0x1B8 },  # <- reco_normal 0x8810C2E8 +8; body 102/110
+    { address = 0x8810C4A8, size = 0x14C },  # <- reco_normal 0x8810C4A0 +8; body 73/83
+    { address = 0x8810C928, size = 0x56C },  # <- reco_normal 0x8810C920 +8; body 330/347
+    { address = 0x8810DBC8, size = 0x24 },   # <- reco_normal 0x8810DBC0 +8; body 9/9
+    { address = 0x8810E378, size = 0x208 },  # <- reco_normal 0x8810E370 +8; body 124/130
+    { address = 0x8810E658, size = 0x5C },   # <- reco_normal 0x8810E650 +8; body 23/23
+    { address = 0x8810F008, size = 0x120 },  # <- reco_normal 0x8810F000 +8; body 63/72
+    { address = 0x881108F0, size = 0xE8 },   # <- reco_normal 0x881108E8 +8; body 56/58
+    { address = 0x88110C00, size = 0x7E8 },  # <- reco_normal 0x88110BF8 +8; body 463/506
+    { address = 0x8814D410, size = 0x9BC },  # <- reco_normal 0x8814D408 +8; body 604/623
+    { address = 0x881602F8, size = 0x140 },  # <- reco_normal 0x881602F0 +8; body 75/80
+    { address = 0x88163CF8, size = 0x6B4 },  # <- reco_normal 0x88163CF0 +8; body 405/429
+    { address = 0x881A5FA8, size = 0x134 },  # <- reco_normal 0x881A5FA0 +8; body 77/77
+    { address = 0x881A7958, size = 0x208 },  # <- reco_normal 0x881A7950 +8; body 109/130
+    { address = 0x881A8B88, size = 0x1D8 },  # <- reco_normal 0x881A8B80 +8; body 101/118
+    { address = 0x881A96C8, size = 0xA8 },   # <- reco_normal 0x881A96C0 +8; body 35/42
+    { address = 0x881A97D8, size = 0x1F0 },  # <- reco_normal 0x881A97D0 +8; body 116/124
+    { address = 0x881A99C8, size = 0x10 },   # <- reco_normal 0x881A99C0 +8; body 4/4
+    { address = 0x881A9E38, size = 0x2C4 },  # <- reco_normal 0x881A9E30 +8; body 174/177
+    { address = 0x881E58E0, size = 0x3E4 },  # <- reco_normal 0x881E58D8 +8; body 248/249
+    { address = 0x881E7A10, size = 0x608 },  # <- reco_normal 0x881E7A08 +8; body 385/386
+    { address = 0x881E89C0, size = 0xC },    # <- reco_normal 0x881E89B8 +8; body 3/3
+    { address = 0x881E9358, size = 0x1AC },  # <- reco_normal 0x881E9350 +8; body 101/107
+    { address = 0x882295E0, size = 0x404 },  # <- reco_normal 0x882295D8 +8; body 254/257
+]
+#
+# REMAINING DEBT: 25 is PARTIAL for reco_normal too (the transitive closure of indirect-only
+# functions is larger; the original plan was to iterate off `[indirect] UNMAPPED` boot logs).
+# reco_abnormal inherits that same incompleteness -- no better, no worse.

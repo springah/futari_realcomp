@@ -1,0 +1,3458 @@
+{
+  "_comment": [
+    "Match targets for ppcmatch.py. One entry per guest function.",
+    "",
+    "CONSUMED BY ppcmatch.py (changing these changes what is verified):",
+    "  name    display name (also the --diff/--sweep key)",
+    "  module  'shell' (0x82, default.img.bin) or 'game' (0x88, reco_normal.img.bin)",
+    "  addr    guest address",
+    "  symbol  exact symbol to locate: 'Foo' matches the C++ mangling ?Foo@... or extern \"C\" Foo.",
+    "          Substring matches are REJECTED; ambiguity is a hard error.",
+    "  src     source file relative to matchlab/",
+    "  flags   compiler flags. CANONICAL SET = -O2 -Oc. /Oc disables the divide-by-zero trap and is INVISIBLE except in functions containing a division, where it is REQUIRED (see Page_FillFromCpu 0x8808DF70: without it MSVC emits an extra 'twi 6,rB,0' before the divwu). All 85 targets pass with it. XDK LIBRARY code (e.g. D3DDevice_CreateTexture 0x88079970) is -O1, not -O2.",
+    "  defines optional extra /D flags",
+    "  insn    declared instruction count -- RECONCILED against the extent ppcmatch derives from",
+    "          the image; a disagreement is a hard error, not a silent truncation.",
+    "",
+    "HUMAN LEDGER ONLY (never read by the tool -- do not mistake these for checks):",
+    "  status  ASM-EXACT | DIFF | WIP    role, note, sha1",
+    "  sha1    recorded for the human record; the real check is the byte compare, which is",
+    "          strictly stronger. Do NOT treat a matching sha1 field as verification.",
+    "",
+    "Verified against XDK 9328 cl.exe 15.00.8327 for PowerPC. Run --selftest after touching the tool."
+  ],
+  "targets": [
+    {
+      "name": "ColorMul",
+      "module": "shell",
+      "addr": "0x8206D328",
+      "symbol": "ColorMul",
+      "src": "src/shell_8206D328_ColorMul.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 56,
+      "sha1": "eeb202580b31ef34f87306dfbd6176a28eef1e34",
+      "role": "Per-channel colour multiply, 0x80 == 1.0 (SPEC_shell_compose_1to1.md 5.5)",
+      "note": "First byte-exact match of the campaign, 2026-08-04. Also matches under -Ox, -O2 -GS-, -Ox -GS- -Gy, -O2 -Ob1; -O1 differs by 10 instructions."
+    },
+    {
+      "name": "Task_Kill",
+      "module": "shell",
+      "addr": "0x820619F0",
+      "symbol": "Task_Kill_match",
+      "src": "src/shell_820619F0_TaskKill.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 3,
+      "role": "Self-kill action: *(task+8)=2 (70 refs, all address-taken -- registered as a delegate)",
+      "sha1": "015b3946cb3a3ea2ca7146eeea91aa1a32c2a0b8",
+      "note": "LOOP CLOSED 2026-08-05: the body lives in decomp/shell/task_kill.inl and is compiled BOTH by XDK 9328 (this check) and into the port by decomp/shell/task_kill.cpp. Linked, executes, and gated -- registry.toml status MATCHED."
+    },
+    {
+      "name": "Action_Run",
+      "module": "shell",
+      "addr": "0x82073638",
+      "symbol": "Action_Run",
+      "src": "src/shell_82073638_ActionRun.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 16,
+      "role": "Deferred-action delegate: fn(arg) then self-kill (plan 9.1 #3)",
+      "sha1": "b453eb9f39f4e26b59c4621ad34e6ca6788097bd",
+      "note": "Matched first attempt, no iteration (2026-08-04)."
+    },
+    {
+      "name": "Driver_SendReturnToMenu",
+      "module": "shell",
+      "addr": "0x821C2B38",
+      "symbol": "Driver_SendReturnToMenu",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 5,
+      "role": "msg 13 return-to-menu (tail call)",
+      "sha1": "07614b68ad05b3ab7b8623c47279dd2d8a80c9a9"
+    },
+    {
+      "name": "Driver_SendArmMode64",
+      "module": "shell",
+      "addr": "0x821C2B50",
+      "symbol": "Driver_SendArmMode64",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 5,
+      "role": "msg 12 arm mode64 (tail call)",
+      "sha1": "88fb55cf22a8a0fbd2482e7b9039b39384d1360e"
+    },
+    {
+      "name": "Driver_SetConfig19",
+      "module": "shell",
+      "addr": "0x821C2B90",
+      "symbol": "Driver_SetConfig19",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 13,
+      "role": "msg 19 single-param config setter",
+      "sha1": "9ea05dc434e68da13027916c12caae56421e9c73"
+    },
+    {
+      "name": "Driver_SetConfig16",
+      "module": "shell",
+      "addr": "0x821C2C20",
+      "symbol": "Driver_SetConfig16",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 13,
+      "role": "msg 16 single-param config setter",
+      "sha1": "27e72798e701b074435b3c0de71a3f832f13433f"
+    },
+    {
+      "name": "Driver_ArmMode",
+      "module": "shell",
+      "addr": "0x821C2CB0",
+      "symbol": "Driver_ArmMode",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "role": "msg 10 mode arm, simple",
+      "sha1": "22b85e85c19a70c888397663de43fc00a81f87ee"
+    },
+    {
+      "name": "Driver_ArmModeEx",
+      "module": "shell",
+      "addr": "0x821C2D00",
+      "symbol": "Driver_ArmModeEx",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 25,
+      "role": "msg 10 mode arm, extended (2 extra params)",
+      "sha1": "30c22a94319955db7079634038ebfe947f457e92"
+    },
+    {
+      "name": "Driver_SetRankLevel",
+      "module": "shell",
+      "addr": "0x821C8E20",
+      "symbol": "Driver_SetRankLevel",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 27,
+      "role": "msg 11 rank/level setter (signed mask)",
+      "sha1": "67d6792f1ce3180de22f425af9156d34e633766c"
+    },
+    {
+      "name": "Driver_SendRegionConfig",
+      "module": "shell",
+      "addr": "0x821C2DC0",
+      "symbol": "Driver_SendRegionConfig",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 23,
+      "role": "msg 15 region/config block (first reloc-bearing target)",
+      "sha1": "a066764c61c36475bb2241d40aa749d94c393996"
+    },
+    {
+      "name": "Driver_Destroy",
+      "module": "shell",
+      "addr": "0x821C2EF0",
+      "symbol": "Driver_Destroy",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 26,
+      "role": "GameDriverTask destructor: msg 3 shutdown + XexUnload",
+      "sha1": "2855b50f4596de0b2d08cbcfe55318116db0e340"
+    },
+    {
+      "name": "Driver_SetConfig19@821C4128",
+      "module": "shell",
+      "addr": "0x821C4128",
+      "symbol": "Driver_SetConfig19",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 13,
+      "role": "byte-identical clone instance of Driver_SetConfig19 (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "9ea05dc434e68da13027916c12caae56421e9c73"
+    },
+    {
+      "name": "Driver_SetConfig19@821C49A8",
+      "module": "shell",
+      "addr": "0x821C49A8",
+      "symbol": "Driver_SetConfig19",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 13,
+      "role": "byte-identical clone instance of Driver_SetConfig19 (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "9ea05dc434e68da13027916c12caae56421e9c73"
+    },
+    {
+      "name": "Driver_SetConfig19@821C75B8",
+      "module": "shell",
+      "addr": "0x821C75B8",
+      "symbol": "Driver_SetConfig19",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 13,
+      "role": "byte-identical clone instance of Driver_SetConfig19 (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "9ea05dc434e68da13027916c12caae56421e9c73"
+    },
+    {
+      "name": "Driver_SetConfig19@821C7E38",
+      "module": "shell",
+      "addr": "0x821C7E38",
+      "symbol": "Driver_SetConfig19",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 13,
+      "role": "byte-identical clone instance of Driver_SetConfig19 (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "9ea05dc434e68da13027916c12caae56421e9c73"
+    },
+    {
+      "name": "Driver_SetConfig19@821C86B8",
+      "module": "shell",
+      "addr": "0x821C86B8",
+      "symbol": "Driver_SetConfig19",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 13,
+      "role": "byte-identical clone instance of Driver_SetConfig19 (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "9ea05dc434e68da13027916c12caae56421e9c73"
+    },
+    {
+      "name": "Driver_SetConfig19@821C8F38",
+      "module": "shell",
+      "addr": "0x821C8F38",
+      "symbol": "Driver_SetConfig19",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 13,
+      "role": "byte-identical clone instance of Driver_SetConfig19 (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "9ea05dc434e68da13027916c12caae56421e9c73"
+    },
+    {
+      "name": "Driver_SetConfig19@821C97B8",
+      "module": "shell",
+      "addr": "0x821C97B8",
+      "symbol": "Driver_SetConfig19",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 13,
+      "role": "byte-identical clone instance of Driver_SetConfig19 (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "9ea05dc434e68da13027916c12caae56421e9c73"
+    },
+    {
+      "name": "Driver_SetConfig16@821C41B8",
+      "module": "shell",
+      "addr": "0x821C41B8",
+      "symbol": "Driver_SetConfig16",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 13,
+      "role": "byte-identical clone instance of Driver_SetConfig16 (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "27e72798e701b074435b3c0de71a3f832f13433f"
+    },
+    {
+      "name": "Driver_SetConfig16@821C4A38",
+      "module": "shell",
+      "addr": "0x821C4A38",
+      "symbol": "Driver_SetConfig16",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 13,
+      "role": "byte-identical clone instance of Driver_SetConfig16 (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "27e72798e701b074435b3c0de71a3f832f13433f"
+    },
+    {
+      "name": "Driver_SetConfig16@821C7648",
+      "module": "shell",
+      "addr": "0x821C7648",
+      "symbol": "Driver_SetConfig16",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 13,
+      "role": "byte-identical clone instance of Driver_SetConfig16 (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "27e72798e701b074435b3c0de71a3f832f13433f"
+    },
+    {
+      "name": "Driver_SetConfig16@821C7EC8",
+      "module": "shell",
+      "addr": "0x821C7EC8",
+      "symbol": "Driver_SetConfig16",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 13,
+      "role": "byte-identical clone instance of Driver_SetConfig16 (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "27e72798e701b074435b3c0de71a3f832f13433f"
+    },
+    {
+      "name": "Driver_SetConfig16@821C8748",
+      "module": "shell",
+      "addr": "0x821C8748",
+      "symbol": "Driver_SetConfig16",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 13,
+      "role": "byte-identical clone instance of Driver_SetConfig16 (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "27e72798e701b074435b3c0de71a3f832f13433f"
+    },
+    {
+      "name": "Driver_SetConfig16@821C8FC8",
+      "module": "shell",
+      "addr": "0x821C8FC8",
+      "symbol": "Driver_SetConfig16",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 13,
+      "role": "byte-identical clone instance of Driver_SetConfig16 (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "27e72798e701b074435b3c0de71a3f832f13433f"
+    },
+    {
+      "name": "Driver_SetConfig16@821C9848",
+      "module": "shell",
+      "addr": "0x821C9848",
+      "symbol": "Driver_SetConfig16",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 13,
+      "role": "byte-identical clone instance of Driver_SetConfig16 (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "27e72798e701b074435b3c0de71a3f832f13433f"
+    },
+    {
+      "name": "Driver_ArmMode@821C4248",
+      "module": "shell",
+      "addr": "0x821C4248",
+      "symbol": "Driver_ArmMode",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "role": "byte-identical clone instance of Driver_ArmMode (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "22b85e85c19a70c888397663de43fc00a81f87ee"
+    },
+    {
+      "name": "Driver_ArmMode@821C4AC8",
+      "module": "shell",
+      "addr": "0x821C4AC8",
+      "symbol": "Driver_ArmMode",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "role": "byte-identical clone instance of Driver_ArmMode (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "22b85e85c19a70c888397663de43fc00a81f87ee"
+    },
+    {
+      "name": "Driver_ArmMode@821C76D8",
+      "module": "shell",
+      "addr": "0x821C76D8",
+      "symbol": "Driver_ArmMode",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "role": "byte-identical clone instance of Driver_ArmMode (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "22b85e85c19a70c888397663de43fc00a81f87ee"
+    },
+    {
+      "name": "Driver_ArmMode@821C7F58",
+      "module": "shell",
+      "addr": "0x821C7F58",
+      "symbol": "Driver_ArmMode",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "role": "byte-identical clone instance of Driver_ArmMode (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "22b85e85c19a70c888397663de43fc00a81f87ee"
+    },
+    {
+      "name": "Driver_ArmMode@821C87D8",
+      "module": "shell",
+      "addr": "0x821C87D8",
+      "symbol": "Driver_ArmMode",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "role": "byte-identical clone instance of Driver_ArmMode (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "22b85e85c19a70c888397663de43fc00a81f87ee"
+    },
+    {
+      "name": "Driver_ArmMode@821C9058",
+      "module": "shell",
+      "addr": "0x821C9058",
+      "symbol": "Driver_ArmMode",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "role": "byte-identical clone instance of Driver_ArmMode (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "22b85e85c19a70c888397663de43fc00a81f87ee"
+    },
+    {
+      "name": "Driver_ArmMode@821C98D8",
+      "module": "shell",
+      "addr": "0x821C98D8",
+      "symbol": "Driver_ArmMode",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "role": "byte-identical clone instance of Driver_ArmMode (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "22b85e85c19a70c888397663de43fc00a81f87ee"
+    },
+    {
+      "name": "Driver_ArmModeEx@821C4298",
+      "module": "shell",
+      "addr": "0x821C4298",
+      "symbol": "Driver_ArmModeEx",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 25,
+      "role": "byte-identical clone instance of Driver_ArmModeEx (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "30c22a94319955db7079634038ebfe947f457e92"
+    },
+    {
+      "name": "Driver_ArmModeEx@821C4B18",
+      "module": "shell",
+      "addr": "0x821C4B18",
+      "symbol": "Driver_ArmModeEx",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 25,
+      "role": "byte-identical clone instance of Driver_ArmModeEx (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "30c22a94319955db7079634038ebfe947f457e92"
+    },
+    {
+      "name": "Driver_ArmModeEx@821C7728",
+      "module": "shell",
+      "addr": "0x821C7728",
+      "symbol": "Driver_ArmModeEx",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 25,
+      "role": "byte-identical clone instance of Driver_ArmModeEx (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "30c22a94319955db7079634038ebfe947f457e92"
+    },
+    {
+      "name": "Driver_ArmModeEx@821C7FA8",
+      "module": "shell",
+      "addr": "0x821C7FA8",
+      "symbol": "Driver_ArmModeEx",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 25,
+      "role": "byte-identical clone instance of Driver_ArmModeEx (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "30c22a94319955db7079634038ebfe947f457e92"
+    },
+    {
+      "name": "Driver_ArmModeEx@821C8828",
+      "module": "shell",
+      "addr": "0x821C8828",
+      "symbol": "Driver_ArmModeEx",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 25,
+      "role": "byte-identical clone instance of Driver_ArmModeEx (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "30c22a94319955db7079634038ebfe947f457e92"
+    },
+    {
+      "name": "Driver_ArmModeEx@821C90A8",
+      "module": "shell",
+      "addr": "0x821C90A8",
+      "symbol": "Driver_ArmModeEx",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 25,
+      "role": "byte-identical clone instance of Driver_ArmModeEx (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "30c22a94319955db7079634038ebfe947f457e92"
+    },
+    {
+      "name": "Driver_ArmModeEx@821C9928",
+      "module": "shell",
+      "addr": "0x821C9928",
+      "symbol": "Driver_ArmModeEx",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 25,
+      "role": "byte-identical clone instance of Driver_ArmModeEx (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "30c22a94319955db7079634038ebfe947f457e92"
+    },
+    {
+      "name": "Driver_SetRankLevel@821C2A78",
+      "module": "shell",
+      "addr": "0x821C2A78",
+      "symbol": "Driver_SetRankLevel",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 27,
+      "role": "byte-identical clone instance of Driver_SetRankLevel (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "67d6792f1ce3180de22f425af9156d34e633766c"
+    },
+    {
+      "name": "Driver_SetRankLevel@821C4010",
+      "module": "shell",
+      "addr": "0x821C4010",
+      "symbol": "Driver_SetRankLevel",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 27,
+      "role": "byte-identical clone instance of Driver_SetRankLevel (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "67d6792f1ce3180de22f425af9156d34e633766c"
+    },
+    {
+      "name": "Driver_SetRankLevel@821C4890",
+      "module": "shell",
+      "addr": "0x821C4890",
+      "symbol": "Driver_SetRankLevel",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 27,
+      "role": "byte-identical clone instance of Driver_SetRankLevel (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "67d6792f1ce3180de22f425af9156d34e633766c"
+    },
+    {
+      "name": "Driver_SetRankLevel@821C74A0",
+      "module": "shell",
+      "addr": "0x821C74A0",
+      "symbol": "Driver_SetRankLevel",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 27,
+      "role": "byte-identical clone instance of Driver_SetRankLevel (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "67d6792f1ce3180de22f425af9156d34e633766c"
+    },
+    {
+      "name": "Driver_SetRankLevel@821C7D20",
+      "module": "shell",
+      "addr": "0x821C7D20",
+      "symbol": "Driver_SetRankLevel",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 27,
+      "role": "byte-identical clone instance of Driver_SetRankLevel (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "67d6792f1ce3180de22f425af9156d34e633766c"
+    },
+    {
+      "name": "Driver_SetRankLevel@821C85A0",
+      "module": "shell",
+      "addr": "0x821C85A0",
+      "symbol": "Driver_SetRankLevel",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 27,
+      "role": "byte-identical clone instance of Driver_SetRankLevel (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "67d6792f1ce3180de22f425af9156d34e633766c"
+    },
+    {
+      "name": "Driver_SetRankLevel@821C96A0",
+      "module": "shell",
+      "addr": "0x821C96A0",
+      "symbol": "Driver_SetRankLevel",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 27,
+      "role": "byte-identical clone instance of Driver_SetRankLevel (0x821C2B90-family; 8 GameDriverTask instances)",
+      "sha1": "67d6792f1ce3180de22f425af9156d34e633766c"
+    },
+    {
+      "name": "Driver_Query17",
+      "module": "shell",
+      "addr": "0x821C2BD8",
+      "symbol": "Driver_Query17",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 18,
+      "role": "msg 17 QUERY: request block {value, &result}; game writes the answer through the out-pointer",
+      "sha1": "690fefafd4865d12cda30d1b630bf6e2182b0077"
+    },
+    {
+      "name": "Driver_Query17@821C4170",
+      "module": "shell",
+      "addr": "0x821C4170",
+      "symbol": "Driver_Query17",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 18,
+      "role": "msg 17 QUERY: request block {value, &result}; game writes the answer through the out-pointer (byte-identical clone instance)",
+      "sha1": "690fefafd4865d12cda30d1b630bf6e2182b0077"
+    },
+    {
+      "name": "Driver_Query17@821C49F0",
+      "module": "shell",
+      "addr": "0x821C49F0",
+      "symbol": "Driver_Query17",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 18,
+      "role": "msg 17 QUERY: request block {value, &result}; game writes the answer through the out-pointer (byte-identical clone instance)",
+      "sha1": "690fefafd4865d12cda30d1b630bf6e2182b0077"
+    },
+    {
+      "name": "Driver_Query17@821C7600",
+      "module": "shell",
+      "addr": "0x821C7600",
+      "symbol": "Driver_Query17",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 18,
+      "role": "msg 17 QUERY: request block {value, &result}; game writes the answer through the out-pointer (byte-identical clone instance)",
+      "sha1": "690fefafd4865d12cda30d1b630bf6e2182b0077"
+    },
+    {
+      "name": "Driver_Query17@821C7E80",
+      "module": "shell",
+      "addr": "0x821C7E80",
+      "symbol": "Driver_Query17",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 18,
+      "role": "msg 17 QUERY: request block {value, &result}; game writes the answer through the out-pointer (byte-identical clone instance)",
+      "sha1": "690fefafd4865d12cda30d1b630bf6e2182b0077"
+    },
+    {
+      "name": "Driver_Query17@821C8700",
+      "module": "shell",
+      "addr": "0x821C8700",
+      "symbol": "Driver_Query17",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 18,
+      "role": "msg 17 QUERY: request block {value, &result}; game writes the answer through the out-pointer (byte-identical clone instance)",
+      "sha1": "690fefafd4865d12cda30d1b630bf6e2182b0077"
+    },
+    {
+      "name": "Driver_Query17@821C8F80",
+      "module": "shell",
+      "addr": "0x821C8F80",
+      "symbol": "Driver_Query17",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 18,
+      "role": "msg 17 QUERY: request block {value, &result}; game writes the answer through the out-pointer (byte-identical clone instance)",
+      "sha1": "690fefafd4865d12cda30d1b630bf6e2182b0077"
+    },
+    {
+      "name": "Driver_Query17@821C9800",
+      "module": "shell",
+      "addr": "0x821C9800",
+      "symbol": "Driver_Query17",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 18,
+      "role": "msg 17 QUERY: request block {value, &result}; game writes the answer through the out-pointer (byte-identical clone instance)",
+      "sha1": "690fefafd4865d12cda30d1b630bf6e2182b0077"
+    },
+    {
+      "name": "Driver_ArmSession",
+      "module": "shell",
+      "addr": "0x821C2E20",
+      "symbol": "Driver_ArmSession",
+      "src": "src/shell_821C2E20_Driver_ArmSession.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 51,
+      "role": "arm a play session: stage kind, publish descriptor into the live half of the double-buffered slot pair, virtual callback",
+      "sha1": "1ff92826629a152167766fef3237e33d4562648d"
+    },
+    {
+      "name": "Driver_ArmSession@821C43B8",
+      "module": "shell",
+      "addr": "0x821C43B8",
+      "symbol": "Driver_ArmSession",
+      "src": "src/shell_821C2E20_Driver_ArmSession.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 51,
+      "role": "arm a play session: stage kind, publish descriptor into the live half of the double-buffered slot pair, virtual callback (byte-identical clone instance)",
+      "sha1": "1ff92826629a152167766fef3237e33d4562648d"
+    },
+    {
+      "name": "Driver_ArmSession@821C4C38",
+      "module": "shell",
+      "addr": "0x821C4C38",
+      "symbol": "Driver_ArmSession",
+      "src": "src/shell_821C2E20_Driver_ArmSession.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 51,
+      "role": "arm a play session: stage kind, publish descriptor into the live half of the double-buffered slot pair, virtual callback (byte-identical clone instance)",
+      "sha1": "1ff92826629a152167766fef3237e33d4562648d"
+    },
+    {
+      "name": "Driver_ArmSession@821C7848",
+      "module": "shell",
+      "addr": "0x821C7848",
+      "symbol": "Driver_ArmSession",
+      "src": "src/shell_821C2E20_Driver_ArmSession.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 51,
+      "role": "arm a play session: stage kind, publish descriptor into the live half of the double-buffered slot pair, virtual callback (byte-identical clone instance)",
+      "sha1": "1ff92826629a152167766fef3237e33d4562648d"
+    },
+    {
+      "name": "Driver_ArmSession@821C80C8",
+      "module": "shell",
+      "addr": "0x821C80C8",
+      "symbol": "Driver_ArmSession",
+      "src": "src/shell_821C2E20_Driver_ArmSession.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 51,
+      "role": "arm a play session: stage kind, publish descriptor into the live half of the double-buffered slot pair, virtual callback (byte-identical clone instance)",
+      "sha1": "1ff92826629a152167766fef3237e33d4562648d"
+    },
+    {
+      "name": "Driver_ArmSession@821C8948",
+      "module": "shell",
+      "addr": "0x821C8948",
+      "symbol": "Driver_ArmSession",
+      "src": "src/shell_821C2E20_Driver_ArmSession.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 51,
+      "role": "arm a play session: stage kind, publish descriptor into the live half of the double-buffered slot pair, virtual callback (byte-identical clone instance)",
+      "sha1": "1ff92826629a152167766fef3237e33d4562648d"
+    },
+    {
+      "name": "Driver_ArmSession@821C91C8",
+      "module": "shell",
+      "addr": "0x821C91C8",
+      "symbol": "Driver_ArmSession",
+      "src": "src/shell_821C2E20_Driver_ArmSession.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 51,
+      "role": "arm a play session: stage kind, publish descriptor into the live half of the double-buffered slot pair, virtual callback (byte-identical clone instance)",
+      "sha1": "1ff92826629a152167766fef3237e33d4562648d"
+    },
+    {
+      "name": "Driver_ArmSession@821C9A48",
+      "module": "shell",
+      "addr": "0x821C9A48",
+      "symbol": "Driver_ArmSession",
+      "src": "src/shell_821C2E20_Driver_ArmSession.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 51,
+      "role": "arm a play session: stage kind, publish descriptor into the live half of the double-buffered slot pair, virtual callback (byte-identical clone instance)",
+      "sha1": "1ff92826629a152167766fef3237e33d4562648d"
+    },
+    {
+      "name": "Deferred_Node",
+      "module": "shell",
+      "addr": "0x820735C8",
+      "symbol": "Deferred_Node",
+      "src": "src/shell_820735C8_Deferred_Node.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 27,
+      "role": "deferred-action node: allocate + arm the delegate (plan 9.1 #3)",
+      "sha1": "005713dd33bf1fa7b8143e04a65e8e3134b80584"
+    },
+    {
+      "name": "Colour_Fold",
+      "module": "shell",
+      "addr": "0x82076C10",
+      "symbol": "Colour_Fold",
+      "src": "src/shell_82076C10_Colour_Fold.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 38,
+      "role": "per-vertex colour filter fold (SPEC 21; plan 9.1 #1)",
+      "sha1": "ef60d0ecc4067a4f7920f601903290b4c588a5ef"
+    },
+    {
+      "name": "Walk_Draw",
+      "module": "shell",
+      "addr": "0x82173900",
+      "symbol": "Walk_Draw",
+      "src": "src/shell_82173900_Walk_Draw.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 30,
+      "role": "scheduler walk: draw pass",
+      "sha1": "0647ff36997d8a43d25ffe3ff5f6b46e06d444c3"
+    },
+    {
+      "name": "Walk_Mid",
+      "module": "shell",
+      "addr": "0x82173978",
+      "symbol": "Walk_Mid",
+      "src": "src/shell_82173978_Walk_Mid.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 27,
+      "role": "scheduler walk family member",
+      "sha1": "59f8d8f7da4af317b29067ebd02eff93e5f3ea23"
+    },
+    {
+      "name": "Walk_Tick",
+      "module": "shell",
+      "addr": "0x82173B98",
+      "symbol": "Walk_Tick",
+      "src": "src/shell_82173B98_Walk_Tick.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 33,
+      "role": "per-element scheduler tick (hooked as sub_82173B98)",
+      "sha1": "70b31657bc105134959086451fb88b9d0938aecf"
+    },
+    {
+      "name": "Menu_ChildResult",
+      "module": "shell",
+      "addr": "0x821BA090",
+      "symbol": "Menu_ChildResult",
+      "src": "src/shell_821BA090_Menu_ChildResult.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 43,
+      "role": "menu child-result handler",
+      "sha1": "8563d0747cd5aed4c549f7ef297bb3039fae094e"
+    },
+    {
+      "name": "Logo_Exit",
+      "module": "shell",
+      "addr": "0x821D1348",
+      "symbol": "Logo_Exit",
+      "src": "src/shell_821D1348_Logo_Exit.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "role": "logo FSM exit -> deferred self-kill",
+      "sha1": "c2f3ed3b624a2ad99d087549cf633779decafeae"
+    },
+    {
+      "name": "Walk_Small",
+      "module": "shell",
+      "addr": "0x821739E8",
+      "symbol": "Walk_Small",
+      "src": "src/shell_821739E8_Walk_Small.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 11,
+      "role": "scheduler walk family member",
+      "sha1": "ac4b6fd5993798656b06a664a855b0f5acef6232"
+    },
+    {
+      "name": "Logo_Tick",
+      "module": "shell",
+      "addr": "0x821D1310",
+      "symbol": "Logo_Tick",
+      "src": "src/shell_821D1310_Logo_Tick.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 14,
+      "role": "logo FSM tick",
+      "sha1": "466a8481ba0bfc97b1b89c5c6538a8aea112503a"
+    },
+    {
+      "name": "Logo_Hold",
+      "module": "shell",
+      "addr": "0x821D1500",
+      "symbol": "Logo_Hold",
+      "src": "src/shell_821D1500_Logo_Hold.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 16,
+      "role": "logo FSM hold -> next state 0x821D1408",
+      "sha1": "21558b13a632622f8c8bb9bab6da984f828bcd24"
+    },
+    {
+      "name": "Logo_Hold2",
+      "module": "shell",
+      "addr": "0x821D1740",
+      "symbol": "Logo_Hold2",
+      "src": "src/shell_821D1740_Logo_Hold2.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 16,
+      "role": "logo FSM second hold -> next state 0x821D1670",
+      "sha1": "403e5bac6dd2a616b258492b60b90a26d53dee83"
+    },
+    {
+      "name": "Page_Teardown",
+      "module": "game",
+      "addr": "0x8808D930",
+      "symbol": "Page_Teardown",
+      "src": "src/game_8808D930_Page_Teardown.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 62,
+      "sha1": "1bde8db3bd5a33f410cbfeb7098172d9ff4280f8",
+      "role": "release all page textures + free pending source buffers; also drops the double-buffered depth/stencil pair [select/compose family]"
+    },
+    {
+      "name": "Page_StageUpload",
+      "module": "game",
+      "addr": "0x8808D640",
+      "symbol": "Page_StageUpload",
+      "src": "src/game_8808D640_Page_StageUpload.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 63,
+      "sha1": "d0122ee89e5df4258bc155879b034c184e734e6a",
+      "role": "staging alloc+copy into the page upload table (lock/alloc/memcpy/unlock) [select/compose family]"
+    },
+    {
+      "name": "Scene_ResolveFrame",
+      "module": "game",
+      "addr": "0x8808DA28",
+      "symbol": "Scene_ResolveFrame",
+      "src": "src/game_8808DA28_Scene_ResolveFrame.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 122,
+      "sha1": "1061b17b3fca588fd5a103a303a00186fd0726da",
+      "role": "per-frame scene resolve: SetRenderTarget -> Clear(0xF) -> Resolve(Flags=0, NULL rect) + depth/stencil swap. NOTES: INNOCENT, fully understood [select/compose family]"
+    },
+    {
+      "name": "Page_FillFromCpu",
+      "module": "game",
+      "addr": "0x8808DF70",
+      "symbol": "Page_FillFromCpu",
+      "src": "src/game_8808DF70_Page_FillFromCpu.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 81,
+      "role": "CPU-side page fill: walks 0x200 records, ensure -> lock -> XGTileSurface -> unlock -> free srcBuf [select/compose family]",
+      "sha1": "26025ea09a3f961e76ca5408e6809cb76b055b40"
+    },
+    {
+      "name": "Gpu_CreateTexture",
+      "module": "game",
+      "addr": "0x88079970",
+      "symbol": "Gpu_CreateTexture",
+      "src": "src/game_88079970_Gpu_CreateTexture.cpp",
+      "flags": [
+        "-O1"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 72,
+      "sha1": "2e4f6fb568f65e4aab5720a9ff8ce06fa85ab9f0",
+      "role": "D3DDevice_CreateTexture from the statically linked XDK d3d9 library. LIBRARY code => -O1, NOT the title's -O2 -Oc (verified both ways) [select/compose family]"
+    },
+    {
+      "name": "Elem_vcall_30",
+      "module": "shell",
+      "addr": "0x82061D50",
+      "symbol": "??_9Element@@$BDA@AA",
+      "src": "src/shell_state_thunks.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 4,
+      "sha1": "a4660d1112708c4703f22b487194e6efd5dcc800",
+      "role": "COMPILER-GENERATED vcall thunk for vtable slot 0x30 (not a source-level function; emitted by &Element::virtual)"
+    },
+    {
+      "name": "Elem_vcall_50",
+      "module": "shell",
+      "addr": "0x82061D60",
+      "symbol": "??_9Element@@$BFA@AA",
+      "src": "src/shell_state_thunks.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 4,
+      "sha1": "beed711f92ebefd275986de0de1481261bb22058",
+      "role": "COMPILER-GENERATED vcall thunk for vtable slot 0x50 (not a source-level function; emitted by &Element::virtual)"
+    },
+    {
+      "name": "Elem_vcall_34",
+      "module": "shell",
+      "addr": "0x82061D70",
+      "symbol": "??_9Element@@$BDE@AA",
+      "src": "src/shell_state_thunks.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 4,
+      "sha1": "6f401ce1b76fe0e769ff875486d316e0ee340242",
+      "role": "COMPILER-GENERATED vcall thunk for vtable slot 0x34 (not a source-level function; emitted by &Element::virtual)"
+    },
+    {
+      "name": "Elem_vcall_74",
+      "module": "shell",
+      "addr": "0x82061D80",
+      "symbol": "??_9Element@@$BHE@AA",
+      "src": "src/shell_state_thunks.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 4,
+      "sha1": "c035283607a90aefc4bcdd2560a31efe17dd041a",
+      "role": "COMPILER-GENERATED vcall thunk for vtable slot 0x74 (not a source-level function; emitted by &Element::virtual)"
+    },
+    {
+      "name": "Elem_vcall_2C",
+      "module": "shell",
+      "addr": "0x82063A48",
+      "symbol": "??_9Element@@$BCM@AA",
+      "src": "src/shell_state_thunks.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 4,
+      "sha1": "8e67ce21bf4408cf5017d0bac32f9c1d578ae485",
+      "role": "COMPILER-GENERATED vcall thunk for vtable slot 0x2C (not a source-level function; emitted by &Element::virtual)"
+    },
+    {
+      "name": "Elem_vcall_44",
+      "module": "shell",
+      "addr": "0x82063A58",
+      "symbol": "??_9Element@@$BEE@AA",
+      "src": "src/shell_state_thunks.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 4,
+      "sha1": "477936dc8214eb449640e89a7f340e449ce28b3d",
+      "role": "COMPILER-GENERATED vcall thunk for vtable slot 0x44 (not a source-level function; emitted by &Element::virtual)"
+    },
+    {
+      "name": "Elem_vcall_3C",
+      "module": "shell",
+      "addr": "0x82065A78",
+      "symbol": "??_9Element@@$BDM@AA",
+      "src": "src/shell_state_thunks.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 4,
+      "sha1": "5b3a67baad18bb9cfda3b6027d21c0cbeac00762",
+      "role": "COMPILER-GENERATED vcall thunk for vtable slot 0x3C (not a source-level function; emitted by &Element::virtual)"
+    },
+    {
+      "name": "Elem_vcall_40",
+      "module": "shell",
+      "addr": "0x82065A88",
+      "symbol": "??_9Element@@$BEA@AA",
+      "src": "src/shell_state_thunks.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 4,
+      "sha1": "e6352ae6420b7fff8f15ba06b9e1d86e1a535d79",
+      "role": "COMPILER-GENERATED vcall thunk for vtable slot 0x40 (not a source-level function; emitted by &Element::virtual)"
+    },
+    {
+      "name": "Elem_vcall_24",
+      "module": "shell",
+      "addr": "0x82065A98",
+      "symbol": "??_9Element@@$BCE@AA",
+      "src": "src/shell_state_thunks.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 4,
+      "sha1": "3d3c10d820a76b190efe2a832794e55e9a7ca9ff",
+      "role": "COMPILER-GENERATED vcall thunk for vtable slot 0x24 (not a source-level function; emitted by &Element::virtual)"
+    },
+    {
+      "name": "Elem_vcall_28",
+      "module": "shell",
+      "addr": "0x82065AA8",
+      "symbol": "??_9Element@@$BCI@AA",
+      "src": "src/shell_state_thunks.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 4,
+      "sha1": "d104360c69ede54064b7ff5aa6152aaad6e4ec64",
+      "role": "COMPILER-GENERATED vcall thunk for vtable slot 0x28 (not a source-level function; emitted by &Element::virtual)"
+    },
+    {
+      "name": "Elem_vcall_38",
+      "module": "shell",
+      "addr": "0x82065AB8",
+      "symbol": "??_9Element@@$BDI@AA",
+      "src": "src/shell_state_thunks.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 4,
+      "sha1": "33703b5a460dd5c95077bb8bf76c994be9099a63",
+      "role": "COMPILER-GENERATED vcall thunk for vtable slot 0x38 (not a source-level function; emitted by &Element::virtual)"
+    },
+    {
+      "name": "Menu_Cancel",
+      "module": "shell",
+      "addr": "0x821B9E58",
+      "symbol": "Menu_Cancel",
+      "src": "src/shell_821B9E58_Menu_Cancel.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 8,
+      "sha1": "6e645b893d049fada6e2e716a1840bc09f84efbd",
+      "role": "MenuElement::Cancel -- latch the cancelled state function, tail-call the OnCancel virtual with -1",
+      "note": "Was stuck at 5/8 with instructions 0 and 1 swapped until the vtable was declared with real C++ 'virtual' members instead of a hand-rolled struct of function pointers: MSVC's own vcall lowering emits the vptr load first. Seven hand-modelled shapes all scored 5/8 or worse. Extent 8 is split-REFERENCED (a .pdata-less leaf follows at 0x821B9E78)."
+    },
+    {
+      "name": "Job_Poll",
+      "module": "shell",
+      "addr": "0x82191D00",
+      "symbol": "Job_Poll",
+      "src": "src/shell_82191D00_Job_Poll.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 38,
+      "sha1": "36275ae52ebf3f5cfd9a818dfb19ca643c30f58a",
+      "role": "Run a job's current step, then publish its result and mark the waiter finished once the job parks in a terminal step",
+      "note": "Largest unstarted clone family in either image, found by clones.py: 4 byte-identical copies 0x98 apart, all comparing against the same two terminal steps (0x82191B18 / 0x82191B10 -- confirmed by the resolved reloc immediates). EXACT on the first attempt."
+    },
+    {
+      "name": "Job_Poll@82191D98",
+      "module": "shell",
+      "addr": "0x82191D98",
+      "symbol": "Job_Poll",
+      "src": "src/shell_82191D00_Job_Poll.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 38,
+      "sha1": "36275ae52ebf3f5cfd9a818dfb19ca643c30f58a",
+      "role": "Run a job's current step, then publish its result and mark the waiter finished once the job parks in a terminal step",
+      "note": "Largest unstarted clone family in either image, found by clones.py: 4 byte-identical copies 0x98 apart, all comparing against the same two terminal steps (0x82191B18 / 0x82191B10 -- confirmed by the resolved reloc immediates). EXACT on the first attempt."
+    },
+    {
+      "name": "Job_Poll@82191E30",
+      "module": "shell",
+      "addr": "0x82191E30",
+      "symbol": "Job_Poll",
+      "src": "src/shell_82191D00_Job_Poll.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 38,
+      "sha1": "36275ae52ebf3f5cfd9a818dfb19ca643c30f58a",
+      "role": "Run a job's current step, then publish its result and mark the waiter finished once the job parks in a terminal step",
+      "note": "Largest unstarted clone family in either image, found by clones.py: 4 byte-identical copies 0x98 apart, all comparing against the same two terminal steps (0x82191B18 / 0x82191B10 -- confirmed by the resolved reloc immediates). EXACT on the first attempt."
+    },
+    {
+      "name": "Job_Poll@82191EC8",
+      "module": "shell",
+      "addr": "0x82191EC8",
+      "symbol": "Job_Poll",
+      "src": "src/shell_82191D00_Job_Poll.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 38,
+      "sha1": "36275ae52ebf3f5cfd9a818dfb19ca643c30f58a",
+      "role": "Run a job's current step, then publish its result and mark the waiter finished once the job parks in a terminal step",
+      "note": "Largest unstarted clone family in either image, found by clones.py: 4 byte-identical copies 0x98 apart, all comparing against the same two terminal steps (0x82191B18 / 0x82191B10 -- confirmed by the resolved reloc immediates). EXACT on the first attempt."
+    },
+    {
+      "name": "Logo_Exit@8218DB28",
+      "module": "shell",
+      "addr": "0x8218DB28",
+      "symbol": "Logo_Exit",
+      "src": "src/shell_821D1348_Logo_Exit.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "7de97f44ba8e289e1c6d6571741e0e87cc37113a",
+      "role": "Logo/menu element exit: hand the element to the deferred-teardown queue",
+      "note": "Clone of 0x821D1348 found by clones.py once outbound call displacements are normalised. All 11 copies resolve to the SAME callee 0x820735C8 and the same global 0x820619F0, audited from the printed reloc targets -- the bodies differ only in the PC-relative bl field, which ppcmatch compares as masked."
+    },
+    {
+      "name": "Logo_Exit@8218DC48",
+      "module": "shell",
+      "addr": "0x8218DC48",
+      "symbol": "Logo_Exit",
+      "src": "src/shell_821D1348_Logo_Exit.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "8e2a1fd83771755606c83abe96ad70fc99ebf8e4",
+      "role": "Logo/menu element exit: hand the element to the deferred-teardown queue",
+      "note": "Clone of 0x821D1348 found by clones.py once outbound call displacements are normalised. All 11 copies resolve to the SAME callee 0x820735C8 and the same global 0x820619F0, audited from the printed reloc targets -- the bodies differ only in the PC-relative bl field, which ppcmatch compares as masked."
+    },
+    {
+      "name": "Logo_Exit@8218DD98",
+      "module": "shell",
+      "addr": "0x8218DD98",
+      "symbol": "Logo_Exit",
+      "src": "src/shell_821D1348_Logo_Exit.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "d316cc46c2a069773fbf28fa71418badec2c7350",
+      "role": "Logo/menu element exit: hand the element to the deferred-teardown queue",
+      "note": "Clone of 0x821D1348 found by clones.py once outbound call displacements are normalised. All 11 copies resolve to the SAME callee 0x820735C8 and the same global 0x820619F0, audited from the printed reloc targets -- the bodies differ only in the PC-relative bl field, which ppcmatch compares as masked."
+    },
+    {
+      "name": "Logo_Exit@8218DDE8",
+      "module": "shell",
+      "addr": "0x8218DDE8",
+      "symbol": "Logo_Exit",
+      "src": "src/shell_821D1348_Logo_Exit.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "7f0f2a78a7a7265da13e93b12120ab7d9c8302c6",
+      "role": "Logo/menu element exit: hand the element to the deferred-teardown queue",
+      "note": "Clone of 0x821D1348 found by clones.py once outbound call displacements are normalised. All 11 copies resolve to the SAME callee 0x820735C8 and the same global 0x820619F0, audited from the printed reloc targets -- the bodies differ only in the PC-relative bl field, which ppcmatch compares as masked."
+    },
+    {
+      "name": "Logo_Exit@821A9C00",
+      "module": "shell",
+      "addr": "0x821A9C00",
+      "symbol": "Logo_Exit",
+      "src": "src/shell_821D1348_Logo_Exit.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "7181ad3b85f7465c2e7f718dd89d62c065bf4589",
+      "role": "Logo/menu element exit: hand the element to the deferred-teardown queue",
+      "note": "Clone of 0x821D1348 found by clones.py once outbound call displacements are normalised. All 11 copies resolve to the SAME callee 0x820735C8 and the same global 0x820619F0, audited from the printed reloc targets -- the bodies differ only in the PC-relative bl field, which ppcmatch compares as masked."
+    },
+    {
+      "name": "Logo_Exit@821B8950",
+      "module": "shell",
+      "addr": "0x821B8950",
+      "symbol": "Logo_Exit",
+      "src": "src/shell_821D1348_Logo_Exit.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "64aa8bfcdf8b0029a2dcf5cc0f4c48951bc1aebd",
+      "role": "Logo/menu element exit: hand the element to the deferred-teardown queue",
+      "note": "Clone of 0x821D1348 found by clones.py once outbound call displacements are normalised. All 11 copies resolve to the SAME callee 0x820735C8 and the same global 0x820619F0, audited from the printed reloc targets -- the bodies differ only in the PC-relative bl field, which ppcmatch compares as masked."
+    },
+    {
+      "name": "Logo_Exit@821BA370",
+      "module": "shell",
+      "addr": "0x821BA370",
+      "symbol": "Logo_Exit",
+      "src": "src/shell_821D1348_Logo_Exit.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "a5161ef6f550cb919ffd8f5955848e4da1a2d790",
+      "role": "Logo/menu element exit: hand the element to the deferred-teardown queue",
+      "note": "Clone of 0x821D1348 found by clones.py once outbound call displacements are normalised. All 11 copies resolve to the SAME callee 0x820735C8 and the same global 0x820619F0, audited from the printed reloc targets -- the bodies differ only in the PC-relative bl field, which ppcmatch compares as masked."
+    },
+    {
+      "name": "Logo_Exit@821BA3C0",
+      "module": "shell",
+      "addr": "0x821BA3C0",
+      "symbol": "Logo_Exit",
+      "src": "src/shell_821D1348_Logo_Exit.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "2914096bec04434ac4532a0346699e50f454272e",
+      "role": "Logo/menu element exit: hand the element to the deferred-teardown queue",
+      "note": "Clone of 0x821D1348 found by clones.py once outbound call displacements are normalised. All 11 copies resolve to the SAME callee 0x820735C8 and the same global 0x820619F0, audited from the printed reloc targets -- the bodies differ only in the PC-relative bl field, which ppcmatch compares as masked."
+    },
+    {
+      "name": "Logo_Exit@821BF9F0",
+      "module": "shell",
+      "addr": "0x821BF9F0",
+      "symbol": "Logo_Exit",
+      "src": "src/shell_821D1348_Logo_Exit.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "95e8a36432c17ded5d1ade37a3e6048324778c90",
+      "role": "Logo/menu element exit: hand the element to the deferred-teardown queue",
+      "note": "Clone of 0x821D1348 found by clones.py once outbound call displacements are normalised. All 11 copies resolve to the SAME callee 0x820735C8 and the same global 0x820619F0, audited from the printed reloc targets -- the bodies differ only in the PC-relative bl field, which ppcmatch compares as masked."
+    },
+    {
+      "name": "Logo_Exit@821C1D48",
+      "module": "shell",
+      "addr": "0x821C1D48",
+      "symbol": "Logo_Exit",
+      "src": "src/shell_821D1348_Logo_Exit.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "bf51036f1a29d57da8d8779103249738d6b6b8f3",
+      "role": "Logo/menu element exit: hand the element to the deferred-teardown queue",
+      "note": "Clone of 0x821D1348 found by clones.py once outbound call displacements are normalised. All 11 copies resolve to the SAME callee 0x820735C8 and the same global 0x820619F0, audited from the printed reloc targets -- the bodies differ only in the PC-relative bl field, which ppcmatch compares as masked."
+    },
+    {
+      "name": "Driver_SendRegionConfig@821C4358",
+      "module": "shell",
+      "addr": "0x821C4358",
+      "symbol": "Driver_SendRegionConfig",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 23,
+      "sha1": "548f9e6a419eba90ef489eca42992bc9c9a5e303",
+      "role": "msg 15: hand the game a 16-byte copy of the region config with a -1 terminator",
+      "note": "Clone of 0x821C2DC0 found by clones.py after call-displacement normalisation. All 8 copies resolve to the same memcpy at 0x8207DAC0 and the same g_regionConfig at 0x8220858C, audited from the printed reloc targets."
+    },
+    {
+      "name": "Driver_SendRegionConfig@821C4BD8",
+      "module": "shell",
+      "addr": "0x821C4BD8",
+      "symbol": "Driver_SendRegionConfig",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 23,
+      "sha1": "563d18b1d6d40f65d587467a13837b4f62b234f8",
+      "role": "msg 15: hand the game a 16-byte copy of the region config with a -1 terminator",
+      "note": "Clone of 0x821C2DC0 found by clones.py after call-displacement normalisation. All 8 copies resolve to the same memcpy at 0x8207DAC0 and the same g_regionConfig at 0x8220858C, audited from the printed reloc targets."
+    },
+    {
+      "name": "Driver_SendRegionConfig@821C77E8",
+      "module": "shell",
+      "addr": "0x821C77E8",
+      "symbol": "Driver_SendRegionConfig",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 23,
+      "sha1": "5a25fcecc07317f6cc42e44a244f4d9a72f63af7",
+      "role": "msg 15: hand the game a 16-byte copy of the region config with a -1 terminator",
+      "note": "Clone of 0x821C2DC0 found by clones.py after call-displacement normalisation. All 8 copies resolve to the same memcpy at 0x8207DAC0 and the same g_regionConfig at 0x8220858C, audited from the printed reloc targets."
+    },
+    {
+      "name": "Driver_SendRegionConfig@821C8068",
+      "module": "shell",
+      "addr": "0x821C8068",
+      "symbol": "Driver_SendRegionConfig",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 23,
+      "sha1": "de3d9721e9a36a597a6437594b10f4ae7b3b2007",
+      "role": "msg 15: hand the game a 16-byte copy of the region config with a -1 terminator",
+      "note": "Clone of 0x821C2DC0 found by clones.py after call-displacement normalisation. All 8 copies resolve to the same memcpy at 0x8207DAC0 and the same g_regionConfig at 0x8220858C, audited from the printed reloc targets."
+    },
+    {
+      "name": "Driver_SendRegionConfig@821C88E8",
+      "module": "shell",
+      "addr": "0x821C88E8",
+      "symbol": "Driver_SendRegionConfig",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 23,
+      "sha1": "d7343f2555393779936b231ed6c12d9289f3c807",
+      "role": "msg 15: hand the game a 16-byte copy of the region config with a -1 terminator",
+      "note": "Clone of 0x821C2DC0 found by clones.py after call-displacement normalisation. All 8 copies resolve to the same memcpy at 0x8207DAC0 and the same g_regionConfig at 0x8220858C, audited from the printed reloc targets."
+    },
+    {
+      "name": "Driver_SendRegionConfig@821C9168",
+      "module": "shell",
+      "addr": "0x821C9168",
+      "symbol": "Driver_SendRegionConfig",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 23,
+      "sha1": "e93165f79ca950be5659893a1983ef6b468df91c",
+      "role": "msg 15: hand the game a 16-byte copy of the region config with a -1 terminator",
+      "note": "Clone of 0x821C2DC0 found by clones.py after call-displacement normalisation. All 8 copies resolve to the same memcpy at 0x8207DAC0 and the same g_regionConfig at 0x8220858C, audited from the printed reloc targets."
+    },
+    {
+      "name": "Driver_SendRegionConfig@821C99E8",
+      "module": "shell",
+      "addr": "0x821C99E8",
+      "symbol": "Driver_SendRegionConfig",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 23,
+      "sha1": "bf64d85ce2f880b663ec836364a7a41fc1aa8420",
+      "role": "msg 15: hand the game a 16-byte copy of the region config with a -1 terminator",
+      "note": "Clone of 0x821C2DC0 found by clones.py after call-displacement normalisation. All 8 copies resolve to the same memcpy at 0x8207DAC0 and the same g_regionConfig at 0x8220858C, audited from the printed reloc targets."
+    },
+    {
+      "name": "Dtor_Deleting@820600D0",
+      "module": "shell",
+      "addr": "0x820600D0",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "ce6a9de4dd6485743516c2ec6fc2818bdf2e5658",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821d1398; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82060778",
+      "module": "shell",
+      "addr": "0x82060778",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "d8c58bf54633265c329639e7c6c50f29ec4f7166",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821cdd60; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@820607C8",
+      "module": "shell",
+      "addr": "0x820607C8",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "a5c427e6ade7081c981630ef42b4d48889c325f8",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821cced0; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82060860",
+      "module": "shell",
+      "addr": "0x82060860",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "9506e18a40670881cd14d93bab180a6f838ea6df",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821ccd70; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82060B98",
+      "module": "shell",
+      "addr": "0x82060B98",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "fc4a0cab215e74fdbe2d0a5fdc3617fd81dacded",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821cbab0; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@820614C0",
+      "module": "shell",
+      "addr": "0x820614C0",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "acf09c035792a2822b962787bf78d3e806d80225",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821c9b18; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@820618B0",
+      "module": "shell",
+      "addr": "0x820618B0",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "c3d526d26e27d556c6c29f7e7dabe9ca16eb0aa4",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821c9298; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82061900",
+      "module": "shell",
+      "addr": "0x82061900",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "1d947207db48ff824d60ac0dfc6922eaa1e6c898",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821c8a18; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82061950",
+      "module": "shell",
+      "addr": "0x82061950",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "ba56e13908d0e19cc87fe41c7d7af4a54f3f9d3c",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821c8198; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82061AB8",
+      "module": "shell",
+      "addr": "0x82061AB8",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "facad4b3e838a81fdf4492b46ab4d2314763dbfe",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821c5f70; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82061B08",
+      "module": "shell",
+      "addr": "0x82061B08",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "64b4900361339294c4ce3efa3ddfe7b6c75fb28a",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821c5738; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82061D90",
+      "module": "shell",
+      "addr": "0x82061D90",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "2de8dd0c9658b298bfa129adbb546767d3e8e57f",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821c4d08; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82061DE0",
+      "module": "shell",
+      "addr": "0x82061DE0",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "6cafd2597143fed781ed69d7a619eef343870ac1",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821c4488; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82061E30",
+      "module": "shell",
+      "addr": "0x82061E30",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "e00e1a086a1e72a2e8e87c0615d0c59ef646a4be",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821c34c8; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82061F60",
+      "module": "shell",
+      "addr": "0x82061F60",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "5be63d1b2ff7f0b628bee46dc3efa2e04b1bde4a",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821c1ec0; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@820632C8",
+      "module": "shell",
+      "addr": "0x820632C8",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "f51d64d8beaf4e2589c1444403e18689bbe8c03e",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821bfec8; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@820634D0",
+      "module": "shell",
+      "addr": "0x820634D0",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "216a590a73c5e2964da062de4aa93211f6d4c9d5",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821bfa40; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82063598",
+      "module": "shell",
+      "addr": "0x82063598",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "4470c9f84ed5fa2170bda08cc6878fe58c01819d",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821be960; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@820635E8",
+      "module": "shell",
+      "addr": "0x820635E8",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "4e5e3062fc396bce92a3f62390a273b04320cd1c",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821be788; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82063698",
+      "module": "shell",
+      "addr": "0x82063698",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "37cf5ddd740f84a527f07e878bd71c0590c87e62",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821bea78; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82063A68",
+      "module": "shell",
+      "addr": "0x82063A68",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "f180ac0acb018afd1f07ffd78fbcee8d48c4e212",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821bd5b8; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82063AB8",
+      "module": "shell",
+      "addr": "0x82063AB8",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "15dfdb6bfee4b8eea0c97bf515cd3393afbae738",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821bd2c0; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82063B08",
+      "module": "shell",
+      "addr": "0x82063B08",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "c8d9d136b1c3551cbeaaf89880f55774f825e0a3",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821bbc90; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82063B58",
+      "module": "shell",
+      "addr": "0x82063B58",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "f896b39fac4bfc2db406dc9bd615b91c223f27f2",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821bbc08; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82065208",
+      "module": "shell",
+      "addr": "0x82065208",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "547beaeddf671bd9e221edca2bbb63b805522ea1",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x82065180; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82065258",
+      "module": "shell",
+      "addr": "0x82065258",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "dbb3f508aa8724dbe705f1fdafbdb1895556a845",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821ba410; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82065BA8",
+      "module": "shell",
+      "addr": "0x82065BA8",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "7b452862f23013ea9dada6fcc4e0af9e63bdff23",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821b8a58; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82065BF8",
+      "module": "shell",
+      "addr": "0x82065BF8",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "d43f9ac8b0181147ad938d31a9d25a8b13befd8a",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821b89a0; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82066348",
+      "module": "shell",
+      "addr": "0x82066348",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "c9cfc0aa347076ead78bf8765f78112145a7eb50",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821b5c28; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82067178",
+      "module": "shell",
+      "addr": "0x82067178",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "db0ae7604d3c8e9ba7482f66edb22ee040f5ef0f",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821b4b30; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82067450",
+      "module": "shell",
+      "addr": "0x82067450",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "d0a79b5701fc7ff405407894b7ea41a06f4379ab",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821b1c30; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@820675D8",
+      "module": "shell",
+      "addr": "0x820675D8",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "e1ae9048a1b1fe8689614ef5852526e40c74aeed",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821afae0; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82067628",
+      "module": "shell",
+      "addr": "0x82067628",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "0eddc7022a3eb91913d00138acf6f739f29f2b0e",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821af960; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82067678",
+      "module": "shell",
+      "addr": "0x82067678",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "1f000b66b2eb964cc81ee5f2fc242a11bc7ba399",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821acc98; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82067F50",
+      "module": "shell",
+      "addr": "0x82067F50",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "07da8441b405131656e8818543031aee4d3bcbe7",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821a9cc8; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82068B80",
+      "module": "shell",
+      "addr": "0x82068B80",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "836c5d9110eff5cc52ee07a3f3022b394fb288a6",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x8219e3d0; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@820692C8",
+      "module": "shell",
+      "addr": "0x820692C8",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "695929fcc5999efa94a80dd00dfff4e0297b0ec3",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x8219ae10; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@820696F0",
+      "module": "shell",
+      "addr": "0x820696F0",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "1b22ade56b58a3ab6baceaa7bc2a55aa62858956",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x82195070; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82069A80",
+      "module": "shell",
+      "addr": "0x82069A80",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "4184595f25b6613575fe3a7e64f7261e7fc980ea",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x82193120; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82069B38",
+      "module": "shell",
+      "addr": "0x82069B38",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "fb25dd016e7b0fcd42a14add1da3aee92499e2b0",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x82192d80; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@8206AA80",
+      "module": "shell",
+      "addr": "0x8206AA80",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "7b19e39cb3fb292a6f9b54ac6b680f32fc2ffa17",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x82191700; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@8206AAD0",
+      "module": "shell",
+      "addr": "0x8206AAD0",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "95495690315d40664b366809d5f5d70c02a9ac73",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x8218e3e8; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@8206AB20",
+      "module": "shell",
+      "addr": "0x8206AB20",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "4f9358d008ff52b41b7b62e6543d791b9fa178d9",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x8218e328; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@8206AB70",
+      "module": "shell",
+      "addr": "0x8206AB70",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "38abe63276df4bdb4fc43a70bcf54467ce2ef0b5",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x8218e188; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@8206ABC0",
+      "module": "shell",
+      "addr": "0x8206ABC0",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "fc7bdc089a86d5aeefa8fe55ce2a60010d1ae8c7",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x8218e0c0; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@8206AC10",
+      "module": "shell",
+      "addr": "0x8206AC10",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "637db73227be6016d8b14f01d5e9477ddcd6d2ae",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x8218df90; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@8206AC60",
+      "module": "shell",
+      "addr": "0x8206AC60",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "4e96f1db1f021da8d8d3cdf5f6c882deacf03259",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x8218dee0; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@8206B010",
+      "module": "shell",
+      "addr": "0x8206B010",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "fea247ce4190e96b9533363362702cd424a70a8e",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x8218b338; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@8206B060",
+      "module": "shell",
+      "addr": "0x8206B060",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "6e5cb1eda3e04ac3923b3258ac35f1840c34a0d6",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x8218b250; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@8206B0B0",
+      "module": "shell",
+      "addr": "0x8206B0B0",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "5dffd7012308bd4c80e5efb1a1c115172995faab",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x8218b168; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@8206B100",
+      "module": "shell",
+      "addr": "0x8206B100",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "adf9c3ee38f42f86c54c02dc76992eea80833867",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x8218b070; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@8206B150",
+      "module": "shell",
+      "addr": "0x8206B150",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "f72a8e4108435f2de4e02e1f13f25675e3fce802",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x82189ab8; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@8206B218",
+      "module": "shell",
+      "addr": "0x8206B218",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "1bdc9cf35d9fdb75d77bac85986da92d51d979d5",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821890d0; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@8206BFC0",
+      "module": "shell",
+      "addr": "0x8206BFC0",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "3e4627f741e65702fe00785e6ae7081fcca8b0cb",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x82181f60; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@8206D408",
+      "module": "shell",
+      "addr": "0x8206D408",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "5ce11ac837eabaa4612b0f0ea3be05c07a8e206b",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x8217a740; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@8206D458",
+      "module": "shell",
+      "addr": "0x8206D458",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "8177e6be229f3f3a006f27d6cb88d7c61a8e0760",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x82179930; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82073678",
+      "module": "shell",
+      "addr": "0x82073678",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "38192b505eab04a0bbd56264b5e1ce7476d0397b",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x82173390; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@820736C8",
+      "module": "shell",
+      "addr": "0x820736C8",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "bea319e1d08bd690202b64714197fc17bb7beba8",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821732f0; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82073818",
+      "module": "shell",
+      "addr": "0x82073818",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "0c69493629ad9b649a6baaf43ada8c1185323b4b",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x82073868; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82073A10",
+      "module": "shell",
+      "addr": "0x82073A10",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "00dabe5e2b4f356e067d96a6ef9994c73c2ebede",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x82073a60; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82074670",
+      "module": "shell",
+      "addr": "0x82074670",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "609b7d52ee7ccd5ccd12328fbb992396f8803320",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x82170358; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82075540",
+      "module": "shell",
+      "addr": "0x82075540",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "6dfb850411760cf3f354f486e96373c54ae24ebe",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x8216e970; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82075670",
+      "module": "shell",
+      "addr": "0x82075670",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "97309b289ad47279909518e920642fbfa84784b0",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x8216e5f8; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@820757A0",
+      "module": "shell",
+      "addr": "0x820757A0",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "6221df071b9c543e390e10429b1e6120ba33dd2d",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x8216baf0; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82076050",
+      "module": "shell",
+      "addr": "0x82076050",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "0766f89ba9412c6aac75a22ec49904fc5ec4853a",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x8216a8d0; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82076958",
+      "module": "shell",
+      "addr": "0x82076958",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "dcd5dd660b9cadd6e2d3aad72904320d0924e74f",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x8216a010; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82078888",
+      "module": "shell",
+      "addr": "0x82078888",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "8af4a2f26c9308a8b6687ea02d202c2b2f773d57",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x82167d28; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82078BC8",
+      "module": "shell",
+      "addr": "0x82078BC8",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "000b2ee3a0bedef06765595f4be5f0fb76ae3d28",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x821659c8; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting@82078C98",
+      "module": "shell",
+      "addr": "0x82078C98",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 20,
+      "sha1": "6b8a87ecf1f294e46b1da151956033d72b21e33d",
+      "role": "COMPILER-GENERATED scalar deleting destructor (not a source-level function; MSVC emits one per polymorphic class and places it in the vtable)",
+      "note": "Class destructor at 0x82165b88; operator delete at 0x8207a630 (identical across all 69 copies). The 69 family members differ ONLY in the +7 bl, which ppcmatch compares as masked -- see the header of src/shell_dtor_deleting.cpp for exactly what is and is not proven per address."
+    },
+    {
+      "name": "Dtor_Deleting_O1@82108C68",
+      "module": "shell",
+      "addr": "0x82108C68",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O1",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 19,
+      "sha1": "37c235b3334b2452b34770e8747d47f939372572",
+      "role": "COMPILER-GENERATED scalar deleting destructor, LIBRARY build (-O1): the flags-test fuses into clrlwi. against cr0, one instruction shorter than the -O2 title build",
+      "note": "Class destructor at 0x82108b60; operator delete at 0x82114628 -- note this family calls a DIFFERENT operator delete from the -O2 family's 0x8207A630, consistent with it living in library code. Same source file as the -O2 family, compiled -O1 -Oc; -O2 -Os produces identical bytes. Differs from siblings only in the +7 bl, compared as masked; see the source header."
+    },
+    {
+      "name": "Dtor_Deleting_O1@8210B598",
+      "module": "shell",
+      "addr": "0x8210B598",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O1",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 19,
+      "sha1": "25e88b890ba5a3a1ebf6a36dc7057fd67b2305c6",
+      "role": "COMPILER-GENERATED scalar deleting destructor, LIBRARY build (-O1): the flags-test fuses into clrlwi. against cr0, one instruction shorter than the -O2 title build",
+      "note": "Class destructor at 0x8210b048; operator delete at 0x82114628 -- note this family calls a DIFFERENT operator delete from the -O2 family's 0x8207A630, consistent with it living in library code. Same source file as the -O2 family, compiled -O1 -Oc; -O2 -Os produces identical bytes. Differs from siblings only in the +7 bl, compared as masked; see the source header."
+    },
+    {
+      "name": "Dtor_Deleting_O1@8210E818",
+      "module": "shell",
+      "addr": "0x8210E818",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O1",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 19,
+      "sha1": "626925a5fd196141f5233b386ba966b5c1a923d8",
+      "role": "COMPILER-GENERATED scalar deleting destructor, LIBRARY build (-O1): the flags-test fuses into clrlwi. against cr0, one instruction shorter than the -O2 title build",
+      "note": "Class destructor at 0x8210e7b8; operator delete at 0x82114628 -- note this family calls a DIFFERENT operator delete from the -O2 family's 0x8207A630, consistent with it living in library code. Same source file as the -O2 family, compiled -O1 -Oc; -O2 -Os produces identical bytes. Differs from siblings only in the +7 bl, compared as masked; see the source header."
+    },
+    {
+      "name": "Dtor_Deleting_O1@8210FB98",
+      "module": "shell",
+      "addr": "0x8210FB98",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O1",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 19,
+      "sha1": "212a99c14f952aabc00ace92b4eac0563b15f9a5",
+      "role": "COMPILER-GENERATED scalar deleting destructor, LIBRARY build (-O1): the flags-test fuses into clrlwi. against cr0, one instruction shorter than the -O2 title build",
+      "note": "Class destructor at 0x8210fb20; operator delete at 0x82114628 -- note this family calls a DIFFERENT operator delete from the -O2 family's 0x8207A630, consistent with it living in library code. Same source file as the -O2 family, compiled -O1 -Oc; -O2 -Os produces identical bytes. Differs from siblings only in the +7 bl, compared as masked; see the source header."
+    },
+    {
+      "name": "Dtor_Deleting_O1@821119E0",
+      "module": "shell",
+      "addr": "0x821119E0",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O1",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 19,
+      "sha1": "daa9d248f6c5905f141654f11ee02a725b7dc637",
+      "role": "COMPILER-GENERATED scalar deleting destructor, LIBRARY build (-O1): the flags-test fuses into clrlwi. against cr0, one instruction shorter than the -O2 title build",
+      "note": "Class destructor at 0x82111978; operator delete at 0x82114628 -- note this family calls a DIFFERENT operator delete from the -O2 family's 0x8207A630, consistent with it living in library code. Same source file as the -O2 family, compiled -O1 -Oc; -O2 -Os produces identical bytes. Differs from siblings only in the +7 bl, compared as masked; see the source header."
+    },
+    {
+      "name": "Dtor_Deleting_O1@82113500",
+      "module": "shell",
+      "addr": "0x82113500",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O1",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 19,
+      "sha1": "5d4133655ec88e189e5785c3550da2249258627a",
+      "role": "COMPILER-GENERATED scalar deleting destructor, LIBRARY build (-O1): the flags-test fuses into clrlwi. against cr0, one instruction shorter than the -O2 title build",
+      "note": "Class destructor at 0x821134b0; operator delete at 0x82114628 -- note this family calls a DIFFERENT operator delete from the -O2 family's 0x8207A630, consistent with it living in library code. Same source file as the -O2 family, compiled -O1 -Oc; -O2 -Os produces identical bytes. Differs from siblings only in the +7 bl, compared as masked; see the source header."
+    },
+    {
+      "name": "Dtor_Deleting_O1@82113790",
+      "module": "shell",
+      "addr": "0x82113790",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O1",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 19,
+      "sha1": "6ae9bfd81569698382c242e4f2976089c2f08def",
+      "role": "COMPILER-GENERATED scalar deleting destructor, LIBRARY build (-O1): the flags-test fuses into clrlwi. against cr0, one instruction shorter than the -O2 title build",
+      "note": "Class destructor at 0x82113740; operator delete at 0x82114628 -- note this family calls a DIFFERENT operator delete from the -O2 family's 0x8207A630, consistent with it living in library code. Same source file as the -O2 family, compiled -O1 -Oc; -O2 -Os produces identical bytes. Differs from siblings only in the +7 bl, compared as masked; see the source header."
+    },
+    {
+      "name": "Dtor_Deleting_O1@82114338",
+      "module": "shell",
+      "addr": "0x82114338",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O1",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 19,
+      "sha1": "103ce534bdedecab4dc1c0f82d588e052ea0341e",
+      "role": "COMPILER-GENERATED scalar deleting destructor, LIBRARY build (-O1): the flags-test fuses into clrlwi. against cr0, one instruction shorter than the -O2 title build",
+      "note": "Class destructor at 0x821142e0; operator delete at 0x82114628 -- note this family calls a DIFFERENT operator delete from the -O2 family's 0x8207A630, consistent with it living in library code. Same source file as the -O2 family, compiled -O1 -Oc; -O2 -Os produces identical bytes. Differs from siblings only in the +7 bl, compared as masked; see the source header."
+    },
+    {
+      "name": "Dtor_Deleting_O1@82114CA0",
+      "module": "shell",
+      "addr": "0x82114CA0",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O1",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 19,
+      "sha1": "538dc17a6f8b84efa3b46c56e1e1db63556b10d1",
+      "role": "COMPILER-GENERATED scalar deleting destructor, LIBRARY build (-O1): the flags-test fuses into clrlwi. against cr0, one instruction shorter than the -O2 title build",
+      "note": "Class destructor at 0x82114a90; operator delete at 0x82114628 -- note this family calls a DIFFERENT operator delete from the -O2 family's 0x8207A630, consistent with it living in library code. Same source file as the -O2 family, compiled -O1 -Oc; -O2 -Os produces identical bytes. Differs from siblings only in the +7 bl, compared as masked; see the source header."
+    },
+    {
+      "name": "Dtor_Deleting_O1@82116A18",
+      "module": "shell",
+      "addr": "0x82116A18",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O1",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 19,
+      "sha1": "ea9de60fb87c45fadc06ec7379121e68e435730c",
+      "role": "COMPILER-GENERATED scalar deleting destructor, LIBRARY build (-O1): the flags-test fuses into clrlwi. against cr0, one instruction shorter than the -O2 title build",
+      "note": "Class destructor at 0x82116320; operator delete at 0x82114628 -- note this family calls a DIFFERENT operator delete from the -O2 family's 0x8207A630, consistent with it living in library code. Same source file as the -O2 family, compiled -O1 -Oc; -O2 -Os produces identical bytes. Differs from siblings only in the +7 bl, compared as masked; see the source header."
+    },
+    {
+      "name": "Dtor_Deleting_O1@82116F18",
+      "module": "shell",
+      "addr": "0x82116F18",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O1",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 19,
+      "sha1": "d0a4ed0178cd5b07b515e660d36a5b90440c20f0",
+      "role": "COMPILER-GENERATED scalar deleting destructor, LIBRARY build (-O1): the flags-test fuses into clrlwi. against cr0, one instruction shorter than the -O2 title build",
+      "note": "Class destructor at 0x82116eb8; operator delete at 0x82114628 -- note this family calls a DIFFERENT operator delete from the -O2 family's 0x8207A630, consistent with it living in library code. Same source file as the -O2 family, compiled -O1 -Oc; -O2 -Os produces identical bytes. Differs from siblings only in the +7 bl, compared as masked; see the source header."
+    },
+    {
+      "name": "Dtor_Deleting_O1@82117BF8",
+      "module": "shell",
+      "addr": "0x82117BF8",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O1",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 19,
+      "sha1": "39f898c569b3cf9eab942342eaf3d66226ca9e52",
+      "role": "COMPILER-GENERATED scalar deleting destructor, LIBRARY build (-O1): the flags-test fuses into clrlwi. against cr0, one instruction shorter than the -O2 title build",
+      "note": "Class destructor at 0x821178f8; operator delete at 0x82114628 -- note this family calls a DIFFERENT operator delete from the -O2 family's 0x8207A630, consistent with it living in library code. Same source file as the -O2 family, compiled -O1 -Oc; -O2 -Os produces identical bytes. Differs from siblings only in the +7 bl, compared as masked; see the source header."
+    },
+    {
+      "name": "Dtor_Deleting_O1@82119430",
+      "module": "shell",
+      "addr": "0x82119430",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O1",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 19,
+      "sha1": "398d6e00caa99f5d2b0a80c2f8f25ae22ff72c3e",
+      "role": "COMPILER-GENERATED scalar deleting destructor, LIBRARY build (-O1): the flags-test fuses into clrlwi. against cr0, one instruction shorter than the -O2 title build",
+      "note": "Class destructor at 0x82118ff0; operator delete at 0x82114628 -- note this family calls a DIFFERENT operator delete from the -O2 family's 0x8207A630, consistent with it living in library code. Same source file as the -O2 family, compiled -O1 -Oc; -O2 -Os produces identical bytes. Differs from siblings only in the +7 bl, compared as masked; see the source header."
+    },
+    {
+      "name": "Dtor_Deleting_O1@82136B38",
+      "module": "shell",
+      "addr": "0x82136B38",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O1",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 19,
+      "sha1": "67bd70501ad9e4642e755072b4f1df62cc9d6158",
+      "role": "COMPILER-GENERATED scalar deleting destructor, LIBRARY build (-O1): the flags-test fuses into clrlwi. against cr0, one instruction shorter than the -O2 title build",
+      "note": "Class destructor at 0x82136940; operator delete at 0x82114628 -- note this family calls a DIFFERENT operator delete from the -O2 family's 0x8207A630, consistent with it living in library code. Same source file as the -O2 family, compiled -O1 -Oc; -O2 -Os produces identical bytes. Differs from siblings only in the +7 bl, compared as masked; see the source header."
+    },
+    {
+      "name": "Dtor_Deleting_O1@82137340",
+      "module": "shell",
+      "addr": "0x82137340",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O1",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 19,
+      "sha1": "0b5ea2564e9ffbfa588aaf5b5242a8c01871c669",
+      "role": "COMPILER-GENERATED scalar deleting destructor, LIBRARY build (-O1): the flags-test fuses into clrlwi. against cr0, one instruction shorter than the -O2 title build",
+      "note": "Class destructor at 0x82136f88; operator delete at 0x82114628 -- note this family calls a DIFFERENT operator delete from the -O2 family's 0x8207A630, consistent with it living in library code. Same source file as the -O2 family, compiled -O1 -Oc; -O2 -Os produces identical bytes. Differs from siblings only in the +7 bl, compared as masked; see the source header."
+    },
+    {
+      "name": "Dtor_Deleting_O1@82138B20",
+      "module": "shell",
+      "addr": "0x82138B20",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O1",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 19,
+      "sha1": "cffa73d193aa0ef476198f31eefcff3dce58d63f",
+      "role": "COMPILER-GENERATED scalar deleting destructor, LIBRARY build (-O1): the flags-test fuses into clrlwi. against cr0, one instruction shorter than the -O2 title build",
+      "note": "Class destructor at 0x821386a8; operator delete at 0x82114628 -- note this family calls a DIFFERENT operator delete from the -O2 family's 0x8207A630, consistent with it living in library code. Same source file as the -O2 family, compiled -O1 -Oc; -O2 -Os produces identical bytes. Differs from siblings only in the +7 bl, compared as masked; see the source header."
+    },
+    {
+      "name": "Dtor_Deleting_O1@82139B88",
+      "module": "shell",
+      "addr": "0x82139B88",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O1",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 19,
+      "sha1": "f76b1d18c77b4ba6eb496c4391164c8d209f4370",
+      "role": "COMPILER-GENERATED scalar deleting destructor, LIBRARY build (-O1): the flags-test fuses into clrlwi. against cr0, one instruction shorter than the -O2 title build",
+      "note": "Class destructor at 0x82139938; operator delete at 0x82114628 -- note this family calls a DIFFERENT operator delete from the -O2 family's 0x8207A630, consistent with it living in library code. Same source file as the -O2 family, compiled -O1 -Oc; -O2 -Os produces identical bytes. Differs from siblings only in the +7 bl, compared as masked; see the source header."
+    },
+    {
+      "name": "Dtor_Deleting_O1@8214E938",
+      "module": "shell",
+      "addr": "0x8214E938",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O1",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 19,
+      "sha1": "c21530e8da660b4471d98f5738bb34f7c267da08",
+      "role": "COMPILER-GENERATED scalar deleting destructor, LIBRARY build (-O1): the flags-test fuses into clrlwi. against cr0, one instruction shorter than the -O2 title build",
+      "note": "Class destructor at 0x8214e620; operator delete at 0x82114628 -- note this family calls a DIFFERENT operator delete from the -O2 family's 0x8207A630, consistent with it living in library code. Same source file as the -O2 family, compiled -O1 -Oc; -O2 -Os produces identical bytes. Differs from siblings only in the +7 bl, compared as masked; see the source header."
+    },
+    {
+      "name": "Dtor_Deleting_O1@82150220",
+      "module": "shell",
+      "addr": "0x82150220",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O1",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 19,
+      "sha1": "5ec7856cc50c488b58d7308c7c691be34b88a5f9",
+      "role": "COMPILER-GENERATED scalar deleting destructor, LIBRARY build (-O1): the flags-test fuses into clrlwi. against cr0, one instruction shorter than the -O2 title build",
+      "note": "Class destructor at 0x8214fd28; operator delete at 0x82114628 -- note this family calls a DIFFERENT operator delete from the -O2 family's 0x8207A630, consistent with it living in library code. Same source file as the -O2 family, compiled -O1 -Oc; -O2 -Os produces identical bytes. Differs from siblings only in the +7 bl, compared as masked; see the source header."
+    },
+    {
+      "name": "Dtor_Deleting_O1@82155BC8",
+      "module": "shell",
+      "addr": "0x82155BC8",
+      "symbol": "??_GElement@@UAAPAXI@Z",
+      "src": "src/shell_dtor_deleting.cpp",
+      "flags": [
+        "-O1",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 19,
+      "sha1": "39b0af90eb2af3848cedafe47a74d59dc3e05b3f",
+      "role": "COMPILER-GENERATED scalar deleting destructor, LIBRARY build (-O1): the flags-test fuses into clrlwi. against cr0, one instruction shorter than the -O2 title build",
+      "note": "Class destructor at 0x82155b08; operator delete at 0x82114628 -- note this family calls a DIFFERENT operator delete from the -O2 family's 0x8207A630, consistent with it living in library code. Same source file as the -O2 family, compiled -O1 -Oc; -O2 -Os produces identical bytes. Differs from siblings only in the +7 bl, compared as masked; see the source header."
+    },
+    {
+      "name": "Driver_SendConfigBlock",
+      "module": "shell",
+      "addr": "0x821C2C58",
+      "symbol": "Driver_SendConfigBlock",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 22,
+      "sha1": "ea2cb999aed26678e41b8dedee3e5624843d0bb3",
+      "role": "msg 15, parameterised: memcpy a caller-supplied 16-byte block, append a caller-supplied terminator word, hand it to the game",
+      "note": "Sibling of Driver_SendRegionConfig, which hardcodes the region config and a -1 terminator. All 8 copies call the same memcpy at 0x8207DAC0 (audited). EXACT on the first attempt."
+    },
+    {
+      "name": "Driver_SendConfigBlock@821C41F0",
+      "module": "shell",
+      "addr": "0x821C41F0",
+      "symbol": "Driver_SendConfigBlock",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 22,
+      "sha1": "0cb4dd0bdc35b2b4869ad43f546de9d869b7d3eb",
+      "role": "msg 15, parameterised: memcpy a caller-supplied 16-byte block, append a caller-supplied terminator word, hand it to the game",
+      "note": "Sibling of Driver_SendRegionConfig, which hardcodes the region config and a -1 terminator. All 8 copies call the same memcpy at 0x8207DAC0 (audited). EXACT on the first attempt."
+    },
+    {
+      "name": "Driver_SendConfigBlock@821C4A70",
+      "module": "shell",
+      "addr": "0x821C4A70",
+      "symbol": "Driver_SendConfigBlock",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 22,
+      "sha1": "39d6267e2a31e9208309b172a6fcd6d76f0979ba",
+      "role": "msg 15, parameterised: memcpy a caller-supplied 16-byte block, append a caller-supplied terminator word, hand it to the game",
+      "note": "Sibling of Driver_SendRegionConfig, which hardcodes the region config and a -1 terminator. All 8 copies call the same memcpy at 0x8207DAC0 (audited). EXACT on the first attempt."
+    },
+    {
+      "name": "Driver_SendConfigBlock@821C7680",
+      "module": "shell",
+      "addr": "0x821C7680",
+      "symbol": "Driver_SendConfigBlock",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 22,
+      "sha1": "5ebaf7ba64763fdba2e9b7e1897478743811fb46",
+      "role": "msg 15, parameterised: memcpy a caller-supplied 16-byte block, append a caller-supplied terminator word, hand it to the game",
+      "note": "Sibling of Driver_SendRegionConfig, which hardcodes the region config and a -1 terminator. All 8 copies call the same memcpy at 0x8207DAC0 (audited). EXACT on the first attempt."
+    },
+    {
+      "name": "Driver_SendConfigBlock@821C7F00",
+      "module": "shell",
+      "addr": "0x821C7F00",
+      "symbol": "Driver_SendConfigBlock",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 22,
+      "sha1": "476511b5ef8505862933f975a4b2f8cd89488c8a",
+      "role": "msg 15, parameterised: memcpy a caller-supplied 16-byte block, append a caller-supplied terminator word, hand it to the game",
+      "note": "Sibling of Driver_SendRegionConfig, which hardcodes the region config and a -1 terminator. All 8 copies call the same memcpy at 0x8207DAC0 (audited). EXACT on the first attempt."
+    },
+    {
+      "name": "Driver_SendConfigBlock@821C8780",
+      "module": "shell",
+      "addr": "0x821C8780",
+      "symbol": "Driver_SendConfigBlock",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 22,
+      "sha1": "44c6014644ca2927b7789d779a7f70bb33cd810e",
+      "role": "msg 15, parameterised: memcpy a caller-supplied 16-byte block, append a caller-supplied terminator word, hand it to the game",
+      "note": "Sibling of Driver_SendRegionConfig, which hardcodes the region config and a -1 terminator. All 8 copies call the same memcpy at 0x8207DAC0 (audited). EXACT on the first attempt."
+    },
+    {
+      "name": "Driver_SendConfigBlock@821C9000",
+      "module": "shell",
+      "addr": "0x821C9000",
+      "symbol": "Driver_SendConfigBlock",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 22,
+      "sha1": "a689d3af242f04952c86db6bf0a2aa22f38844f5",
+      "role": "msg 15, parameterised: memcpy a caller-supplied 16-byte block, append a caller-supplied terminator word, hand it to the game",
+      "note": "Sibling of Driver_SendRegionConfig, which hardcodes the region config and a -1 terminator. All 8 copies call the same memcpy at 0x8207DAC0 (audited). EXACT on the first attempt."
+    },
+    {
+      "name": "Driver_SendConfigBlock@821C9880",
+      "module": "shell",
+      "addr": "0x821C9880",
+      "symbol": "Driver_SendConfigBlock",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 22,
+      "sha1": "18017ad0bb25eb428a2f15851b6e93ceabd956cc",
+      "role": "msg 15, parameterised: memcpy a caller-supplied 16-byte block, append a caller-supplied terminator word, hand it to the game",
+      "note": "Sibling of Driver_SendRegionConfig, which hardcodes the region config and a -1 terminator. All 8 copies call the same memcpy at 0x8207DAC0 (audited). EXACT on the first attempt."
+    },
+    {
+      "name": "Driver_Start",
+      "module": "shell",
+      "addr": "0x821C3280",
+      "symbol": "Driver_Start",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 30,
+      "sha1": "807e7080398377562c66744f51830f42059195a0",
+      "role": "msg 5, START: run a once-only first-start hook behind two global gates, stage a value into the driver, then send msg 5 and hand the result on",
+      "note": "All 7 copies call the same 0x82184CC8 and 0x821C54F8 and reference the same three globals (audited from the resolved relocs). EXACT on the first attempt."
+    },
+    {
+      "name": "Driver_Start@821C4818",
+      "module": "shell",
+      "addr": "0x821C4818",
+      "symbol": "Driver_Start",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 30,
+      "sha1": "69807b9678dec62f2628e445e7f779d9f141a51e",
+      "role": "msg 5, START: run a once-only first-start hook behind two global gates, stage a value into the driver, then send msg 5 and hand the result on",
+      "note": "All 7 copies call the same 0x82184CC8 and 0x821C54F8 and reference the same three globals (audited from the resolved relocs). EXACT on the first attempt."
+    },
+    {
+      "name": "Driver_Start@821C7CA8",
+      "module": "shell",
+      "addr": "0x821C7CA8",
+      "symbol": "Driver_Start",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 30,
+      "sha1": "0a58117b3a69ef4ac3122decf8da8c41e24145a9",
+      "role": "msg 5, START: run a once-only first-start hook behind two global gates, stage a value into the driver, then send msg 5 and hand the result on",
+      "note": "All 7 copies call the same 0x82184CC8 and 0x821C54F8 and reference the same three globals (audited from the resolved relocs). EXACT on the first attempt."
+    },
+    {
+      "name": "Driver_Start@821C8528",
+      "module": "shell",
+      "addr": "0x821C8528",
+      "symbol": "Driver_Start",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 30,
+      "sha1": "fbef8033b9baa352f5ee2808c32c938ca4940d6c",
+      "role": "msg 5, START: run a once-only first-start hook behind two global gates, stage a value into the driver, then send msg 5 and hand the result on",
+      "note": "All 7 copies call the same 0x82184CC8 and 0x821C54F8 and reference the same three globals (audited from the resolved relocs). EXACT on the first attempt."
+    },
+    {
+      "name": "Driver_Start@821C8DA8",
+      "module": "shell",
+      "addr": "0x821C8DA8",
+      "symbol": "Driver_Start",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 30,
+      "sha1": "fbb1f8b720ddd39dc9c9fee9e4ed1179096615ac",
+      "role": "msg 5, START: run a once-only first-start hook behind two global gates, stage a value into the driver, then send msg 5 and hand the result on",
+      "note": "All 7 copies call the same 0x82184CC8 and 0x821C54F8 and reference the same three globals (audited from the resolved relocs). EXACT on the first attempt."
+    },
+    {
+      "name": "Driver_Start@821C9628",
+      "module": "shell",
+      "addr": "0x821C9628",
+      "symbol": "Driver_Start",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 30,
+      "sha1": "2ff1ed0bb1a3b88cd8b2c3b4e7fa7140d57de02a",
+      "role": "msg 5, START: run a once-only first-start hook behind two global gates, stage a value into the driver, then send msg 5 and hand the result on",
+      "note": "All 7 copies call the same 0x82184CC8 and 0x821C54F8 and reference the same three globals (audited from the resolved relocs). EXACT on the first attempt."
+    },
+    {
+      "name": "Driver_Start@821C9EA8",
+      "module": "shell",
+      "addr": "0x821C9EA8",
+      "symbol": "Driver_Start",
+      "src": "src/shell_driver_msgs.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 30,
+      "sha1": "9b14bd0fe8d6af671b6875efe1bab7992adbc2bc",
+      "role": "msg 5, START: run a once-only first-start hook behind two global gates, stage a value into the driver, then send msg 5 and hand the result on",
+      "note": "All 7 copies call the same 0x82184CC8 and 0x821C54F8 and reference the same three globals (audited from the resolved relocs). EXACT on the first attempt."
+    },
+    {
+      "name": "Driver_PublishDesc@821CA580",
+      "module": "shell",
+      "addr": "0x821CA580",
+      "symbol": "Driver_PublishDesc",
+      "src": "src/shell_821CA5B8_Driver_PublishDesc.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 14,
+      "sha1": "0f766345a2d24ee3070092cbc47fcf7ff9d45e69",
+      "role": "Publish one word into the driver-owned record under the engine lock; the callback whose address Driver_Init's msg 1 descriptor carries at +0x18",
+      "note": "EXACT on the first attempt. Identified 0x82208210 as the ENGINE CRITICAL SECTION (it is passed to the 0x821D5384/0x821D5394 pair), correcting Driver_Init where it was first written as a descriptor table."
+    },
+    {
+      "name": "Driver_PublishDesc",
+      "module": "shell",
+      "addr": "0x821CA5B8",
+      "symbol": "Driver_PublishDesc",
+      "src": "src/shell_821CA5B8_Driver_PublishDesc.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 14,
+      "sha1": "c6ba19620367fd20070f78a11af31a49c1de95e7",
+      "role": "Publish one word into the driver-owned record under the engine lock; the callback whose address Driver_Init's msg 1 descriptor carries at +0x18",
+      "note": "EXACT on the first attempt. Identified 0x82208210 as the ENGINE CRITICAL SECTION (it is passed to the 0x821D5384/0x821D5394 pair), correcting Driver_Init where it was first written as a descriptor table."
+    },
+    {
+      "name": "CRscBankMgr_ctor",
+      "module": "shell",
+      "addr": "0x821CDBE8",
+      "symbol": "??0CRscBankMgr@@QAA@XZ",
+      "src": "src/shell_821CDBE8_CRscBankMgr_ctor.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 81,
+      "sha1": "cecd8596343655065e6838dc286da1fed48a3b1c",
+      "role": "CRscBankMgr constructor -- the shell COMPOSITOR FAMILY ROOT named by BACKLOG 'NOW' item 0 (the flicker lane)",
+      "note": "Written from scratch 2026-08-05; no source existed. A C++ CONSTRUCTOR, which is why it needed real class shape rather than a free function. All 12 reloc-masked fields resolved and cross-checked against SPEC_shell_compose_1to1.md: two sub-node vtables (0x8204FA8C, 0x82050348), its own vtable (0x8204FAB8), operator new (0x82079FD8), the CRscIndicator ctor (0x821CDB18), the app-root holder (0x821F85A4) and its first state fn (0x821CD490)."
+    },
+    {
+      "name": "BaseWave_Ctor",
+      "module": "shell",
+      "addr": "0x820EE800",
+      "symbol": "BaseWave_Ctor",
+      "src": "src/shell_820EE800_Wave_Ctor.cpp",
+      "flags": [
+        "-O2",
+        "-Oc"
+      ],
+      "status": "ASM-EXACT",
+      "insn": 27,
+      "sha1": "14c5370e964d5493634450911ecbce675405e38b",
+      "role": "In-memory base wave constructor: run the base ctor, then seat five interface pointers",
+      "note": "registry.toml entry. The emitted store order (0x00,0x0C,0x04,0x08,0x18) is NOT the source order -- writing the assignments that way scores 13/27; plain ascending field order is EXACT. All six orderings of the three middle fields were measured (13/14/14/27/13/14)."
+    }
+  ]
+}

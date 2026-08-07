@@ -1,0 +1,38 @@
+[main]
+file_path = "reco_normal.xex"
+out_directory_path = "out_reco"
+restgprlr_14_address = 0x88071170
+savegprlr_14_address = 0x88071120
+restfpr_14_address = 0x8808827C
+savefpr_14_address = 0x88088230
+switch_table_file_path = "futari_switches.toml"
+
+# LEG-21: gameplay-callback functions XenonRecomp's static analysis missed
+# (indirect-call-only targets). Harvested from SDK oracle live gameplay memory.
+functions = [
+    { address = 0x8810BE18, size = 0x10 },
+    { address = 0x8810C2E8, size = 0x1B8 },
+    { address = 0x8810C4A0, size = 0x14C },
+    { address = 0x8810C920, size = 0x56C },
+    { address = 0x8810DBC0, size = 0x24 },
+    { address = 0x8810E370, size = 0x208 },
+    { address = 0x8810E650, size = 0x5C },
+    { address = 0x8810F000, size = 0x120 },
+    { address = 0x881108E8, size = 0xE8 },
+    { address = 0x88110BF8, size = 0x7E8 },
+    { address = 0x8814D408, size = 0x9BC },
+    { address = 0x881602F0, size = 0x140 },
+    { address = 0x88163CF0, size = 0x6B4 },
+    { address = 0x881A5FA0, size = 0x134 },
+    { address = 0x881A7950, size = 0x208 },
+    { address = 0x881A8B80, size = 0x1D8 },
+    { address = 0x881A96C0, size = 0xA8 },
+    { address = 0x881A97D0, size = 0x1F0 },
+    { address = 0x881A99C0, size = 0x10 },
+    { address = 0x881A9E30, size = 0x2C4 },
+    { address = 0x881E58D8, size = 0x3E4 },
+    { address = 0x881E7A08, size = 0x608 },
+    { address = 0x881E89B8, size = 0xC },
+    { address = 0x881E9350, size = 0x1AC },
+    { address = 0x882295D8, size = 0x404 },
+]

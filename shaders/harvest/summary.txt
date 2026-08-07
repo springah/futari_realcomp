@@ -1,0 +1,4 @@
+type source       dwords  sha1       captures (im_load count)
+ps   0xabd000          15 c402f25f4d cap_replay_screen:1, caps_s8:1  -> ps_00abd000_c402f25f.bin
+vs   0xabc000          39 5d9733d146 cap_replay_screen:71, caps_s8:71  -> vs_00abc000_5d9733d1.bin
+vs   immediate         15 f3e38ba58a caps_s8:1  -> vs_imm_f3e38ba5.bin

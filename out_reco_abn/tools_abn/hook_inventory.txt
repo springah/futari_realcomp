@@ -1,0 +1,168 @@
+=== ALIVE (93) ===
+sub_88072260  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88073BD0  {'out_reco/merged/merged_xex.cpp': ['E8_WRAP']}
+sub_88074328  {'out_reco/merged/merged_xex.cpp': ['SPLIT_WRAP']}
+sub_88074354  {'out_reco/merged/merged_xex.cpp': ['SPLIT_WRAP']}
+sub_88074F98  {'out_reco/merged/merged_xex.cpp': ['R26_BRACKET_WRAP']}
+sub_880753F8  {'out_reco/merged/merged_xex.cpp': ['SLOT_WATCH_WRAP']}
+sub_88075BA8  {'out_reco/merged/merged_xex.cpp': ['R26_BRACKET_WRAP']}
+sub_88075C08  {'out_reco/merged/merged_xex.cpp': ['R26_BRACKET_WRAP']}
+sub_88075EB8  {'out_reco/merged/merged_xex.cpp': ['R26_BRACKET_WRAP']}
+sub_88077E78  {'decomp/game\\nvk_game_hooks.cpp': ['PPC_FUNC', 'PPC_FUNC_IMPL']}
+sub_880781C8  {'out_reco/merged/merged_xex.cpp': ['R26_BRACKET_WRAP']}
+sub_8807A1E0  {'out_reco/merged/merged_xex.cpp': ['SLOT_WATCH_WRAP']}
+sub_8807A578  {'out_reco/merged/merged_xex.cpp': ['SLOT_WATCH_WRAP'], 'decomp/game\\nvk_game_hooks.cpp': ['PPC_FUNC', 'PPC_FUNC_IMPL']}
+sub_8807C0A8  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_8807C7A8  {'out_reco/merged/merged_xex.cpp': ['SLOT_WATCH_WRAP']}
+sub_8807CD20  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_8807D4F8  {'out_reco/merged/merged_xex.cpp': ['R26_BRACKET_WRAP'], 'decomp/game\\nvk_game_hooks.cpp': ['PPC_FUNC', 'PPC_FUNC_IMPL']}
+sub_8807D838  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_8807DD88  {'out_reco/merged/merged_xex.cpp': ['R26_BRACKET_WRAP'], 'decomp/game\\nvk_game_hooks.cpp': ['PPC_FUNC', 'PPC_FUNC_IMPL']}
+sub_8807ECA0  {'decomp/game\\nvk_game_hooks.cpp': ['PPC_FUNC', 'PPC_FUNC_IMPL']}
+sub_88080298  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88080A00  {'out_reco/merged/merged_xex.cpp': ['SLOT_WATCH_WRAP']}
+sub_88082BF0  {'out_reco/merged/merged_xex.cpp': ['CLOB_WRAP']}
+sub_88082BF8  {'out_reco/merged/merged_xex.cpp': ['CLOB_WRAP']}
+sub_88082C38  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88082CA8  {'out_reco/merged/merged_xex.cpp': ['CLOB_WRAP']}
+sub_88082D48  {'out_reco/merged/merged_xex.cpp': ['E8_WRAP']}
+sub_88082F98  {'out_reco/merged/merged_xex.cpp': ['E8_WRAP']}
+sub_88083030  {'out_reco/merged/merged_xex.cpp': ['E8_WRAP']}
+sub_88083170  {'out_reco/merged/merged_xex.cpp': ['E8_WRAP']}
+sub_880831C0  {'out_reco/merged/merged_xex.cpp': ['E8_WRAP']}
+sub_88083200  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_880832C8  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_880836D0  {'out_reco/merged/merged_xex.cpp': ['E8_WRAP']}
+sub_88084F18  {'out_reco/merged/merged_xex.cpp': ['SPLIT_WRAP']}
+sub_88087F88  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_8808B330  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_8808D1B8  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_8808DA28  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_8808E740  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_8808E780  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_8808EFA8  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_8808F098  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_8808F150  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_8808F1E8  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_8808F2C0  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_8808F548  {'out_reco/merged/merged_xex.cpp': ['CLOB_WRAP']}
+sub_8808F6C0  {'out_reco/merged/merged_xex.cpp': ['E8_WRAP']}
+sub_8808F798  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_8808FA68  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_8808FB90  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_8808FDF8  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88090360  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88090480  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88090588  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_880906D8  {'out_reco/merged/merged_xex.cpp': ['CLOB_WRAP']}
+sub_88090A00  {'out_reco/merged/merged_xex.cpp': ['TB_WRAP']}
+sub_88090F38  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88091068  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88091210  {'out_reco/merged/merged_xex.cpp': ['TB_WRAP']}
+sub_88091288  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88091448  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_880918B0  {'out_reco/merged/merged_xex.cpp': ['TB_WRAP']}
+sub_88091DE8  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88092228  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88092460  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_880927A8  {'out_reco/merged/merged_xex.cpp': ['E8_WRAP']}
+sub_880928D8  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_880929C8  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88092B20  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88092B80  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88092C28  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88092ED8  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88093418  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88093760  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_880937C8  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88093830  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_880938F0  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88093950  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_880939F0  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_880957A8  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_880A3CA8  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_880A3F98  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_880A4190  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_880A4628  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_880A4B20  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_880E3128  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_880E3888  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_880FFCE8  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88100280  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_881383A0  {'out_reco/merged/merged_xex.cpp': ['SM_WRAP']}
+sub_8813A738  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_8814B930  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+
+=== DEAD (72) ===
+sub_880E31B0  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_880E4948  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_880E49D8  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_880EA968  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_880EE880  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_880F1448  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['SM_WRAP']}
+sub_880FA720  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_880FBB08  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88100588  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_881025D0  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88103048  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88104230  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88131C30  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_881325C8  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_881332E8  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_881339C8  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88133B68  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['SM_WRAP']}
+sub_88133DB0  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88134048  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88135D20  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88135D98  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88136460  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['SM_WRAP']}
+sub_881366D0  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88136A58  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88136BC8  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88136FF0  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88137320  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88137498  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88137708  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88137C28  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88137ED8  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88138BA8  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['SM_WRAP']}
+sub_88138C30  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['SM_WRAP']}
+sub_88138CE0  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['SM_WRAP']}
+sub_88138D68  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['TB_WRAP']}
+sub_88138E38  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88138F00  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88139A88  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['DECODER_LOG_WRAP']}
+sub_88139D90  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['DECODER_LOG_WRAP']}
+sub_8813A118  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['DECODER_LOG_WRAP']}
+sub_8813A248  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['DECODER_LOG_WRAP']}
+sub_8813A3C0  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['SM_WRAP']}
+sub_8813A4D0  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['TB_WRAP']}
+sub_8813A5F0  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_8813AEC8  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['SM_WRAP']}
+sub_8814B378  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_8814BF10  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_8814D400  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_8814F558  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_8814FDF8  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_881526C0  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88152738  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_881527B8  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88152900  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88152B00  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88152C60  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88152CF0  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_881538C0  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_881602F0  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88163CF0  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88168C80  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88168D48  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88168F98  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_881EB1F0  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_881EF798  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_881F0BC8  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_881F1968  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88226EB0  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_88227220  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_882272E8  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_8822BE60  needs___imp__=True  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC']}
+sub_8824E698  needs___imp__=False  {'out_reco/merged/merged_xex.cpp': ['PPC_FUNC'], 'decomp/game\\game_entry_msgs.cpp': ['PPC_FUNC_IMPL']}

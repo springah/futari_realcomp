@@ -1,0 +1,29 @@
+[main]
+file_path = "default.xex"
+out_directory_path = "gen"
+restgprlr_14_address = 0x8207C9A0
+savegprlr_14_address = 0x8207C950
+restfpr_14_address = 0x8208037C
+savefpr_14_address = 0x82080330
+restvmx_14_address = 0x8215AD08
+savevmx_14_address = 0x8215AA70
+restvmx_64_address = 0x8215AD9C
+savevmx_64_address = 0x8215AB04
+switch_table_file_path = "shell_switches.toml"
+functions = [
+    { address = 0x8219D5E0, size = 0x8 },
+    { address = 0x8207BEF8, size = 0x48 },
+    { address = 0x8208164C, size = 0x184 },
+    { address = 0x82081874, size = 0x94 },
+    { address = 0x820819EC, size = 0x288 },
+    { address = 0x82081C80, size = 0x128 },
+    { address = 0x82082304, size = 0x214 },
+    { address = 0x82082604, size = 0x7C },
+    { address = 0x8208BE80, size = 0x5C4 },
+    { address = 0x8208D00C, size = 0x854 },
+    { address = 0x820E6668, size = 0x188 },
+    { address = 0x820EB260, size = 0x190 },
+    { address = 0x82108BB0, size = 0x7C },
+    { address = 0x82122AC8, size = 0x68 },
+    { address = 0x821367C0, size = 0x15C },
+]
