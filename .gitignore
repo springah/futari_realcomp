@@ -58,3 +58,6 @@ reference/
 
 # --- External dependencies are their own git repos, cloned/vendored separately ---
 external/
+
+# Claude Code worktree symlinks — machine-local, not project content
+.claude/worktrees/
