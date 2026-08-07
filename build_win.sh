@@ -1,5 +1,5 @@
 #!/bin/bash
-# build_win.sh — NATIVE WINDOWS build of futari_merged.exe.
+# build_win.sh — NATIVE WINDOWS build of build/futari_merged.exe.
 #   clang++ -target x86_64-pc-windows-msvc + lld-link + the COFF .lib deps in
 #   ../xr-derisk/build-win. Port of build_merged.sh. Run from git-bash.
 #
@@ -14,6 +14,7 @@
 # skipped), so no Vulkan SDK is needed yet.
 set -u
 cd "$(dirname "$0")"
+mkdir -p build
 CXX="/c/Program Files/LLVM/bin/clang++.exe"
 DERISK="external/xr-derisk"
 VKSDK=$(ls -d /c/VulkanSDK/*/ 2>/dev/null | sort -V | tail -1)   # newest installed Vulkan SDK
@@ -33,14 +34,14 @@ GAME_INC="-I out_reco -I $DERISK/XenonUtils -I $DERISK/thirdparty/simde"
 SHELL_INC="-I shell/gen -I out_reco -I $DERISK/thirdparty/simde"
 XS="-D_xstart=_xstart_shell -D__imp___xstart=__imp___xstart_shell"
 RT="-include out_reco/rt_indirect.h"
-mkdir -p obj_win
-rm -f obj_win/*.o obj_win/*.err futari_merged.exe
+mkdir -p build/obj_win
+rm -f build/obj_win/*.o build/obj_win/*.err build/futari_merged.exe
 
 i=0
 sem(){ i=$((i+1)); if [ $((i%12)) -eq 0 ]; then wait; fi; }
 cc(){ # name  src  flags...
   local name="$1" src="$2"; shift 2
-  ( "$CXX" $STD "$@" -c "$src" -o "obj_win/$name.o" 2>"obj_win/$name.err" || echo "FAILED: $name" ) &
+  ( "$CXX" $STD "$@" -c "$src" -o "build/obj_win/$name.o" 2>"build/obj_win/$name.err" || echo "FAILED: $name" ) &
   sem
 }
 
@@ -96,16 +97,16 @@ echo "== Vulkan renderer (vk_render, RT_VK-gated) =="
 cc "vk_render" "render/vk_render.cpp" -I "${VKSDK}Include"
 
 wait
-NOBJ=$(ls obj_win/*.o 2>/dev/null | wc -l)
+NOBJ=$(ls build/obj_win/*.o 2>/dev/null | wc -l)
 echo "objects: $NOBJ"
 FAILED=0
-for e in obj_win/*.err; do if grep -q ' error' "$e" 2>/dev/null || grep -q 'error:' "$e" 2>/dev/null; then echo "--- $e ---"; grep -A2 'error' "$e" | head -12; FAILED=1; fi; done
+for e in build/obj_win/*.err; do if grep -q ' error' "$e" 2>/dev/null || grep -q 'error:' "$e" 2>/dev/null; then echo "--- $e ---"; grep -A2 'error' "$e" | head -12; FAILED=1; fi; done
 if [ "$FAILED" -ne 0 ]; then echo "COMPILE_INCOMPLETE"; exit 1; fi
 
 echo "== LINK (lld-link /FORCE:MULTIPLE, game+merged first) =="
 "$CXX" --target=x86_64-pc-windows-msvc -fuse-ld=lld -O2 -std=c++20 \
-  $(ls obj_win/decomp_*.o 2>/dev/null) obj_win/game_*.o obj_win/merged_game.o obj_win/merged_bridge.o obj_win/merged_shell.o obj_win/vk_render.o obj_win/shell_*.o obj_win/shellkernel_*.o \
-  -o futari_merged.exe \
+  $(ls build/obj_win/decomp_*.o 2>/dev/null) build/obj_win/game_*.o build/obj_win/merged_game.o build/obj_win/merged_bridge.o build/obj_win/merged_shell.o build/obj_win/vk_render.o build/obj_win/shell_*.o build/obj_win/shellkernel_*.o \
+  -o build/futari_merged.exe \
   "$DERISK/build-win/XenonUtils/XenonUtils.lib" \
   "$DERISK/build-win/XenonAnalyse/LibXenonAnalyse.lib" \
   "$DERISK/build-win/thirdparty/disasm/disasm.lib" \
@@ -114,5 +115,5 @@ echo "== LINK (lld-link /FORCE:MULTIPLE, game+merged first) =="
   "${VKSDK}Lib/vulkan-1.lib" \
   thirdparty/sdl3/lib/SDL3-static.lib -luser32 -lole32 -lwinmm -limm32 -loleaut32 -lversion -ladvapi32 -lsetupapi -lshell32 -lgdi32 -luuid \
   -Xlinker /FORCE:MULTIPLE \
-  -Xlinker /MAP:futari_merged.map \
-  2>obj_win/link.err && echo "LINK_OK -> futari_merged.exe" || { echo "LINK_FAILED"; tail -50 obj_win/link.err; }
+  -Xlinker /MAP:build/futari_merged.map \
+  2>build/obj_win/link.err && echo "LINK_OK -> build/futari_merged.exe" || { echo "LINK_FAILED"; tail -50 build/obj_win/link.err; }

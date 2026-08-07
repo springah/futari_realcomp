@@ -32,6 +32,7 @@ temporary scaffolding, not solutions.
 | `scripts/` | Drive, capture and legacy build scripts. |
 | `docs/` | Design notes, specs, and the campaign ledger. |
 | `reference/` | Reference material: Ghidra databases, audio references, reference screenshots. |
+| `build/` | **Gitignored.** Every build product: object dirs, executables, module DLLs. Delete it freely; it regenerates. |
 | `_local/` | **Gitignored.** Captures, logs, test saves, build output, banked evidence, and archived scratch. Nothing here is needed to build or run. |
 
 ## Building (Windows)
@@ -44,7 +45,8 @@ bash build_win.sh        # combined executable
 bash build_win_dll.sh    # combined executable + the two module DLLs
 ```
 
-Build products land at the repo root and are gitignored.
+All build products — objects, executables, DLLs — land in `build/`, which is gitignored.
+The repository root stays clean: a README and three build scripts.
 
 ## Documentation
 

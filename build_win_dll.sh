@@ -1,16 +1,16 @@
 #!/bin/bash
-# build_win_dll.sh — the COMBINED exe: ONE futari_combined.exe hosting BOTH 1.5 modes as
+# build_win_dll.sh — the COMBINED exe: ONE build/futari_combined.exe hosting BOTH 1.5 modes as
 # runtime-loadable module DLLs.
 #
-#   futari_combined.exe      the module-agnostic host (shell + kernel + renderer + bridge)
-#   futari_game_normal.dll   reco_normal   (ARCADE,    modeIdx 0)  <- out_reco/
-#   futari_game_abn.dll      reco_abnormal (XBOX 360,  modeIdx 1)  <- out_reco_abn/
+#   build/futari_combined.exe      the module-agnostic host (shell + kernel + renderer + bridge)
+#   build/futari_game_normal.dll   reco_normal   (ARCADE,    modeIdx 0)  <- out_reco/
+#   build/futari_game_abn.dll      reco_abnormal (XBOX 360,  modeIdx 1)  <- out_reco_abn/
 #
 # L4+L5 of _tmpscripts/dll_packaging_plan.md.  Notes: _tmpscripts/l4l5_combined_notes.md.
 #
 # ############################################################################################
 # # THIS SCRIPT IS PURELY ADDITIVE.  It touches NEITHER build_win.sh NOR build_win_abn.sh,   #
-# # and it writes to obj_dll_*/ — never obj_win/ or obj_win_abn/.  The two per-module exes   #
+# # and it writes to obj_dll_*/ — never build/obj_win/ or build/obj_win_abn/.  The two per-module exes   #
 # # are the beta1 FALLBACK and must keep linking and booting; nothing here can affect them.  #
 # ############################################################################################
 #
@@ -38,6 +38,7 @@
 # Run from git-bash.  cwd-independent.
 set -u
 cd "$(dirname "$0")"
+mkdir -p build
 CXX="/c/Program Files/LLVM/bin/clang++.exe"
 DERISK="external/xr-derisk"
 VKSDK=$(ls -d /c/VulkanSDK/*/ 2>/dev/null | sort -V | tail -1)
@@ -59,18 +60,18 @@ banner(){ echo; echo "=============== $* ==============="; }
 #    once; that is a feature (it keeps the ABI honest against real objects, not against a list).
 # --------------------------------------------------------------------------------------------
 banner "0. generate host ABI + module shims"
-if [ ! -d obj_win ] || [ ! -d obj_win_abn ]; then
-  echo "!! obj_win/ and obj_win_abn/ must exist (run build_win.sh and build_win_abn.sh once)"; exit 1
+if [ ! -d build/obj_win ] || [ ! -d build/obj_win_abn ]; then
+  echo "!! build/obj_win/ and build/obj_win_abn/ must exist (run build_win.sh and build_win_abn.sh once)"; exit 1
 fi
-python tools/gen_host_abi.py --objdir obj_win     --moddir out_reco     --module 0 || exit 1
-python tools/gen_host_abi.py --objdir obj_win_abn --moddir out_reco_abn --module 1 || exit 1
+python tools/gen_host_abi.py --objdir build/obj_win     --moddir out_reco     --module 0 || exit 1
+python tools/gen_host_abi.py --objdir build/obj_win_abn --moddir out_reco_abn --module 1 || exit 1
 
 # --------------------------------------------------------------------------------------------
 # 1. HOST EXE
 # --------------------------------------------------------------------------------------------
-banner "1. HOST EXE (futari_combined.exe)"
-OBJ=obj_dll_host
-mkdir -p "$OBJ"; rm -f "$OBJ"/*.o "$OBJ"/*.err futari_combined.exe
+banner "1. HOST EXE (build/futari_combined.exe)"
+OBJ=build/obj_dll_host
+mkdir -p "$OBJ"; rm -f "$OBJ"/*.o "$OBJ"/*.err build/futari_combined.exe
 STD="$BASE -DFUTARI_COMBINED=1"
 GI="-I out_reco -I $DERISK/XenonUtils -I $DERISK/thirdparty/simde"
 SI="-I shell/gen -I out_reco -I $DERISK/thirdparty/simde"
@@ -122,7 +123,7 @@ echo "-- link"
   $(ls "$OBJ"/decomp_*.o) "$OBJ"/game_*.o "$OBJ"/host_module_registry.o \
   "$OBJ"/merged_bridge.o "$OBJ"/merged_shell.o "$OBJ"/vk_render.o \
   "$OBJ"/shell_*.o "$OBJ"/shellkernel_*.o \
-  -o futari_combined.exe \
+  -o build/futari_combined.exe \
   "$DERISK/build-win/XenonUtils/XenonUtils.lib" \
   "$DERISK/build-win/XenonAnalyse/LibXenonAnalyse.lib" \
   "$DERISK/build-win/thirdparty/disasm/disasm.lib" \
@@ -131,7 +132,7 @@ echo "-- link"
   "${VKSDK}Lib/vulkan-1.lib" \
   thirdparty/sdl3/lib/SDL3-static.lib -luser32 -lole32 -lwinmm -limm32 -loleaut32 -lversion -ladvapi32 -lsetupapi -lshell32 -lgdi32 -luuid \
   -Xlinker /FORCE:MULTIPLE -Xlinker /errorlimit:0 \
-  2>"$OBJ"/link.err && echo "LINK_OK -> futari_combined.exe" || {
+  2>"$OBJ"/link.err && echo "LINK_OK -> build/futari_combined.exe" || {
     echo "LINK_FAILED"; grep 'undefined symbol' "$OBJ"/link.err | sort -u | head -30; tail -20 "$OBJ"/link.err; exit 1; }
 
 # --------------------------------------------------------------------------------------------
@@ -155,7 +156,7 @@ echo "-- link"
 #
 #   (2) ★ A PRE-EXISTING SHADOW NOBODY HAD MEASURED.  sub_8807A578 / sub_8807D4F8 / sub_8807DD88
 #       carry a strong PPC_FUNC in BOTH decomp/game/nvk_game_hooks.cpp AND merged_game.cpp.
-#       Verified in the SHIPPING objects (llvm-nm obj_win/): both define all three.  decomp_*.o
+#       Verified in the SHIPPING objects (llvm-nm build/obj_win/): both define all three.  decomp_*.o
 #       is first on build_win.sh's link line, so decomp wins and merged_game's wrappers —
 #       including R26_BRACKET_WRAP(sub_8807D4F8) — are SILENTLY DEAD in both shipping exes
 #       today.  This is the exact "shadowed-hook landmine" PILOT_NOTES §2 warns about, live on
@@ -170,7 +171,7 @@ echo "-- link"
 build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extra decomp dirs
   local NAME="$1" TREE="$2" MIDX="$3" OUT="$4"; shift 4
   banner "2. MODULE DLL $OUT  ($NAME, modeIdx $MIDX, tree $TREE)"
-  OBJ="obj_dll_$NAME"
+  OBJ="build/obj_dll_$NAME"
   mkdir -p "$OBJ"; rm -f "$OBJ"/*.o "$OBJ"/*.err "$OUT"
   STD="$BASE -DFUTARI_MODULE=$MIDX -DFUTARI_IN_MODULE_DLL=1"
   GI="-I $TREE -I $DERISK/XenonUtils -I $DERISK/thirdparty/simde"
@@ -214,9 +215,9 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
       tail -20 "$OBJ"/link.err; fail=1; }
 }
 
-build_dll reco_normal   out_reco     0 futari_game_normal.dll
-build_dll reco_abnormal out_reco_abn 1 futari_game_abn.dll
+build_dll reco_normal   out_reco     0 build/futari_game_normal.dll
+build_dll reco_abnormal out_reco_abn 1 build/futari_game_abn.dll
 
 banner "SUMMARY"
-ls -la futari_combined.exe futari_game_normal.dll futari_game_abn.dll 2>/dev/null
+ls -la build/futari_combined.exe build/futari_game_normal.dll build/futari_game_abn.dll 2>/dev/null
 [ $fail -eq 0 ] && echo "BUILD_OK — combined exe + 2 module DLLs" || { echo "BUILD_INCOMPLETE"; exit 1; }

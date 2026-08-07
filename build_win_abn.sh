@@ -4,13 +4,13 @@
 #   reco_abnormal static recompilation in out_reco_abn/ instead of reco_normal's out_reco/.
 #   reco_abnormal.xex = Ver 1.5 "Xbox 360 mode" / MODULE_154_3_HI / modeIdx 1.
 #
-# Variant of ../build_win.sh (which is UNTOUCHED and still builds futari_merged.exe).
+# Variant of ../build_win.sh (which is UNTOUCHED and still builds build/futari_merged.exe).
 # Differences, all of them:
 #   * GAME tree            out_reco/*.cpp            -> out_reco_abn/*.cpp
 #   * include path         -I out_reco               -> -I out_reco_abn      (game AND shell)
 #   * forced include       out_reco/rt_indirect.h    -> out_reco_abn/rt_indirect.h
-#   * object dir           obj_win/                  -> obj_win_abn/
-#   * output               futari_merged.exe         -> futari_merged_v154hi.exe
+#   * object dir           build/obj_win/                  -> build/obj_win_abn/
+#   * output               build/futari_merged.exe         -> futari_merged_v154hi.exe
 #   * forced include       + out_reco_abn/abn_symbol_map.h on the HOST hook TUs only (see below)
 #   * -D                   + GA_DSHIFT=0x60u on the 4 shared TUs that read load-bearing guest
 #                            .data addresses (merged_xex, shell/gen/rt.cpp, shell/gen/stubs.cpp,
@@ -46,11 +46,12 @@
 # Run from git-bash.  cwd-independent: cds to xr-work.
 set -u
 cd "$(dirname "$0")"   # 2026-08-07: promoted from _tmpscripts/ to the repo root
+mkdir -p build
 CXX="/c/Program Files/LLVM/bin/clang++.exe"
 DERISK="external/xr-derisk"
 OUT="out_reco_abn"
 EXE="futari_merged_v154hi.exe"
-OBJ="obj_win_abn"
+OBJ="build/obj_win_abn"
 VKSDK=$(ls -d /c/VulkanSDK/*/ 2>/dev/null | sort -V | tail -1)   # newest installed Vulkan SDK
 # -DFUTARI_MODULE=1 selects the reco_abnormal descriptor in host/futari_module_desc.h (L3/E4 of
 # _tmpscripts/dll_packaging_plan.md).  It REPLACES -DGAME_ENTRY_ORD1_VAL and

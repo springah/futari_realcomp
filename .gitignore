@@ -13,9 +13,11 @@ dlc/
 _local/
 
 # --- Build products ---
+# Everything the build emits goes to build/. The obj_*/ and root-binary rules below are a
+# belt-and-braces catch for anything that escapes it.
+build/
 obj/
 obj_*/
-build/
 *.exe
 *.dll
 *.lib
