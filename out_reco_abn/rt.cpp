@@ -814,8 +814,14 @@ PPC_FUNC_IMPL(__imp__NtSetEvent){ LOGN("NtSetEvent");
   // [evt14] trace the file-manager WORK event end-to-end (post-boot starvation forensics)
   if(rt_evt14_trace && ctx.r3.u32==0x50000014u) std::fprintf(stderr,"[evt14] SET lr=0x%X\n",(uint32_t)ctx.lr);
   // [evt34] frame-lock forensics (2026-07-23 sequencer leg): count sets on the game frame event.
+  // 08-12 tick/present lane: wall-ms added so consecutive prints give a windowed tick rate
+  // (delta-ms / 600 = ms per frame grant) — the welded-vs-decoupled discriminator when run
+  // against RT_PRESENT_THROTTLE_MS (vk_render.cpp).
   if(ctx.r3.u32==0x50000034u){ extern std::atomic<long long> g_evt34_sets; long long s=g_evt34_sets.fetch_add(1)+1;
-    if(s<=3||s%600==0) std::fprintf(stderr,"[evt34] SET #%lld lr=0x%X tid=%ld\n",s,(uint32_t)ctx.lr,xr_gettid()); }
+    if(s<=3||s%600==0){
+      static const auto t0=std::chrono::steady_clock::now();
+      long long ms=std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()-t0).count();
+      std::fprintf(stderr,"[evt34] SET #%lld lr=0x%X tid=%ld ms=%lld\n",s,(uint32_t)ctx.lr,xr_gettid(),ms); } }
   rt_setev(ctx.r3.u32); ctx.r3.u32=0; (void)base; }
 std::atomic<long long> g_evt34_sets{0};
 std::atomic<long long> g_evt34_consumes{0};

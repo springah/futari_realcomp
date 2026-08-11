@@ -1,5 +1,40 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
 
+## ★★★★★★★ 08-12 — **THE ABN FRAME CLOCK IS FOUND, ATTRIBUTED, AND THE WELD IS MEASURED:
+## 59.94Hz free ↔ 15.6Hz at a 15.6/s present. Guest logic follows present 1:1.**
+
+**THE CLOCK:** the abn per-frame grant is NtSetEvent(0x50000034) via sub_88082BF8 (thin
+wrapper, lr 0x88082C0C), waiter consumes at lr 0x8808334C — ONE setter, ONE waiter, lockstep
+(sets==consumes across every run, no drops/double-grants). The grant family is the SAME
+addresses as reco_normal (sub_8808FA68 grant / sub_8808FB90 wait — static map from
+out_reco_abn recomp), executed on a SHELL thread on the PRESENT path. The msg-5 pump levers
+(RT_GAMEPUMP/RT_GAMEPUMP_VBLANK) never engage on abn (g_game_tick_modectx=0) — they were the
+wrong altitude; evt34 was the right one all along.
+
+**THE MEASUREMENT (weld_probe.sh round 3, nav-driven, both cases green end-to-end):**
+- [evt34] SET stamped every 600th (wall-ms; out_reco/rt.cpp is the /FORCE:MULTIPLE link winner
+  — the out_reco_abn twin carries the same stamp; round-2 lesson: patching only the abn copy
+  is INERT in the combined build).
+- FREE: 600 grants / 10,010ms x5 consecutive windows = 16.68ms/grant = **59.94Hz exact**.
+- RT_PRESENT_THROTTLE_MS=50 (new DIAGNOSTIC lever, vk_render.cpp nvk_frame_submit entry):
+  600 grants / ~38.4s x5 = 64ms/grant = **15.6/s at ~15.6 presents/s. WELDED 1:1.**
+⇒ The panel's severity thesis is CONFIRMED on the abn path with its real clock: on Deck-class
+hardware 360-mode gameplay runs slow by construction. FNF-5 is correctness, not perf.
+
+**NAV LIBRARY hardened en route (round-2 failures were both library robustness):** card-decide
+now RETRIES on dwell-refusal (an unfocused/compositor-throttled window stretches the 180-FRAME
+gate in wall time — a 3.6s dwell that passed 5x got refused on run 6), and swap evidence
+accepts XexLoadImage (the DONE marker lags under throttle). Round 3: 10/10 assertions green
+across free AND throttled profiles. NAV_CARD_DWELL/NAV_LAND_SETTLE/NAV_SWAP_WAIT env-tunable.
+
+⏭ NEXT LEG — THE DECOUPLING DESIGN: rehost the 0x50000034 grant onto the 59.94Hz vblank
+thread, REPLACING the present-path grant (not adding — the 07-17 vbpump_owns pattern is the
+shape). Prereqs to read first: (a) find the present-path call site that reaches sub_8808FA68
+(who calls it, from where in the shell present chain); (b) the guest's own catch-up/skip
+semantics when a grant is missed (does the setter clamp? does the waiter accumulate?) — the
+grant must not double-fire when render is FASTER than 60. Accept via weld_probe: throttled
+grants must hold ~59.94 while presents crawl; then full gate stack + user eyes on pacing feel.
+
 ## ★★★★★ 08-11 LATE-NIGHT — **TICK/PRESENT LANE OPENED, and the first measurement REFRAMES IT:
 ## the msg-5 pump machinery is INERT on the 360/abn path.**
 

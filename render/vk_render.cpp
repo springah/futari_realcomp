@@ -10605,6 +10605,12 @@ extern "C" void nvk_tex_prefetch(uint32_t base, uint32_t w, uint32_t h, uint32_t
 }
 
 extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
+  // ★ RT_PRESENT_THROTTLE_MS=<n> (08-12 tick/present lane, DIAGNOSTIC ONLY, default off):
+  // sleep n ms per present on the guest render thread — simulates a slow GPU (Deck-class) so
+  // the welded-vs-decoupled question is answerable on this fast box: if the [evt34] frame-grant
+  // rate follows the throttled present rate, guest logic is welded to the present path.
+  { static const int thrMs = std::getenv("RT_PRESENT_THROTTLE_MS") ? atoi(std::getenv("RT_PRESENT_THROTTLE_MS")) : 0;
+    if (thrMs > 0) std::this_thread::sleep_for(std::chrono::milliseconds(thrMs)); }
   std::lock_guard<std::mutex> lk(g_mtx);
   if (g.failed) return;
   if (!g.ok && !initVk()) {

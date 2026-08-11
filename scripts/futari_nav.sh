@@ -36,10 +36,23 @@ nav_card_decide(){ # $1 = arcade|360 ; $2 = 1 if a module swap is expected
   nav_wait_new '92E8 bind' 10 "card panel open" || return 1
   # ⚠ the panel ALWAYS resets to the ARCADE card (NAV_MAP) — LEFT only for 360.
   [ "$1" = "360" ] && { nav_press 4 0.25 0.3; nav_say "LEFT -> Xbox 360 card"; }
-  sleep 3.6   # card-panel dwell gate (FUN_821bd1b8 0xB4 = 3.0s; margin)
+  sleep "${NAV_CARD_DWELL:-3.6}"   # card-panel dwell gate: 0xB4=180 FRAMES (3.0s at 60fps) — a
+  # welded-slow present OR an unfocused/compositor-throttled window stretches it in wall time
+  # (08-12: a 3.6s dwell that passed 5x was refused on run 6 — frame-rate variance, not timing
+  # luck). So the decide is RETRIED: a refused A is harmless (the panel just stays up).
   nav_base; nav_press 1000 0.35 2.0
   if [ "${2:-0}" = "1" ]; then
-    nav_wait_new 'modswap\] #[0-9]* DONE' 40 "module swap for $1 card" || return 1
+    # swap evidence = the DONE line OR the XexLoadImage that precedes it (under a throttled
+    # present the DONE marker can lag the wait window while the module is already ticking).
+    local _try _pref=$NAV_FAILS
+    for _try in 1 2 3; do
+      if nav_wait_new 'modswap] #[0-9]* DONE\|XexLoadImage' "${NAV_SWAP_WAIT:-40}" "module swap for $1 card (try $_try)"; then
+        NAV_FAILS=$_pref; break
+      fi
+      [ "$_try" = "3" ] && return 1
+      nav_say "decide likely dwell-refused — extra dwell + re-decide"
+      sleep 5; nav_base; nav_press 1000 0.35 2.0
+    done
   fi
   nav_say "card '$1' decided"
 }
@@ -47,7 +60,7 @@ nav_card_decide(){ # $1 = arcade|360 ; $2 = 1 if a module swap is expected
 # Active probe per NAV_MAP: DOWN moves a cursor only at Mode Select ([mcur] fires); a title
 # ignores it. Blind START here is the 2P trap — never.
 nav_360_land_to_modeselect(){
-  sleep 40   # module/ROM settle
+  sleep "${NAV_LAND_SETTLE:-40}"   # module/ROM settle (stretches if logic is welded-slow)
   nav_base; nav_press 2 0.15 1.2
   if nav_new | grep -aq '\[mcur\]'; then
     nav_say "landing probe: MODE SELECT (cursor moved) — restoring"
