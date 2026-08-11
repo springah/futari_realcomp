@@ -10609,8 +10609,13 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
   // sleep n ms per present on the guest render thread — simulates a slow GPU (Deck-class) so
   // the welded-vs-decoupled question is answerable on this fast box: if the [evt34] frame-grant
   // rate follows the throttled present rate, guest logic is welded to the present path.
+  // ⚠ FIELD-GATED (08-12): only throttle when the GAMEPLAY FIELD is active — otherwise the slow
+  // present breaks card-panel/menu FIFO input timing and the scripted 360 selection can't land
+  // (measured: the LEFT-to-360 press dropped, drive fell back to arcade). Menus present full
+  // speed; only gameplay is slowed, which is exactly the regime the decoupling proof needs.
   { static const int thrMs = std::getenv("RT_PRESENT_THROTTLE_MS") ? atoi(std::getenv("RT_PRESENT_THROTTLE_MS")) : 0;
-    if (thrMs > 0) std::this_thread::sleep_for(std::chrono::milliseconds(thrMs)); }
+    if (thrMs > 0 && g_base && __builtin_bswap32(*(const uint32_t*)(g_base + GA_FIELD_ACTIVE)) != 0u)
+      std::this_thread::sleep_for(std::chrono::milliseconds(thrMs)); }
   std::lock_guard<std::mutex> lk(g_mtx);
   if (g.failed) return;
   if (!g.ok && !initVk()) {

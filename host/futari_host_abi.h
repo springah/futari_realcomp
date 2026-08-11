@@ -13,7 +13,7 @@ typedef void FutariPPCFunc(struct PPCContext& __restrict ctx, uint8_t* base);
 
 
 #define FUTARI_HOST_ABI_VERSION 1u
-#define FUTARI_HOST_ABI_HASH    0x1407B3D53FCDAFE8ull
+#define FUTARI_HOST_ABI_HASH    0x7579CC55D4CEFDD3ull
 
 // Handed to the DLL once, at FutariModuleBind().  Const to the DLL, owned by the exe.
 struct FutariHostAbi {
@@ -83,7 +83,7 @@ struct FutariHostAbi {
     FutariPPCFunc* imp__vsnprintf;
     FutariPPCFunc* imp_sprintf;
 
-    // ---- 17 host helper functions ----
+    // ---- 19 host helper functions ----
     void (*fn_nvk_ev)(const char* fn, unsigned long long r3, unsigned long long r4, unsigned long long r5, unsigned long long r6, unsigned long long r7, unsigned long long r8, unsigned long long r9);   // nvk_ev: decomp/shell/nvk.cpp
     int (*fn_nvk_mode)(void);   // nvk_mode: decomp/shell/nvk.cpp
     void (*fn_nvk_on_clear)(unsigned colorARGB);   // nvk_on_clear: decomp/shell/nvk.cpp
@@ -96,6 +96,8 @@ struct FutariHostAbi {
     void (*fn_rt_audio_bridge_play)(int bankType, int waveIdx);   // rt_audio_bridge_play: shell/gen/rt_audio.cpp
     int (*fn_rt_audio_cuebridge_enabled)(void);   // rt_audio_cuebridge_enabled: shell/gen/rt_audio.cpp
     void (*fn_rt_audio_stage_play_volume)(int vol64);   // rt_audio_stage_play_volume: shell/gen/rt_audio.cpp — per-play volume staging (round-5 audio leg; merged_game crux)
+    void (*fn_rt_frameclock_disarm)(const char* why);   // rt_frameclock_disarm: shell/gen/rt.cpp — drop vblank frame-clock ownership (msg-3 teardown; also called host-side at module swap)
+    int (*fn_rt_frameclock_present_skip)(void* grantfn);   // rt_frameclock_present_skip: shell/gen/rt.cpp — 08-12 tick/present decoupling: 1 = the 59.94Hz vblank thread owns the ABN frame grant and GameEntry msg-5 must skip the present-path handshake; grantfn is the module's &sub_8808FA68 (void*, cross-module — the shell's rt_lookup can't resolve it)
     void (*fn_rt_indirect_call)(PPCContext& __restrict ctx, uint8_t* base, uint32_t target);   // rt_indirect_call: out_reco/rt.cpp — the checked indirect-call dispatcher; ~191 call sites per module tree
     void (*fn_rt_jankstate_summary)(long long frames, long long slow, long long maxd, long long meand);   // rt_jankstate_summary: merged_shell.cpp
     void (*fn_rt_jankstate_tick)(long long n, long long d_us);   // rt_jankstate_tick: merged_shell.cpp — the L3 stage-1 replacement for the 3 cross-line g_js_* statics

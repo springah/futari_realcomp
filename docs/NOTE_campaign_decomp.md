@@ -1,5 +1,52 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
 
+## ★★★★★★★★ 08-12 — **TICK/PRESENT WELD SEVERED (360 path): the frame clock now runs on a
+## dedicated 59.94Hz thread, DECOUPLED from present. Measured: logic 61.8/s while present 20/s.**
+
+**THE FIX (RT_FRAMECLOCK_VBLANK, default OFF while gating).** The abn frame grant
+(NtSetEvent 0x50000034 via sub_8808FA68 = clear-ack → grant → BLOCK on the game's ack) is
+rehosted onto a DEDICATED frame-clock thread (shell/gen/rt.cpp) that paces it at 59.94Hz with
+an absolute deadline. The abn GameEntry override (decomp/game_abn/game_entry_msgs_abn.cpp,
+msg-5) calls rt_frameclock_present_skip(&sub_8808FA68): arms the clock and SKIPS the
+present-path grant. Disarm at msg-3 teardown + module swap (host/module_registry.cpp).
+
+**PROOF (decouple_proof.sh, exact counters, field-gated 50ms throttle, both on reco_abnormal):**
+- welded (lever off): in-field logic ~16/s ≈ present ~20/s — welded (logic follows present).
+- frameclock (lever on): **logic 61.8/s while present 20.0/s** — DECOUPLED. Logic holds ~60
+  independent of a throttled present. The panel's FNF-5 correctness fix is DEMONSTRATED.
+
+**THE DEBUGGING ARC — five traps, all banked (this cost the evening; do not re-pay):**
+1. CROSS-MODULE rt_lookup: 0x8808FA68 is a GAME-DLL function; the shell's rt_lookup returns
+   NULL for it (first cut: armed but 0 grants → game starved). Fix: the DLL hands the host
+   &sub_8808FA68 via the ABI helper (void*, so gen_host_abi carries no PPC types).
+2. `[nvk] submit` is logged EVERY 300th present (vk_render.cpp `++sub % 300`). Counting log
+   lines said "presents frozen at 0.4/s" — a PHANTOM. It cost a whole redesign detour (though
+   the dedicated thread is the right design anyway). ALWAYS use the frame-number field (f%ld)
+   or a real counter for present rate, never `grep -c` on a rate-limited log line.
+3. The self-freeze that motivated the dedicated thread was that same phantom — presents were
+   ~60/s all along. The dedicated thread is kept because it correctly isolates the blocking
+   ack-wait; it is not a workaround for a freeze that never existed.
+4. The present-throttle BREAKS menu FIFO input (the LEFT-to-360 card press drops) → the drive
+   silently ran ARCADE while a bare `modswap DONE` check believed it was on 360, POISONING a
+   whole measurement. TWO fixes: (a) the throttle is FIELD-GATED (only sleeps when
+   GA_FIELD_ACTIVE — menus present full speed); (b) nav_card_decide now verifies the SPECIFIC
+   module (reco_abnormal / reco_normal via XexLoadImage), never a bare modswap.
+5. rt_setup_thread_ctx ALLOCATES a fresh guest stack (~256KB) per call — the dedicated thread
+   sets up its context ONCE and reuses it (FA68 restores r1 net-zero), or it would leak
+   ~15MB/s.
+
+⚠ SHIP-PHASE DEBT (lever still default-OFF): if a module swap happens WHILE the dedicated
+thread is blocked in FA68's infinite ack-wait, disarm can't unblock it (parked in the host
+wait-stub) → crash risk when it returns into unloaded module code. Cannot happen during gating
+(lever off; measurement runs never swap-while-armed; swapbounce runs lever-off). Before ship:
+give the ack-wait a timeout OR poke the ack event at disarm. Also: ARCADE (reco_normal) is
+still welded — the seam is abn-only; the reco_normal override needs the same skip() for arcade
+decoupling. And RT_FRAMECLOCK_VBLANK must stay OFF until the swap-debt is closed + gated + user
+pacing-feel eyes.
+
+⏭ NEXT: swapbounce gate lever-OFF (regression — default-off must not perturb swaps); then the
+ship-phase debt (swap-safe disarm) + arcade seam + user pacing feel before default-on.
+
 ## ★★★★★★★ 08-12 — **THE ABN FRAME CLOCK IS FOUND, ATTRIBUTED, AND THE WELD IS MEASURED:
 ## 59.94Hz free ↔ 15.6Hz at a 15.6/s present. Guest logic follows present 1:1.**
 

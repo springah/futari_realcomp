@@ -116,7 +116,7 @@ PPC_FUNC_IMPL(__imp____C_specific_handler){ g_host->imp___C_specific_handler(ctx
 PPC_FUNC_IMPL(__imp___vsnprintf){ g_host->imp__vsnprintf(ctx, base); }
 PPC_FUNC_IMPL(__imp__sprintf){ g_host->imp_sprintf(ctx, base); }
 
-// ---- 17 host helper thunks ----
+// ---- 19 host helper thunks ----
 extern "C" {
     void nvk_ev(const char* fn, unsigned long long r3, unsigned long long r4, unsigned long long r5, unsigned long long r6, unsigned long long r7, unsigned long long r8, unsigned long long r9) { g_host->fn_nvk_ev(fn, r3, r4, r5, r6, r7, r8, r9); }
     int nvk_mode(void) { return g_host->fn_nvk_mode(); }
@@ -130,6 +130,8 @@ extern "C" {
     void rt_audio_bridge_play(int bankType, int waveIdx) { g_host->fn_rt_audio_bridge_play(bankType, waveIdx); }
     int rt_audio_cuebridge_enabled(void) { return g_host->fn_rt_audio_cuebridge_enabled(); }
     void rt_audio_stage_play_volume(int vol64) { g_host->fn_rt_audio_stage_play_volume(vol64); }
+    void rt_frameclock_disarm(const char* why) { g_host->fn_rt_frameclock_disarm(why); }
+    int rt_frameclock_present_skip(void* grantfn) { return g_host->fn_rt_frameclock_present_skip(grantfn); }
     void rt_indirect_call(PPCContext& __restrict ctx, uint8_t* base, uint32_t target) { g_host->fn_rt_indirect_call(ctx, base, target); }
     void rt_jankstate_summary(long long frames, long long slow, long long maxd, long long meand) { g_host->fn_rt_jankstate_summary(frames, slow, maxd, meand); }
     void rt_jankstate_tick(long long n, long long d_us) { g_host->fn_rt_jankstate_tick(n, d_us); }

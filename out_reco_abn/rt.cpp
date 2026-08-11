@@ -821,7 +821,7 @@ PPC_FUNC_IMPL(__imp__NtSetEvent){ LOGN("NtSetEvent");
     if(s<=3||s%600==0){
       static const auto t0=std::chrono::steady_clock::now();
       long long ms=std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()-t0).count();
-      std::fprintf(stderr,"[evt34] SET #%lld lr=0x%X tid=%ld ms=%lld\n",s,(uint32_t)ctx.lr,xr_gettid(),ms); } }
+      std::fprintf(stderr,"[evt34] SET #%lld lr=0x%X tid=%ld ms=%lld (delta-ms/600 = ms per frame grant)\n",s,(uint32_t)ctx.lr,xr_gettid(),ms); } }
   rt_setev(ctx.r3.u32); ctx.r3.u32=0; (void)base; }
 std::atomic<long long> g_evt34_sets{0};
 std::atomic<long long> g_evt34_consumes{0};

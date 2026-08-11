@@ -42,15 +42,19 @@ nav_card_decide(){ # $1 = arcade|360 ; $2 = 1 if a module swap is expected
   # luck). So the decide is RETRIED: a refused A is harmless (the panel just stays up).
   nav_base; nav_press 1000 0.35 2.0
   if [ "${2:-0}" = "1" ]; then
-    # swap evidence = the DONE line OR the XexLoadImage that precedes it (under a throttled
-    # present the DONE marker can lag the wait window while the module is already ticking).
+    # ⚠ VERIFY THE RIGHT MODULE (08-12): a LEFT press dropped under throttle picks the ARCADE
+    # card, and matching a bare 'modswap DONE' let the drive silently run reco_normal while
+    # believing it was on 360 (poisoned a whole frameclock measurement). The 360 case MUST see
+    # reco_abnormal; the arcade case reco_normal. XexLoadImage carries the module name.
+    local _want='reco_normal'; [ "$1" = "360" ] && _want='reco_abnormal'
     local _try _pref=$NAV_FAILS
     for _try in 1 2 3; do
-      if nav_wait_new 'modswap] #[0-9]* DONE\|XexLoadImage' "${NAV_SWAP_WAIT:-40}" "module swap for $1 card (try $_try)"; then
+      if nav_wait_new "$_want" "${NAV_SWAP_WAIT:-40}" "$1 card -> $_want (try $_try)"; then
         NAV_FAILS=$_pref; break
       fi
-      [ "$_try" = "3" ] && return 1
-      nav_say "decide likely dwell-refused — extra dwell + re-decide"
+      [ "$_try" = "3" ] && { nav_say "FAIL: $1 card never loaded $_want (wrong card picked?)"; return 1; }
+      nav_say "decide likely dwell-refused or wrong card — re-LEFT + extra dwell + re-decide"
+      [ "$1" = "360" ] && nav_press 4 0.25 0.3   # re-assert the 360 card
       sleep 5; nav_base; nav_press 1000 0.35 2.0
     done
   fi

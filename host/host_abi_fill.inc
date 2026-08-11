@@ -79,6 +79,8 @@ extern "C" {
     void rt_audio_bridge_play(int bankType, int waveIdx);
     int rt_audio_cuebridge_enabled(void);
     void rt_audio_stage_play_volume(int vol64);
+    void rt_frameclock_disarm(const char* why);
+    int rt_frameclock_present_skip(void* grantfn);
     void rt_indirect_call(PPCContext& __restrict ctx, uint8_t* base, uint32_t target);
     void rt_jankstate_summary(long long frames, long long slow, long long maxd, long long meand);
     void rt_jankstate_tick(long long n, long long d_us);
@@ -169,6 +171,8 @@ static FutariHostAbi futari_build_host_abi(uint8_t* base) {
     a.fn_rt_audio_bridge_play = &rt_audio_bridge_play;
     a.fn_rt_audio_cuebridge_enabled = &rt_audio_cuebridge_enabled;
     a.fn_rt_audio_stage_play_volume = &rt_audio_stage_play_volume;
+    a.fn_rt_frameclock_disarm = &rt_frameclock_disarm;
+    a.fn_rt_frameclock_present_skip = &rt_frameclock_present_skip;
     a.fn_rt_indirect_call = &rt_indirect_call;
     a.fn_rt_jankstate_summary = &rt_jankstate_summary;
     a.fn_rt_jankstate_tick = &rt_jankstate_tick;

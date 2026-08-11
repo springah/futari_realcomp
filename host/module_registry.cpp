@@ -25,6 +25,10 @@
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+
+// 08-12 frame-clock ownership (shell/gen/rt.cpp) — dropped at swap so the vblank thread can
+// never block on a dying module's handshake ack.
+extern "C" void rt_frameclock_disarm(const char* why);
 #else
 // Mac/Deck are post-alpha (plan §7); the dlopen arm lands with them.  Keep the file compiling.
 #define MAX_PATH 260
@@ -175,6 +179,11 @@ extern "C" int futari_registry_switch(const FutariModuleDesc* d, uint8_t* base) 
     std::fprintf(stderr, "\n[modswap] #%ld  %s -> %s   (modeIdx %u -> %u)\n", sn,
                  cur ? cur->module_basename : "(none)", d->module_basename,
                  cur ? cur->hosted_mode_idx : 0xFFFFFFFFu, d->hosted_mode_idx);
+
+    // ★ 08-12 frame-clock: drop vblank-thread grant ownership BEFORE the module goes away —
+    // the handshake blocks on the game main's ack, and a mid-swap grant would hang the vblank
+    // thread on a module that will never answer. No-op when RT_FRAMECLOCK_VBLANK is off.
+    rt_frameclock_disarm("modswap");
 
     // -- 1. host caches keyed on GUEST ADDRESSES are now lying: the same address holds a
     //       different module's art.  Drop them BEFORE the arena is touched.  The renderer's

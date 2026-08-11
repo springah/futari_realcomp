@@ -77,6 +77,16 @@ PPC_EXTERN_FUNC(sub_8808F098);
 PPC_EXTERN_FUNC(sub_8808EFA8);
 PPC_EXTERN_FUNC(sub_8808EEC8);
 
+// ★ 2026-08-12 tick/present decoupling seam (RT_FRAMECLOCK_VBLANK — host ABI helpers, resolved
+// via tools/gen_host_abi.py). With the lever OFF, rt_frameclock_present_skip() returns 0 and
+// this translation is behaviorally IDENTICAL to the matched body. With it ON, the 59.94Hz
+// vblank thread owns the msg-5 frame handshake (shell/gen/rt.cpp) and the present path skips
+// it here — the measured weld (grants tracking present 1:1, ledger 08-12) is severed.
+// grantfn arg: the module hands the host its OWN &sub_8808FA68 (a game-DLL function the shell's
+// rt_lookup can't resolve). Passed as void* so the generated host ABI carries no PPC types.
+extern "C" int rt_frameclock_present_skip(void* grantfn);
+extern "C" void rt_frameclock_disarm(const char* why);
+
 namespace {
 // lis/addi address arithmetic sign-extends into the 64-bit register; mirror it exactly for
 // every register value handed to a callee (callees address with .u32, but stay bit-true).
@@ -252,12 +262,20 @@ PPC_FUNC_IMPL(__imp__sub_8824E6A0) {
         ctx.lr = 0x8824E878; sub_8808FDF8(ctx, base);       // @8824E874 events + worker spawn
         break; }
     case 2:                                       // ---- msg 3 BOOT-SHUTDOWN @8824E884 ----
+        rt_frameclock_disarm("msg3 teardown");    // ★ 08-12: vblank thread must never block on
+                                                  //   a dying module's ack (lever seam, no-op off)
         ctx.lr = 0x8824E888; sub_8808FAB8(ctx, base);       // (r3=arg)
         ctx.lr = 0x8824E88C; sub_8808FF58(ctx, base);
         ctx.lr = 0x8824E890; sub_8808D930(ctx, base);
         break;
     case 4:                                       // ---- msg 5 FRAME RENDER @8824E89C ----
-        ctx.lr = 0x8824E8A0; sub_8808FA68(ctx, base);       // handshake (r3=arg)
+        // ★ 08-12 decoupling seam: with RT_FRAMECLOCK_VBLANK armed, the 59.94Hz vblank thread
+        // performs the handshake (shell/gen/rt.cpp) and the present path skips it — the render
+        // build below stays HERE at present rate. Lever off => skip() returns 0 => matched
+        // behavior, byte-identical flow.
+        if (!rt_frameclock_present_skip((void*)&sub_8808FA68)) {
+            ctx.lr = 0x8824E8A0; sub_8808FA68(ctx, base);   // handshake (FA68 ignores incoming r3)
+        }
         ctx.lr = 0x8824E8A4; sub_8808E468(ctx, base);       // per-frame draw/param block
         break;
     case 5:                                       // ---- msg 6 @8824E8B0: *arg = &0x887AD634 ----

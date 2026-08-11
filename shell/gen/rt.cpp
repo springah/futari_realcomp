@@ -1240,6 +1240,11 @@ PPC_FUNC_IMPL(__imp__VdSetGraphicsInterruptCallback){ LOGN("VdSetGraphicsInterru
             }
           }
         }
+        // (08-12 tick/present decoupling: the frame grant was FIRST tried here on the vblank
+        // thread — but FA68 BLOCKS on the game's ack, monopolizing this thread and starving the
+        // present/audio/graphics-int duties it also drives (measured: presents collapsed to
+        // ~0.4/s). The grant now lives on a DEDICATED frame-clock thread started below, so this
+        // thread keeps its cadence. See g_frameclock_* + rt_frameclock_present_skip.)
         // RT_FSMLOG independent 60Hz sampler: the select FSM state block is sampled from the vblank
         // thread every tick REGARDLESS of where the game is actually pumped (present-path RT_GAMEPUMP,
         // vblank RT_GAMEPUMP_VBLANK, or the natural vbisr/shell chain). This is the decoupling probe:
@@ -1251,8 +1256,78 @@ PPC_FUNC_IMPL(__imp__VdSetGraphicsInterruptCallback){ LOGN("VdSetGraphicsInterru
           rt_fsmlog(B,"s60"); rt_reveallog(B); }
       }
     }).detach();
+
+    // ★ DEDICATED FRAME-CLOCK THREAD (2026-08-12 tick/present decoupling). Started once alongside
+    // the vblank pump; idles until armed. When armed it paces the ABN frame grant (sub_8808FA68:
+    // set frame event + BLOCK on the game's ack) at 59.94Hz on ITS OWN thread, so the blocking
+    // ack-wait never touches the vblank/present/audio thread. An absolute deadline prevents drift;
+    // if a game frame runs long (>16.68ms) the clock degrades gracefully (no debt accumulation),
+    // exactly as the console's vblank-paced logic would. The context is set up ONCE and reused —
+    // rt_setup_thread_ctx allocates a fresh guest stack per call (~256KB), so per-grant setup would
+    // leak; FA68 restores r1 (stwu/addi net-zero) so reuse is safe.
+    // ⚠ LEVER-GATED CREATION (08-12): only spawn this thread when the lever is on. With it off
+    // (ship default / swapbounce), creating an idle extra thread perturbed the thread-count gate
+    // (P4 18/19). Default-off must be byte-for-behavior identical to before the frameclock existed.
+    if(getenv("RT_FRAMECLOCK_VBLANK") && atoi(getenv("RT_FRAMECLOCK_VBLANK"))!=0)
+    std::thread([B](){
+      PPCContext fc{}; rt_setup_thread_ctx(fc,B);
+      typedef void (*FrameGrantFn)(PPCContext&, uint8_t*);
+      extern std::atomic<int> g_frameclock_armed;
+      extern std::atomic<void*> g_frameclock_grantfn;
+      const auto period = std::chrono::nanoseconds(16683350);   // 1/59.94 s
+      auto next = std::chrono::steady_clock::now();
+      long long n=0;
+      for(;;){
+        if(!g_frameclock_armed.load(std::memory_order_acquire)){
+          std::this_thread::sleep_for(std::chrono::milliseconds(2));
+          next = std::chrono::steady_clock::now();               // reset cadence on re-arm
+          continue;
+        }
+        void* gf = g_frameclock_grantfn.load(std::memory_order_acquire);
+        if(!gf){ std::this_thread::sleep_for(std::chrono::milliseconds(1)); next=std::chrono::steady_clock::now(); continue; }
+        // reset the guest stack pointer each grant (FA68 restores it, but a stale r1 from a
+        // disarm/re-arm across a module swap must not leak downward)
+        fc.r1.u64 = fc.r13.u64 + (0xAB0+0x100+0x2E0+0x40000);    // PCR+TLS+TEB+STK top (matches setup)
+        ((FrameGrantFn)gf)(fc,B);                                // grant + block on game ack HERE
+        ++n; if(n<=3||(n%600)==0) std::fprintf(stderr,"  [frameclock] grant #%lld @59.94Hz%c",n,10);
+        next += period;
+        auto now = std::chrono::steady_clock::now();
+        if(next > now) std::this_thread::sleep_until(next);
+        else next = now;                                         // fell behind: don't accumulate debt
+      }
+    }).detach();
   }
   ctx.r3.u32=0; (void)base; }
+// ★ frame-clock ownership state (2026-08-12 tick/present decoupling). Armed = the DEDICATED
+// frame-clock thread (above) owns the ABN frame grant; the present path's msg-5 handshake is
+// skipped. Lever RT_FRAMECLOCK_VBLANK (default OFF while gating). The DLL reaches these through
+// the generated host ABI (tools/gen_host_abi.py HELPERS).
+std::atomic<int> g_frameclock_armed{0};
+std::atomic<void*> g_frameclock_grantfn{nullptr};   // &sub_8808FA68 from the abn override (cross-module)
+// grantfn: the game module's own frame-grant function (&sub_8808FA68), passed as void* so the
+// generated host ABI stays free of PPC types. The dedicated thread casts it back and calls it.
+extern "C" int rt_frameclock_present_skip(void* grantfn){
+  static int on = -1;
+  if(on<0){ const char* e=getenv("RT_FRAMECLOCK_VBLANK"); on=(e&&atoi(e)!=0)?1:0; }
+  if(!on) return 0;                       // lever off: byte-identical behavior, grant stays put
+  if(!g_frameclock_armed.load(std::memory_order_acquire)){
+    g_frameclock_grantfn.store(grantfn,std::memory_order_release);   // publish BEFORE arming
+    g_frameclock_armed.store(1,std::memory_order_release);
+    std::fprintf(stderr,"  [frameclock] ARMED — dedicated thread owns the frame grant (grantfn=%p)\n", grantfn);
+  }
+  // ALWAYS skip the present-path grant once the lever is on (even the first call): the dedicated
+  // thread owns ALL grants. If the present path also granted the first frame, two threads would
+  // race the same frame/ack events. The frame event is a flag, not a rendezvous, so the dedicated
+  // thread's grant is safe even before the game main enters its wait loop (the ack just lands late
+  // on the first frame). Matches the proven RT_GAMEPUMP_VBLANK "skip the present pump" pattern.
+  return 1;
+}
+extern "C" void rt_frameclock_disarm(const char* why){
+  if(g_frameclock_armed.exchange(0)){
+    g_frameclock_grantfn.store(nullptr,std::memory_order_release);
+    std::fprintf(stderr,"  [frameclock] DISARM (%s)\n", why?why:"?");
+  }
+}
 PPC_FUNC_IMPL(__imp__ExCreateThread){ LOGN("ExCreateThread");
   uint32_t hp=ctx.r3.u32, tip=ctx.r5.u32, start=ctx.r7.u32, sctx=ctx.r8.u32, flags=ctx.r9.u32;
   RtThread* th=new RtThread(); th->suspended=(flags&1)!=0; uint32_t h=rt_add(th); uint8_t* B=base;
