@@ -1,5 +1,74 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
 
+## ★★★★★★★ 08-11 RESUME LEG — **PROJECT RESUMED (user ruling); MODEL RE-REAFFIRMED =
+## UNLEASHEDRECOMP (rexglue-free native PC Futari). CONSUME-SIDE LANE OPENED. And the 08-07
+## "scripted card-decide refusal" is ROOT-CAUSED: it was OUR OWN modestub L2 VETO — the drive
+## ran the WRONG EXE.**
+
+**DIRECTION (Fable verdict, user-accepted):** byte-EXACT matching (matchlab gate grind /
+register-allocation hunt) overshoots the UnleashedRecomp model — demoted to a VERIFICATION TOOL
+for hand-written native replacements (rt_phys etc.). Ship-shaped order: (1) consume-side
+texid→page defect, (2) tick/present frame boundary, (3) hot-swap family. `gate.py` stays a
+progress metric, not a ship metric (08-07 ruling reconfirmed).
+
+**NEW INSTRUMENT — `RVK_QUADCENSUS` (vk_render.cpp, nvk draw loop; in BOTH builds).** One-shot
+per-quad census of an armed frame: every stream event in order (SETRT/RESOLVE/CLEAR + draws),
+and per draw the bound texture base, served idx, `<RESOLVE` flag, and the XY/UV bbox decoded
+from the draw's OWN vertex bytes (x,y at +0/+4; u,v at +12/+16 when stride >= 20). Armed by
+`touch /tmp/rvk_quad_now` (same discipline as rvk_dump_now), `RVK_QUADCENSUS=1` enables,
+`RVK_QUADCENSUS_K` frames (default 2). Purpose: at the corrupted select screen, separate
+(a) paste-back strips drawn at WRONG POSITIONS (guest/placement side) from (b) plate-base draws
+SERVED a resolve entry (host/serving side). One armed frame decides arm (c)'s split.
+
+**THE 08-07 "SECOND DEFECT" IS NOT AN INPUT DEFECT — MISATTRIBUTION CORRECTED.** Measured
+2026-08-11, three probe runs (`_local/_tmpscripts/card360_probe.sh`, eyes-free, log-verdict):
+- The FIFO input layer is EXONERATED: all presses generate + deliver keystrokes ([xinput]
+  press/delivered pairs), and the guest consumes them (menu transitions follow each press).
+- The bounce-to-TOP-MENU on the 360-card decide is **[modestub] L2 VETO** (merged_shell.cpp
+  :4011, beta1 07-31, working as designed): `futari_merged.exe` hosts modeIdx mask **0x01**
+  (reco_normal only) — the 360 card folds to modeIdx=1, the stub takes the guest's own
+  out-of-range branch back to 1D50 (ACTIVE). Log line: `[modestub] L2 VETO#1 7CC0 ...
+  modeIdx=1; this build hosts mask 0x01 ... no phase 6, no module load`.
+- The user's real-pad successes ran `futari_combined.exe` (EYEBALL launcher) which hosts mask
+  **0x03** — same drive on combined shows NO veto. ⇒ **360-path drives MUST use
+  build/futari_combined.exe.** Never diff behavior across the two exes without checking the
+  hosted-mode mask first.
+- ⚠ TWO MORE DRIVE LANDMINES found en route: (i) fixed sleeps misalign on combined (slower DLL
+  boot: LEFT landed in load-wait, "decide" A merely opened the panel) — probe now polls the
+  guest's own [mstate]/[engst] markers before each press; (ii) `mark`-style `>>` appends into a
+  log the exe holds open as stderr get OVERWRITTEN by the exe's tracked offset — probe marks
+  must go to stdout, not the log.
+- DECOMP BANKED on the way: the card panel (state 0x82061D70) has a **3.0s dwell gate** —
+  FUN_8218bad8 (launcher), FUN_821bd1b8 (generic gate), FUN_82186738 all refuse the panel
+  advance until obj+0x100 (frames-in-state) >= 0xB4=180; other callers use 0x3C/0x2D/0.
+  Scripted decides must dwell >= 3s on the panel.
+
+✅ **SCRIPTED 360 LAUNCH CONFIRMED (same day, state-driven probe on combined):** decide passes
+the dwell gate (`[itemsm] 0x82065A78 -> 0x82065A88`) and the module loads —
+`[xex] XexLoadImage("game:\media\Module\reco_abnormal.xex") -> resident hmodule=0x88000000`,
+entry ord=1 = 0x8824E6A0. **The "Xbox 360" card = reco_abnormal.xex.** Post-load the shell
+parks ([modegate] gate=CLOSED mode78=0) until the in-shell nav continues — that is the normal
+summon → NORMAL PLAY → join flow, not a wedge.
+**EXTENDED DRIVE RESULT (same day, run 4): CENSUS MECHANISM PROVEN, TWO GAPS FOUND.**
+`[quadcensus]` armed at f7568 and captured 122 draws in stream order with full identity
+(SETRT/RESOLVE segmentation, tex base, served idx, `<RESOLVE` flag, blend). Gaps:
+- ⚠ **GEOMETRY HALF NEEDS THE REAL VERTEX LAYOUTS.** The +0/+4 float32 read is right for the
+  vs17 display quad (xy 0..1280x720 ✓) and the vs47 restore quad, but every vs45/ps50 st=16
+  draw reads xy={0,0..0,0} — that class does NOT carry float32 positions at +0 (s16/packed
+  suspected; float-reading s16 pairs prints ~0). Mirror the EXECUTOR'S own per-class vertex
+  decode instead of assuming a layout. (d4's uv=±1e9 garbage says the st=28 uv offsets are
+  wrong for that class too.)
+- ⚠ **POST-LOAD NAV IS BLIND ON THE ABN MODULE:** [intap]/[scenelog] read reco_NORMAL globals
+  (merged_game.cpp) — under reco_abnormal they print frozen constants (out=0 forever), so the
+  "wait for out=5" gate can never fire and the blind press sequence bounced back to the TOP
+  MENU (mode78 2→0 teardown ~#5852, final A re-opened the card panel). The census therefore
+  captured a SHELL screen, not char select. Need abn-aware markers (mstate/engst are shell-side
+  and fine; an abn [intap] twin is the clean fix).
+⏭ NEXT: (1) mirror executor vertex decode into the census bbox; (2) abn-aware intap (or drive
+by mstate/engst markers only) → re-run to CHAR SELECT; (3) read the census, split arm (c) —
+wrong-position paste-back strips (guest side) vs plate-base draws served a resolve entry (host
+side). The VISUAL acceptance half (quarMs=0 + prefetch, 08-07) still needs USER EYES.
+
 ## ★★★★★★★ 08-07 ATTRIBUTION LEG — **THE IDENTITY-COLLISION SUSPECT IS REFUTED AT THE CORRUPTED
 ## SCREEN, AND THE DEFECT IS ON THE CONSUME SIDE.** First eyes-free measurement of this class.
 

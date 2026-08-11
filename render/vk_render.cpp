@@ -10940,12 +10940,39 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
     // once a target identity has been elected by a previous frame's close.
     const bool censInjFrame = censShell && censTest != 0 && g_ncTestKey != 0 && (g_ncPc % 250) == 249;
     int censDisp = 0, censClears = 0, censInjHits = 0;
+    // ★ RVK_QUADCENSUS (2026-08-11, consume-side attribution leg): one-shot PER-QUAD census of an
+    // armed frame — every stream event in order, and for every draw the bound texture base, the
+    // served index, the RESOLVE flag, and the XY/UV bbox decoded from the draw's OWN vertex bytes.
+    // The 08-07 IDLOG run closed the produce side (bake fires, geometry correct, zero identity
+    // collisions at the corrupted screen) — the open question is WHICH page each quad samples vs
+    // where its vertices land. Armed by `touch /tmp/rvk_quad_now` (same signal-file discipline as
+    // rvk_dump_now: consumed once, fires for the next K frames) because the corrupted screen is
+    // only reachable user-driven — the scripted 360 card decide is refused (ledger 08-07).
+    static const int qcOn = std::getenv("RVK_QUADCENSUS") ? atoi(std::getenv("RVK_QUADCENSUS")) : 0;
+    static const int qcK  = std::getenv("RVK_QUADCENSUS_K") ? atoi(std::getenv("RVK_QUADCENSUS_K")) : 2;
+    static int qcArmed = 0;
+    if (qcOn) {
+      if (FILE* sf = std::fopen("/tmp/rvk_quad_now", "rb")) {
+        std::fclose(sf); std::remove("/tmp/rvk_quad_now");
+        qcArmed = qcK;
+        std::fprintf(stderr, "[quadcensus] armed for %d frame(s) at f%ld\n", qcK, nf->frame);
+      }
+    }
+    const bool qcThis = qcArmed > 0;
+    if (qcThis) {
+      --qcArmed;
+      std::fprintf(stderr, "[quadcensus] f%ld nDraws=%d displaySurf=%08X\n",
+                   nf->frame, nf->nDraws, nf->displaySurf);
+    }
     for (int di = 0; di < nf->nDraws; ++di) {
       NvkDraw& d = nf->draws[di];
       if (d.kind == NVK_KIND_SETRT) {   // s2B leg 6: colour-target switch segments the frame
         if (!recordSeg(segStart, nbs.size())) return false;
         segStart = nbs.size();
         bool isDisplay = (d.rtSurf == nf->displaySurf);
+        if (qcThis)
+          std::fprintf(stderr, "[quadcensus] f%ld d%d SETRT surf=%08X %ux%u%s\n",
+                       nf->frame, di, d.rtSurf, d.rtW, d.rtH, isDisplay ? " DISPLAY" : "");
         static bool rtDbg = std::getenv("RT_NVKDBG") != nullptr;
         if (rtDbg && dbgTick())
           std::fprintf(stderr, "[nvkseg] f%ld SETRT surf=%08X %ux%u display=%d @nbs=%zu\n",
@@ -10963,6 +10990,11 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
         continue;
       }
       if (d.kind == NVK_KIND_RESOLVE) {
+        if (qcThis)
+          std::fprintf(stderr, "[quadcensus] f%ld d%d RESOLVE dst=%08X %ux%u rect={%d,%d,%d,%d}%s\n",
+                       nf->frame, di, d.resolveDst, d.resolveW, d.resolveH,
+                       d.srcRect[0], d.srcRect[1], d.srcRect[2], d.srcRect[3],
+                       d.clearAfter ? " clearAfter" : "");
         // ★ RVK_RESLOG segment census (2026-08-03 bake hunt): draws-in-segment for 512x512
         // resolves. Page dumps show the six backdrop pages capture LAST FRAME'S FINISHED PANE
         // ⇒ hypothesis: their bake segments are EMPTY in our recorded stream. This counts it.
@@ -10993,6 +11025,8 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
         continue;
       }
       if (d.kind == NVK_KIND_CLEAR) {   // ordered guest Clear: segment here, clear what follows
+        if (qcThis)
+          std::fprintf(stderr, "[quadcensus] f%ld d%d CLEAR %08X\n", nf->frame, di, d.clearColor);
         ++censClears;                   // SPEC_shell_compose_1to1 §4 clear-policy check (frame close)
         if (!recordSeg(segStart, nbs.size())) return false;
         segStart = nbs.size();
@@ -11142,6 +11176,38 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
         // all filter decisions so the self-composite NEAREST snap keeps its filter, gains clamp.
         static const bool tfClampOff = [](){ const char* e = std::getenv("RVK_TFCLAMP"); return e && e[0]=='0' && !e[1]; }();
         if (!tfClampOff && d.tf[0] && (((d.tf[0] >> 10) & 7u) >= 2u)) samplerIdx += 2u;
+      }
+      // ★ RVK_QUADCENSUS per-draw line (armed-frame block above the loop). XY from +0/+4 of each
+      // vertex — every compose-family stride puts position first; UV from +12/+16 (the stride-28
+      // layout) when the stride carries them. Bytes are the draw's own guest data, big-endian.
+      if (qcThis && nf->vtxBlob && d.strideB >= 8
+          && d.vtxOff + (uint64_t)d.count * d.strideB <= nf->vtxBytes) {
+        auto beF = [](const uint8_t* p) {
+          uint32_t w = ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) | ((uint32_t)p[2] << 8) | p[3];
+          float f; std::memcpy(&f, &w, 4); return f;
+        };
+        float x0 = 1e9f, y0 = 1e9f, x1 = -1e9f, y1 = -1e9f;
+        float u0 = 1e9f, v0 = 1e9f, u1 = -1e9f, v1 = -1e9f;
+        const bool hasUV = d.strideB >= 20;
+        for (uint32_t vi = 0; vi < d.count; ++vi) {
+          const uint8_t* p = nf->vtxBlob + d.vtxOff + (size_t)vi * d.strideB;
+          float x = beF(p), y = beF(p + 4);
+          if (x < x0) x0 = x; if (x > x1) x1 = x;
+          if (y < y0) y0 = y; if (y > y1) y1 = y;
+          if (hasUV) {
+            float u = beF(p + 12), v = beF(p + 16);
+            if (u < u0) u0 = u; if (u > u1) u1 = u;
+            if (v < v0) v0 = v; if (v > v1) v1 = v;
+          }
+        }
+        uint32_t qtb = d.tf[1] ? (((d.tf[1] >> 12) & 0xFFFFFu) << 12) : 0u;
+        std::fprintf(stderr,
+          "[quadcensus] f%ld d%d rt=%s vs=%d ps=%d prim=%u n=%u st=%u tex=0x%07X %ux%u fmt%u idx=%u%s "
+          "xy={%.1f,%.1f..%.1f,%.1f} uv={%.3f,%.3f..%.3f,%.3f} vte=%X blend=%08X\n",
+          nf->frame, di, curRT ? "off" : "disp", vsIdx, psIdx, d.prim, d.count, d.strideB,
+          qtb, tw, th, d.tf[1] & 0x3Fu, texIdx, (qtb && g_resolveTex.count(qtb)) ? "<RESOLVE" : "",
+          x0, y0, x1, y1, hasUV ? u0 : 0.f, hasUV ? v0 : 0.f, hasUV ? u1 : 0.f, hasUV ? v1 : 0.f,
+          (unsigned)d.vteCntl, d.blendReg);
       }
       uint8_t sc[512]; std::memset(sc, 0, sizeof sc);
       std::memcpy(sc + 0, &texIdx, 4);
