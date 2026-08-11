@@ -111,9 +111,19 @@ landmine for the ledger: **Bash-tool cwd resets between calls — a bare `bash b
 silently builds NOTHING from the wrong cwd; cd every command** (re-learned today, cost one
 stale-binary probe run, caught by the build log not the probe).
 
-⏭ NEXT LANE (per the 08-11 resume order): tick/present atomic frame boundary (the panel's
-replacement ship gate item (a)), then the hot-swap family (Beta 2 opener). Byte-matching stays
-demoted to verification-tool status.
+**08-11 LATE — USER EYES ON THE ALIAS FIX: SELECT SCREENS CLEAN ON FIRST LOAD ✅. NEW SIGHTING
+banked: post-swap IN-GAME corruption (arcade→360 re-entry), small rectangular band top-right of
+the playfield next to the 2P indicator — coherent FOREIGN ART (blue swoosh fragment), not
+noise, "one block = one quad" shape. Screenshot taken live (paused session, eyeball log
+eyeball_20260811_222320.log). ATTRIBUTION SO FAR: [resalias] fired ZERO times in that session ⇒
+NOT the alias heuristic (fix holds); reco_abnormal.xex loaded 3x (mode swaps); [texreval3]
+re-decoded 3 stale atlases but missed this one ⇒ HOT-SWAP STALENESS family (guest re-streams
+atlases post-swap; cache serves pre-swap decode where the reval signatures don't cover). This
+is the known Beta-2-opener class, now with an in-game HUD instance and a near-scripted repro
+(probe reaches 360 gameplay; add mode-swap loop + RVK_IDLOG + RVK_QUADCENSUS at the corrupted
+frame — census must be enabled in the drive env, the eyeball env doesn't set it).**
+⏭ NEXT LANE: hot-swap staleness (repro scripted → IDLOG/census attribution → fix), then
+tick/present atomic frame boundary. Byte-matching stays demoted to verification-tool status.
 
 ## ★★★★★★★ 08-07 ATTRIBUTION LEG — **THE IDENTITY-COLLISION SUSPECT IS REFUTED AT THE CORRUPTED
 ## SCREEN, AND THE DEFECT IS ON THE CONSUME SIDE.** First eyes-free measurement of this class.
