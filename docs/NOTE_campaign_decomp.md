@@ -64,10 +64,56 @@ summon → NORMAL PLAY → join flow, not a wedge.
   MENU (mode78 2→0 teardown ~#5852, final A re-opened the card panel). The census therefore
   captured a SHELL screen, not char select. Need abn-aware markers (mstate/engst are shell-side
   and fine; an abn [intap] twin is the clean fix).
-⏭ NEXT: (1) mirror executor vertex decode into the census bbox; (2) abn-aware intap (or drive
-by mstate/engst markers only) → re-run to CHAR SELECT; (3) read the census, split arm (c) —
-wrong-position paste-back strips (guest side) vs plate-base draws served a resolve entry (host
-side). The VISUAL acceptance half (quarMs=0 + prefetch, 08-07) still needs USER EYES.
+**RUN 5 (executor-true census, commit after 585f4a3): CHAR SELECT REACHED SCRIPTED AND
+CENSUSED — IT IS CLEAN, AND THE PAGE BAKE IS NOT ACTIVE THERE.** Census geometry now goes
+through the executor's own decodeVert (st16 int32 {x,y,u,v} sniff incl.) — bboxes/UVs read
+true (fixed the all-zero xy of the first cut: float-reading int32 records). Six armed frames
+at char select (3 arms x K=2): the screen is identifiable from the draw list alone — 32px
+tiled-atlas backdrop wall (0xD440000/0xD4C0000/0xD540000, marching UVs), three card sprites
+with layered echoes (0x15EC8000), additive selection flare (0x16528000) — all positions/UVs
+coherent, nothing at card positions samples a page, and **[reslog] = 0 for the whole session:
+the 512x512 page bake never ran up to char select on the abn path.** ⇒ the paged compose (and
+the 08-07 corruption family — stone plates) lives DEEPER: shot select. Full census banked at
+/c/tmp/card360/census.txt.
+## ★★★★★★★★ 08-11 — **THE CONSUME-SIDE DEFECT IS ROOT-CAUSED, FIXED, AND GATED GREEN — THE
+## RVK_RESALIAS 512x512 PROXIMITY HIJACK.** One census frame closed the 5-week select-corruption
+## family.
+
+**RUN 6 (shot select, page engine live): THE SMOKING GUN.** f6492: six pages baked per frame
+(both documented shapes, restore→overdraw→resolve cycle exactly per NOTES_select_compose.md),
+consumer strips COHERENT (x-contiguous, UV-continuous across page seams, two rows = the two
+page triplets) — and exactly ONE idx collision in the whole frame: **plate atlas 0x170BC000
+(no resolve entry, 9 draws incl. the n=222/156 plate-grid batches) served idx 241 = the page
+0x1717C000's resolve image.** Harness's own log agrees:
+`[rvk][resalias] base=0x170BC000 512x512 -> resolve sibling (dist=0xC0000 idx=241)`.
+⇒ "Blocks of legitimate backdrop-page art where the plates belong, one block = one quad" IS
+the RVK_RESALIAS proximity heuristic (closest same-dim resolve entry within ±0x100000)
+capturing a genuine guest-streamed atlas that shares the page dims. **This also explains the
+allocation-layout dependence** that defeated every quarMs experiment: the hijack needs the
+atlas to land within 0x100000 of a page dest — pure allocator accident, run to run.
+
+**FIX (vk_render.cpp getTexIndexReal): 512x512 EXCLUDED from sibling aliasing.** Pages are
+always sampled at their exact dest base (identity dest==fetch, bake proven live), so a 512
+proximity alias can only ever hijack innocent plate art; the LEG-43 rotation the alias exists
+for (pane/downsample pools, 640x480 etc.) keeps aliasing. `RVK_RESALIAS512=1` restores old
+behaviour for A/B. **GATE (run 7, fixed build): [resalias] fires ZERO times; idx collisions 0
+in all six shot-select frames; six pages still baked + served at exact bases with unique idx;
+strips still coherent.** NOTES_select_compose.md's "retire RESALIAS for the pages" TODO is
+hereby DONE (measured, not guessed).
+
+⚠ RESIDUAL/GATE-DEBT: (i) VISUAL half needs USER EYES — plates should now show STONE-PLATE art
+at char/shot select (drive: combined exe, 360 card, default env), plus the standing 08-07
+acceptance list (ranking box, mode select, Ver1.5 NORMAL PLAY, menu chrome/wallpaper/M2 seams
+counter-risk); (ii) blast radius = any 512x512 that legitimately relied on proximity aliasing
+— none known (the 08-03 "sampled page bases had everRendered=false" era predates the live
+bake), but attract/field screens are the place to look if something regresses; (iii) probe
+landmine for the ledger: **Bash-tool cwd resets between calls — a bare `bash build_win.sh`
+silently builds NOTHING from the wrong cwd; cd every command** (re-learned today, cost one
+stale-binary probe run, caught by the build log not the probe).
+
+⏭ NEXT LANE (per the 08-11 resume order): tick/present atomic frame boundary (the panel's
+replacement ship gate item (a)), then the hot-swap family (Beta 2 opener). Byte-matching stays
+demoted to verification-tool status.
 
 ## ★★★★★★★ 08-07 ATTRIBUTION LEG — **THE IDENTITY-COLLISION SUSPECT IS REFUTED AT THE CORRUPTED
 ## SCREEN, AND THE DEFECT IS ON THE CONSUME SIDE.** First eyes-free measurement of this class.

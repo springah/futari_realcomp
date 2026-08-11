@@ -2882,7 +2882,18 @@ uint32_t getTexIndexReal(uint32_t base, uint32_t w, uint32_t h, uint32_t fmt, ui
   // ±0x100000 — the closest sibling. Not cached in rTexIndex so a later real resolve to this
   // base takes over via the exact match.
   static bool resAlias = std::getenv("RVK_RESALIAS") != nullptr;
-  if (resAlias && base && w >= 64 && h >= 64) {
+  // ★ 512x512 EXCLUDED from sibling aliasing (2026-08-11 — consume-side attribution CLOSED).
+  // quadcensus f6492 + [resalias] caught the streamed plate atlas 0x170BC000 hijacked onto the
+  // backdrop-page 0x1717C000's resolve entry (dist=0xC0000, shared idx 241) — "blocks of
+  // legitimate page art where the plates belong", the 08-07 select-screen corruption, and the
+  // reason it moved with allocation layout (the hijack needs the atlas to land within 0x100000
+  // of a page dest). 512x512 is the PAGE class: pages are always sampled at their EXACT dest
+  // base (NOTES_select_compose.md, identity dest==fetch; bake proven live 08-07/08-11), so a
+  // 512 proximity alias can only ever capture a genuine guest atlas that shares the page dims.
+  // The LEG-43 rotation this alias exists for is the pane/downsample pool class (640x480 etc.),
+  // which keeps aliasing. RVK_RESALIAS512=1 restores the old behaviour for A/B.
+  static bool alias512 = std::getenv("RVK_RESALIAS512") && atoi(std::getenv("RVK_RESALIAS512")) != 0;
+  if (resAlias && base && w >= 64 && h >= 64 && (alias512 || !(w == 512 && h == 512))) {
     // ★ Cached alias verdict (2026-07-27 task #17): the linear scan below ran for EVERY texture
     // lookup (~530/frame) over EVERY resolve target (~94 at the menu) = ~50K map iterations per
     // frame. The verdict for a (base,w,h) can only change when g_resolveTex gains an entry or an
@@ -11177,38 +11188,6 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
         static const bool tfClampOff = [](){ const char* e = std::getenv("RVK_TFCLAMP"); return e && e[0]=='0' && !e[1]; }();
         if (!tfClampOff && d.tf[0] && (((d.tf[0] >> 10) & 7u) >= 2u)) samplerIdx += 2u;
       }
-      // ★ RVK_QUADCENSUS per-draw line (armed-frame block above the loop). XY from +0/+4 of each
-      // vertex — every compose-family stride puts position first; UV from +12/+16 (the stride-28
-      // layout) when the stride carries them. Bytes are the draw's own guest data, big-endian.
-      if (qcThis && nf->vtxBlob && d.strideB >= 8
-          && d.vtxOff + (uint64_t)d.count * d.strideB <= nf->vtxBytes) {
-        auto beF = [](const uint8_t* p) {
-          uint32_t w = ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) | ((uint32_t)p[2] << 8) | p[3];
-          float f; std::memcpy(&f, &w, 4); return f;
-        };
-        float x0 = 1e9f, y0 = 1e9f, x1 = -1e9f, y1 = -1e9f;
-        float u0 = 1e9f, v0 = 1e9f, u1 = -1e9f, v1 = -1e9f;
-        const bool hasUV = d.strideB >= 20;
-        for (uint32_t vi = 0; vi < d.count; ++vi) {
-          const uint8_t* p = nf->vtxBlob + d.vtxOff + (size_t)vi * d.strideB;
-          float x = beF(p), y = beF(p + 4);
-          if (x < x0) x0 = x; if (x > x1) x1 = x;
-          if (y < y0) y0 = y; if (y > y1) y1 = y;
-          if (hasUV) {
-            float u = beF(p + 12), v = beF(p + 16);
-            if (u < u0) u0 = u; if (u > u1) u1 = u;
-            if (v < v0) v0 = v; if (v > v1) v1 = v;
-          }
-        }
-        uint32_t qtb = d.tf[1] ? (((d.tf[1] >> 12) & 0xFFFFFu) << 12) : 0u;
-        std::fprintf(stderr,
-          "[quadcensus] f%ld d%d rt=%s vs=%d ps=%d prim=%u n=%u st=%u tex=0x%07X %ux%u fmt%u idx=%u%s "
-          "xy={%.1f,%.1f..%.1f,%.1f} uv={%.3f,%.3f..%.3f,%.3f} vte=%X blend=%08X\n",
-          nf->frame, di, curRT ? "off" : "disp", vsIdx, psIdx, d.prim, d.count, d.strideB,
-          qtb, tw, th, d.tf[1] & 0x3Fu, texIdx, (qtb && g_resolveTex.count(qtb)) ? "<RESOLVE" : "",
-          x0, y0, x1, y1, hasUV ? u0 : 0.f, hasUV ? v0 : 0.f, hasUV ? u1 : 0.f, hasUV ? v1 : 0.f,
-          (unsigned)d.vteCntl, d.blendReg);
-      }
       uint8_t sc[512]; std::memset(sc, 0, sizeof sc);
       std::memcpy(sc + 0, &texIdx, 4);
       std::memcpy(sc + 192, &samplerIdx, 4);
@@ -11512,6 +11491,35 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
                        g_resolveTex.count(tb) ? "<RESOLVE" : "", d.blendReg, d.vteCntl,
                        d.vp[2], d.vp[3]);
         }
+      }
+      // ★ RVK_QUADCENSUS per-draw line (armed-frame block above the loop) — EXECUTOR-TRUE
+      // geometry: goes through decodeVert (the same per-class decode the batches render with,
+      // incl. the int32 {x,y,u,v} st=16 sprite sniff), so the printed bbox is exactly what the
+      // GPU will see. pos = dd[0],dd[1]; uv = dd[4],dd[5] (vs48 xyuv keeps uv in dd[2],dd[3]).
+      // First vertex also dumped raw so an unknown class is still interpretable offline.
+      if (qcThis && nf->vtxBlob && d.strideB >= 8
+          && d.vtxOff + (uint64_t)d.count * d.strideB <= nf->vtxBytes) {
+        float x0 = 1e9f, y0 = 1e9f, x1 = -1e9f, y1 = -1e9f;
+        float u0 = 1e9f, v0 = 1e9f, u1 = -1e9f, v1 = -1e9f;
+        for (uint32_t k = 0; k < d.count; ++k) {
+          uint32_t dd[6]; decodeVert(k, dd);
+          float fx, fy, fu, fv;
+          std::memcpy(&fx, &dd[0], 4); std::memcpy(&fy, &dd[1], 4);
+          std::memcpy(&fu, &dd[xyuv ? 2 : 4], 4); std::memcpy(&fv, &dd[xyuv ? 3 : 5], 4);
+          if (fx < x0) x0 = fx; if (fx > x1) x1 = fx;
+          if (fy < y0) y0 = fy; if (fy > y1) y1 = fy;
+          if (fu < u0) u0 = fu; if (fu > u1) u1 = fu;
+          if (fv < v0) v0 = fv; if (fv > v1) v1 = fv;
+        }
+        uint32_t qtb = d.tf[1] ? (((d.tf[1] >> 12) & 0xFFFFFu) << 12) : 0u;
+        std::fprintf(stderr,
+          "[quadcensus] f%ld d%d rt=%s vs=%d ps=%d prim=%u n=%u st=%u tex=0x%07X %ux%u fmt%u idx=%u%s "
+          "xy={%.1f,%.1f..%.1f,%.1f} uv={%.1f,%.1f..%.1f,%.1f} vte=%X blend=%08X int16=%d raw0={%08X %08X %08X %08X}\n",
+          nf->frame, di, curRT ? "off" : "disp", vsIdx, psIdx, d.prim, d.count, d.strideB,
+          qtb, tw, th, d.tf[1] & 0x3Fu, texIdx, (qtb && g_resolveTex.count(qtb)) ? "<RESOLVE" : "",
+          x0, y0, x1, y1, u0, v0, u1, v1,
+          (unsigned)d.vteCntl, d.blendReg, (int)i16int,
+          gbe(0), d.strideB >= 8 ? gbe(4) : 0u, d.strideB >= 12 ? gbe(8) : 0u, d.strideB >= 16 ? gbe(12) : 0u);
       }
       static bool vtxDbg = std::getenv("RT_NVKDBG") != nullptr;
       if (vtxDbg && dbgTick() && di < 6) {
