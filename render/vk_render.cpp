@@ -3140,23 +3140,45 @@ uint32_t getTexIndexReal(uint32_t base, uint32_t w, uint32_t h, uint32_t fmt, ui
   // decode and this sample — i.e. this texture's identity is no longer trustworthy.
   // This exists because every prior verdict on the select corruption was a human looking at a
   // screen, on a defect whose severity moves with allocation layout. See the harness comment.
-  if (rvkIdLog() && base) {
+  // ★ 08-11: the detector's verdict now ACTS — EPOCH INVALIDATOR (RT_EPOCHINVAL, default ON).
+  // The post-swap HUD corruption (arcade→360 re-entry, user-sighted; ledger 08-11 late) is this
+  // exact class with reval3's sampled hash missing the change (64 dwords at the wrong byte size
+  // for DXT — a 16KB band in a 2MB atlas is invisible). Instead of widening hash signatures, act
+  // on the allocator truth the detector already reads: an epoch mismatch means the backing guest
+  // memory was FREED since our decode, and a free is the NECESSARY event for any identity change
+  // — so re-decode, reusing the bindless slot via the same fall-through reval3 uses. No hash, no
+  // coverage holes, one array-walk per cached hit. The w*h*4 range OVERestimates DXT footprints,
+  // so a neighbouring free can cause a spurious re-decode (bounded cost, never staleness).
+  // RT_EPOCHINVAL=0 reverts to detector-only ([idcol] logging stays under RVK_IDLOG).
+  static const bool epochInval = [](){ const char* e = std::getenv("RT_EPOCHINVAL"); return e ? atoi(e) != 0 : true; }();
+  bool epochStale = false;
+  if ((epochInval || rvkIdLog()) && base) {
     uint32_t now = rt_mem_epoch(base, w * h * 4u);
     auto eit = g_texEpoch.find(key);
     if (eit != g_texEpoch.end() && eit->second != now) {
-      static long nCol = 0; static std::unordered_map<uint32_t,int> seen;
-      ++nCol;
-      if (seen.size() < 64 && !seen.count(base)) { seen[base] = 1;
-        std::fprintf(stderr, "[idcol] COLLISION base=0x%X %ux%u fmt=%u epoch %u -> %u "
-                             "(guest memory freed since decode; cache still serving old bytes) "
-                             "total=%ld\n", base, w, h, fmt, eit->second, now, nCol); }
-      else if ((nCol % 500) == 0)
-        std::fprintf(stderr, "[idcol] collisions=%ld (latest base=0x%X %ux%u fmt=%u)\n",
-                     nCol, base, w, h, fmt);
+      if (rvkIdLog()) {
+        static long nCol = 0; static std::unordered_map<uint32_t,int> seen;
+        ++nCol;
+        if (seen.size() < 64 && !seen.count(base)) { seen[base] = 1;
+          std::fprintf(stderr, "[idcol] COLLISION base=0x%X %ux%u fmt=%u epoch %u -> %u "
+                               "(guest memory freed since decode; cache still serving old bytes) "
+                               "total=%ld\n", base, w, h, fmt, eit->second, now, nCol); }
+        else if ((nCol % 500) == 0)
+          std::fprintf(stderr, "[idcol] collisions=%ld (latest base=0x%X %ux%u fmt=%u)\n",
+                       nCol, base, w, h, fmt);
+      }
+      if (epochInval && it != g.rTexIndex.end()) {
+        epochStale = true;
+        reval3ReuseIdx = (int)it->second;   // re-decode into the SAME bindless slot below
+        static long epFires = 0; ++epFires;
+        if (epFires <= 40 || (epFires % 600) == 0)
+          std::fprintf(stderr, "[epochinval] base=0x%X %ux%u fmt=%u freed-since-decode -> re-decode (#%ld)\n",
+                       base, w, h, fmt, epFires);
+      }
       g_texEpoch[key] = now;   // report each transition once, not every frame after it
     }
   }
-  if (it != g.rTexIndex.end() && !doRefresh) {
+  if (it != g.rTexIndex.end() && !doRefresh && !epochStale) {
     if (texReval2 && (fmt == 3 || fmt == 4 || fmt == 6) && w >= 32 && h >= 32 && base && g_base) {
       uint32_t sig = revalHash();
       auto sit = revalSig.find(key);
@@ -3654,7 +3676,9 @@ uint32_t getTexIndexReal(uint32_t base, uint32_t w, uint32_t h, uint32_t fmt, ui
   wr.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE; wr.pImageInfo = &dii;
   vkUpdateDescriptorSets(g.dev, 1, &wr, 0, nullptr);
   g.rTexIndex[key] = idx;
-  if (rvkIdLog() && base) g_texEpoch[key] = rt_mem_epoch(base, w * h * 4u);   // decode-time identity
+  if (base) g_texEpoch[key] = rt_mem_epoch(base, w * h * 4u);   // decode-time identity — always
+  // recorded (one map write per upload) so the epoch invalidator above has a baseline; was
+  // RVK_IDLOG-gated when the mechanism was detector-only (08-07 -> 08-11).
 
   if (texReval2 && (fmt == 3 || fmt == 4 || fmt == 6) && w >= 32 && h >= 32 && base && g_base)
     revalSig[key] = revalHash();   // record content signature at this decode for later revalidation

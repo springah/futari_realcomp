@@ -1,5 +1,43 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
 
+## ★★★★★★★★ 08-11 NIGHT — **THE HOT-SWAP STALENESS FAMILY IS CLOSED: EPOCH INVALIDATOR LANDED,
+## GATED, AND VISUALLY VERIFIED AT THE USER-REPRO CONDITION. Plus: the menu drivers are FIXED
+## (docs/NAV_MAP.md) after a full screenshot-per-press mapping session.**
+
+**THE FIX (vk_render.cpp getTexIndexReal): RT_EPOCHINVAL, default ON.** The 08-07 IDLOG
+detector's verdict now ACTS: an allocation-epoch mismatch at a cache hit (guest memory freed
+since our decode — the NECESSARY event for identity change) forces a re-decode into the SAME
+bindless slot (reval3's reuse path). Replaces reval-hash coverage for this class outright (the
+reval3 hash samples 64 dwords at the wrong byte size for DXT — the 08-11 HUD corruption slid
+through it). Epoch now RECORDED at every upload (was RVK_IDLOG-gated). RT_EPOCHINVAL=0 reverts
+to detector-only. Convergent design note: daytona's plume renderer stamps resolve generations
+per dest and compares at bind (g_resolve_gen) — same shape from the write side.
+
+**GATES, all green:**
+- swapbounce (ported: _local/_tmpscripts/swapbounce_0811.sh): P1-P7 PASS at 6 swaps, high-water
+  496MB unchanged, [epochinval]=31 bounded, [idcol]=43.
+- USER-REPRO drive (screenshot-per-press, 3 cycles: 360 NORMAL PLAY gameplay → arcade NORMAL
+  PLAY gameplay → 360 NORMAL PLAY gameplay, 4 modswaps): [epochinval] fired 40x (incl. the
+  256x256 fmt3 HUD-atlas class of the sighting), 0 quadcensus idx collisions across 8 armed
+  frames, P7 0 crossings, 0 loud failures — and the top-right corner (the user's corruption
+  spot, right of the 2P indicator) VISUALLY CLEAN in post-swap 360 gameplay, checked by
+  screenshot at the exact repro condition. Char/shot select ALSO eyeballed clean both modules
+  (the alias-fix acceptance, previously owed to user eyes, is now DONE).
+
+**MENU DRIVERS FIXED (user ruling: "check via screenshots at every button press ... get menus
+and tools right"):** full verified screen graph + per-screen log markers banked in
+docs/NAV_MAP.md. Headline traps that wasted prior sessions: the NORMAL PLAY submenu's 2P SIDE
+START row (the blind driver's "2P mode!!!" incident), the card panel resetting to ARCADE every
+open, 360 cold-boot landing directly at Mode Select while re-entry shows a title first, RETURN
+TO TOP MENU not swapping modules (lazy swap on next decide), and [intap]/[scenelog] being
+frozen under the abn module. Drives must assert position from [mcur]/[p0build]/[decide]/
+[mstate]/[modswap] before every press.
+
+⏭ NEXT LANE: tick/present atomic frame boundary (panel ship-gate item (a)). Also owed: a
+sourceable driver library implementing NAV_MAP.md assertions (the map is banked; the helper
+script is mechanical), and the swapbounce_0811 gate re-run periodically now that epochinval is
+default-on.
+
 ## ★★★★★★★ 08-11 RESUME LEG — **PROJECT RESUMED (user ruling); MODEL RE-REAFFIRMED =
 ## UNLEASHEDRECOMP (rexglue-free native PC Futari). CONSUME-SIDE LANE OPENED. And the 08-07
 ## "scripted card-decide refusal" is ROOT-CAUSED: it was OUR OWN modestub L2 VETO — the drive
