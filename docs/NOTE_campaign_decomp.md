@@ -1,5 +1,32 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
 
+## ★★★★★ 08-11 LATE-NIGHT — **TICK/PRESENT LANE OPENED, and the first measurement REFRAMES IT:
+## the msg-5 pump machinery is INERT on the 360/abn path.**
+
+**MEASURED (tickrate_probe.sh, nav-library-driven, 60s in-stage windows, both regimes):**
+`g_game_tick_modectx=0x00000000` and ZERO [gamepump]/[vbpump] lines under BOTH RT_GAMEPUMP=1
+and RT_GAMEPUMP_VBLANK=1 on 360 NORMAL PLAY gameplay. ⇒ The whole msg-5 pump family
+(sub_821C8DA8 / g_game_tick_modectx discovery, rt.cpp GATE-3 + the 07-17 vblank decoupling
+lever) is **reco_normal-era and never engages for reco_abnormal** — the panel's welded-tick
+model can't be evaluated (or fixed) through it on this path. The abn logic clock is
+UNATTRIBUTED. Coarse candidates from the same logs: [pump] sub_88090480 (game service cb)
+~370/s = multi-per-frame service pump, NOT the tick; [evt34] sets ~47/s session-average =
+needs a WINDOWED in-stage rate before it means anything.
+
+⏭ NEXT LEG (fresh session): decomp-attribute the abn per-frame grant — the abn sibling of
+reco_normal's sub_8808FB90 wait on event 0x885C6528 (find who waits/sets the per-frame event
+in the abn module; reference/ghidra decomp + evt34 lr=0x8808334C is a starting thread) → build
+a windowed ticks-vs-wall-clock instrument on THAT → then design the decoupling. Do the same
+attribution for the ARCADE path while at it (RT_GAMEPUMP may be engaging there — unverified
+since the nvk era).
+
+**NAV LIBRARY (scripts/futari_nav.sh, commit 3fc4c10) field report:** entry path validated
+8/8 green on THREE more full runs tonight (validation + tickrate A + tickrate B), including
+the active landing probe choosing correctly every time. ⚠ KNOWN GAP: the game-over return
+flow after a NORMAL-PLAY-entered stage does NOT reach the hub via the mapped title flow
+(engst parks at D70/vt 0x8204FDB8 through 4 probe rounds) — needs a screenshot-mapping
+session; documented in the library header.
+
 ## ★★★★★★★★ 08-11 NIGHT — **THE HOT-SWAP STALENESS FAMILY IS CLOSED: EPOCH INVALIDATOR LANDED,
 ## GATED, AND VISUALLY VERIFIED AT THE USER-REPRO CONDITION. Plus: the menu drivers are FIXED
 ## (docs/NAV_MAP.md) after a full screenshot-per-press mapping session.**
