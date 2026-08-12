@@ -287,3 +287,115 @@ close_handle:                                    // loc_88092788
 done:                                            // loc_88092790
     ctx.r1.u32 = sp + 384;
 }
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// sub_88092AA8 — id → raw bytes recipe. UNHOOKED → plain PPC_FUNC.
+//
+//   sub_88092AA8(id = r3, dst = r4) -> r3 = 1 on success, 0 if id out of range or dst == 0
+//
+// Ground truth: out_reco/ppc_recomp.5.cpp:6792-6860. Bound-check id < ARC_TOC_COUNT and dst != 0,
+// entry = ARC_TOC_PTR + id*0x14, then sub_880927A8(dst, entry->length@+8, entry->fileOffset@+4).
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+PPC_FUNC(sub_88092AA8)
+{
+    PPC_FUNC_PROLOGUE();
+    const uint32_t id  = ctx.r3.u32;
+    const uint32_t dst = ctx.r4.u32;
+    const uint32_t sp = ctx.r1.u32 - 96;         // stwu r1,-96(r1)
+    PPC_STORE_U32(sp, ctx.r1.u32);
+    ctx.r1.u32 = sp;
+
+    uint32_t result = 0;
+    if (id < PPC_LOAD_U32(ARC_TOC_COUNT) && dst != 0)
+    {
+        const uint32_t entry = PPC_LOAD_U32(ARC_TOC_PTR) + id * TOC_STRIDE;
+        ctx.r3.u32 = dst;
+        ctx.r4.u32 = PPC_LOAD_U32(entry + 8);    // length
+        ctx.r5.u32 = PPC_LOAD_U32(entry + 4);    // fileOffset
+        ctx.lr = 0x88092B0C; sub_880927A8(ctx, base);
+        result = 1;
+    }
+
+    ctx.r1.u32 = sp + 96;
+    ctx.r3.u64 = result;
+}
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// sub_88092B80 — allocate a persistent per-id cache buffer and fill it. HOOKED ([wjob] DISPATCH in
+//               merged_game.cpp) → __imp__ seam.
+//
+//   sub_88092B80(id = r3)  [returns nothing meaningful]
+//
+// Ground truth: out_reco/ppc_recomp.5.cpp:6923-7019. Allocates a buffer sized to the entry's
+// length (or 0x20000 default if id is out of range), stores it at TOC[id]+0xc, then fills it via
+// sub_88092AA8 — LEAVING the worker critical section around the (blocking) fill and re-entering
+// after, so the streaming worker can make progress while the read is in flight.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+PPC_FUNC_IMPL(__imp__sub_88092B80)
+{
+    PPC_FUNC_PROLOGUE();
+    const uint32_t id = ctx.r3.u32;
+    const uint32_t sp = ctx.r1.u32 - 128;        // stwu r1,-128(r1)
+    PPC_STORE_U32(sp, ctx.r1.u32);
+    ctx.r1.u32 = sp;
+
+    uint32_t size;
+    if (id < PPC_LOAD_U32(ARC_TOC_COUNT))
+        size = PPC_LOAD_U32(PPC_LOAD_U32(ARC_TOC_PTR) + id * TOC_STRIDE + 8);   // entry->length
+    else
+        size = 0x20000;                          // lis r3,2 — default cache size
+
+    // buf = sub_880836D0(size, -1, 16, 4)
+    ctx.r3.u32 = size; ctx.r4.s64 = -1; ctx.r5.u64 = 16; ctx.r6.u64 = 4;
+    ctx.lr = 0x88092BD4; sub_880836D0(ctx, base);
+    const uint32_t buf = ctx.r3.u32;
+
+    const uint32_t entry = PPC_LOAD_U32(ARC_TOC_PTR) + id * TOC_STRIDE;
+    PPC_STORE_U32(entry + 12, buf);              // TOC[id].cachePtr = buf
+
+    // RtlLeaveCriticalSection(&ARC_CS); fill; RtlEnterCriticalSection(&ARC_CS)
+    ctx.r3.u32 = ARC_CS; ctx.lr = 0x88092C00; __imp__RtlLeaveCriticalSection(ctx, base);
+    ctx.r3.u32 = id; ctx.r4.u32 = PPC_LOAD_U32(entry + 12);
+    ctx.lr = 0x88092C14; sub_88092AA8(ctx, base);
+    ctx.r3.u32 = ARC_CS; ctx.lr = 0x88092C1C; __imp__RtlEnterCriticalSection(ctx, base);
+
+    ctx.r1.u32 = sp + 128;   // r3 left = RtlEnter leftover (no meaningful return; matches generated)
+}
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// sub_88092B20 — synchronous immediate resource-read path (no ring hop). HOOKED ([wjob] ENQUEUE in
+//               merged_game.cpp) → __imp__ seam.
+//
+//   sub_88092B20(id = r3, dst = r4, cbArg = r5) -> r3 = 1 on success, 0 on failure
+//
+// Ground truth: out_reco/ppc_recomp.5.cpp:6862-6921. Reads the resource straight into dst via
+// sub_88092AA8; on success runs the post-read hook sub_8813A6A0(cbArg). The generated body loads
+// &sub_8813A6A0 into a register and null-checks it — a compile-time constant, so always taken.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+PPC_FUNC_IMPL(__imp__sub_88092B20)
+{
+    PPC_FUNC_PROLOGUE();
+    const uint32_t id    = ctx.r3.u32;
+    const uint32_t dst   = ctx.r4.u32;
+    const uint32_t cbArg = ctx.r5.u32;
+    const uint32_t sp = ctx.r1.u32 - 112;        // stwu r1,-112(r1)
+    PPC_STORE_U32(sp, ctx.r1.u32);
+    ctx.r1.u32 = sp;
+
+    uint32_t result;
+    ctx.r3.u32 = id; ctx.r4.u32 = dst;
+    ctx.lr = 0x88092B44; sub_88092AA8(ctx, base);
+    if (ctx.r3.s32 != 0)
+    {
+        ctx.r3.u32 = cbArg;
+        ctx.lr = 0x88092B5C; sub_8813A6A0(ctx, base);
+        result = 1;
+    }
+    else
+    {
+        result = 0;
+    }
+
+    ctx.r1.u32 = sp + 112;
+    ctx.r3.u64 = result;
+}
