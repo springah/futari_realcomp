@@ -1,4 +1,25 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
+## ★★★★★ 08-13 DECOMP SIDE-GIG rounds 2+3 (merged from decomp-gig-3) — **+34 fns: the
+## GameDriverTask vtable FINISHED + the asset-codec leaf cluster opened.**
+Round 2 (branch decomp-gig-2, commit d97affc): the 4 remaining GameDriverTask vtable slots as
+4 shapes × 8 clones = 32 fns — +0x14 Driver_ArmModeExt, +0x34 Driver_SendDescriptor (msg-20),
++0x18 Driver_ArmModeStaged (first wrapper to call a SIBLING vt slot, not GameEntry), +0x70
+Driver_Init (boot-path init burst; the writer of the driver+0xB4 state block the predicate
+shapes read — closes round-1's open loop). All DRAFT/PENDING-GATE (fire only on a real mode
+launch; the background boot can't reliably reach it — leave for attended live-fire via
+scripts/_gig2_gate.sh). Clone sets mechanically proven (8 byte-identical members each); map =
+32/32 → decomp_driver_msgs.o, generated __imp__ retained as rollback.
+Round 3 (commits d20284e, 6a2f222): the asset-codec leaf cluster — sub_88072260 (shared guest
+memcpy, 224 refs = highest-value single leaf) → decomp/game/mem_util.cpp; sub_8813A118 (Mode-2
+split-stream LZSS decode) → decomp/game/asset_decode.cpp (seeds the decode-family folder + a
+durable decode-format writeup in the header). Both pure leaves (natural-C sanctioned). Mechanical
+gate PASSED (map: __imp__ → my .o wins, strong instrument hooks + generated rollback both retained,
+links green); behavioral gate PENDING (RT_DECLOG stream-equality + RT_DECDUMP byte-compare
+wrappers are IN-TREE, ready for a decode-exercising drive). ⏭ round 4: bank the PENDING live-fires;
+finish decode modes 1/3/4 (sub_8813A248/9D90/9A88, all non-leaf — C1 register discipline);
+then sub_8808CE90 tracked-alloc. Registry now ~13 MATCHED-or-gated + ~124 DRAFT of 247.
+⚠ pre-existing registry.toml strict-TOML break (~line 1394, Rom\cg_v154hi.bin) still there.
+
 ## ★★★★★★ 08-13 DAY-2 — **GAME-OVER BRANCH MAPPED BY EYE; THE 08-11 "D70 PARKED" DEAD-END WAS A
 ## MISDIAGNOSIS. Full loop boot→stage→game-over→shell is now a deterministic unattended drive.**
 
