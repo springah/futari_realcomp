@@ -600,3 +600,37 @@ success:                                         // loc_880931D0
     ctx.r1.u32 = sp + 160;
     ctx.r3.u64 = ok;
 }
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// sub_8813A460 — walk a descriptor id-CHAIN and push each id onto the job ring. UNHOOKED → plain
+//               PPC_FUNC.
+//
+//   sub_8813A460(id = r3, arg = r4)
+//
+// Ground truth: out_reco/ppc_recomp.18.cpp:10906-10970. id indexes the descriptor-record pointer
+// array at 0x88290CD0; the record is a run of 12-byte entries whose id field is at +2. Every id
+// >= 0 is enqueued via sub_88092310(id, arg); a negative id (-1 sentinel) ends the chain.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+PPC_FUNC(sub_8813A460)
+{
+    PPC_FUNC_PROLOGUE();
+    const uint32_t id  = ctx.r3.u32;
+    const uint32_t arg = ctx.r4.u32;
+    const uint32_t sp = ctx.r1.u32 - 112;        // stwu r1,-112(r1)
+    PPC_STORE_U32(sp, ctx.r1.u32);
+    ctx.r1.u32 = sp;
+
+    const uint32_t rec = PPC_LOAD_U32(0x88290CD0 + id * 4);   // descriptor record for this id
+    uint32_t idField = rec + 2;                              // &record[0].id
+    int32_t cur = (int16_t)PPC_LOAD_U16(idField);            // first chained id (signed 16-bit)
+    while (cur >= 0)
+    {
+        ctx.r3.s64 = cur; ctx.r4.u32 = arg;                 // enqueue: sub_88092310(id, arg)
+        ctx.lr = 0x8813A4A4; sub_88092310(ctx, base);
+        idField += 12;                                      // advance to the next 12-byte record
+        cur = (int16_t)PPC_LOAD_U16(idField);
+    }
+
+    ctx.r1.u32 = sp + 112;
+}
+
