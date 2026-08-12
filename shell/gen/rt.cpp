@@ -1266,10 +1266,13 @@ PPC_FUNC_IMPL(__imp__VdSetGraphicsInterruptCallback){ LOGN("VdSetGraphicsInterru
     // exactly as the console's vblank-paced logic would. The context is set up ONCE and reused —
     // rt_setup_thread_ctx allocates a fresh guest stack per call (~256KB), so per-grant setup would
     // leak; FA68 restores r1 (stwu/addi net-zero) so reuse is safe.
-    // ⚠ LEVER-GATED CREATION (08-12): only spawn this thread when the lever is on. With it off
-    // (ship default / swapbounce), creating an idle extra thread perturbed the thread-count gate
-    // (P4 18/19). Default-off must be byte-for-behavior identical to before the frameclock existed.
-    if(getenv("RT_FRAMECLOCK_VBLANK") && atoi(getenv("RT_FRAMECLOCK_VBLANK"))!=0)
+    // ⚠ LEVER-GATED CREATION (08-12): only spawn this thread when the lever is on. With it off,
+    // creating an idle extra thread perturbed the thread-count gate (P4 18/19). Lever-off must be
+    // byte-for-behavior identical to before the frameclock existed.
+    // ★ DEFAULT FLIPPED **ON** (08-13 Day-1, after the full gate ladder: decoupling proven both
+    // modules under throttle, swap-safe drain exercised in the wild, Deck run CLEANER than the
+    // weld, user pacing eyes on PC). RT_FRAMECLOCK_VBLANK=0 is the explicit welded revert.
+    { const char* fce=getenv("RT_FRAMECLOCK_VBLANK"); if(!fce||atoi(fce)!=0)
     std::thread([B](){
       PPCContext fc{}; rt_setup_thread_ctx(fc,B);
       typedef void (*FrameGrantFn)(PPCContext&, uint8_t*);
@@ -1307,7 +1310,7 @@ PPC_FUNC_IMPL(__imp__VdSetGraphicsInterruptCallback){ LOGN("VdSetGraphicsInterru
         if(next > now) std::this_thread::sleep_until(next);
         else next = now;                                         // fell behind: don't accumulate debt
       }
-    }).detach();
+    }).detach(); }
   }
   ctx.r3.u32=0; (void)base; }
 // ★ frame-clock ownership state (2026-08-12 tick/present decoupling). Armed = the DEDICATED
@@ -1321,8 +1324,8 @@ uint8_t* g_frameclock_base = nullptr;               // stashed at Vd cb registra
 // grantfn: the game module's own frame-grant function (&sub_8808FA68), passed as void* so the
 // generated host ABI stays free of PPC types. The dedicated thread casts it back and calls it.
 extern "C" int rt_frameclock_present_skip(void* grantfn){
-  static int on = -1;
-  if(on<0){ const char* e=getenv("RT_FRAMECLOCK_VBLANK"); on=(e&&atoi(e)!=0)?1:0; }
+  static int on = -1;   // ★ default ON since 08-13 Day-1 (gate ladder complete); =0 reverts to welded
+  if(on<0){ const char* e=getenv("RT_FRAMECLOCK_VBLANK"); on=(!e||atoi(e)!=0)?1:0; }
   if(!on) return 0;                       // lever off: byte-identical behavior, grant stays put
   if(!g_frameclock_armed.load(std::memory_order_acquire)){
     g_frameclock_grantfn.store(grantfn,std::memory_order_release);   // publish BEFORE arming
