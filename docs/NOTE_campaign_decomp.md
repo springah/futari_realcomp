@@ -1,5 +1,34 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
 
+## ★★★★★ 08-12 DECOMP SIDE-GIG (branch `decomp-gig`) — **D1: THE GameDriverTask COMMAND SURFACE
+## IS HUMAN-READABLE. 96 guest functions = 12 shapes x 8 clones, gated, 6 shapes live-fired.**
+
+Plan §4 rank 5's promise ("8 near-identical clones collapse into one template + msg-id table —
+the largest LOC reduction per effort in the project") is now cashed for the shell→game protocol
+wrappers: `decomp/shell/driver_msgs.inl` holds twelve shapes, `driver_msgs.cpp` instantiates
+them 96 times. The clone sets are MEASURED (normalise address literals out of every generated
+body, group by result → exactly 8 members per shape, no more, no less), not transcribed.
+FULL DETAIL: **`decomp/shell/DRIVER_NOTES.md`** (seam, gate, canary counts, next steps) and 96
+new per-address rows in `decomp/registry.toml`.
+- SEAM: plain `PPC_FUNC` (nothing in `out_reco/merged/*` hooks any of the 96). Fresh map:
+  96/96 `sub_*` → `decomp_driver_msgs.o`, 96/96 generated `__imp__` still linked = rollback.
+  No build-file change — all three build entry points already glob `decomp/shell/*.cpp`.
+- GATE = `_local/_tmpscripts/d1_play_drive.sh`, a nav-driven ARCADE NORMAL PLAY entry drive.
+  ⚠ The C1 boot→attract drive is USELESS here — measured zero calls to any of these slots in a
+  95s attract run; the command surface only wakes on a real mode launch. Verdict: control-vs-
+  pilot **RAW CANONICAL-IDENTICAL 94/94** on the matched arm; protocol stream 68/68 identical on
+  every pairing. NEW DRIFT CLASS, proven control-vs-control: the guest-STACK pointer in
+  `msg=10 r4` has two arms across runs (4 control runs: 3 + 1) — translation-independent.
+- POSITIVE CONTROL (one-shot RT_DRVCANARY, since removed): 6 of the 12 shapes executed on the
+  drive — predicate +0x38 **12345x**, msg-15 region 6x, msg-10 arm 3x, msg-11 rank 3x, msg-15
+  block 1x, **msg-13 RETURN-TO-MENU 1x** (half of C1's msg-12/13/14 live-fire debt, sender side).
+  Registry: those 6 addresses MATCHED, the other 90 DRAFT (linked + seam-proven, no live-fire).
+- ⏭ NEXT: live-fire the remaining 6 shapes (msg 16/17/19 setters + msg-12 sender need a combined
+  exe / 360 or training path, or the quit branch once nav's post-game-over gap is mapped); then
+  the 4 unread slots (+0x14/+0x18/+0x34) and the init driver +0x70 (`FUN_821C30B8`), which is
+  the most-exercised function of the family.
+
+
 ## ★★★★★★★ 08-12 EVENING — **FRAME-CLOCK SHIP DEBT CLOSED: swap-safe disarm (drain via ack
 ## poke) + the ARCADE seam. Both gated; one real parked-thread drain caught in the wild.**
 
