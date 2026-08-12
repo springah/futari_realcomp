@@ -465,3 +465,138 @@ PPC_FUNC_IMPL(__imp__sub_880929C8)
 
     ctx.r1.u32 = sp + 112;
 }
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// sub_88092ED8 — archive INIT. HOOKED ([winit] manager in merged_game.cpp) → __imp__ seam.
+//
+//   sub_88092ED8() -> r3 = 1 on success, 0 on any failure (which also runs teardown)
+//
+// Ground truth: out_reco/ppc_recomp.5.cpp:7416-7834. Initialises the worker CS + ring, opens the
+// main archive (sub_880928D8), reads + validates the 16-byte header, allocates the 0x14-byte TOC
+// and a count*12 raw scratch, reads the raw TOC, EXPANDS it into the in-memory TOC (validating each
+// entry against totalSize), opens the companion file, and spawns the streaming worker thread. Any
+// failure jumps to teardown. The header read + the spawn thread-id out-param live on the guest
+// stack → the stwu -160 frame is reproduced. See the ARCHIVE FORMAT block at the top for the header
+// and record layouts. This is the pipeline's front door: a boot that loads art enters here.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+PPC_FUNC_IMPL(__imp__sub_88092ED8)
+{
+    PPC_FUNC_PROLOGUE();
+    const uint32_t sp = ctx.r1.u32 - 160;        // stwu r1,-160(r1)
+    PPC_STORE_U32(sp, ctx.r1.u32);
+    ctx.r1.u32 = sp;
+
+    uint32_t ok = 0;
+
+    // init the worker critical section + zero the 6144-byte worker ring.
+    ctx.r3.u32 = ARC_CS; ctx.lr = 0x88092EF8; __imp__RtlInitializeCriticalSection(ctx, base);
+    ctx.r3.u32 = ARC_RING; ctx.r4.u64 = 0; ctx.r5.u64 = 6144;
+    ctx.lr = 0x88092F08; sub_88073BD0(ctx, base);
+
+    // reset assorted ring/worker state, then zero the 256-byte ring control block.
+    PPC_STORE_U32(0x887AD1AC, 0);                 // [r31-776] ring flag
+    PPC_STORE_U32(0x88252E20, 1);                 // [r27-24]
+    PPC_STORE_U32(0x88252E24, 1);                 // [r27-20]
+    ctx.r3.u32 = ARC_RING_CTRL; ctx.r4.u64 = 0; ctx.r5.u64 = 256;
+    ctx.lr = 0x88092F3C; sub_88073BD0(ctx, base);
+    PPC_STORE_U32(0x887AD4C0, 0);                 // [r31+12]
+    PPC_STORE_U32(0x887AD4B8, 0);                 // [r31+4]
+    PPC_STORE_U32(0x887AD4BC, 0);                 // [r31+8]
+    PPC_STORE_U32(ARC_HDR_BUFFER, 0);             // [r31+16] companion buffer = null
+
+    // open the main archive (sub_880928D8 is parameterless — builds its own name, opens globals).
+    ctx.lr = 0x88092F5C; sub_880928D8(ctx, base);
+    const int32_t handle = ctx.r3.s32;
+    PPC_STORE_U32(ARC_FILE_HANDLE, (uint32_t)handle);
+    if (handle == -1) goto fail;
+
+    {
+        // file size (for header validation)
+        ctx.r3.s64 = handle; ctx.r4.u64 = 0;
+        ctx.lr = 0x88092F70; sub_88082B88(ctx, base);
+        const uint32_t fileSize = ctx.r3.u32;
+
+        // read the 16-byte header @ offset 0 into the guest stack (sp+96), then parse (big-endian).
+        ctx.r3.u32 = sp + 96; ctx.r4.u64 = 16; ctx.r5.u64 = 0;
+        ctx.lr = 0x88092F84; sub_880927A8(ctx, base);
+        const uint32_t hdr       = sp + 96;
+        const uint32_t totalSize = be32(base, hdr + 4);      // hdr[4..7]
+        const uint32_t dataStart = be32(base, hdr + 8);      // hdr[8..11]
+        const uint32_t count     = be32(base, hdr + 12);     // hdr[12..15]
+        PPC_STORE_U32(ARC_TOC_SIZE, totalSize);
+        PPC_STORE_U32(ARC_TOC_DATASTART, dataStart);
+        PPC_STORE_U32(ARC_TOC_COUNT, count);
+
+        if (16 + count * 12 != dataStart) goto fail;         // dataStart must be past header+rawTOC
+        if (fileSize != totalSize)        goto fail;         // header size must match the real file
+
+        // allocate + zero the expanded TOC (count * 0x14).
+        ctx.r3.u32 = count * TOC_STRIDE; ctx.r4.s64 = -1; ctx.r5.u64 = 16; ctx.r6.u64 = 4;
+        ctx.lr = 0x88093030; sub_880836D0(ctx, base);
+        const uint32_t toc = ctx.r3.u32;
+        PPC_STORE_U32(ARC_TOC_PTR, toc);
+        if (toc == 0) goto fail;
+        ctx.r3.u32 = toc; ctx.r4.u64 = 0; ctx.r5.u32 = count * TOC_STRIDE;
+        ctx.lr = 0x88093054; sub_88073BD0(ctx, base);
+
+        // allocate the raw 12-byte-record scratch (count * 0xC) and read the raw TOC @ offset 16.
+        ctx.r3.u32 = count * 12; ctx.r4.s64 = -1; ctx.r5.u64 = 16; ctx.r6.u64 = 4;
+        ctx.lr = 0x88093070; sub_880836D0(ctx, base);
+        const uint32_t raw = ctx.r3.u32;
+        if (raw == 0) goto fail;
+        ctx.r3.u32 = raw; ctx.r4.u32 = count * 12; ctx.r5.u64 = 16;
+        ctx.lr = 0x88093094; sub_880927A8(ctx, base);
+
+        // expand raw 12-byte records → 0x14-byte TOC entries, validating each against totalSize.
+        const uint32_t size = PPC_LOAD_U32(ARC_TOC_SIZE);
+        uint32_t i = 0;
+        for (; i < count; ++i)
+        {
+            const uint32_t rec   = raw + i * 12;
+            const uint32_t entry = toc + i * TOC_STRIDE;
+            PPC_STORE_U16(entry + 0, (uint16_t)be16(base, rec + 0));   // kind
+            PPC_STORE_U8 (entry + 2, PPC_LOAD_U8(rec + 2));
+            PPC_STORE_U8 (entry + 3, PPC_LOAD_U8(rec + 3));
+            const uint32_t length = be32(base, rec + 4);
+            const uint32_t offset = be32(base, rec + 8);
+            PPC_STORE_U32(entry + 8, length);                // entry->length
+            PPC_STORE_U32(entry + 4, offset);                // entry->fileOffset
+            if (offset >= size) break;                       // offset must be inside the file
+            if (offset + length > size) break;               // and offset+length must fit
+        }
+
+        if (i == count)
+        {
+            // every entry valid → open companion, create the wake event, spawn the worker thread.
+            ctx.lr = 0x88093154; sub_88092668(ctx, base);
+            ctx.r3.u64 = 0; ctx.r4.u64 = 0; ctx.r5.u64 = 0; ctx.r6.u64 = 0;
+            ctx.lr = 0x88093168; sub_88082CA8(ctx, base);
+            PPC_STORE_U32(ARC_WORKER_EVENT, ctx.r3.u32);
+            // sub_88083200(0, 0, entry=ARC_WORKER_FN, 0, 4, &threadId@sp+80) — CreateThread-like.
+            ctx.r3.u64 = 0; ctx.r4.u64 = 0; ctx.r5.u32 = ARC_WORKER_FN; ctx.r6.u64 = 0;
+            ctx.r7.u64 = 4; ctx.r8.u32 = sp + 80;
+            ctx.lr = 0x8809318C; sub_88083200(ctx, base);
+            PPC_STORE_U32(ARC_WORKER_THREAD, ctx.r3.u32);
+            ctx.r3.u32 = PPC_LOAD_U32(ARC_WORKER_THREAD); ctx.r4.u64 = 5;
+            ctx.lr = 0x88093198; sub_88083030(ctx, base);
+            ctx.r3.u32 = PPC_LOAD_U32(sp + 80); ctx.r4.u32 = 0x88252E38;
+            ctx.lr = 0x880931A4; sub_8808F6C0(ctx, base);
+            ctx.r3.u32 = PPC_LOAD_U32(ARC_WORKER_THREAD); ctx.r4.u64 = 1;
+            ctx.lr = 0x880931B0; sub_88082F98(ctx, base);
+            ctx.r3.u32 = PPC_LOAD_U32(ARC_WORKER_THREAD);
+            ctx.lr = 0x880931B8; sub_880831C0(ctx, base);
+            ok = 1;
+        }
+
+        // free the raw scratch (both the success and partial-parse paths reach here).
+        ctx.r3.u32 = raw;
+        ctx.lr = 0x880931C4; sub_88083758(ctx, base);
+        if (ok != 0) goto success;
+    }
+
+fail:                                            // loc_880931CC — teardown on any failure
+    ctx.lr = 0x880931D0; sub_880929C8(ctx, base);
+success:                                         // loc_880931D0
+    ctx.r1.u32 = sp + 160;
+    ctx.r3.u64 = ok;
+}
