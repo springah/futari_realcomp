@@ -27,7 +27,7 @@
 // twin executes.  Deliberate: boot-gate log parsers stay identical across the two builds.
 #pragma once
 
-// 85 shifted symbols renamed (170 #defines); 91 referenced symbols are below the split and
+// 87 shifted symbols renamed (174 #defines); 100 referenced symbols are below the split and
 // need no rename; 0 referenced symbols land inside the edited function sub_880DEF88.
 
 #define sub_880E3128         sub_880E3130
@@ -130,10 +130,14 @@
 #define __imp__sub_8813A248  __imp__sub_8813A250
 #define sub_8813A3C0         sub_8813A3C8
 #define __imp__sub_8813A3C0  __imp__sub_8813A3C8
+#define sub_8813A460         sub_8813A468
+#define __imp__sub_8813A460  __imp__sub_8813A468
 #define sub_8813A4D0         sub_8813A4D8
 #define __imp__sub_8813A4D0  __imp__sub_8813A4D8
 #define sub_8813A5F0         sub_8813A5F8
 #define __imp__sub_8813A5F0  __imp__sub_8813A5F8
+#define sub_8813A6A0         sub_8813A6A8
+#define __imp__sub_8813A6A0  __imp__sub_8813A6A8
 #define sub_8813A738         sub_8813A740
 #define __imp__sub_8813A738  __imp__sub_8813A740
 #define sub_8813AEC8         sub_8813AED0

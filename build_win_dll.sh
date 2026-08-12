@@ -65,6 +65,11 @@ if [ ! -d build/obj_win ] || [ ! -d build/obj_win_abn ]; then
 fi
 python tools/gen_host_abi.py --objdir build/obj_win     --moddir out_reco     --module 0 || exit 1
 python tools/gen_host_abi.py --objdir build/obj_win_abn --moddir out_reco_abn --module 1 || exit 1
+# Regenerate the abn +8 symbol map from a FRESH scan of the shared decomp TUs — the abn DLL
+# force-includes it (below), so a NEW shared TU that references a shifted 0x88 symbol (e.g.
+# decomp/game/archive.cpp -> sub_8813A6A0) needs its rename emitted here. Previously only
+# build_win_abn.sh regenerated it, so this build consumed a STALE map (2026-08-13 leg fix).
+python out_reco_abn/tools_abn/gen_symbol_map.py || exit 1
 
 # --------------------------------------------------------------------------------------------
 # 1. HOST EXE
