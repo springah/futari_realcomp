@@ -50,11 +50,11 @@ gate = ""
 addr = "0x88072260"
 module = "game"
 name = "sub_88072260"
-role = "Shared memcpy utility (224 refs)"
-status = "NAMED"
-provenance = "ATLAS_INDEX.md section 1 -- SC§2[RT], AP§2[RT]"
-file = ""
-gate = ""
+role = "Shared memcpy(dst=r3,src=r4,len=r5) -> r3=dst — hand-tuned alignment-cased forward copy; 224 refs"
+status = "DRAFT"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RT], AP§2[RT]; out_reco/ppc_recomp.0.cpp:6858 register-exact [RT]"
+file = "decomp/game/mem_util.cpp"
+gate = "PENDING-GATE (round-3 decomp side-gig, branch decomp-gig-3). Translated as a human-readable forward byte copy + linked + SEAM-PROVEN: this address is strong-hooked by the [slot]/[mcpy] RT_MEMCPYLOG watch in merged_game.cpp:3531, so the translation takes the __imp__sub_88072260 symbol (SHADOWED-HOOK form, PILOT_NOTES §2). A fresh build/futari_merged.map resolves __imp__sub_88072260 -> decomp_mem_util.o (this body wins) while ?sub_88072260@@... stays in merged_game.o (the watch instrument alive) and the generated __imp__ stays as dead bytes (rollback). build_win.sh links green. LEAF (no bl/bctrl) -> natural C, volatile leftovers not reproduced (task_kill precedent); r3 left = dst (the return value). Residual: forward byte copy is bit-identical to the generated forward copy for all non-overlapping calls (the memcpy contract) + the dst<src overlap direction; the forbidden dst>src self-overlap chunk ordering is not bit-reproduced (UB for a forward memcpy in both bodies). NO LIVE-FIRE stream-equality banked this session (background boot); the [slot]/RT_MEMCPYLOG wrapper is the ready gate. Rollback = delete decomp/game/mem_util.cpp or drop obj_win/decomp_mem_util.o."
 
 [[fn]]
 addr = "0x88075C38"
@@ -1029,11 +1029,11 @@ gate = ""
 addr = "0x8813A118"
 module = "game"
 name = "sub_8813a118"
-role = "Mode 2 decode: LZSS (hdr {decoded,symbols,dataoff})"
-status = "NAMED"
-provenance = "ATLAS_INDEX.md section 1 -- SC§2[RD], AP§2[RT]"
-file = ""
-gate = ""
+role = "Mode-2 asset decode: split-stream LZSS. hdr[0]=decodedSize(->r3), hdr[4]=tokenCount, hdr[8]=offset to descriptor/literal stream; flag bits from src+12 (MSB-first, 1=match/0=literal); match descriptor = 16-bit BE {distance:11, length-3:5}, copy from output-window"
+status = "DRAFT"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RD], AP§2[RT]; out_reco/ppc_recomp.18.cpp:10411 register-exact [RT]"
+file = "decomp/game/asset_decode.cpp"
+gate = "PENDING-GATE (round-3 decomp side-gig, branch decomp-gig-3). Translated as human-readable natural C + linked + SEAM-PROVEN: this decoder is strong-hooked by DECODER_LOG_WRAP (merged_game.cpp:3597, the RT_DECLOG/RT_DECDUMP char-card instrument), so the translation takes __imp__sub_8813A118 (SHADOWED-HOOK form). A fresh build/futari_merged.map resolves __imp__sub_8813A118 -> decomp_asset_decode.o (this body wins) while ?sub_8813A118@@... stays in merged_game.o (the wrapper alive) and the generated __imp__ stays as dead bytes (rollback). build_win.sh links green. LEAF (no bl/bctrl) -> natural C; but the wrapper reads EXIT r3, so r3 is contract here -> this body sets r3 = header word 0 (decodedSize) as the generated body does. READY GATE (whoever boots a decode-exercising drive): RT_DECLOG=1 [declog] stream equality control(generated) vs pilot(this) AND RT_DECDUMP=<hex dst> byte-compare of the *_out.bin both builds write for the same asset. NO LIVE-FIRE banked this session (background boot; decoders fire for card art / asset loads, not necessarily plain attract). Rollback = delete decomp/game/asset_decode.cpp or drop obj_win/decomp_asset_decode.o."
 
 [[fn]]
 addr = "0x8813A248"
@@ -3514,3 +3514,328 @@ status = "DRAFT"
 provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
 file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
 gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+# ========= 2026-08-12 D1 ROUND-2: the four remaining GameDriverTask vtable slots (32 fns) =========
+# +0x14 ArmModeExt (I), +0x34 SendDescriptor (J), +0x18 ArmModeStaged (K), +0x70 Init driver (L).
+# Each 8 clones, mechanically derived. decomp/shell/driver_msgs.{inl,cpp}; see DRIVER_NOTES.md §5 update.
+
+[[fn]]
+addr = "0x821C2D00"
+module = "shell"
+name = "Driver_ArmModeExt"
+role = "GameDriverTask vtable slot +0x14 — Mode-arm EXTENDED wrapper: records two extra caller params (driver+0x8C/+0x90), driver->launchState = (arg?1:0), driver->modeArg = arg, then GameEntry msg 10 with the arg staged by pointer (SHAPE I)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x14; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C4298"
+module = "shell"
+name = "Driver_ArmModeExt"
+role = "GameDriverTask vtable slot +0x14 — Mode-arm EXTENDED wrapper: records two extra caller params (driver+0x8C/+0x90), driver->launchState = (arg?1:0), driver->modeArg = arg, then GameEntry msg 10 with the arg staged by pointer (SHAPE I)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x14; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C4B18"
+module = "shell"
+name = "Driver_ArmModeExt"
+role = "GameDriverTask vtable slot +0x14 — Mode-arm EXTENDED wrapper: records two extra caller params (driver+0x8C/+0x90), driver->launchState = (arg?1:0), driver->modeArg = arg, then GameEntry msg 10 with the arg staged by pointer (SHAPE I)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x14; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C7728"
+module = "shell"
+name = "Driver_ArmModeExt"
+role = "GameDriverTask vtable slot +0x14 — Mode-arm EXTENDED wrapper: records two extra caller params (driver+0x8C/+0x90), driver->launchState = (arg?1:0), driver->modeArg = arg, then GameEntry msg 10 with the arg staged by pointer (SHAPE I)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x14; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C7FA8"
+module = "shell"
+name = "Driver_ArmModeExt"
+role = "GameDriverTask vtable slot +0x14 — Mode-arm EXTENDED wrapper: records two extra caller params (driver+0x8C/+0x90), driver->launchState = (arg?1:0), driver->modeArg = arg, then GameEntry msg 10 with the arg staged by pointer (SHAPE I)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x14; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C8828"
+module = "shell"
+name = "Driver_ArmModeExt"
+role = "GameDriverTask vtable slot +0x14 — Mode-arm EXTENDED wrapper: records two extra caller params (driver+0x8C/+0x90), driver->launchState = (arg?1:0), driver->modeArg = arg, then GameEntry msg 10 with the arg staged by pointer (SHAPE I)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x14; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C90A8"
+module = "shell"
+name = "Driver_ArmModeExt"
+role = "GameDriverTask vtable slot +0x14 — Mode-arm EXTENDED wrapper: records two extra caller params (driver+0x8C/+0x90), driver->launchState = (arg?1:0), driver->modeArg = arg, then GameEntry msg 10 with the arg staged by pointer (SHAPE I)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x14; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C9928"
+module = "shell"
+name = "Driver_ArmModeExt"
+role = "GameDriverTask vtable slot +0x14 — Mode-arm EXTENDED wrapper: records two extra caller params (driver+0x8C/+0x90), driver->launchState = (arg?1:0), driver->modeArg = arg, then GameEntry msg 10 with the arg staged by pointer (SHAPE I)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x14; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C2D68"
+module = "shell"
+name = "Driver_SendDescriptor"
+role = "GameDriverTask vtable slot +0x34 — DESCRIPTOR-IN wrapper: builds a 2-word descriptor {mode-config record = *DAT_821F858C + driver+0xA8*720 + 16, driver+0xC0} and sends GameEntry msg 20 (SHAPE J)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x34; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C4300"
+module = "shell"
+name = "Driver_SendDescriptor"
+role = "GameDriverTask vtable slot +0x34 — DESCRIPTOR-IN wrapper: builds a 2-word descriptor {mode-config record = *DAT_821F858C + driver+0xA8*720 + 16, driver+0xC0} and sends GameEntry msg 20 (SHAPE J)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x34; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C4B80"
+module = "shell"
+name = "Driver_SendDescriptor"
+role = "GameDriverTask vtable slot +0x34 — DESCRIPTOR-IN wrapper: builds a 2-word descriptor {mode-config record = *DAT_821F858C + driver+0xA8*720 + 16, driver+0xC0} and sends GameEntry msg 20 (SHAPE J)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x34; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C7790"
+module = "shell"
+name = "Driver_SendDescriptor"
+role = "GameDriverTask vtable slot +0x34 — DESCRIPTOR-IN wrapper: builds a 2-word descriptor {mode-config record = *DAT_821F858C + driver+0xA8*720 + 16, driver+0xC0} and sends GameEntry msg 20 (SHAPE J)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x34; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C8010"
+module = "shell"
+name = "Driver_SendDescriptor"
+role = "GameDriverTask vtable slot +0x34 — DESCRIPTOR-IN wrapper: builds a 2-word descriptor {mode-config record = *DAT_821F858C + driver+0xA8*720 + 16, driver+0xC0} and sends GameEntry msg 20 (SHAPE J)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x34; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C8890"
+module = "shell"
+name = "Driver_SendDescriptor"
+role = "GameDriverTask vtable slot +0x34 — DESCRIPTOR-IN wrapper: builds a 2-word descriptor {mode-config record = *DAT_821F858C + driver+0xA8*720 + 16, driver+0xC0} and sends GameEntry msg 20 (SHAPE J)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x34; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C9110"
+module = "shell"
+name = "Driver_SendDescriptor"
+role = "GameDriverTask vtable slot +0x34 — DESCRIPTOR-IN wrapper: builds a 2-word descriptor {mode-config record = *DAT_821F858C + driver+0xA8*720 + 16, driver+0xC0} and sends GameEntry msg 20 (SHAPE J)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x34; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C9990"
+module = "shell"
+name = "Driver_SendDescriptor"
+role = "GameDriverTask vtable slot +0x34 — DESCRIPTOR-IN wrapper: builds a 2-word descriptor {mode-config record = *DAT_821F858C + driver+0xA8*720 + 16, driver+0xC0} and sends GameEntry msg 20 (SHAPE J)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x34; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C2E20"
+module = "shell"
+name = "Driver_ArmModeStaged"
+role = "GameDriverTask vtable slot +0x18 — mode-arm STAGED wrapper: sets launchState (2 / 3 / 4 by r5), primes two driver array slots keyed by the +0x74 toggle, then calls its OWN vtable +0x50 (rank/level, shape F) at neutral level 4; no direct GameEntry send (SHAPE K)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x18; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C43B8"
+module = "shell"
+name = "Driver_ArmModeStaged"
+role = "GameDriverTask vtable slot +0x18 — mode-arm STAGED wrapper: sets launchState (2 / 3 / 4 by r5), primes two driver array slots keyed by the +0x74 toggle, then calls its OWN vtable +0x50 (rank/level, shape F) at neutral level 4; no direct GameEntry send (SHAPE K)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x18; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C4C38"
+module = "shell"
+name = "Driver_ArmModeStaged"
+role = "GameDriverTask vtable slot +0x18 — mode-arm STAGED wrapper: sets launchState (2 / 3 / 4 by r5), primes two driver array slots keyed by the +0x74 toggle, then calls its OWN vtable +0x50 (rank/level, shape F) at neutral level 4; no direct GameEntry send (SHAPE K)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x18; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C7848"
+module = "shell"
+name = "Driver_ArmModeStaged"
+role = "GameDriverTask vtable slot +0x18 — mode-arm STAGED wrapper: sets launchState (2 / 3 / 4 by r5), primes two driver array slots keyed by the +0x74 toggle, then calls its OWN vtable +0x50 (rank/level, shape F) at neutral level 4; no direct GameEntry send (SHAPE K)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x18; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C80C8"
+module = "shell"
+name = "Driver_ArmModeStaged"
+role = "GameDriverTask vtable slot +0x18 — mode-arm STAGED wrapper: sets launchState (2 / 3 / 4 by r5), primes two driver array slots keyed by the +0x74 toggle, then calls its OWN vtable +0x50 (rank/level, shape F) at neutral level 4; no direct GameEntry send (SHAPE K)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x18; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C8948"
+module = "shell"
+name = "Driver_ArmModeStaged"
+role = "GameDriverTask vtable slot +0x18 — mode-arm STAGED wrapper: sets launchState (2 / 3 / 4 by r5), primes two driver array slots keyed by the +0x74 toggle, then calls its OWN vtable +0x50 (rank/level, shape F) at neutral level 4; no direct GameEntry send (SHAPE K)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x18; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C91C8"
+module = "shell"
+name = "Driver_ArmModeStaged"
+role = "GameDriverTask vtable slot +0x18 — mode-arm STAGED wrapper: sets launchState (2 / 3 / 4 by r5), primes two driver array slots keyed by the +0x74 toggle, then calls its OWN vtable +0x50 (rank/level, shape F) at neutral level 4; no direct GameEntry send (SHAPE K)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x18; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C9A48"
+module = "shell"
+name = "Driver_ArmModeStaged"
+role = "GameDriverTask vtable slot +0x18 — mode-arm STAGED wrapper: sets launchState (2 / 3 / 4 by r5), primes two driver array slots keyed by the +0x74 toggle, then calls its OWN vtable +0x50 (rank/level, shape F) at neutral level 4; no direct GameEntry send (SHAPE K)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x18; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C30B8"
+module = "shell"
+name = "Driver_Init"
+role = "GameDriverTask vtable slot +0x70 — the INIT DRIVER (FUN_821C30B8): boot-path bring-up burst GameEntry msg 6,7,1,2,8,9 (+ pre-init sub_821C64E8 and a 304-byte config copy via sub_8207DAC0) then kicks DESCRIPTOR-IN through its own vtable +0x34; the biggest and most-exercised member of the family (SHAPE L)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x70; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C4650"
+module = "shell"
+name = "Driver_Init"
+role = "GameDriverTask vtable slot +0x70 — the INIT DRIVER (FUN_821C30B8): boot-path bring-up burst GameEntry msg 6,7,1,2,8,9 (+ pre-init sub_821C64E8 and a 304-byte config copy via sub_8207DAC0) then kicks DESCRIPTOR-IN through its own vtable +0x34; the biggest and most-exercised member of the family (SHAPE L)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x70; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C4ED0"
+module = "shell"
+name = "Driver_Init"
+role = "GameDriverTask vtable slot +0x70 — the INIT DRIVER (FUN_821C30B8): boot-path bring-up burst GameEntry msg 6,7,1,2,8,9 (+ pre-init sub_821C64E8 and a 304-byte config copy via sub_8207DAC0) then kicks DESCRIPTOR-IN through its own vtable +0x34; the biggest and most-exercised member of the family (SHAPE L)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x70; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C7AE0"
+module = "shell"
+name = "Driver_Init"
+role = "GameDriverTask vtable slot +0x70 — the INIT DRIVER (FUN_821C30B8): boot-path bring-up burst GameEntry msg 6,7,1,2,8,9 (+ pre-init sub_821C64E8 and a 304-byte config copy via sub_8207DAC0) then kicks DESCRIPTOR-IN through its own vtable +0x34; the biggest and most-exercised member of the family (SHAPE L)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x70; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C8360"
+module = "shell"
+name = "Driver_Init"
+role = "GameDriverTask vtable slot +0x70 — the INIT DRIVER (FUN_821C30B8): boot-path bring-up burst GameEntry msg 6,7,1,2,8,9 (+ pre-init sub_821C64E8 and a 304-byte config copy via sub_8207DAC0) then kicks DESCRIPTOR-IN through its own vtable +0x34; the biggest and most-exercised member of the family (SHAPE L)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x70; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C8BE0"
+module = "shell"
+name = "Driver_Init"
+role = "GameDriverTask vtable slot +0x70 — the INIT DRIVER (FUN_821C30B8): boot-path bring-up burst GameEntry msg 6,7,1,2,8,9 (+ pre-init sub_821C64E8 and a 304-byte config copy via sub_8207DAC0) then kicks DESCRIPTOR-IN through its own vtable +0x34; the biggest and most-exercised member of the family (SHAPE L)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x70; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C9460"
+module = "shell"
+name = "Driver_Init"
+role = "GameDriverTask vtable slot +0x70 — the INIT DRIVER (FUN_821C30B8): boot-path bring-up burst GameEntry msg 6,7,1,2,8,9 (+ pre-init sub_821C64E8 and a 304-byte config copy via sub_8207DAC0) then kicks DESCRIPTOR-IN through its own vtable +0x34; the biggest and most-exercised member of the family (SHAPE L)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x70; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+
+[[fn]]
+addr = "0x821C9CE0"
+module = "shell"
+name = "Driver_Init"
+role = "GameDriverTask vtable slot +0x70 — the INIT DRIVER (FUN_821C30B8): boot-path bring-up burst GameEntry msg 6,7,1,2,8,9 (+ pre-init sub_821C64E8 and a 304-byte config copy via sub_8207DAC0) then kicks DESCRIPTOR-IN through its own vtable +0x34; the biggest and most-exercised member of the family (SHAPE L)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt slot +0x70; shell/gen/ppc_recomp.34.cpp/.35.cpp register-exact [RT]; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
+

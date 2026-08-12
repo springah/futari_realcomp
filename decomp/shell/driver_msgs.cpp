@@ -43,10 +43,11 @@
 
 #include "ppc_recomp_shared.h"   // -I shell/gen: shell ppc_config.h (base 0x82000000) + context
 
-// The 16-byte block copier both msg-15 shapes call. Declared at global scope so the call routes
-// through the same strong-over-weak seam the generated bodies use (any instrument wrapper on it
-// keeps firing exactly as before).
+// The block copier the msg-15 shapes + the init driver call, and the init driver's pre-init
+// helper. Declared at global scope so the calls route through the same strong-over-weak seam the
+// generated bodies use (any instrument wrapper on them keeps firing exactly as before).
 PPC_EXTERN_FUNC(sub_8207DAC0);
+PPC_EXTERN_FUNC(sub_821C64E8);
 
 namespace drv {
 #include "driver_msgs.inl"
@@ -70,6 +71,10 @@ namespace drv {
 #define DRV_SET_RANK_LEVEL(sym, ea)     PPC_FUNC(sym) { PPC_FUNC_PROLOGUE(); drv::Driver_SetRankLevel(ctx, base, (ea)); }
 #define DRV_CFG_BLOCK_ARG(sym, ea)      PPC_FUNC(sym) { PPC_FUNC_PROLOGUE(); drv::Driver_SendConfigBlockFromArg(ctx, base, (ea)); }
 #define DRV_CFG_BLOCK_REGION(sym, ea)   PPC_FUNC(sym) { PPC_FUNC_PROLOGUE(); drv::Driver_SendConfigBlockFromRegion(ctx, base, (ea)); }
+#define DRV_ARM_MODE_EXT(sym, ea)       PPC_FUNC(sym) { PPC_FUNC_PROLOGUE(); drv::Driver_ArmModeExt(ctx, base, (ea)); }
+#define DRV_SEND_DESCRIPTOR(sym, ea)    PPC_FUNC(sym) { PPC_FUNC_PROLOGUE(); drv::Driver_SendDescriptor(ctx, base, (ea)); }
+#define DRV_ARM_MODE_STAGED(sym, ea)    PPC_FUNC(sym) { PPC_FUNC_PROLOGUE(); drv::Driver_ArmModeStaged(ctx, base, (ea)); }
+#define DRV_INIT(sym, ea)               PPC_FUNC(sym) { PPC_FUNC_PROLOGUE(); drv::Driver_Init(ctx, base, (ea)); }
 
 // ---- vtable slot +0x1C : msg 10 MODE-ARM (simple)          — SHAPE E  Driver_ArmMode
 DRV_ARM_MODE(sub_821C2CB0, 0x821C2CB0)
@@ -190,3 +195,49 @@ DRV_SET_RANK_LEVEL(sub_821C7D20, 0x821C7D20)
 DRV_SET_RANK_LEVEL(sub_821C85A0, 0x821C85A0)
 DRV_SET_RANK_LEVEL(sub_821C8E20, 0x821C8E20)
 DRV_SET_RANK_LEVEL(sub_821C96A0, 0x821C96A0)
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// ROUND-2 ADDITIONS — the four remaining vtable slots (each 8 clones, mechanically verified in
+// shell/gen/ppc_recomp.*.cpp: normalise address literals out of every generated body, group by
+// result → exactly 8 members per shape). See DRIVER_NOTES.md §2 (round-2 update) for seam + gate.
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+
+// ---- vtable slot +0x14 : msg 10 MODE-ARM EXTENDED (2 params)  — SHAPE I  Driver_ArmModeExt
+DRV_ARM_MODE_EXT(sub_821C2D00, 0x821C2D00)
+DRV_ARM_MODE_EXT(sub_821C4298, 0x821C4298)
+DRV_ARM_MODE_EXT(sub_821C4B18, 0x821C4B18)
+DRV_ARM_MODE_EXT(sub_821C7728, 0x821C7728)
+DRV_ARM_MODE_EXT(sub_821C7FA8, 0x821C7FA8)
+DRV_ARM_MODE_EXT(sub_821C8828, 0x821C8828)
+DRV_ARM_MODE_EXT(sub_821C90A8, 0x821C90A8)
+DRV_ARM_MODE_EXT(sub_821C9928, 0x821C9928)
+
+// ---- vtable slot +0x34 : msg 20 DESCRIPTOR-IN (mode config)   — SHAPE J  Driver_SendDescriptor
+DRV_SEND_DESCRIPTOR(sub_821C2D68, 0x821C2D68)
+DRV_SEND_DESCRIPTOR(sub_821C4300, 0x821C4300)
+DRV_SEND_DESCRIPTOR(sub_821C4B80, 0x821C4B80)
+DRV_SEND_DESCRIPTOR(sub_821C7790, 0x821C7790)
+DRV_SEND_DESCRIPTOR(sub_821C8010, 0x821C8010)
+DRV_SEND_DESCRIPTOR(sub_821C8890, 0x821C8890)
+DRV_SEND_DESCRIPTOR(sub_821C9110, 0x821C9110)
+DRV_SEND_DESCRIPTOR(sub_821C9990, 0x821C9990)
+
+// ---- vtable slot +0x18 : mode-arm STAGED (calls its own +0x50) — SHAPE K  Driver_ArmModeStaged
+DRV_ARM_MODE_STAGED(sub_821C2E20, 0x821C2E20)
+DRV_ARM_MODE_STAGED(sub_821C43B8, 0x821C43B8)
+DRV_ARM_MODE_STAGED(sub_821C4C38, 0x821C4C38)
+DRV_ARM_MODE_STAGED(sub_821C7848, 0x821C7848)
+DRV_ARM_MODE_STAGED(sub_821C80C8, 0x821C80C8)
+DRV_ARM_MODE_STAGED(sub_821C8948, 0x821C8948)
+DRV_ARM_MODE_STAGED(sub_821C91C8, 0x821C91C8)
+DRV_ARM_MODE_STAGED(sub_821C9A48, 0x821C9A48)
+
+// ---- vtable slot +0x70 : the INIT DRIVER (boot-path msg burst) — SHAPE L  Driver_Init
+DRV_INIT(sub_821C30B8, 0x821C30B8)
+DRV_INIT(sub_821C4650, 0x821C4650)
+DRV_INIT(sub_821C4ED0, 0x821C4ED0)
+DRV_INIT(sub_821C7AE0, 0x821C7AE0)
+DRV_INIT(sub_821C8360, 0x821C8360)
+DRV_INIT(sub_821C8BE0, 0x821C8BE0)
+DRV_INIT(sub_821C9460, 0x821C9460)
+DRV_INIT(sub_821C9CE0, 0x821C9CE0)
