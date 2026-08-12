@@ -38,14 +38,25 @@ NORMAL PLAY SUBMENU: 1P SIDE START / 2P SIDE START / CONFIG / EXIT
 1P SIDE START -> MODE SELECT (Original/Maniac/Ultra, countdown) -> A
   -> CHARACTER SELECT -> A -> SHOT TYPE SELECT -> A -> STAGE.
 
-GAME OVER (idle ship dies in ~30-60s of stage 1):
+GAME OVER (idle ship dies in ~30-60s of stage 1) — MAPPED BY EYE 08-12 (RenderDoc + direct
+screenshot), correcting the 08-11 "parks at D70" misread:
   replay-save prompt (リプレイを保存しますか) ..... B declines
   score-register prompt (スコアを登録しますか) .... B declines
   ranking-cancelled OK dialog ..................... A
-  -> module TITLE (NOT the shell top menu).
+  -> the MODULE HUB (the 7-item menu, cursor on SCORE ATTACK) — NOT a title, NOT a dead state.
+  ⚠ The 08-11 "engst parks at D70 / vt 0x8204FDB8" was a RED HERRING: [engst] D70-PARKED fires
+    CONSTANTLY from a persistent background object (seen firing even at the shell TOP MENU),
+    regardless of screen. It is NOT a screen state — never gate nav on it.
 
-RETURN TO SHELL: title START -> HUB -> DOWN x6 (assert [mcur] 5->6) -> A -> confirm A
-  -> shell TOP MENU. (No module swap occurs here.)
+RETURN TO SHELL from the hub (VERIFIED, 3-press, shorter than the DOWNx6 item route):
+  B (on the hub root) -> "トップメニューに戻ります。よろしいですか?" confirm ([decide] item=-1)
+  A (はい) -> shell TOP MENU.  (No module swap; the swap is lazy on next card-decide.)
+  ⚠⚠ MARKER AMBIGUITY: the module HUB and the shell TOP MENU BOTH fire [mstate] BA4D8(ACTIVE)
+    state 0x82061D50. Disambiguate by the vt field: HUB vt=0x820503B0 (arcade) ; shell TOP MENU
+    vt=0x82050518. This is why blind BA4D8-matching desynced prior sessions.
+
+(Legacy note, superseded: the DOWN x6 -> RETURN TO TOP MENU item -> A -> confirm A route also
+reaches the shell, but the hub-B route above is fewer presses and needs no cursor walk.)
 
 IN-STAGE PAUSE (START, only when actually in a stage):
   RESUME / RESTART / OPTION / RETURN TO TITLE (DOWN x3 + A + confirm A).

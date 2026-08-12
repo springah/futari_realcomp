@@ -119,6 +119,30 @@ nav_idle_die_to_module_title(){ # Original stage 1 kills an idle ship; death tim
   nav_press 2000 0.25 3.0   # B decline score register
   nav_press 1000 0.25 8.0   # A OK ranking-cancelled -> module title
 }
+# ---- game-over -> shell TOP MENU (MAPPED BY EYE 08-12; see NAV_MAP GAME OVER). From in-stage:
+# idle-die, decline both save prompts (B,B), OK the ranking-cancelled dialog (A) -> module HUB,
+# then B -> return-to-top confirm -> A (はい) -> shell TOP MENU. Asserts the shell landing by the
+# vt discriminator (BA4D8 alone is ambiguous: hub AND shell both fire it — hub vt=0x820503B0,
+# shell TOP MENU vt=0x82050518). NEVER gate on [engst] D70 — it is a background object, not a
+# screen (the 08-11 dead-end). Probe-verified with retries (game-over prompt timing varies).
+nav_gameover_to_topmenu(){
+  nav_say "game-over: declining save prompts to reach the hub"
+  nav_press 2000 0.25 3.0   # B decline replay-save (stray in-stage B = bomb, harmless)
+  nav_press 2000 0.25 3.0   # B decline score-register
+  nav_press 1000 0.25 8.0   # A OK ranking-cancelled -> HUB
+  local _r _pref=$NAV_FAILS
+  for _r in 1 2 3 4; do
+    nav_base; nav_press 2000 0.25 2.0                          # B on hub -> return-to-top confirm
+    if nav_wait_new '\[decide\].*item=-1\|トップメニュー\|BB298' 8 "return-to-top confirm (try $_r)"; then
+      NAV_FAILS=$_pref; break; fi
+    [ "$_r" = "4" ] && { nav_say "FAIL: return-to-top confirm never came up"; return 1; }
+    nav_say "confirm not up (prompts still clearing?) — re-dismiss + retry"
+    nav_press 1000 0.25 4.0
+  done
+  nav_base; nav_press 1000 0.25 3.0                            # A (はい) -> shell TOP MENU
+  # assert the SHELL top menu by vt (not bare BA4D8 — the hub shares it)
+  nav_wait_new 'vt=0x82050518\|BB298(load-wait)' 10 "shell TOP MENU (vt=0x82050518)"
+}
 nav_module_title_to_topmenu(){
   # The game-over prompt timing is unmapped (no log marker yet), so the title may not be up
   # on the first try — PROBE-VERIFY with retries: START, check for hub markers; if absent,

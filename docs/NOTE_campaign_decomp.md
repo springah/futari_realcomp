@@ -1,4 +1,28 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
+## ★★★★★★ 08-13 DAY-2 — **GAME-OVER BRANCH MAPPED BY EYE; THE 08-11 "D70 PARKED" DEAD-END WAS A
+## MISDIAGNOSIS. Full loop boot→stage→game-over→shell is now a deterministic unattended drive.**
+
+**METHOD (satisfied the 08-11 screenshot-per-press ruling headlessly):** validated a RenderDoc
+capture→PNG "eyes" pipeline (rdc_eyes_validate.sh: the in-app RVK_RDCCAP present-count trigger
++ extract_oracle_any.py; attract frame read + identified) AND used direct window screenshots
+(grant: Futari_combined, full tier). Rolling capture cleaned up after (4.5G reclaimed — disk).
+
+**THE MAP (arcade NORMAL PLAY game-over):** idle-die → decline both save prompts (B,B) → OK the
+ranking-cancelled dialog (A) → the **MODULE HUB** (7-item menu, cursor on SCORE ATTACK) — NOT a
+title, NOT a dead state. From the hub: **B** → "トップメニューに戻ります。よろしいですか?" confirm
+([decide] item=-1) → **A** (はい) → **shell TOP MENU**. 3 presses, verified on screen.
+
+**ROOT CAUSE of the 08-11 dead-end:** `[engst] D70-PARKED vt=0x8204FDB8` fires CONSTANTLY from a
+persistent BACKGROUND object — observed still firing at the shell TOP MENU. It was never a
+screen state; gating nav on it was the error. **And** the HUB and the shell TOP MENU BOTH emit
+`[mstate] BA4D8(ACTIVE) state 0x82061D50` — the discriminator is the **vt field** (hub arcade
+vt=0x820503B0 ; shell TOP MENU vt=0x82050518). Blind BA4D8-matching = the desync source.
+
+**BANKED:** docs/NAV_MAP.md GAME OVER section rewritten; scripts/futari_nav.sh
+nav_gameover_to_topmenu() (probe-verified, vt-asserted). **DELIVERABLE GATE: fullloop_gameover.sh
+— boot→arcade→stage→game-over→shell TOP MENU, PASS 2/2 runs first-try each.** This unblocks
+unattended full-loop soaks and the decomp gates' quit-branch live-fire (round-1/2 debt).
+
 
 ## ★★★★★★★ 08-13 DAY-1 — **THE FRAME CLOCK IS THE SHIP DEFAULT (RT_FRAMECLOCK_VBLANK default
 ## ON, =0 = welded revert), the D1 decomp batch (96 fns) IS MERGED, and RT_GAMEPUMP IS PROVEN
