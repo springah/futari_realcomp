@@ -35,7 +35,12 @@ nav_card_decide(){ # $1 = arcade|360 ; $2 = 1 if a module swap is expected
   nav_base; nav_press 1000 0.2 0.5
   nav_wait_new '92E8 bind' 10 "card panel open" || return 1
   # ⚠ the panel ALWAYS resets to the ARCADE card (NAV_MAP) — LEFT only for 360.
-  [ "$1" = "360" ] && { nav_press 4 0.25 0.3; nav_say "LEFT -> Xbox 360 card"; }
+  # ⚠ DECK TRAP (08-12 agent, screenshot-verified): a LEFT inside the panel-open ANIMATION
+  # (~0.7s) is SWALLOWED → the decide silently takes ARCADE. The XexLoadImage retry below
+  # catches it, but the positional assert is: 360-card art load = '[res] id=140' from
+  # lr=0x821B9D24 (id=140 from lr=0x8207BF20 is unrelated). Panel WRAPS: never re-LEFT after
+  # that marker fired. NAV_PANEL_SETTLE pre-LEFT settle; Deck drives needed 4 (wall-clock slow).
+  [ "$1" = "360" ] && { sleep "${NAV_PANEL_SETTLE:-0}"; nav_press 4 0.25 0.3; nav_say "LEFT -> Xbox 360 card"; }
   sleep "${NAV_CARD_DWELL:-3.6}"   # card-panel dwell gate: 0xB4=180 FRAMES (3.0s at 60fps) — a
   # welded-slow present OR an unfocused/compositor-throttled window stretches it in wall time
   # (08-12: a 3.6s dwell that passed 5x was refused on run 6 — frame-rate variance, not timing

@@ -52,9 +52,30 @@ assertions green on BOTH runs, first try. Proof (_local/_tmpscripts/decouple_pro
 50ms field-gated throttle, module-verified reco_normal, self-diagnosing field check):
 - welded_arc:    logic 15.6/s ≈ present 13.3/s — welded (and throttle engaged ⇒ field reached).
 - frameclock_arc: **logic 65.8/s vs present 13.3/s — DECOUPLED**; armed=1, 0 drains, 0 timeouts.
-⚠ STILL OWED before RT_FRAMECLOCK_VBLANK default-ON: the Deck-class pacing check (the FNF-5
-severity target; agent dispatched 08-12). Lever stays OFF until then. Also still owed from
-08-12: game-over branch mapping (nav library known gap).
+✅ 08-12 LATE — **DECK PACING CHECK DONE (agent, real hardware, Proton Experimental, Desktop
+Mode 720p windowed). TWO HEADLINES:**
+**(1) The FNF-5 "Deck runs slow by construction" severity thesis did NOT reproduce** at the
+measurement point (idle ship, stage 1 Original, 360 module): present ≈59.55/s in BOTH runs;
+welded logic 59.81/s ≈ present. Severity revises toward the CORRECTNESS framing. ⚠ Scope
+caveats: Desktop Mode (not gamescope), least-demanding scene, 300-frame present sampling —
+busy-scene dips are NOT excluded.
+**(2) Decoupling held AND the dedicated thread paces CLEANER than the weld on the same box:**
+welded per-10s windows 10001–10126ms/600 grants (jittery); frameclock 10009–10011ms — dead
+flat 59.94Hz, every window. 1:1 grant↔evt34 adjacency (zero leaked present-path grants, zero
+doubles), armed once post-swap, 0 drain timeouts, welded log 0 frameclock lines (default-off
+inert). Linux sleep_until ≥ Windows quality. Logs: _local/logs/deck_{welded,frameclock}.log
++ summaries + drive script (deck_run_pacing.sh.txt, traps in header). Deck staging DELETED
+(verified; no Proton deployment persists — the native-ports-only ruling stands).
+**THREE DECK TRAPS BANKED:** (a) `proton run` DISCARDS the app's stderr (detached launch,
+NULL STD_ERROR_HANDLE) — use `proton runinprefix`; (b) ⚠ CARD-PANEL LEFT can be SWALLOWED by
+the panel-open animation (~0.7s) → decide silently takes ARCADE; positional assert = 360-card
+art load `[res] id=140 … lr=0x821B9D24` (the lr=0x8207BF20 id=140 is unrelated); panel WRAPS —
+never re-LEFT after the marker fired; (c) wine interleaves multi-thread stderr MID-LINE — any
+Linux-side log assertion must tolerate glued lines.
+⇒ **The frame-clock lane is fully gated. RT_FRAMECLOCK_VBLANK default-ON flip is UNBLOCKED**
+(next session; user pacing sign-off on the default-on build is the last formality, then retire
+the RT_GAMEPUMP lever family). Also still owed from 08-12: game-over branch mapping (nav
+library known gap).
 
 ## ★★★★★★★★ 08-12 — **TICK/PRESENT WELD SEVERED (360 path): the frame clock now runs on a
 ## dedicated 59.94Hz thread, DECOUPLED from present. Measured: logic 61.8/s while present 20/s.**
