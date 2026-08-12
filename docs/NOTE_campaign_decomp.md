@@ -1,4 +1,48 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
+## ★★★★★★★ 08-13 — **THE ASSET-PIPELINE LEG: the whole archive→decode→upload chain is now
+## human-readable C. 45 fns across 5 files, ship build green, live-executed with 0 failures.**
+
+Driven as a multi-agent leg (4 parallel/sequential Opus rounds + a main-session consolidation),
+completing the decomp of Futari's asset-load pipeline end to end. Registry: ~16 gated/MATCHED-track
++ ~130 DRAFT of 247.
+
+**THE FILES (decomp/game/ + decomp/shell/):**
+- driver_msgs.{inl,cpp} — GameDriverTask command surface, 16 shapes × 8 clones = 128 fns (rounds 1-2).
+- mem_util.cpp — shared guest memcpy sub_88072260 (224 refs; the leaf everything leans on).
+- asset_decode.cpp — the decompressor family: mode 1 LZ77 4KB-ring (sub_8813A248, clean C),
+  mode 2 LZSS (sub_8813A118), modes 3/4 'ZZ' bit-adaptive (sub_88139D90/9A88, faithful
+  transcription — bit-reader byte-boundary IS the spec; readable refactor deferred to the live gate).
+- archive.cpp — TOC/file-read layer, 8 fns (sub_88092ED8 init, sub_88092AA8 id→bytes, sub_88092B80
+  cache, sub_88092B20 sync-read, sub_880927A8 file-read, sub_880929C8 teardown, sub_88092668 companion,
+  sub_8813A460 chain-walk). Archive format derived byte-exact (16B header, count×0x14 in-mem TOC).
+- asset_pump.cpp — THE KEYSTONE: sub_8813A738 per-frame job pump (16-slot ring state machine),
+  sub_8813A4D0 submit, sub_8813A6A0 completion (natural-C leaf). Ties archive+decode together.
+
+**PIPELINE FLOW (asset_pump.cpp header, addresses cited):** archive-open sub_88092ED8 (handle
+0x88252E1C, TOC 0x887AD1A8) → submit sub_8813A460→sub_8813A4D0 arms a 56B slot in the 16-entry
+ring 0x884D20E8 from descriptor table 0x88290CD0 → per-frame pump sub_8813A738 walks slots
+(cursors 0x887ACDFC/0x887ACE00) through states 0=alloc+read, 1=mode-dispatch, 5=descriptor+upload
+(sub_8808D640) → decode (modes 1-4) → completion sub_8813A6A0.
+
+**GATES:** MECHANICAL PASS on every function (build/futari_merged.map: __imp__ → decomp .o wins,
+generated __imp__ + strong instrument hooks retained). SHIP BUILD GREEN (combined exe + both DLLs
++ both merged monoliths). LIVE EXECUTION VERIFIED (main session, merged build, arcade→select
+drive): [winit] archive-open ×3, [wjob] read-jobs ×86, decode hooks fired, 51 texture uploads,
+0 loud failures, game steady @59.94Hz. ⏭ MATCHED-PROMOTION GATE (deliberate awake pass): the
+control(generated)-vs-pilot(decomp) byte differential — RT_DECLOG stream equality + RT_DECDUMP
+decode-output byte-compare on a card/select drive — plus a pixel-visual of the decoded portraits
+(display was asleep for the overnight run).
+
+**BUILD-SYSTEM BUG FIXED (latent, found via the leg):** archive.cpp was the first shared decomp TU
+to call a +8-shifted callee (sub_8813A6A0→sub_8813A6A8 in abn). build_win_dll.sh (the SHIP build)
+consumed a STALE out_reco_abn/abn_symbol_map.h — only build_win_abn.sh regenerated it. Wired
+gen_symbol_map.py into build_win_dll.sh so a fresh scan covers any new shared TU. Would have
+silently broken the abn module DLL for every future +8-referencing decomp file.
+
+⏭ LEG-COMPLETE REMAINDER: (1) the MATCHED differential above; (2) fold in the upload path
+sub_8808D640/sub_8808DF70 (already ASM-EXACT in matchlab) — the last still-generated pump callee;
+(3) refactor the mode 3/4 + submit/pump transcriptions to readable C once the live gate proves it.
+
 ## ★★★★★ 08-13 DECOMP SIDE-GIG rounds 2+3 (merged from decomp-gig-3) — **+34 fns: the
 ## GameDriverTask vtable FINISHED + the asset-codec leaf cluster opened.**
 Round 2 (branch decomp-gig-2, commit d97affc): the 4 remaining GameDriverTask vtable slots as
