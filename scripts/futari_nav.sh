@@ -80,6 +80,27 @@ nav_360_land_to_modeselect(){
   nav_press 1000 0.2 3.0                                      # A on 1P SIDE START (default row)
   nav_say "via hub: NORMAL PLAY -> 1P SIDE START"
 }
+# ---- arcade module: lands in DEMONSTRATION attract (HUD gameplay demo; NAV_MAP). START exits
+# attract -> HUB directly. ⚠ the attract is a FIELD scene, so under a field-gated present
+# throttle (RT_PRESENT_THROTTLE_MS) it runs welded-slow and a START can drop — PROBE-VERIFY
+# with retries like the title flow (a dropped/early press is harmless; the attract stays up).
+nav_arcade_land_to_hub(){
+  sleep "${NAV_LAND_SETTLE:-40}"   # module/ROM settle (attract slower still under throttle)
+  local _r _pref=$NAV_FAILS
+  for _r in 1 2 3 4; do
+    nav_base; nav_press 10 0.3 2.5                            # START -> hub (or dropped)
+    if nav_wait_new '\[p0build\]\|\[mcur\]\|\[decide\]' 10 "arcade hub open (try $_r)"; then
+      NAV_FAILS=$_pref; break                                 # retried probes are not failures
+    fi
+    [ "$_r" = "4" ] && return 1
+    nav_say "arcade hub not up — attract still running (throttled?); retrying START"
+  done
+  nav_base; nav_press 2 0.15 1.0                              # DOWN -> NORMAL PLAY
+  nav_wait_new 'mcur\].*0->1' 5 "arcade hub cursor at NORMAL PLAY" || return 1
+  nav_press 1000 0.2 2.0                                      # A
+  nav_press 1000 0.2 3.0                                      # A on 1P SIDE START (default row)
+  nav_say "arcade via hub: NORMAL PLAY -> 1P SIDE START"
+}
 nav_selects_to_stage(){ # from Mode Select: Original -> char -> shot -> stage
   nav_press 1000 0.2 3.0   # A Original
   nav_press 1000 0.2 3.0   # A character

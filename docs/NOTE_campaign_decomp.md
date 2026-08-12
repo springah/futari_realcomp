@@ -44,11 +44,17 @@ lever on). Session log eyeball_20260812_190348: armed on arcade, clean arcade-se
 the swap, re-armed on reco_abnormal — user played BOTH modules on the clock, 0 drain
 timeouts. NOTE the desktop PC presents at ~60 so this is the no-regression half; the
 speed-up half (throttled present) is instrument-proven on abn only.
-⚠ STILL OWED before RT_FRAMECLOCK_VBLANK default-ON: (1) an arcade THROTTLED decoupling proof
-— needs an arcade-gameplay nav leg (futari_nav.sh has no arcade stage path; swapbounce only
-proves menu-side grants at 59.94), and (2) a Deck-class pacing check (the FNF-5 severity
-target) when convenient. Lever stays OFF until then. Also still owed from 08-12: game-over
-branch mapping (nav library known gap).
+✅ 08-12 NIGHT — **ARCADE THROTTLED PROOF: DECOUPLED. The last instrumented gap is closed.**
+New nav leg `nav_arcade_land_to_hub` (futari_nav.sh): DEMONSTRATION attract → probe-verified
+START (the attract is a FIELD scene — throttled+welded-slow, so a START can drop; retried like
+the title flow) → hub → NORMAL PLAY → 1P SIDE START; then the module-agnostic selects. 8/8
+assertions green on BOTH runs, first try. Proof (_local/_tmpscripts/decouple_proof_arcade.sh,
+50ms field-gated throttle, module-verified reco_normal, self-diagnosing field check):
+- welded_arc:    logic 15.6/s ≈ present 13.3/s — welded (and throttle engaged ⇒ field reached).
+- frameclock_arc: **logic 65.8/s vs present 13.3/s — DECOUPLED**; armed=1, 0 drains, 0 timeouts.
+⚠ STILL OWED before RT_FRAMECLOCK_VBLANK default-ON: the Deck-class pacing check (the FNF-5
+severity target; agent dispatched 08-12). Lever stays OFF until then. Also still owed from
+08-12: game-over branch mapping (nav library known gap).
 
 ## ★★★★★★★★ 08-12 — **TICK/PRESENT WELD SEVERED (360 path): the frame clock now runs on a
 ## dedicated 59.94Hz thread, DECOUPLED from present. Measured: logic 61.8/s while present 20/s.**
