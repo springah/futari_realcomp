@@ -38,11 +38,17 @@ stale); abi_hash UNCHANGED (signature-only hash) so no rebuild ripple.
 - decouple_proof re-run post-refactor (the handshake touched the hot loop): welded 17.3/s
   logic ≈ 13.3/s present; frameclock **64.5/s logic vs 13.3/s present** — still decoupled.
 
+✅ 08-12 LATER — **USER PACING-FEEL EYES: PASSED on the desktop PC** ("love it ... no
+hitches"; EYEBALL_FRAMECLOCK launcher + desktop shortcut, delegates to EYEBALL_0811 with the
+lever on). Session log eyeball_20260812_190348: armed on arcade, clean arcade-seam disarm at
+the swap, re-armed on reco_abnormal — user played BOTH modules on the clock, 0 drain
+timeouts. NOTE the desktop PC presents at ~60 so this is the no-regression half; the
+speed-up half (throttled present) is instrument-proven on abn only.
 ⚠ STILL OWED before RT_FRAMECLOCK_VBLANK default-ON: (1) an arcade THROTTLED decoupling proof
 — needs an arcade-gameplay nav leg (futari_nav.sh has no arcade stage path; swapbounce only
-proves menu-side grants at 59.94), and (2) user pacing-feel eyes on real gameplay, both
-modules. Lever stays OFF. Also still owed from 08-12: game-over branch mapping (nav library
-known gap).
+proves menu-side grants at 59.94), and (2) a Deck-class pacing check (the FNF-5 severity
+target) when convenient. Lever stays OFF until then. Also still owed from 08-12: game-over
+branch mapping (nav library known gap).
 
 ## ★★★★★★★★ 08-12 — **TICK/PRESENT WELD SEVERED (360 path): the frame clock now runs on a
 ## dedicated 59.94Hz thread, DECOUPLED from present. Measured: logic 61.8/s while present 20/s.**
