@@ -712,8 +712,20 @@ def unpack_dlc_package(pkg: Path, out_dir: Path):
         files = stfs.list_files()
         print(f"  {len(files)} file(s) in the package")
         wanted = {k.lower(): v for k, v in DLC_WANTED.items()}
+        # Fall back to matching on basename. The package-internal paths above are
+        # inferred from an already-unpacked copy of this DLC; no raw package was
+        # available to confirm them. A basename match cannot pick the wrong file
+        # here - these three names are unique in the package - and it stops a
+        # differently-laid-out package from silently yielding nothing.
+        by_base = {k.rsplit("/", 1)[-1].lower(): v for k, v in DLC_WANTED.items()}
         for path, start, length in files:
-            target = wanted.get(path.replace("\\", "/").lower())
+            norm = path.replace("\\", "/").lower()
+            target = wanted.get(norm)
+            if target is None:
+                target = by_base.get(norm.rsplit("/", 1)[-1])
+                if target is not None:
+                    print(f"  NOTE: {path} matched on name, not on its expected "
+                          f"path - package layout differs from the reference")
             if target is None:
                 print(f"  skipped    {path}  (not used by the port)")
                 continue
