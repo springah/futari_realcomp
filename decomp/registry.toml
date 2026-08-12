@@ -2547,3 +2547,970 @@ gate = ""
 asm_exact = true
 asm_sha1 = "b453eb9f39f4e26b59c4621ad34e6ca6788097bd"
 matchlab = "Action_Run"
+
+
+# ============ 2026-08-12 D1 leg: the GameDriverTask command surface (96 fns) ============
+# decomp/shell/driver_msgs.cpp + driver_msgs.inl — TWELVE shapes x EIGHT clones. The clone set
+# per shape was derived mechanically (normalise address literals out of every generated body in
+# shell/gen/ppc_recomp.*.cpp, group by the result): every shape has exactly 8 members.
+# See decomp/shell/DRIVER_NOTES.md for the seam analysis, gate recipe and rollback.
+
+[[fn]]
+addr = "0x821C2CB0"
+module = "shell"
+name = "Driver_ArmMode"
+role = "GameDriverTask vtable slot +0x1C — Mode-arm SIMPLE wrapper: driver->launchState = (arg?5:0), driver->modeArg = arg, then GameEntry msg 10 with the arg staged by pointer (SHAPE E)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C4248"
+module = "shell"
+name = "Driver_ArmMode"
+role = "GameDriverTask vtable slot +0x1C — Mode-arm SIMPLE wrapper: driver->launchState = (arg?5:0), driver->modeArg = arg, then GameEntry msg 10 with the arg staged by pointer (SHAPE E)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C4AC8"
+module = "shell"
+name = "Driver_ArmMode"
+role = "GameDriverTask vtable slot +0x1C — Mode-arm SIMPLE wrapper: driver->launchState = (arg?5:0), driver->modeArg = arg, then GameEntry msg 10 with the arg staged by pointer (SHAPE E)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C76D8"
+module = "shell"
+name = "Driver_ArmMode"
+role = "GameDriverTask vtable slot +0x1C — Mode-arm SIMPLE wrapper: driver->launchState = (arg?5:0), driver->modeArg = arg, then GameEntry msg 10 with the arg staged by pointer (SHAPE E)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C7F58"
+module = "shell"
+name = "Driver_ArmMode"
+role = "GameDriverTask vtable slot +0x1C — Mode-arm SIMPLE wrapper: driver->launchState = (arg?5:0), driver->modeArg = arg, then GameEntry msg 10 with the arg staged by pointer (SHAPE E)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C87D8"
+module = "shell"
+name = "Driver_ArmMode"
+role = "GameDriverTask vtable slot +0x1C — Mode-arm SIMPLE wrapper: driver->launchState = (arg?5:0), driver->modeArg = arg, then GameEntry msg 10 with the arg staged by pointer (SHAPE E)"
+status = "MATCHED"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "LIVE-FIRE + d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. Execution positively controlled: a one-shot RT_DRVCANARY build logged 3 call(s) to this exact body on the same drive (canary removed after the run)."
+
+[[fn]]
+addr = "0x821C9058"
+module = "shell"
+name = "Driver_ArmMode"
+role = "GameDriverTask vtable slot +0x1C — Mode-arm SIMPLE wrapper: driver->launchState = (arg?5:0), driver->modeArg = arg, then GameEntry msg 10 with the arg staged by pointer (SHAPE E)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C98D8"
+module = "shell"
+name = "Driver_ArmMode"
+role = "GameDriverTask vtable slot +0x1C — Mode-arm SIMPLE wrapper: driver->launchState = (arg?5:0), driver->modeArg = arg, then GameEntry msg 10 with the arg staged by pointer (SHAPE E)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C2C58"
+module = "shell"
+name = "Driver_SendConfigBlockFromArg"
+role = "GameDriverTask vtable slot +0x20 — msg 15 CONFIG BLOCK from the caller: 16 bytes copied from r4 via sub_8207DAC0 + r5 appended as the 5th word, sent by pointer (SHAPE G)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C41F0"
+module = "shell"
+name = "Driver_SendConfigBlockFromArg"
+role = "GameDriverTask vtable slot +0x20 — msg 15 CONFIG BLOCK from the caller: 16 bytes copied from r4 via sub_8207DAC0 + r5 appended as the 5th word, sent by pointer (SHAPE G)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C4A70"
+module = "shell"
+name = "Driver_SendConfigBlockFromArg"
+role = "GameDriverTask vtable slot +0x20 — msg 15 CONFIG BLOCK from the caller: 16 bytes copied from r4 via sub_8207DAC0 + r5 appended as the 5th word, sent by pointer (SHAPE G)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C7680"
+module = "shell"
+name = "Driver_SendConfigBlockFromArg"
+role = "GameDriverTask vtable slot +0x20 — msg 15 CONFIG BLOCK from the caller: 16 bytes copied from r4 via sub_8207DAC0 + r5 appended as the 5th word, sent by pointer (SHAPE G)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C7F00"
+module = "shell"
+name = "Driver_SendConfigBlockFromArg"
+role = "GameDriverTask vtable slot +0x20 — msg 15 CONFIG BLOCK from the caller: 16 bytes copied from r4 via sub_8207DAC0 + r5 appended as the 5th word, sent by pointer (SHAPE G)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C8780"
+module = "shell"
+name = "Driver_SendConfigBlockFromArg"
+role = "GameDriverTask vtable slot +0x20 — msg 15 CONFIG BLOCK from the caller: 16 bytes copied from r4 via sub_8207DAC0 + r5 appended as the 5th word, sent by pointer (SHAPE G)"
+status = "MATCHED"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "LIVE-FIRE + d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. Execution positively controlled: a one-shot RT_DRVCANARY build logged 1 call(s) to this exact body on the same drive (canary removed after the run)."
+
+[[fn]]
+addr = "0x821C9000"
+module = "shell"
+name = "Driver_SendConfigBlockFromArg"
+role = "GameDriverTask vtable slot +0x20 — msg 15 CONFIG BLOCK from the caller: 16 bytes copied from r4 via sub_8207DAC0 + r5 appended as the 5th word, sent by pointer (SHAPE G)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C9880"
+module = "shell"
+name = "Driver_SendConfigBlockFromArg"
+role = "GameDriverTask vtable slot +0x20 — msg 15 CONFIG BLOCK from the caller: 16 bytes copied from r4 via sub_8207DAC0 + r5 appended as the 5th word, sent by pointer (SHAPE G)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C2C20"
+module = "shell"
+name = "Driver_SendWord_Msg16"
+role = "GameDriverTask vtable slot +0x24 — Single-param config setter: GameEntry msg 16 with the word staged on the guest stack and passed by pointer (SHAPE C)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C41B8"
+module = "shell"
+name = "Driver_SendWord_Msg16"
+role = "GameDriverTask vtable slot +0x24 — Single-param config setter: GameEntry msg 16 with the word staged on the guest stack and passed by pointer (SHAPE C)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C4A38"
+module = "shell"
+name = "Driver_SendWord_Msg16"
+role = "GameDriverTask vtable slot +0x24 — Single-param config setter: GameEntry msg 16 with the word staged on the guest stack and passed by pointer (SHAPE C)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C7648"
+module = "shell"
+name = "Driver_SendWord_Msg16"
+role = "GameDriverTask vtable slot +0x24 — Single-param config setter: GameEntry msg 16 with the word staged on the guest stack and passed by pointer (SHAPE C)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C7EC8"
+module = "shell"
+name = "Driver_SendWord_Msg16"
+role = "GameDriverTask vtable slot +0x24 — Single-param config setter: GameEntry msg 16 with the word staged on the guest stack and passed by pointer (SHAPE C)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C8748"
+module = "shell"
+name = "Driver_SendWord_Msg16"
+role = "GameDriverTask vtable slot +0x24 — Single-param config setter: GameEntry msg 16 with the word staged on the guest stack and passed by pointer (SHAPE C)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C8FC8"
+module = "shell"
+name = "Driver_SendWord_Msg16"
+role = "GameDriverTask vtable slot +0x24 — Single-param config setter: GameEntry msg 16 with the word staged on the guest stack and passed by pointer (SHAPE C)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C9848"
+module = "shell"
+name = "Driver_SendWord_Msg16"
+role = "GameDriverTask vtable slot +0x24 — Single-param config setter: GameEntry msg 16 with the word staged on the guest stack and passed by pointer (SHAPE C)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C2BD8"
+module = "shell"
+name = "Driver_QueryWord_Msg17"
+role = "GameDriverTask vtable slot +0x28 — msg 17 MAGIC-VALIDATE query: stages {value, &out} + a zeroed out-slot, sends, returns the word the game wrote back (SHAPE D)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C4170"
+module = "shell"
+name = "Driver_QueryWord_Msg17"
+role = "GameDriverTask vtable slot +0x28 — msg 17 MAGIC-VALIDATE query: stages {value, &out} + a zeroed out-slot, sends, returns the word the game wrote back (SHAPE D)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C49F0"
+module = "shell"
+name = "Driver_QueryWord_Msg17"
+role = "GameDriverTask vtable slot +0x28 — msg 17 MAGIC-VALIDATE query: stages {value, &out} + a zeroed out-slot, sends, returns the word the game wrote back (SHAPE D)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C7600"
+module = "shell"
+name = "Driver_QueryWord_Msg17"
+role = "GameDriverTask vtable slot +0x28 — msg 17 MAGIC-VALIDATE query: stages {value, &out} + a zeroed out-slot, sends, returns the word the game wrote back (SHAPE D)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C7E80"
+module = "shell"
+name = "Driver_QueryWord_Msg17"
+role = "GameDriverTask vtable slot +0x28 — msg 17 MAGIC-VALIDATE query: stages {value, &out} + a zeroed out-slot, sends, returns the word the game wrote back (SHAPE D)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C8700"
+module = "shell"
+name = "Driver_QueryWord_Msg17"
+role = "GameDriverTask vtable slot +0x28 — msg 17 MAGIC-VALIDATE query: stages {value, &out} + a zeroed out-slot, sends, returns the word the game wrote back (SHAPE D)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C8F80"
+module = "shell"
+name = "Driver_QueryWord_Msg17"
+role = "GameDriverTask vtable slot +0x28 — msg 17 MAGIC-VALIDATE query: stages {value, &out} + a zeroed out-slot, sends, returns the word the game wrote back (SHAPE D)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C9800"
+module = "shell"
+name = "Driver_QueryWord_Msg17"
+role = "GameDriverTask vtable slot +0x28 — msg 17 MAGIC-VALIDATE query: stages {value, &out} + a zeroed out-slot, sends, returns the word the game wrote back (SHAPE D)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C2BC8"
+module = "shell"
+name = "Driver_SendTail_Msg18"
+role = "GameDriverTask vtable slot +0x2C — msg 18 BLOCK2C-IN: pure message-id stamp, TAIL call (bctr), caller r4 passed straight through (SHAPE B)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C4160"
+module = "shell"
+name = "Driver_SendTail_Msg18"
+role = "GameDriverTask vtable slot +0x2C — msg 18 BLOCK2C-IN: pure message-id stamp, TAIL call (bctr), caller r4 passed straight through (SHAPE B)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C49E0"
+module = "shell"
+name = "Driver_SendTail_Msg18"
+role = "GameDriverTask vtable slot +0x2C — msg 18 BLOCK2C-IN: pure message-id stamp, TAIL call (bctr), caller r4 passed straight through (SHAPE B)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C75F0"
+module = "shell"
+name = "Driver_SendTail_Msg18"
+role = "GameDriverTask vtable slot +0x2C — msg 18 BLOCK2C-IN: pure message-id stamp, TAIL call (bctr), caller r4 passed straight through (SHAPE B)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C7E70"
+module = "shell"
+name = "Driver_SendTail_Msg18"
+role = "GameDriverTask vtable slot +0x2C — msg 18 BLOCK2C-IN: pure message-id stamp, TAIL call (bctr), caller r4 passed straight through (SHAPE B)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C86F0"
+module = "shell"
+name = "Driver_SendTail_Msg18"
+role = "GameDriverTask vtable slot +0x2C — msg 18 BLOCK2C-IN: pure message-id stamp, TAIL call (bctr), caller r4 passed straight through (SHAPE B)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C8F70"
+module = "shell"
+name = "Driver_SendTail_Msg18"
+role = "GameDriverTask vtable slot +0x2C — msg 18 BLOCK2C-IN: pure message-id stamp, TAIL call (bctr), caller r4 passed straight through (SHAPE B)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C97F0"
+module = "shell"
+name = "Driver_SendTail_Msg18"
+role = "GameDriverTask vtable slot +0x2C — msg 18 BLOCK2C-IN: pure message-id stamp, TAIL call (bctr), caller r4 passed straight through (SHAPE B)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C2DC0"
+module = "shell"
+name = "Driver_SendConfigBlockFromRegion"
+role = "GameDriverTask vtable slot +0x30 — msg 15 CONFIG BLOCK from the per-mode config root **DAT_821F858C, 5th word = -1 (SHAPE H)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C4358"
+module = "shell"
+name = "Driver_SendConfigBlockFromRegion"
+role = "GameDriverTask vtable slot +0x30 — msg 15 CONFIG BLOCK from the per-mode config root **DAT_821F858C, 5th word = -1 (SHAPE H)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C4BD8"
+module = "shell"
+name = "Driver_SendConfigBlockFromRegion"
+role = "GameDriverTask vtable slot +0x30 — msg 15 CONFIG BLOCK from the per-mode config root **DAT_821F858C, 5th word = -1 (SHAPE H)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C77E8"
+module = "shell"
+name = "Driver_SendConfigBlockFromRegion"
+role = "GameDriverTask vtable slot +0x30 — msg 15 CONFIG BLOCK from the per-mode config root **DAT_821F858C, 5th word = -1 (SHAPE H)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C8068"
+module = "shell"
+name = "Driver_SendConfigBlockFromRegion"
+role = "GameDriverTask vtable slot +0x30 — msg 15 CONFIG BLOCK from the per-mode config root **DAT_821F858C, 5th word = -1 (SHAPE H)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C88E8"
+module = "shell"
+name = "Driver_SendConfigBlockFromRegion"
+role = "GameDriverTask vtable slot +0x30 — msg 15 CONFIG BLOCK from the per-mode config root **DAT_821F858C, 5th word = -1 (SHAPE H)"
+status = "MATCHED"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "LIVE-FIRE + d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. Execution positively controlled: a one-shot RT_DRVCANARY build logged 6 call(s) to this exact body on the same drive (canary removed after the run)."
+
+[[fn]]
+addr = "0x821C9168"
+module = "shell"
+name = "Driver_SendConfigBlockFromRegion"
+role = "GameDriverTask vtable slot +0x30 — msg 15 CONFIG BLOCK from the per-mode config root **DAT_821F858C, 5th word = -1 (SHAPE H)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C99E8"
+module = "shell"
+name = "Driver_SendConfigBlockFromRegion"
+role = "GameDriverTask vtable slot +0x30 — msg 15 CONFIG BLOCK from the per-mode config root **DAT_821F858C, 5th word = -1 (SHAPE H)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C2B68"
+module = "shell"
+name = "Driver_IsPhase5Sub1"
+role = "GameDriverTask vtable slot +0x38 — Game-state predicate: driver+0xB4 block (= game 0x887AD544) st[4]==5 && st[6]==1 (SHAPE A)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C4100"
+module = "shell"
+name = "Driver_IsPhase5Sub1"
+role = "GameDriverTask vtable slot +0x38 — Game-state predicate: driver+0xB4 block (= game 0x887AD544) st[4]==5 && st[6]==1 (SHAPE A)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C4980"
+module = "shell"
+name = "Driver_IsPhase5Sub1"
+role = "GameDriverTask vtable slot +0x38 — Game-state predicate: driver+0xB4 block (= game 0x887AD544) st[4]==5 && st[6]==1 (SHAPE A)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C7590"
+module = "shell"
+name = "Driver_IsPhase5Sub1"
+role = "GameDriverTask vtable slot +0x38 — Game-state predicate: driver+0xB4 block (= game 0x887AD544) st[4]==5 && st[6]==1 (SHAPE A)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C7E10"
+module = "shell"
+name = "Driver_IsPhase5Sub1"
+role = "GameDriverTask vtable slot +0x38 — Game-state predicate: driver+0xB4 block (= game 0x887AD544) st[4]==5 && st[6]==1 (SHAPE A)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C8690"
+module = "shell"
+name = "Driver_IsPhase5Sub1"
+role = "GameDriverTask vtable slot +0x38 — Game-state predicate: driver+0xB4 block (= game 0x887AD544) st[4]==5 && st[6]==1 (SHAPE A)"
+status = "MATCHED"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "LIVE-FIRE + d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. Execution positively controlled: a one-shot RT_DRVCANARY build logged 12345 call(s) to this exact body on the same drive (canary removed after the run)."
+
+[[fn]]
+addr = "0x821C8F10"
+module = "shell"
+name = "Driver_IsPhase5Sub1"
+role = "GameDriverTask vtable slot +0x38 — Game-state predicate: driver+0xB4 block (= game 0x887AD544) st[4]==5 && st[6]==1 (SHAPE A)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C9790"
+module = "shell"
+name = "Driver_IsPhase5Sub1"
+role = "GameDriverTask vtable slot +0x38 — Game-state predicate: driver+0xB4 block (= game 0x887AD544) st[4]==5 && st[6]==1 (SHAPE A)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C2B50"
+module = "shell"
+name = "Driver_SendTail_Msg12"
+role = "GameDriverTask vtable slot +0x3C — msg 12 MODE64-ARM sender, TAIL call (bctr), arg = 0 (SHAPE B)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C40E8"
+module = "shell"
+name = "Driver_SendTail_Msg12"
+role = "GameDriverTask vtable slot +0x3C — msg 12 MODE64-ARM sender, TAIL call (bctr), arg = 0 (SHAPE B)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C4968"
+module = "shell"
+name = "Driver_SendTail_Msg12"
+role = "GameDriverTask vtable slot +0x3C — msg 12 MODE64-ARM sender, TAIL call (bctr), arg = 0 (SHAPE B)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C7578"
+module = "shell"
+name = "Driver_SendTail_Msg12"
+role = "GameDriverTask vtable slot +0x3C — msg 12 MODE64-ARM sender, TAIL call (bctr), arg = 0 (SHAPE B)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C7DF8"
+module = "shell"
+name = "Driver_SendTail_Msg12"
+role = "GameDriverTask vtable slot +0x3C — msg 12 MODE64-ARM sender, TAIL call (bctr), arg = 0 (SHAPE B)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C8678"
+module = "shell"
+name = "Driver_SendTail_Msg12"
+role = "GameDriverTask vtable slot +0x3C — msg 12 MODE64-ARM sender, TAIL call (bctr), arg = 0 (SHAPE B)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C8EF8"
+module = "shell"
+name = "Driver_SendTail_Msg12"
+role = "GameDriverTask vtable slot +0x3C — msg 12 MODE64-ARM sender, TAIL call (bctr), arg = 0 (SHAPE B)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C9778"
+module = "shell"
+name = "Driver_SendTail_Msg12"
+role = "GameDriverTask vtable slot +0x3C — msg 12 MODE64-ARM sender, TAIL call (bctr), arg = 0 (SHAPE B)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C2B38"
+module = "shell"
+name = "Driver_SendTail_Msg13"
+role = "GameDriverTask vtable slot +0x40 — msg 13 RETURN-TO-MENU sender, TAIL call (bctr), arg = 0 (SHAPE B)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C40D0"
+module = "shell"
+name = "Driver_SendTail_Msg13"
+role = "GameDriverTask vtable slot +0x40 — msg 13 RETURN-TO-MENU sender, TAIL call (bctr), arg = 0 (SHAPE B)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C4950"
+module = "shell"
+name = "Driver_SendTail_Msg13"
+role = "GameDriverTask vtable slot +0x40 — msg 13 RETURN-TO-MENU sender, TAIL call (bctr), arg = 0 (SHAPE B)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C7560"
+module = "shell"
+name = "Driver_SendTail_Msg13"
+role = "GameDriverTask vtable slot +0x40 — msg 13 RETURN-TO-MENU sender, TAIL call (bctr), arg = 0 (SHAPE B)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C7DE0"
+module = "shell"
+name = "Driver_SendTail_Msg13"
+role = "GameDriverTask vtable slot +0x40 — msg 13 RETURN-TO-MENU sender, TAIL call (bctr), arg = 0 (SHAPE B)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C8660"
+module = "shell"
+name = "Driver_SendTail_Msg13"
+role = "GameDriverTask vtable slot +0x40 — msg 13 RETURN-TO-MENU sender, TAIL call (bctr), arg = 0 (SHAPE B)"
+status = "MATCHED"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "LIVE-FIRE + d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. Execution positively controlled: a one-shot RT_DRVCANARY build logged 1 call(s) to this exact body on the same drive (canary removed after the run)."
+
+[[fn]]
+addr = "0x821C8EE0"
+module = "shell"
+name = "Driver_SendTail_Msg13"
+role = "GameDriverTask vtable slot +0x40 — msg 13 RETURN-TO-MENU sender, TAIL call (bctr), arg = 0 (SHAPE B)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C9760"
+module = "shell"
+name = "Driver_SendTail_Msg13"
+role = "GameDriverTask vtable slot +0x40 — msg 13 RETURN-TO-MENU sender, TAIL call (bctr), arg = 0 (SHAPE B)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C2B00"
+module = "shell"
+name = "Driver_IsPhase5Sub4Gate"
+role = "GameDriverTask vtable slot +0x44 — Game-state predicate: st[4]==5 && st[6]==4 && st[3]==0 (st[3] = 0x887AD547, the msg-14 credit gate) (SHAPE A)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C4098"
+module = "shell"
+name = "Driver_IsPhase5Sub4Gate"
+role = "GameDriverTask vtable slot +0x44 — Game-state predicate: st[4]==5 && st[6]==4 && st[3]==0 (st[3] = 0x887AD547, the msg-14 credit gate) (SHAPE A)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C4918"
+module = "shell"
+name = "Driver_IsPhase5Sub4Gate"
+role = "GameDriverTask vtable slot +0x44 — Game-state predicate: st[4]==5 && st[6]==4 && st[3]==0 (st[3] = 0x887AD547, the msg-14 credit gate) (SHAPE A)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C7528"
+module = "shell"
+name = "Driver_IsPhase5Sub4Gate"
+role = "GameDriverTask vtable slot +0x44 — Game-state predicate: st[4]==5 && st[6]==4 && st[3]==0 (st[3] = 0x887AD547, the msg-14 credit gate) (SHAPE A)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C7DA8"
+module = "shell"
+name = "Driver_IsPhase5Sub4Gate"
+role = "GameDriverTask vtable slot +0x44 — Game-state predicate: st[4]==5 && st[6]==4 && st[3]==0 (st[3] = 0x887AD547, the msg-14 credit gate) (SHAPE A)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C8628"
+module = "shell"
+name = "Driver_IsPhase5Sub4Gate"
+role = "GameDriverTask vtable slot +0x44 — Game-state predicate: st[4]==5 && st[6]==4 && st[3]==0 (st[3] = 0x887AD547, the msg-14 credit gate) (SHAPE A)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C8EA8"
+module = "shell"
+name = "Driver_IsPhase5Sub4Gate"
+role = "GameDriverTask vtable slot +0x44 — Game-state predicate: st[4]==5 && st[6]==4 && st[3]==0 (st[3] = 0x887AD547, the msg-14 credit gate) (SHAPE A)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C9728"
+module = "shell"
+name = "Driver_IsPhase5Sub4Gate"
+role = "GameDriverTask vtable slot +0x44 — Game-state predicate: st[4]==5 && st[6]==4 && st[3]==0 (st[3] = 0x887AD547, the msg-14 credit gate) (SHAPE A)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C2B90"
+module = "shell"
+name = "Driver_SendWord_Msg19"
+role = "GameDriverTask vtable slot +0x4C — msg 19 MODE-SELECT setter: mode index staged on the guest stack, passed by pointer (SHAPE C)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C4128"
+module = "shell"
+name = "Driver_SendWord_Msg19"
+role = "GameDriverTask vtable slot +0x4C — msg 19 MODE-SELECT setter: mode index staged on the guest stack, passed by pointer (SHAPE C)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C49A8"
+module = "shell"
+name = "Driver_SendWord_Msg19"
+role = "GameDriverTask vtable slot +0x4C — msg 19 MODE-SELECT setter: mode index staged on the guest stack, passed by pointer (SHAPE C)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C75B8"
+module = "shell"
+name = "Driver_SendWord_Msg19"
+role = "GameDriverTask vtable slot +0x4C — msg 19 MODE-SELECT setter: mode index staged on the guest stack, passed by pointer (SHAPE C)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C7E38"
+module = "shell"
+name = "Driver_SendWord_Msg19"
+role = "GameDriverTask vtable slot +0x4C — msg 19 MODE-SELECT setter: mode index staged on the guest stack, passed by pointer (SHAPE C)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C86B8"
+module = "shell"
+name = "Driver_SendWord_Msg19"
+role = "GameDriverTask vtable slot +0x4C — msg 19 MODE-SELECT setter: mode index staged on the guest stack, passed by pointer (SHAPE C)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C8F38"
+module = "shell"
+name = "Driver_SendWord_Msg19"
+role = "GameDriverTask vtable slot +0x4C — msg 19 MODE-SELECT setter: mode index staged on the guest stack, passed by pointer (SHAPE C)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C97B8"
+module = "shell"
+name = "Driver_SendWord_Msg19"
+role = "GameDriverTask vtable slot +0x4C — msg 19 MODE-SELECT setter: mode index staged on the guest stack, passed by pointer (SHAPE C)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C2A78"
+module = "shell"
+name = "Driver_SetRankLevel"
+role = "GameDriverTask vtable slot +0x50 — msg 11 RANK/LEVEL setter: clamp 0..8 (else 4) -> driver+0x94, send signed rank mask (level<4 ? -1<<(4-level) : 1<<(level-4)) (SHAPE F)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C4010"
+module = "shell"
+name = "Driver_SetRankLevel"
+role = "GameDriverTask vtable slot +0x50 — msg 11 RANK/LEVEL setter: clamp 0..8 (else 4) -> driver+0x94, send signed rank mask (level<4 ? -1<<(4-level) : 1<<(level-4)) (SHAPE F)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C4890"
+module = "shell"
+name = "Driver_SetRankLevel"
+role = "GameDriverTask vtable slot +0x50 — msg 11 RANK/LEVEL setter: clamp 0..8 (else 4) -> driver+0x94, send signed rank mask (level<4 ? -1<<(4-level) : 1<<(level-4)) (SHAPE F)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C74A0"
+module = "shell"
+name = "Driver_SetRankLevel"
+role = "GameDriverTask vtable slot +0x50 — msg 11 RANK/LEVEL setter: clamp 0..8 (else 4) -> driver+0x94, send signed rank mask (level<4 ? -1<<(4-level) : 1<<(level-4)) (SHAPE F)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C7D20"
+module = "shell"
+name = "Driver_SetRankLevel"
+role = "GameDriverTask vtable slot +0x50 — msg 11 RANK/LEVEL setter: clamp 0..8 (else 4) -> driver+0x94, send signed rank mask (level<4 ? -1<<(4-level) : 1<<(level-4)) (SHAPE F)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C85A0"
+module = "shell"
+name = "Driver_SetRankLevel"
+role = "GameDriverTask vtable slot +0x50 — msg 11 RANK/LEVEL setter: clamp 0..8 (else 4) -> driver+0x94, send signed rank mask (level<4 ? -1<<(4-level) : 1<<(level-4)) (SHAPE F)"
+status = "MATCHED"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "LIVE-FIRE + d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. Execution positively controlled: a one-shot RT_DRVCANARY build logged 3 call(s) to this exact body on the same drive (canary removed after the run)."
+
+[[fn]]
+addr = "0x821C8E20"
+module = "shell"
+name = "Driver_SetRankLevel"
+role = "GameDriverTask vtable slot +0x50 — msg 11 RANK/LEVEL setter: clamp 0..8 (else 4) -> driver+0x94, send signed rank mask (level<4 ? -1<<(4-level) : 1<<(level-4)) (SHAPE F)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
+
+[[fn]]
+addr = "0x821C96A0"
+module = "shell"
+name = "Driver_SetRankLevel"
+role = "GameDriverTask vtable slot +0x50 — msg 11 RANK/LEVEL setter: clamp 0..8 (else 4) -> driver+0x94, send signed rank mask (level<4 ? -1<<(4-level) : 1<<(level-4)) (SHAPE F)"
+status = "DRAFT"
+provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask table [RD]; vt_gdtask_0727.txt; plan §4 rank 5 / §9.1 #5"
+file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
+gate = "NO LIVE-FIRE on this address (its driver clone is not reachable from build_win.sh's mask-0x01 exe on the arcade entry drive). Linked + seam-proven, and the drive PASSED with it linked: d1_play_drive.sh (nav-driven arcade NORMAL PLAY entry drive, _local/_tmpscripts) 2026-08-12 — control(generated-only) vs pilot [gemsg]/[msglog] streams: matched-arm run pair RAW CANONICAL-IDENTICAL 94/94; protocol stream (heartbeat msg-5 lines split out) 68/68 identical on every pairing. Determinism control: 4 control runs, 3 identical + 1 taking the other guest-STACK-pointer arm -> that pointer drift class is proven translation-INDEPENDENT control-vs-control (the C1 drift class). Seam proven in a fresh futari_merged.map: all 96 sub_* symbols resolve to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path. The shape itself is MATCHED via its live clone (same template, generated bodies byte-identical modulo addresses)."
