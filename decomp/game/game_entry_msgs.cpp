@@ -41,6 +41,17 @@ PPC_EXTERN_FUNC(sub_8808F098);
 PPC_EXTERN_FUNC(sub_8808EFA8);
 PPC_EXTERN_FUNC(sub_8808EEC8);
 
+// ★ 2026-08-12 tick/present decoupling seam — ARCADE side (RT_FRAMECLOCK_VBLANK; host ABI
+// helpers via tools/gen_host_abi.py, shim module_shim_reco_normal.cpp). Mirror of the abn seam
+// (game_entry_msgs_abn.cpp): lever OFF => skip() returns 0 => this translation stays
+// behaviorally IDENTICAL to the matched body. Lever ON => the 59.94Hz frame-clock thread
+// (shell/gen/rt.cpp) owns the msg-5 frame handshake and the present path skips it here —
+// closes the "arcade still welded" ship debt (ledger 08-12). grantfn: this module hands the
+// host its OWN &sub_8808FA68 (same static guest address as abn, different DLL — the shell's
+// rt_lookup can't resolve it). Passed as void* so the generated host ABI carries no PPC types.
+extern "C" int rt_frameclock_present_skip(void* grantfn);
+extern "C" void rt_frameclock_disarm(const char* why);
+
 namespace {
 // lis/addi address arithmetic sign-extends into the 64-bit register; mirror it exactly for
 // every register value handed to a callee (callees address with .u32, but stay bit-true).
@@ -178,12 +189,20 @@ PPC_FUNC_IMPL(__imp__sub_8824E698) {
         ctx.lr = 0x8824E870; sub_8808FDF8(ctx, base);       // @8824E86C events + worker spawn
         break; }
     case 2:                                       // ---- msg 3 BOOT-SHUTDOWN @8824E87C ----
+        rt_frameclock_disarm("msg3 teardown (arcade)"); // ★ 08-12: frame-clock thread must never
+                                                  //   block on a dying module's ack (no-op off)
         ctx.lr = 0x8824E880; sub_8808FAB8(ctx, base);       // (r3=arg)
         ctx.lr = 0x8824E884; sub_8808FF58(ctx, base);
         ctx.lr = 0x8824E888; sub_8808D930(ctx, base);
         break;
     case 4:                                       // ---- msg 5 FRAME RENDER @8824E894 ----
-        ctx.lr = 0x8824E898; sub_8808FA68(ctx, base);       // handshake (r3=arg)
+        // ★ 08-12 decoupling seam (arcade): with RT_FRAMECLOCK_VBLANK armed, the 59.94Hz
+        // frame-clock thread performs the handshake (shell/gen/rt.cpp) and the present path
+        // skips it — the render build below stays HERE at present rate. Lever off => skip()
+        // returns 0 => matched behavior, byte-identical flow.
+        if (!rt_frameclock_present_skip((void*)&sub_8808FA68)) {
+            ctx.lr = 0x8824E898; sub_8808FA68(ctx, base);   // handshake (FA68 ignores incoming r3)
+        }
         ctx.lr = 0x8824E89C; sub_8808E468(ctx, base);       // per-frame draw/param block
         break;
     case 5:                                       // ---- msg 6 @8824E8A8: *arg = &DAT_887ad5d4 ----

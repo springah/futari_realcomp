@@ -992,6 +992,7 @@ PPC_FUNC_IMPL(__imp__VdSetGraphicsInterruptCallback){ LOGN("VdSetGraphicsInterru
   g_vd_cb=ctx.r3.u32; g_vd_cb_ctx=ctx.r4.u32;
   std::fprintf(stderr,"  [vblank] registered cb=0x%08X ctx=0x%08X%c",(unsigned)ctx.r3.u32,(unsigned)ctx.r4.u32,10);
   static std::atomic<bool> started{false};
+  { extern uint8_t* g_frameclock_base; g_frameclock_base = base; }   // for the disarm-time ack poke
   if(!started.exchange(true)){
     uint8_t* B=base;
     std::thread([B](){
@@ -1274,6 +1275,7 @@ PPC_FUNC_IMPL(__imp__VdSetGraphicsInterruptCallback){ LOGN("VdSetGraphicsInterru
       typedef void (*FrameGrantFn)(PPCContext&, uint8_t*);
       extern std::atomic<int> g_frameclock_armed;
       extern std::atomic<void*> g_frameclock_grantfn;
+      extern std::atomic<int> g_frameclock_ingrant;
       const auto period = std::chrono::nanoseconds(16683350);   // 1/59.94 s
       auto next = std::chrono::steady_clock::now();
       long long n=0;
@@ -1283,12 +1285,22 @@ PPC_FUNC_IMPL(__imp__VdSetGraphicsInterruptCallback){ LOGN("VdSetGraphicsInterru
           next = std::chrono::steady_clock::now();               // reset cadence on re-arm
           continue;
         }
+        // ★ 08-12 swap-safe disarm handshake: publish "inside the grant" BEFORE re-checking
+        // armed (seq_cst on both sides). Disarm orders armed=0 THEN reads ingrant — so either
+        // we see armed==0 here and bail without touching module code, or disarm sees ingrant==1
+        // and pokes the game's ack event until we come back out of FA68's infinite wait. The
+        // module swap cannot proceed while this thread executes dying-DLL code.
+        g_frameclock_ingrant.store(1,std::memory_order_seq_cst);
+        if(!g_frameclock_armed.load(std::memory_order_seq_cst)){
+          g_frameclock_ingrant.store(0,std::memory_order_release); continue; }
         void* gf = g_frameclock_grantfn.load(std::memory_order_acquire);
-        if(!gf){ std::this_thread::sleep_for(std::chrono::milliseconds(1)); next=std::chrono::steady_clock::now(); continue; }
+        if(!gf){ g_frameclock_ingrant.store(0,std::memory_order_release);
+                 std::this_thread::sleep_for(std::chrono::milliseconds(1)); next=std::chrono::steady_clock::now(); continue; }
         // reset the guest stack pointer each grant (FA68 restores it, but a stale r1 from a
         // disarm/re-arm across a module swap must not leak downward)
         fc.r1.u64 = fc.r13.u64 + (0xAB0+0x100+0x2E0+0x40000);    // PCR+TLS+TEB+STK top (matches setup)
         ((FrameGrantFn)gf)(fc,B);                                // grant + block on game ack HERE
+        g_frameclock_ingrant.store(0,std::memory_order_release); // out of module code
         ++n; if(n<=3||(n%600)==0) std::fprintf(stderr,"  [frameclock] grant #%lld @59.94Hz%c",n,10);
         next += period;
         auto now = std::chrono::steady_clock::now();
@@ -1303,7 +1315,9 @@ PPC_FUNC_IMPL(__imp__VdSetGraphicsInterruptCallback){ LOGN("VdSetGraphicsInterru
 // skipped. Lever RT_FRAMECLOCK_VBLANK (default OFF while gating). The DLL reaches these through
 // the generated host ABI (tools/gen_host_abi.py HELPERS).
 std::atomic<int> g_frameclock_armed{0};
-std::atomic<void*> g_frameclock_grantfn{nullptr};   // &sub_8808FA68 from the abn override (cross-module)
+std::atomic<void*> g_frameclock_grantfn{nullptr};   // &sub_8808FA68 from the module override (cross-module)
+std::atomic<int> g_frameclock_ingrant{0};           // 1 = the dedicated thread is inside FA68 (module code)
+uint8_t* g_frameclock_base = nullptr;               // stashed at Vd cb registration; for the disarm ack poke
 // grantfn: the game module's own frame-grant function (&sub_8808FA68), passed as void* so the
 // generated host ABI stays free of PPC types. The dedicated thread casts it back and calls it.
 extern "C" int rt_frameclock_present_skip(void* grantfn){
@@ -1323,10 +1337,39 @@ extern "C" int rt_frameclock_present_skip(void* grantfn){
   return 1;
 }
 extern "C" void rt_frameclock_disarm(const char* why){
-  if(g_frameclock_armed.exchange(0)){
+  if(g_frameclock_armed.exchange(0)){                // seq_cst: orders before the ingrant read below
     g_frameclock_grantfn.store(nullptr,std::memory_order_release);
     std::fprintf(stderr,"  [frameclock] DISARM (%s)\n", why?why:"?");
   }
+  // ★ 08-12 SWAP-SAFE DRAIN (ship-debt closure): the dedicated thread may be parked inside
+  // FA68's INFINITE ack-wait — disarming the flag alone leaves it executing (soon-to-be-)dead
+  // module code across a swap. Poke the game's ack event until the thread reports it is out.
+  // The ack handle lives at guest [0x885C657C] (FA68 body: lwz r3,25980(r31), r31=0x885C0000;
+  // same static address in BOTH modules — hot-swap maps module data at identical guest
+  // addresses, so this reads the CURRENT module's handle). REPEATED pokes, not one: FA68
+  // clears the ack at entry, so a single poke can race the clear and be swallowed. Poking is
+  // benign — the module is tearing down, and every grant clear-acks first anyway.
+  // The poke goes through __imp__NtSetEvent (the /FORCE:MULTIPLE link WINNER = out_reco/rt.cpp,
+  // ledger 08-12) so it lands in the SAME event table the game's wait sleeps on — never
+  // shell-local rt_setev, which may be the displaced loser copy.
+  if(!g_frameclock_ingrant.load(std::memory_order_seq_cst)) return;
+  uint8_t* B = g_frameclock_base;
+  uint32_t ack = 0;
+  if(B) ack = __builtin_bswap32(*(const uint32_t*)(B + 0x885C657Cu));
+  const auto t0 = std::chrono::steady_clock::now();
+  int pokes = 0;
+  while(g_frameclock_ingrant.load(std::memory_order_seq_cst)){
+    if(std::chrono::steady_clock::now() - t0 > std::chrono::milliseconds(500)){
+      std::fprintf(stderr,"  [frameclock] DISARM (%s): DRAIN TIMEOUT — thread still in grant after "
+                          "500ms, %d pokes (ack=0x%X) — SWAP UNSAFE, expect a crash on module unload\n",
+                   why?why:"?", pokes, ack);
+      return;
+    }
+    if(ack){ PPCContext k{}; k.r3.u64 = ack; __imp__NtSetEvent(k, B); ++pokes; }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  if(pokes) std::fprintf(stderr,"  [frameclock] DISARM (%s): drained via ack poke x%d (ack=0x%X)\n",
+                         why?why:"?", pokes, ack);
 }
 PPC_FUNC_IMPL(__imp__ExCreateThread){ LOGN("ExCreateThread");
   uint32_t hp=ctx.r3.u32, tip=ctx.r5.u32, start=ctx.r7.u32, sctx=ctx.r8.u32, flags=ctx.r9.u32;

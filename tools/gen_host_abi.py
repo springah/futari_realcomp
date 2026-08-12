@@ -92,11 +92,13 @@ HELPERS = {
       "PPCContext& __restrict ctx, uint8_t* base, uint32_t target", "ctx, base, target",
       "out_reco/rt.cpp — the checked indirect-call dispatcher; ~191 call sites per module tree"),
   "rt_frameclock_present_skip": H("fn_rt_frameclock_present_skip", "int", "void* grantfn", "grantfn",
-      "shell/gen/rt.cpp — 08-12 tick/present decoupling: 1 = the 59.94Hz vblank thread owns "
-      "the ABN frame grant and GameEntry msg-5 must skip the present-path handshake; grantfn is "
-      "the module's &sub_8808FA68 (void*, cross-module — the shell's rt_lookup can't resolve it)"),
+      "shell/gen/rt.cpp — 08-12 tick/present decoupling: 1 = the dedicated 59.94Hz frame-clock "
+      "thread owns the module's frame grant (abn AND arcade seams) and GameEntry msg-5 must skip "
+      "the present-path handshake; grantfn is the module's own &sub_8808FA68 (void*, cross-module "
+      "— the shell's rt_lookup can't resolve it)"),
   "rt_frameclock_disarm": H("fn_rt_frameclock_disarm", "void", "const char* why", "why",
-      "shell/gen/rt.cpp — drop vblank frame-clock ownership (msg-3 teardown; also called "
+      "shell/gen/rt.cpp — drop frame-clock ownership + swap-safe DRAIN: pokes the game's ack "
+      "event until the clock thread is out of FA68's infinite wait (msg-3 teardown; also called "
       "host-side at module swap)"),
   "roundevenf": H("fn_roundevenf", "float", "float x", "x",
       "out_reco/harness.cpp"),

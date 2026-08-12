@@ -1,5 +1,49 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
 
+## ★★★★★★★ 08-12 EVENING — **FRAME-CLOCK SHIP DEBT CLOSED: swap-safe disarm (drain via ack
+## poke) + the ARCADE seam. Both gated; one real parked-thread drain caught in the wild.**
+
+**SWAP-SAFE DISARM (shell/gen/rt.cpp).** The hazard: a module swap while the dedicated
+frame-clock thread is parked in FA68's INFINITE ack-wait left it executing dying-DLL code.
+Closed with a two-sided handshake + drain:
+- Thread side: `g_frameclock_ingrant` published (seq_cst) BEFORE the armed re-check, cleared
+  after FA68 returns — so disarm either wins the race (thread sees armed=0 and never enters
+  module code) or sees ingrant=1 and drains.
+- Disarm side: after dropping armed, POKE THE GAME'S ACK EVENT until ingrant clears (500ms
+  bound, loud `DRAIN TIMEOUT` on failure). The ack handle is read from guest **[0x885C657C]**
+  — the same slot FA68 itself loads (`lwz r3,25980(r31)`, r31=0x885C0000; same static address
+  in both modules, and hot-swap maps module data at identical guest addresses, so the read is
+  always the CURRENT module's handle). Two subtleties that are the whole design:
+  (a) **REPEATED pokes, not one** — FA68 clear-acks at entry, so a single poke racing the
+  clear gets swallowed; (b) the poke goes through **`__imp__NtSetEvent`** so the linker routes
+  it to the /FORCE:MULTIPLE WINNER (out_reco/rt.cpp) = the SAME event table the game's wait
+  sleeps on — never shell-local rt_setev (possibly a displaced loser copy). Base for the guest
+  read is stashed at Vd-callback registration (`g_frameclock_base`). Registry + msg-3 disarm
+  call sites unchanged — they now genuinely block (bounded) until the thread is out.
+
+**ARCADE SEAM (decomp/game/game_entry_msgs.cpp).** reco_normal msg-5 gets the identical
+`rt_frameclock_present_skip((void*)&sub_8808FA68)` skip and msg-3 `rt_frameclock_disarm`; the
+ABI/shim plumbing already carried the helpers for both modules (597f73f). Lever off => both
+seams byte-identical to the matched bodies. gen_host_abi notes updated (abn-only wording was
+stale); abi_hash UNCHANGED (signature-only hash) so no rebuild ripple.
+
+**GATES, all green (all four build entry points relink):**
+- swapbounce lever-OFF: PASS, baseline-identical (6 swaps, P4 19/19, high-water 496MB,
+  epochinval 5 bounded, 0 `frameclock` lines — default-off inert confirmed).
+- swapbounce **lever-ON** (the swap-while-armed exercise): PASS — 6 swaps armed, both DLLs
+  alternate arm/disarm (arcade grantfn ...807E6920 / abn ...7D296920), 9600+ grants, and at
+  teardown #4 the hazard actually fired: `DISARM (msg3 teardown): drained via ack poke x1
+  (ack=0x50001648)` — the thread WAS parked in the ack-wait and one poke released it. Zero
+  drain timeouts. Arcade grant rate from [evt34] wall-ms stamps: **59.9/s exact**.
+- decouple_proof re-run post-refactor (the handshake touched the hot loop): welded 17.3/s
+  logic ≈ 13.3/s present; frameclock **64.5/s logic vs 13.3/s present** — still decoupled.
+
+⚠ STILL OWED before RT_FRAMECLOCK_VBLANK default-ON: (1) an arcade THROTTLED decoupling proof
+— needs an arcade-gameplay nav leg (futari_nav.sh has no arcade stage path; swapbounce only
+proves menu-side grants at 59.94), and (2) user pacing-feel eyes on real gameplay, both
+modules. Lever stays OFF. Also still owed from 08-12: game-over branch mapping (nav library
+known gap).
+
 ## ★★★★★★★★ 08-12 — **TICK/PRESENT WELD SEVERED (360 path): the frame clock now runs on a
 ## dedicated 59.94Hz thread, DECOUPLED from present. Measured: logic 61.8/s while present 20/s.**
 
