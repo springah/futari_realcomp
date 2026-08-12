@@ -399,3 +399,69 @@ PPC_FUNC_IMPL(__imp__sub_88092B20)
     ctx.r1.u32 = sp + 112;
     ctx.r3.u64 = result;
 }
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// sub_880929C8 — archive TEARDOWN. HOOKED ([gwork] in merged_game.cpp) → __imp__ seam.
+//
+// Ground truth: out_reco/ppc_recomp.5.cpp:6654-6789. Four steps, each guarded so teardown is safe
+// on a partially-initialised archive: (1) shut the streaming worker down — signal its wake event,
+// wait for the thread, close both handles; (2) free every per-entry cache buffer then the TOC
+// array; (3) close the archive file; (4) free the companion buffer. (d2 RESOLVED 07-23.)
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+PPC_FUNC_IMPL(__imp__sub_880929C8)
+{
+    PPC_FUNC_PROLOGUE();
+    const uint32_t sp = ctx.r1.u32 - 112;        // stwu r1,-112(r1)
+    PPC_STORE_U32(sp, ctx.r1.u32);
+    ctx.r1.u32 = sp;
+
+    // 1) worker shutdown — only if a worker thread was ever created.
+    if (PPC_LOAD_U32(ARC_WORKER_THREAD) != 0)
+    {
+        ctx.r3.u32 = PPC_LOAD_U32(ARC_WORKER_EVENT);          // signal wake event
+        ctx.lr = 0x880929F0; sub_88082BF8(ctx, base);
+        ctx.r3.u32 = PPC_LOAD_U32(ARC_WORKER_THREAD); ctx.r4.s64 = -1;   // wait (infinite)
+        ctx.lr = 0x880929FC; sub_88082BF0(ctx, base);
+        ctx.r3.u32 = PPC_LOAD_U32(ARC_WORKER_THREAD);         // close thread
+        ctx.lr = 0x88092A04; sub_88083178(ctx, base);
+        ctx.r3.u32 = PPC_LOAD_U32(ARC_WORKER_EVENT);          // close event
+        ctx.lr = 0x88092A0C; sub_88083178(ctx, base);
+    }
+
+    // 2) free the per-entry caches (entry+12) then the TOC array itself.
+    if (PPC_LOAD_U32(ARC_TOC_PTR) != 0)
+    {
+        uint32_t count = PPC_LOAD_U32(ARC_TOC_COUNT);
+        for (uint32_t i = 0; i < count; ++i)
+        {
+            const uint32_t entry = PPC_LOAD_U32(ARC_TOC_PTR) + i * TOC_STRIDE;
+            if (PPC_LOAD_U32(entry + 12) != 0)
+            {
+                ctx.r3.u32 = PPC_LOAD_U32(entry + 12);
+                ctx.lr = 0x88092A40; sub_88083758(ctx, base);
+                count = PPC_LOAD_U32(ARC_TOC_COUNT);          // generated reloads after each free
+            }
+        }
+        ctx.r3.u32 = PPC_LOAD_U32(ARC_TOC_PTR);
+        ctx.lr = 0x88092A64; sub_88083758(ctx, base);
+        PPC_STORE_U32(ARC_TOC_PTR, 0);
+    }
+
+    // 3) close the archive file.
+    if ((int32_t)PPC_LOAD_U32(ARC_FILE_HANDLE) != -1)
+    {
+        ctx.r3.u32 = PPC_LOAD_U32(ARC_FILE_HANDLE);
+        ctx.lr = 0x88092A80; sub_88083178(ctx, base);
+        PPC_STORE_U32(ARC_FILE_HANDLE, 0xFFFFFFFF);
+    }
+
+    // 4) free the companion/header buffer.
+    if (PPC_LOAD_U32(ARC_HDR_BUFFER) != 0)
+    {
+        ctx.r3.u32 = PPC_LOAD_U32(ARC_HDR_BUFFER);
+        ctx.lr = 0x88092A98; sub_88083758(ctx, base);
+        PPC_STORE_U32(ARC_HDR_BUFFER, 0);
+    }
+
+    ctx.r1.u32 = sp + 112;
+}
