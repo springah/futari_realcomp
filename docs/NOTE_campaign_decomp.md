@@ -1,5 +1,52 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
 
+## ★★★★★★★ 08-13 DAY-1 — **THE FRAME CLOCK IS THE SHIP DEFAULT (RT_FRAMECLOCK_VBLANK default
+## ON, =0 = welded revert), the D1 decomp batch (96 fns) IS MERGED, and RT_GAMEPUMP IS PROVEN
+## UNNECESSARY. Six-gate ladder green.**
+
+**FLIP (67f7f0a):** default-on in shell/gen/rt.cpp (thread creation + skip gate); proof
+scripts PIN the lever per-case (unset now means ON); EYEBALL_WELDED launcher + "Futari
+Realcomp WELDED" desktop shortcut = the A/B fallback (EYEBALL_FRAMECLOCK superseded/deleted).
+**MERGE (fadbb58):** decomp-gig D1 batch — registry now 9 MATCHED / 92 DRAFT (was 3/2).
+
+**GATE LADDER (banked /c/tmp/day1_gates/, all on the merged+flipped build):**
+- G1 swapbounce DEFAULT: PASS (rerun). First run FAILED P2 destroyed=4/6 — ⚠ KNOWN VARIANCE,
+  NOT a regression: slotreset=6/6 even in the failing run (invalidation ran every swap); the
+  "destroyed" line only prints when the map is non-empty at switch, and the frameclock msg-3
+  DRAIN can let the renderer empty it first. If P2 flakes again: accept slotreset>=swaps as
+  the invalidation evidence (P3+E3+slotreset cover the blast radius).
+- G2 swapbounce =0 REVERT: PASS, baseline-identical shape (epochinval 5, the welded numbers).
+- G3/G4 throttled proofs, pinned baselines: abn welded 16.6/s≈13.3 vs clock 64.8/s;
+  arcade welded 16.4/s≈13.3 vs clock 66.9/s. Both modules decouple ON THE DEFAULT BUILD.
+- G5 D1 gate on merged main: pilot leg clean (94 seq lines, 6 nav passes); the RETURN leg
+  died at the KNOWN game-over gap (Day-2 target) — full control-vs-pilot re-pair rides Day 7.
+- G6 **GAMEPUMP-OFF ARCADE (the retirement experiment): PASS** — RT_GAMEPUMP unset, frameclock
+  default: presents 60.0/s, logic 62.9/s, 0 [gamepump] lines, stage reached. **The natural
+  vbisr/shell chain dispatches msg-5 on arcade; the pump family is fully retirable** (VBLANK
+  variant already superseded outright — no env sets it). Retirement = drop RT_GAMEPUMP from
+  every gate env + delete GATE-3/vbpump code: its own leg with a full ladder re-run (Day 5/7),
+  NOT a quiet env edit.
+
+⏭ DAY 2 (tonight): game-over branch mapping (plan + harness staged in _local/_tmpscripts/
+day2_*) — also unblocks the D1 gate's return leg and the remaining driver-shape live-fires.
+
+## ★★★★★ 08-13 — **DAY-4 PREP BANKED (agent, branch day4-extract-prep, worktree
+## projects/futari_extract_prep): ASSET EXTRACTION IS PURE RELOCATION — prototype already
+## reproduces the tree 58/58 SHA-256-exact.**
+All 58 assets/ files are unmodified byte copies: 54 straight off the disc filesystem (same
+relative path, verified against futari_recomp's independent extraction), 3 = Black Label DLC
+package-internal Rom/* unwrapped, 1 in-tree duplicate (+ shell/default.xex duplicates
+assets/default.xex). Prototype tools/extract/futari_extract.py (adapted from futari_recomp
+v1.5.1: XDVDFS + GoD hash-tree + the fs_base−0x10000 fix; NEW: STFS reader for the DLC,
+positive-controlled on 4 real packages) ran against the user's real disc install: GoD→54/54,
++DLC→**58/58 full-tree match**, self-verified vs tools/extract/manifest_v1.tsv. Untested legs
++ open rulings in the worktree's DESIGN.md/STATUS.md (integration shape rec: standalone tool +
+first-run launcher hook, the save\ pattern).
+⚠ **REAL DEFECT FOUND (Day-4 must-fix): shell/gen/stubs.cpp:283-293 hardcodes DLC ownership
+"owned" unconditionally** — un-greys Black Label regardless; crash-on-select the moment assets
+are user-supplied. Gate g_dlc[] on media/Rom/cg_black*.bin presence. NOTE the repo never
+tracked assets (.gitignore) — the 1.1GB lives only in the distributed bundle.
+
 ## ★★★★★ 08-12 DECOMP SIDE-GIG (branch `decomp-gig`) — **D1: THE GameDriverTask COMMAND SURFACE
 ## IS HUMAN-READABLE. 96 guest functions = 12 shapes x 8 clones, gated, 6 shapes live-fired.**
 
