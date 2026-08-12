@@ -1039,11 +1039,11 @@ gate = "PENDING-GATE (round-3 decomp side-gig, branch decomp-gig-3). Translated 
 addr = "0x8813A248"
 module = "game"
 name = "sub_8813a248"
-role = "Mode 1 decode: LZ77, 4KB ring dict"
-status = "NAMED"
-provenance = "ATLAS_INDEX.md section 1 -- SC§2[RD], AP§2[RD]"
-file = ""
-gate = ""
+role = "Mode-1 asset decode: LZ77 over a global 4KB ring dictionary. hdr[0]=decodedSize (BE u32, ->r3 + loop terminator); bytes[4..1027]=1024 raw preamble copied to output AND priming ring[0..1023]; then fixed 2-byte tokens: byte0 top bit=0 -> LITERAL(byte1), =1 -> MATCH desc=((byte0&0x7f)<<8)|byte1 {distance:10=desc>>5, count:5=(desc&0x1f)+1} copied from ring at readCursor+distance. writeCursor(start 1024)/readCursor(start 0) both +count, gap stays 1024; persisted to 0x887ACE0C/0x887ACE08. Ring base 0x884D2468."
+status = "DRAFT"
+provenance = "ATLAS_INDEX.md section 1 -- SC§2[RD], AP§2[RD]; out_reco/ppc_recomp.18.cpp:10588 register-exact [RT]"
+file = "decomp/game/asset_decode.cpp"
+gate = "PENDING-GATE (round-4 decomp side-gig, branch decomp-gig-4). Translated as human-readable natural C + linked + SEAM-PROVEN: strong-hooked by DECODER_LOG_WRAP (merged_game.cpp:3596, RT_DECLOG/RT_DECDUMP), so the translation takes __imp__sub_8813A248 (SHADOWED-HOOK form). A fresh build/futari_merged.map (2026-08-12) resolves __imp__sub_8813A248 -> decomp_asset_decode.o (this body wins) while ?sub_8813A248@@... stays in merged_game.o (wrapper alive) and the generated __imp__ stays as dead bytes (rollback). build_win.sh links green (objects: 91, LINK_OK). NON-LEAF: one call boundary (memset sub_88073BD0) mirrored per C1 (r3/r4/r5 args + ctx.lr=0x8813A2A4 set; memset reads only those and does not allocate, so header scratch r6..r11 / nonvolatiles r27..r31 are NOT mirrored -- same residual class as mem_util.cpp; ctx nonvolatiles left = caller's, never clobbered so no save/restore emulation needed). Exit r3 = outPos == decodedSize (the wrapper reads it). READY GATE: RT_DECLOG=1 [declog] stream equality control(generated) vs pilot(this) + RT_DECDUMP=<hex dst> byte-compare of *_out.bin. NO LIVE-FIRE banked this session (background boot; decoders fire on card-art/asset loads, not plain attract). Rollback = delete decomp/game/asset_decode.cpp or drop obj_win/decomp_asset_decode.o."
 
 [[fn]]
 addr = "0x8813A460"
