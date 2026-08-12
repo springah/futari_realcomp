@@ -144,3 +144,66 @@ A-with-sub-4.
   "single-param config setter" without noting that the parameter is passed **by pointer to a
   stack temporary in the caller's outgoing-parameter area** (new `r1+124` == old `r1+28`), which
   is what makes GameEntry's `arg[0]` read work.
+
+## 7. ROUND-2 (2026-08-12, branch `decomp-gig-2`) — the four remaining vtable slots
+
+The four slots §5.2 flagged as read-but-untranslated are now four more shapes (32 fns = 4 shapes ×
+8 clones), same file, same seam. The clone sets were derived the same mechanical way (normalise
+address literals out of every generated body in `shell/gen/ppc_recomp.*.cpp`, group → **exactly 8
+byte-identical members each**, entry-relative return offsets verified equal across all 8):
+
+| vt slot | shape | what it does | msgs |
+|---|---|---|---|
+| +0x14 | I `Driver_ArmModeExt` | mode-arm EXTENDED: 2 extra params → driver+0x8C/+0x90, launchState=(arg?1:0) | 10 |
+| +0x34 | J `Driver_SendDescriptor` | DESCRIPTOR-IN: `{*DAT_821F858C + idx*720 + 16, driver+0xC0}` | 20 |
+| +0x18 | K `Driver_ArmModeStaged` | mode-arm STAGED: launchState 2/3/4 by r5, primes 2 toggle-keyed slots, calls its OWN vt+0x50 (rank/level) at level 4 — **no direct send** | (via +0x50) |
+| +0x70 | L `Driver_Init` | INIT DRIVER (`FUN_821C30B8`): boot-path burst 6,7,1,2,8,9 + `sub_821C64E8` + 304-byte `sub_8207DAC0` copy, then DESCRIPTOR-IN via its own vt+0x34 | 6,7,1,2,8,9,20 |
+
+**Seam** — same as round 1: none of the 32 is hooked in `out_reco/merged/*`, so plain
+`PPC_FUNC`. Verified in a fresh `build/futari_merged.map`: **32/32** round-2 `sub_*` resolve to
+`decomp_driver_msgs.o`; the generated `__imp__` bodies stay linked (rollback). `build_win.sh`
+links green. Two callees are reached by name (`sub_8207DAC0`, `sub_821C64E8`) — both declared at
+global scope in `driver_msgs.cpp` so they route through the same strong-over-weak seam.
+
+**Constants cross-checked exact** against the recomp decimals: `lis -32224/-32227/-32228` ⇒
+`0x82200000 / 0x821D0000 / 0x821C0000`; the four msg-9 callback-fn pointers land on
+`0x821C52E8 / 0x821C6208 / 0x821C5618 / 0x821C5230` — and `0x821C5618`/`0x821C5230` are named shell
+functions (`sub_821C5618` per-frame pad provider, `sub_821C5230` RT-slot cb), a strong confirmation
+of the `lis -32228 = 0x821C0000` base.
+
+**Gate = PENDING-GATE.** These slots fire only after a real mode module loads (a plain boot/attract
+calls **no** GameEntry at all — measured 0 `[gemsg]` lines in a 45 s idle boot, matching round 1's
+"attract never touches the command surface"). The mode-launch nav drive (`scripts/decomp_d1_gate.sh`)
+is the right gate, but its **windowed Vulkan boot segfaults early ~half the runs in the background
+side-gig session** (removing `RVK_WINDOW` avoids the window-init crash but boot is still flaky), so a
+clean control-vs-pilot pair could not be banked here. `scripts/_gig2_gate.sh` is the windowless copy
+staged for it. Registry rows are **DRAFT** accordingly. The main session (which owns this harness and
+the game-over nav gap) can bank the stream-equality run: the init driver +0x70 in particular is on
+the mode-launch path, so a single arcade entry drive live-fires L (and, through L's tail, shape J).
+
+**Atlas-ledger findings (log only):**
+- **The msg-20 DESCRIPTOR-IN sender is vt+0x34**, feeding the per-mode 720-byte config record at
+  `*DAT_821F858C[0] + driver+0xA8 * 720 + 16`. `DAT_821F858C` is the same config root shape H
+  (msg-15 region) copies from; `+0xA8` is the mode index, `720` the record stride.
+- **The init driver back-links the driver into two game globals via msg 6/7**: msg 6 returns
+  `&0x887AD5D4` and the init writes `driver+0x4C` through it; msg 7 returns `&0x887AD5DC` and writes
+  `driver+0x50`. So `0x887AD5D4/0x887AD5DC` hold shell driver-object fields after boot.
+- **msg 8 STATE-BLOCK is sent from the init driver** (`GameEntry(8, driver+0xB4)`), which is what
+  populates the `driver+0xB4` block the two predicate shapes (A) read every frame — closing the
+  loop noted in round 1 §6 (predicates read game globals live): the init driver is the writer.
+- **vt+0x18 (shape K) is an intra-vtable caller**: it invokes vt+0x50 (rank/level) on the same
+  object via `*(driver+0)` — the first driver wrapper observed to call a sibling slot rather than
+  GameEntry.
+
+## 8. What the next session should pick up (round-2 update)
+
+1. **Bank the PENDING-GATE live-fire.** Run `scripts/_gig2_gate.sh` (or `decomp_d1_gate.sh`) for a
+   control (round-1 HEAD) vs pilot (`decomp-gig-2`) pair on a stable mode-launch boot; compare
+   `[gemsg]`/`[msglog]` streams (drop msg-5 heartbeat) with `scripts/canon_seq.py`. A canary
+   (temporary `RT_DRVCANARY`-style log in each shape, removed before commit) confirms which of I/J/K/L
+   executed. Init driver +0x70 and descriptor +0x34 should fire on the plain arcade entry drive;
+   +0x14/+0x18 depend on which arm the launched mode arms through.
+2. The round-1 §5.1 debt is still open: msg 16/17/19 setters + msg-12 sender need the combined-exe /
+   360 / training path.
+3. `decomp/registry.toml`'s pre-existing strict-TOML break at (old) line 1394 is still there — the
+   round-2 block parses clean in isolation; left alone per round 1.
