@@ -93,9 +93,11 @@
 // CALLEE STATUS at the bl/bctrl boundaries:
 //   TRANSLATED (this leg): sub_88092B20 (archive.cpp, [wjob] ENQUEUE — the raw read + completion hook);
 //     sub_8813A248 / sub_8813A118 / sub_88139D90 / sub_88139A88 (asset_decode.cpp, the mode decoders).
+//   TRANSLATED (round 5, decomp/game/asset_upload.cpp): sub_8808D640 (the state-5 TEXTURE UPLOAD —
+//     page staging copy; its render-side consumer twin sub_8808DF70 came with it).
 //   STILL GENERATED (called through their plain sub_* symbols so their instrument wrappers keep
 //     firing): sub_8808CE90 (buffer alloc), sub_8808CF58 (free), sub_88090E58 / sub_88090D50 /
-//     sub_88090CB8 (upload-descriptor build), sub_8808D640 (TEXTURE UPLOAD — ASM-EXACT in matchlab),
+//     sub_88090CB8 (upload-descriptor build),
 //     sub_880924E8 (cache-line variant read), the per-slot user callback (bctrl on slot+12).
 //
 // ════════════════════════════════════════════════════════════════════════════════════════════════

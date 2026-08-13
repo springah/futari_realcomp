@@ -43,6 +43,75 @@ silently broken the abn module DLL for every future +8-referencing decomp file.
 sub_8808D640/sub_8808DF70 (already ASM-EXACT in matchlab) — the last still-generated pump callee;
 (3) refactor the mode 3/4 + submit/pump transcriptions to readable C once the live gate proves it.
 
+## ★★★★★ 08-13 DECOMP SIDE-GIG round 5 (branch `decomp-gig-5`, DRAFT — not merged) — **THE
+## UPLOAD PATH IS FOLDED IN: the asset pipeline is now human-readable C from archive byte to
+## tiled texel. The pump has ZERO still-generated write-side callees.**
+
+Remainder item (2) of the 08-13 asset-pipeline leg, cashed. **`decomp/game/asset_upload.cpp`** —
+the two page-cache writers, both as **human-readable NATURAL C** (no faithful-transcription
+fallback was needed, and that is the point: see PROVENANCE below).
+
+- **sub_8808D640 `Page_StageUpload` (PRODUCER, asset-pump thread).** `(pageId, src, sizeState)
+  -> 1 staged / 0 refused`. Refuses `pageId >= 0x200` or a null device `[0x887AD5D0]`; else, under
+  the page lock `[0x887398A8]`, parks a private CPU copy of the freshly decoded image in the page
+  record's staging buffer (`rec = 0x887518D0 + pageId*0x14`, `dim = sizeState<<8`,
+  `bytes = dim*dim*2`): a `stageSize` mismatch frees + re-allocates the buffer, then it stores
+  stageSize, arms `state = 0` (upload pending) and memcpys. **It touches no GPU state at all** —
+  that is the whole design: the streaming/decode thread never calls D3D.
+- **sub_8808DF70 `Page_FillFromCpu` (CONSUMER, render side; only caller sub_8808E468, the family
+  that also drives the sub_8808DC10 bake).** One sweep of all 512 records under the same lock:
+  `state != 0` = release requested (drop texture, re-arm); else `srcBuf != 0` = pending upload →
+  ensure the texture at stageSize (sub_8808D838) → **XGTileSurface** the linear staged image into
+  the locked texture → unlock → free the staging buffer **on both arms** (an ensure failure must
+  not leak it). ⚠ **The copy is a TILE, not a memcpy**: the destination extent comes from
+  XGGetTextureDesc (`Pitch/BytesPerBlock`, `HeightInBlocks`), so a padded row pitch is honoured —
+  anyone porting this to the native renderer must reproduce the linear→tiled step, not the byte
+  count. `dim` is read from `rec.sizeState` **after** the ensure rewrote it, never from stageSize.
+
+**PROVENANCE — the strongest this campaign has had.** Both functions are **ASM-EXACT in
+tools/matchlab** (`Page_StageUpload` 63 insn, sha1 d0122ee8…; `Page_FillFromCpu` 81 insn, sha1
+26025ea0…): their C rebuilds the *shipped instruction bytes* under XDK 9328 cl.exe. So the record
+layout, argument order and XG/D3D signatures are not inferred from the recomp — they are proven.
+That is exactly why round 5 could write readable C here while rounds 3-4 had to transcribe the
+bit-readers: there is no residual uncertainty for the live differential to resolve, only execution
+to witness. (Byte-matching demoted to a verification tool on 08-11 — this is that tool paying out.)
+
+**SEAM (measured, not assumed): BOTH UNHOOKED** → plain `PPC_FUNC` for both. No strong
+`PPC_FUNC(sub_8808D640/DF70)` exists anywhere outside the generated tree, so the SHADOWED-HOOK
+`__imp__` form was not needed (contrast asset_pump.cpp, where 2 of 3 were hooked).
+
+**GATES.** MECHANICAL PASS — fresh `build/futari_merged.map` (verbatim, 2026-08-13):
+```
+ 0001:00004ab0  ?sub_8808D640@@YAXAEIAUPPCContext@@PEAE@Z  0000000140005ab0  decomp_asset_upload.o
+ 0001:00004c60  ?sub_8808DF70@@YAXAEIAUPPCContext@@PEAE@Z  0000000140005c60  decomp_asset_upload.o
+ 0001:0063d7f0  __imp__sub_8808D640                        000000014063e7f0  game_ppc_recomp.4.o
+ 0001:0063fc80  __imp__sub_8808DF70                        0000000140640c80  game_ppc_recomp.4.o
+```
+Both strong bodies win (that is the symbol every caller resolves through, incl. asset_pump.cpp's
+state-5 `sub_8808D640` call); both generated `__imp__` bodies stay linked as dead rollback bytes.
+`llvm-nm build/obj_dll_reco_abnormal/decomp_asset_upload.o` confirms the abn arm too: both `T`
+definitions un-shifted, all ten callees + the two Rtl imports `U` un-shifted. `build_win.sh` LINK_OK (objects 93 → **94**);
+`build_win_abn.sh` LINK_OK (95); **`build_win_dll.sh` BUILD_OK — combined exe + both module DLLs**.
+abn map regen: **no new renames** (all ten callees + both entry addresses are below the 0x880DEF88
+split); only the informational count moved 107 → 115 referenced-below-split — committed as the
+settle, same as the leg's own abn commit.
+
+**C1 discipline.** Both are non-leaves: 5 bl boundaries in D640, 10 in DF70, each with the exact
+generated argument registers + `ctx.lr` = that call's return address, callees invoked through their
+plain `sub_*` symbols. Guest frames emulated on both — and in DF70 that is **mandatory, not
+cosmetic**: the D3D/XG out-parameters (POINT sp+80, D3DLOCKED_RECT sp+88, RECT sp+96,
+XGTEXTURE_DESC sp+112 zero-filled 0x3C as 7×stdu + 1×stw, the generated inline memset) live in the
+frame the callees write into.
+
+**⏭ STILL OWED (unchanged in kind — this is a DRAFT branch):**
+- LIVE-FIRE / MATCHED differential for both (RT_DECLOG-style control-vs-pilot on a card/select
+  drive). D640 fires on every streamed page via the pump's state-5 arm; DF70 runs per frame off
+  sub_8808E468, so a plain attract boot should already exercise the sweep — cheap positive control.
+- Merge to main (branch `decomp-gig-5` is unmerged, deliberately).
+- Round-5 remainder items (1) the MATCHED differential and (3) the mode 3/4 + submit/pump
+  transcription refactors are untouched by this round.
+- Registry: rows 0x8808D640 / 0x8808DF70 advanced NAMED → **DRAFT** with the map-gate evidence.
+
 ## ★★★★★ 08-13 DECOMP SIDE-GIG rounds 2+3 (merged from decomp-gig-3) — **+34 fns: the
 ## GameDriverTask vtable FINISHED + the asset-codec leaf cluster opened.**
 Round 2 (branch decomp-gig-2, commit d97affc): the 4 remaining GameDriverTask vtable slots as
