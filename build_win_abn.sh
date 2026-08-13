@@ -97,12 +97,14 @@ cc(){ # name  src  flags...
 }
 
 echo "== DECOMP tree (decomp/*/*.cpp — campaign C1+; __imp__ overrides, linked FIRST) =="
-echo "   +8 symbol map applied; game_entry_msgs.cpp EXCLUDED (C1 MATCHED body carries reco_normal"
-echo "   .data literals that move +0x60 — see the script header)."
+echo "   +8 symbol map applied; game_entry_msgs + the 4 asset-pipeline TUs EXCLUDED (bodies"
+echo "   carry reco_normal .data literals that move +0x60 — see the script header)."
 for f in decomp/game/*.cpp decomp/shell/*.cpp; do
   [ -f "$f" ] || continue
   n=$(basename "$f" .cpp)
-  [ "$n" = "game_entry_msgs" ] && continue
+  # abn-excluded: reco_normal .data literals move +0x60 (see build_win_dll.sh; the asset TUs
+  # joined game_entry_msgs 2026-08-13 after the differential caught the abn pump dead).
+  case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util) continue;; esac
   cc "decomp_$n" "$f" $GAME_INC $RT $MAP
 done
 # decomp/game_abn/ = abn-NATIVE translations (addresses already +8/+0x60-resolved; the C1-class

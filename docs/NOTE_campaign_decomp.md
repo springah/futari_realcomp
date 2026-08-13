@@ -1,4 +1,58 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
+## ★★★★★★★ 08-13 EVE — **THE ASSET-PIPELINE MATCHED DIFFERENTIAL RAN — AND FIRST CAUGHT A
+## SHIP-BLOCKER: the decomp asset TUs broke the 360 MODULE (+0x60 .data literals). Fixed by
+## abn exclusion; the arcade differential then PASSED every leg. 11 fns DRAFT→MATCHED.**
+
+**THE CATCH.** First pilot card/select drive: 360 card decide fine, abn archive [winit] ok, then
+"Now Loading" FOREVER — 0 [wjob], 0 [declog]. Control build (generated DLLs, loaded via
+RT_MODDLL_DIR=build/ctl_dlls; built by _local/_tmpscripts/decdiff_build_control.sh =
+build_win_dll.sh's DLL half minus the 4 asset TUs) on the identical drive: 86 read-jobs, 213
+decodes, module fully alive. MECHANISM (generated-source proof): the normal pump materializes the
+TOC ptr as lis -30597 / addi **-11864**; the abn pump (sub_8813A740) uses addi **-11768 = +0x60**
+— the game_entry_msgs .data-shift law. The 4 asset TUs hardcode reco_normal literals (ARC_TOC_*,
+mode-1's ring dict, archive globals) and rode into the abn DLL, where the +8 map renames FUNCTION
+symbols, not embedded data addresses ⇒ the abn job system read/wrote globals 0x60 off ⇒ dead ⇒
+every 360 session since the leg merged hung at "Now Loading". The overnight "LIVE-EXECUTED"
+evidence was ARCADE-only; ship-build GREEN was link-only. Gate lesson re-taught: a shared-TU
+merge's blast radius is BOTH arms — an arcade-only live gate does not cover it.
+
+**THE FIX (build_win_dll.sh + build_win_abn.sh):** asset_decode / asset_pump / archive / mem_util
+join game_entry_msgs on the abn exclusion list — the abn arm runs the GENERATED bodies until
+decomp/game_abn/ twins are earned. 360 regression re-drive after rebuild: 86 wjob / 213 declog
+(count-identical to control), ranking attract renders clean.
+
+**THE DIFFERENTIAL (arcade arm = where the decomp pipeline lives post-fix).** Scripts:
+_local/_tmpscripts/decdiff_arcade.sh (nav = scripts/futari_nav.sh legs, all asserts green) +
+decdiff_compare.py; evidence banked /c/tmp/decdiff/ (logs, dumps_pilot/, dumps_control/):
+- RT_DECLOG stream equality: STRICT (fn,r5,lr,exit-r3) **398/398 IDENTICAL**. RAW diverges only
+  at the src-buffer heap address (entry 58: 080D8000 vs 089F8000) = the documented alloc-drift
+  class; the DST is identical throughout (staging buffer 0x03DE0000, all 398 decodes).
+- RT_DECDUMP byte-compare: **398/398 out.bin BYTE-IDENTICAL** across the two builds.
+- Pixel-visual: pilot char select (Reco&Kiniro portrait, gold filigree, No Entry frame) + shot
+  select (stone plates) CLEAN — my eyes via computer-use, matching the control-arm screens.
+⇒ **11 fns DRAFT→MATCHED** in decomp/registry.toml (mode-2 decoder 8813A118, pump 8813A738,
+submit 8813A4D0, completion 8813A6A0, archive 88092ED8/B20/7A8/AA8/B80 + 8813A460, mem_util
+88072260); every row carries the full gate string + the abn-scope caveat.
+
+**COVERAGE BOUNDARIES (no silent caps):** only MODE 2 live-fired (all 398) — modes 1/3/4
+(A248/9D90/9A88) had ZERO fires on the select drive and stay DRAFT; archive teardown 880929C8 +
+companion 88092668 unexercised, stay DRAFT. The abn arms of all 4 TUs are build-excluded — no
+abn differential is possible until game_abn twins exist.
+
+**DRIVE-ENV TRAPS BANKED:** (1) card360_probe.sh's RVK_FPS=3 wedges the abn boot under the
+frameclock default (one [evt34] grant then starvation) — decdiff_* scripts use the swapnp/proof
+env (no present throttle). (2) 'XexLoadImage' as a swap wait-marker false-positives on boot-time
+lines — wait on '[modswap] #N DONE' + the module NAME (futari_nav.sh already does this right).
+Incidental: the whole session ran on the flipped frameclock default (shell nav, swaps, both
+modules' selects) — free soak on top of the Day-1 ladder.
+
+⏭ NEXT: (a) decomp-gig-5 (worktree projects/futari_decomp_gig5, commit cae95e1, UNMERGED) =
+upload path sub_8808D640/DF70 as natural C, mechanical gates green — its live differential rides
+THIS apparatus (D640 fires in pump state-5 on the same select drive); merge after that gate.
+(b) modes 1/3/4 live-fire coverage (find the drive that hits them — stage entry / other screens).
+(c) the sanctioned readable refactor of pump/submit + modes 3/4 (the live gate now exists).
+(d) game_abn twins for the asset TUs if abn-side decomp is wanted; else the exclusion stands.
+
 ## ★★★★★★★ 08-13 — **THE ASSET-PIPELINE LEG: the whole archive→decode→upload chain is now
 ## human-readable C. 45 fns across 5 files, ship build green, live-executed with 0 failures.**
 

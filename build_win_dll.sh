@@ -191,9 +191,16 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
   echo "-- decomp game TUs"
   for f in decomp/game/*.cpp; do
     n=$(basename "$f" .cpp)
-    # game_entry_msgs.cpp is EXCLUDED from the abn arm: its C1 MATCHED body stores to reco_normal
-    # .data literals that move +0x60.  decomp/game_abn/ carries the re-earned twin instead.
-    [ "$MIDX" = "1" ] && [ "$n" = "game_entry_msgs" ] && continue
+    # ABN-EXCLUDED TUs: bodies that carry reco_normal .data literals, which move +0x60 in the
+    # abn image. The +8 symbol map renames FUNCTION symbols only — embedded data addresses are
+    # not translated, so these TUs read/write the wrong abn globals. game_entry_msgs was the
+    # first (decomp/game_abn/ carries its re-earned twin); the four asset-pipeline TUs joined
+    # 2026-08-13 when the MATCHED differential caught the abn job pump dead on the shipped DLL
+    # (0 read-jobs, "Now Loading" hang: pump TOC ptr addi -11864 vs abn's -11768 = +0x60).
+    # Their abn arms run the GENERATED bodies until game_abn twins are earned.
+    if [ "$MIDX" = "1" ]; then
+      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util) continue;; esac
+    fi
     cc "decomp_$n" "$f" $GI $RT $MAP
   done
   if [ "$MIDX" = "1" ]; then
