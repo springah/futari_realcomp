@@ -767,6 +767,7 @@ static uint16_t rt_host_buttons(){
 // Write a hex button word to press, "0" to release, e.g. `echo 1000 > /tmp/futari_pad` (=A).
 // Words: A=1000 B=2000 X=4000 Y=8000 START=10 BACK=20 DPAD L/R/U/D=4/8/1/2.
 static std::atomic<uint8_t> g_fifo_lt{0}, g_fifo_rt{0};   // FIFO-injected analog triggers (P1)
+static std::atomic<uint16_t> g_fifo_p2{0};                // FIFO-injected P2 pad word (Day-6 2P join)
 static uint16_t rt_fifo_buttons(){
   static bool on = getenv("RT_PAD_FIFO")!=nullptr;
   if(!on) return 0;
@@ -776,10 +777,14 @@ static uint16_t rt_fifo_buttons(){
   // 2026-07-23 rapid-fire A/B: optional 2nd/3rd hex fields = LT/RT analog (0x00-0xFF).
   // "<buttons> [<lt> <rt>]" — e.g. `echo "0 0 20" > fifo` holds RT past the shell's >0x1e
   // threshold with no buttons. Single-field writes behave exactly as before (triggers 0).
-  unsigned v=0, lt=0, rt=0; int n=std::fscanf(f,"%x %x %x",&v,&lt,&rt);
+  // 2026-08-13 Day-6 (2P join): optional 4th hex field = the P2 pad word, served on the
+  // user==1 XamInputGetState LEVEL channel exactly like a physical XInput index-1 pad.
+  // "<p1> <lt> <rt> <p2>" — e.g. `echo "0 0 0 10" > fifo` = P2 START, P1 idle.
+  unsigned v=0, lt=0, rt=0, p2=0; int n=std::fscanf(f,"%x %x %x %x",&v,&lt,&rt,&p2);
   if(n<1) v=0; std::fclose(f);
   g_fifo_lt.store(n>=2?(uint8_t)lt:0,std::memory_order_relaxed);
   g_fifo_rt.store(n>=3?(uint8_t)rt:0,std::memory_order_relaxed);
+  g_fifo_p2.store(n>=4?(uint16_t)p2:0,std::memory_order_relaxed);
   return (uint16_t)v;
 }
 // ============ RT_XINPUT: host XInput controllers -> guest pad (SHIP feature) ============
@@ -924,7 +929,12 @@ PPC_FUNC_IMPL(__imp__XamInputGetState){static bool o=false;if(!o){o=true;std::fp
     static bool pad_on = getenv("RT_PAD")!=nullptr;
     uint16_t buttons=0; uint32_t pkt=0;
     if(user==0 && (pad_on || rt_pad_host_on() || rt_xinput_on())){ std::lock_guard<std::mutex> l(g_syn_m); buttons=syn_sample(); pkt=g_syn_pkt; }
-    else if(user==1){ buttons=rt_xinput_buttons(1); } // P2 pad LEVEL only (no keystroke EDGE channel)
+    else if(user==1){ // P2 pad LEVEL only (no keystroke EDGE channel): physical XInput idx 1
+                      // OR the scripted FIFO 4th field (Day-6 2P join; unattended drives).
+      buttons=(uint16_t)(rt_xinput_buttons(1) | g_fifo_p2.load(std::memory_order_relaxed));
+      static std::atomic<int> j{0};
+      if(buttons && (j.fetch_add(1)<6)) std::fprintf(stderr,"  [xinput] P2 buttons=0x%04X (user=1)\n",buttons);
+    }
     *(uint32_t*)s=__builtin_bswap32(pkt); *(uint16_t*)(s+4)=__builtin_bswap16(buttons);
     // analog triggers (XINPUT_GAMEPAD bLeft/RightTrigger, single bytes — no swap). The shell's
     // rapid-fire binding reads these; they were hardcoded 0 until the 2026-07-23 RT-rapid leg.
