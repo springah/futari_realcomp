@@ -1,4 +1,40 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
+## ★★★★★★ 08-13 NIGHT-4 — **DAY-4 DONE: ASSET EXTRACTION IS SHIPPED-SHAPE — user-supplied
+## dumps work end-to-end, the DLC entitlement stub is GATED, and the next-release launcher
+## carries the first-run wizard. Backlog #13 (the public-release critical-path item) is
+## functionally closed.**
+
+Prep merged (day4-extract-prep → main; worktree removed). Everything below ran on main:
+- **DLC ENTITLEMENT GATE (the prep's must-fix, shell/gen/stubs.cpp):** g_dlc[] entries are
+  served ONLY if their data exists under the asset root — BL keyed on Rom/cg_black(.hi).bin,
+  Ver1.01 on the DISC-sourced cg_v102 pair (DESIGN §4: the V101 DLC is an 11-byte license,
+  NO data — so data-presence is the only sane key and any full dump owns it). RT_DLCFORCE=1
+  reverts. VERIFIED BOTH WAYS live on an extracted tree: both OWNED with DLC; cg_black*
+  removed → 'entry 0 MISSING' + only DLC #1 served, shell clean. (In THIS build BL is greyed
+  by the modestub hosting mask regardless — the gate's crash-prevention lands when a BL-hosting
+  build exists.)
+- **EXTRACTION RE-PROVEN ON MAIN:** real GoD container ("360 USB") → 54/54 + staged copies +
+  the friendly BL-absent notice; + unpacked DLC (D:\360\00000002\496F…) → 58/58; --verify-only
+  clean. CORRUPT-INPUT leg (prep's untested #3): byte-flipped Data0002 → loud fail naming
+  file + block ("data block 1213 fails its hash"), EXIT 1, no partial output.
+- **ACCEPTANCE (prep's untested #4):** the port BOOTED AND REACHED THE TOP MENU entirely off
+  the extracted tree (RT_GAME_ROOT=C:/tmp/day4/assets + the extracted shell/default.xex).
+- **INTEGRATION SHAPE (DESIGN §7 rec, adopted):** dist/next_release/"Futari 1.5.bat" = the
+  next-bundle launcher template — assets\default.xex missing ⇒ first-run wizard (python check,
+  drag-prompt, extractor, optional DLC leg, quote-stripping for typed paths, hard-stop on
+  failure). TESTED END-TO-END from a bare staged bundle: main extraction + DLC leg → 58/58.
+  Template also DROPS beta1's stray RVK_RESLOG=1 (the instrument-in-ship-config class, 4th
+  find). Packaging must stage tools/extract/ + docs/DUMPING.md into bundles.
+- **docs/DUMPING.md** written (adapted from futari_recomp's — no dlc/ folder here; BL unpacks
+  into assets/media/Rom; manifest_v1.tsv is the ground truth; gate-log line documented).
+- **RULINGS TAKEN (autonomous, revisit if wrong):** keep the 23MB never-read files (manifest
+  identity beats 2% savings); DEFER the shell/default.xex dedup (the tool stages it — zero
+  cost; deleting it churns every launcher/drive script); Python dep accepted for beta
+  (futari_recomp precedent).
+- **STILL OPEN (honest):** no Futari ISO on this machine (XDVDFS leg inherited-proven only);
+  no packed BL STFS of THIS title (reader positive-controlled on 4 others; package-internal
+  path fallback untested); a user-driven attended run of the wizard (B3-class acceptance).
+
 ## ★★★★★ 08-13 NIGHT-3 — **DAY-3 DONE: HONOR-SETTINGS CLOSED BY RE-DERIVATION — the guest
 ## honors its OWN settings under RT_NVK=2; backlog #7's premise was legacy-era. B1 verified
 ## fixed. Save-poke matrix, all green.**

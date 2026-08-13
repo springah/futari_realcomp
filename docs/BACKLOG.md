@@ -166,9 +166,13 @@ consecutive ship-nothing legs ⇒ back here for re-ranking, not another leg.
     Banked for that day: the welded-clock fix (RVK_DECOUPLE) was the "slow by construction"
     mechanism the old Deck pacing notes blamed — a Deck retest under decouple is the first
     step and may make the old timer-granularity work moot.
-13. **Ship targets: no-SDK, user-supplied-dump extraction** — early alpha keeps assets in
-    (user ruling); extraction step required before any wider release (panel's one
-    irreversible-decision item). ~a day, on the critical path to public release.
+13. **Ship targets: no-SDK, user-supplied-dump extraction — ✅ FUNCTIONALLY DONE 2026-08-13
+    (Day-4; ledger NIGHT-4 block).** tools/extract/ (GoD/ISO/STFS/unpacked, hash-verified,
+    manifest-checked, fail-loud) + DLC entitlement gate in stubs.cpp (RT_DLCFORCE=1 reverts) +
+    dist/next_release launcher first-run wizard (tested end-to-end) + docs/DUMPING.md. Port
+    boot-verified on an extracted tree. Remaining before a public bundle: stage tools/extract
+    + DUMPING.md into the zip, drop the bundled assets, one attended user run of the wizard;
+    honest gaps: no Futari ISO or packed BL STFS on this machine to test against.
 14. **Decomp→recomp hand-rolled elimination** — the long game ([[futari-matching-decomp-goal]],
     [[futari-hand-rolled-backlog]]); biggest single item now = the atomic-frame-boundary /
     renderer heuristics reduction that decoupling started. Background cadence.

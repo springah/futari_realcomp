@@ -287,11 +287,35 @@ PPC_FUNC_IMPL(__imp__XamContentClose){static bool o=false;if(!o){o=true;std::fpr
 // content_type@4, display_name(utf16-BE,128)@8, file_name(42)@0x108.
 static const uint16_t g_dlc_bl_name[]   = {0x866B,0x59EB,0x3055,0x307E,0x3075,0x305F,0x308A,0x3000,0x30D6,0x30E9,0x30C3,0x30AF,0x30EC,0x30FC,0x30D9,0x30EB}; // 虫姫さまふたり　ブラックレーベル
 static const uint16_t g_dlc_v101_name[] = {0x866B,0x59EB,0x3055,0x307E,0x3075,0x305F,0x308A,0x3000,0x0056,0x0065,0x0072,0x0031,0x002E,0x0030,0x0031};        // 虫姫さまふたり　Ver1.01
-static const struct DlcEntry { const char* file_name; const uint16_t* name; int name_len; } g_dlc[] = {
-  {"496F816DD4B53DAEFF931838B6C69831AAD7663043", g_dlc_bl_name,   16},
-  {"9893A78CA6062B935BD1F53EA43CFD546B7246DF43", g_dlc_v101_name, 15},
+static const struct DlcEntry { const char* file_name; const uint16_t* name; int name_len; const char* req[2]; } g_dlc[] = {
+  {"496F816DD4B53DAEFF931838B6C69831AAD7663043", g_dlc_bl_name,   16, {"media/Rom/cg_black.bin", "media/Rom/cg_blackhi.bin"}},
+  {"9893A78CA6062B935BD1F53EA43CFD546B7246DF43", g_dlc_v101_name, 15, {"media/Rom/cg_v102.bin",  "media/Rom/cg_v102hi.bin"}},
 };
 static const int g_ndlc = 2;
+// 2026-08-13 Day-4 (user-supplied dumps): a DLC entry is served ONLY if its data files exist
+// under the asset root. Unconditionally answering "owned" un-greys Black Label even when the
+// dump has no DLC — crash-on-select the moment assets are user-extracted (tools/extract/).
+// Ver1.01's archives are DISC-sourced, so it stays owned on any full dump. Black Label also
+// ships Rom/dropprm.bl; the two cg archives are the load-bearing check. RT_DLCFORCE=1 restores
+// the old unconditional behaviour (revert arm).
+static bool rt_dlc_owned(int ci){
+  static int owned[8] = {-1,-1,-1,-1,-1,-1,-1,-1};
+  if(owned[ci]<0){
+    const char* e=std::getenv("RT_DLCFORCE");
+    if(e && e[0]=='1' && !e[1]){ owned[ci]=1; }
+    else {
+      const char* root=std::getenv("RT_GAME_ROOT"); if(!root||!*root) root="assets"; // mirrors rt_game_root()
+      owned[ci]=1;
+      for(int f=0; f<2 && g_dlc[ci].req[f]; ++f){
+        char p[1024]; std::snprintf(p,sizeof p,"%s/%s",root,g_dlc[ci].req[f]);
+        FILE* fp=std::fopen(p,"rb"); if(!fp){ owned[ci]=0; break; } std::fclose(fp);
+      }
+    }
+    std::fprintf(stderr,"[xenum] DLC gate: entry %d ('%.8s...') -> %s\n",ci,g_dlc[ci].file_name,
+                 owned[ci] ? "OWNED (data present)" : "MISSING (stays grey; RT_DLCFORCE=1 overrides)");
+  }
+  return owned[ci]==1;
+}
 // per-enumerator content_type + consumed-item count, indexed by (handle>>2)&0x3FF
 static uint32_t g_enumType[1024];
 static int      g_enumConsumed[1024];
@@ -457,6 +481,7 @@ PPC_FUNC_IMPL(__imp__XamEnumerate){static bool o=false;if(!o){o=true;std::fprint
   uint32_t ei=(h>>2)&0x3FF;
   if(g_enumType[ei]==2 && buf){
     int ci=g_enumConsumed[ei];
+    while(ci<g_ndlc && !rt_dlc_owned(ci)) ++ci;   // Day-4 gate: skip entries with no data on host
     if(ci<g_ndlc){
       g_enumConsumed[ei]=ci+1;
       for(int i=0;i<0x308;i++) PPC_STORE_U8(buf+i,0);   // zero the FULL item slot (XCONTENT_AGGREGATE_DATA + pad)
