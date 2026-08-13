@@ -156,9 +156,14 @@ consecutive ship-nothing legs ⇒ back here for re-ranking, not another leg.
    scripted P2 channel (pad FIFO optional 4th hex field → user==1). Verified live end-to-end:
    P2 START at char select → [joinp] WILL-JOIN slot=1 → 2P frame fills → both selects →
    TWO-SHIP co-op stage → 2P game-over reaches the replay prompt cleanly. The 07-23 post-join
-   freeze did NOT reproduce (retired by the 08-03 pause-flow fix). Remaining polish (small):
-   isolated distinct-movement assert in-stage; the 2P SIDE START menu route; 360-module 2P
-   pass; a nav_2p library leg for unattended co-op drives.
+   freeze did NOT reproduce (retired by the 08-03 pause-flow fix). ✅ POLISH ROW DONE
+   2026-08-14: nav_2p_join()/nav_2p_press() in futari_nav.sh; scripted co-op validation
+   (day8_2p_validate.sh) COOP_arcade_PASS + COOP_360_PASS (join → dual selects → two-ship
+   stage, unattended, both modules); 2P SIDE START route mapped (fires the SAME join handler,
+   [decide] item=1 → mirrored char select with the 1P seat "No Entry"); NAV_MAP.md 2P section.
+   Movement distinctness: pad-level proven (separate user0/user1 words drove separate
+   seats/selects); in-stage two-ship visual captured mid-hold. Remaining: the user's own
+   two-pad couch session (attended acceptance).
 10. **Score Attack sign-in: GRACEFULLY DECLINE — ✅ VERIFIED END-TO-END 2026-08-13 (Day-5;
     08-03 user ruling re-proven scripted).** Hub A → the guest's own "sign in to Xbox LIVE to
     access rankings / A:OK" dialog → A → clean dismissal → the SCORE ATTACK submenu with only

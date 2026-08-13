@@ -84,3 +84,13 @@ IN-STAGE PAUSE (START, only when actually in a stage):
   [p0build]         hub item list w/ names [modswap]/[swapinv]     module swaps
   [epochinval]/[idcol] texture identity    [quadcensus]            armed frame census
   ⚠ [intap]/[scenelog] read reco_NORMAL globals — FROZEN/GARBAGE under reco_abnormal.
+
+## 2P (mapped 2026-08-14, the polish row)
+  JOIN at char select: P2 START (pad FIFO 4th field, `echo "0 0 0 10"`; or physical XInput
+  idx 1) -> '[joinp] *** 881366D0 ... WILL-JOIN ***' -> the 2P frame fills. nav_2p_join()
+  implements it; nav_2p_press() sends any P2 word. Both players then drive their OWN selects
+  (P1 word field 1, P2 word field 4).
+  2P SIDE START (NORMAL PLAY submenu row 1, [decide] item=1): fires the SAME join handler
+  (slot=1) -> Mode Select -> char select MIRRORED (1P seat "No Entry", 2P side active).
+  Verified scripted co-op: both modules, join -> dual selects -> two-ship stage
+  (_local/_tmpscripts/day8_2p_validate.sh: COOP_arcade_PASS + COOP_360_PASS).

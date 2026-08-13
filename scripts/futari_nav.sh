@@ -205,6 +205,20 @@ nav_gameover_np_to_topmenu(){
   nav_base; nav_press 1000 0.25 3.0                           # A (はい)
   nav_wait_new 'vt=0x82050518' 12 "shell TOP MENU (vt=0x82050518)"
 }
+# ---- 2P join at character select (Day-6/8 2P row). P2 input = the pad FIFO's 4th hex field
+# ("<p1> <lt> <rt> <p2>"), served on the user==1 XamInputGetState LEVEL channel. Marker = the
+# game-side join handler: '[joinp] *** 881366D0 ... WILL-JOIN ***' (RT_JOINP arms it; the
+# [xinput] P2 line proves delivery even without RT_JOINP). Retry-safe: a P2 START when already
+# joined is a no-op.
+nav_2p_press(){ echo "0 0 0 $1" > "$FIFO"; sleep "${2:-0.3}"; echo 0 > "$FIFO"; sleep "${3:-1.5}"; }
+nav_2p_join(){
+  local _r _pref=$NAV_FAILS
+  for _r in 1 2 3; do
+    nav_base; nav_2p_press 10 0.3 2.0
+    if nav_wait_new 'WILL-JOIN\|P2 buttons' 6 "2P join (try $_r)"; then NAV_FAILS=$_pref; return 0; fi
+    [ "$_r" = "3" ] && { nav_say "FAIL: 2P join never registered"; return 1; }
+  done
+}
 nav_verdict(){ nav_say "assertions: $NAV_PASSES passed, $NAV_FAILS failed"; [ "$NAV_FAILS" -eq 0 ]; }
 
 # ⚠ KNOWN GAP (08-11 validation): the game-over return flow after a NORMAL-PLAY-entered stage

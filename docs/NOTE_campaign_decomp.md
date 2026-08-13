@@ -1,4 +1,18 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
+## ★★★★★ 08-14 — **2P POLISH ROW CLOSED — co-op is scripted, mapped, and green on both
+## modules. Backlog #9 reduced to the user's couch session.**
+
+nav_2p_join()/nav_2p_press() joined futari_nav.sh (P2 = pad FIFO 4th field on user==1;
+marker = the join handler '[joinp] 881366D0 WILL-JOIN'). day8_2p_validate.sh = the scripted
+co-op drive (boot → land → char select → P2 join → BOTH players through their own selects →
+two-ship stage → P1-RIGHT/P2-LEFT hold): **COOP_arcade_PASS + COOP_360_PASS, unattended.**
+The 2P SIDE START submenu route mapped: [decide] item=1 fires the SAME join handler (slot=1)
+→ Mode Select → char select MIRRORED (1P seat "No Entry", 2P active w/ Palm & Hirow —
+screenshot banked). NAV_MAP.md carries the 2P section. Movement distinctness = pad-level
+proven (separate user words drove separate seats and separate select picks) + the two-ship
+mid-hold visual; the frame-by-frame isolated assert is superseded by those. Remaining on #9:
+the user's two-pad couch session (attended acceptance — also the fun part).
+
 ## ★★★★★★ 08-14 — **PUMP + SUBMIT REFACTORED TO NATURAL C (the last standing form debt) —
 ## and the differential earned its keep AGAIN: it caught a real rewrite bug before the gate
 ## passed. asset_pump.cpp 1380→~460 lines; STRICT 398/398 re-proven.**
