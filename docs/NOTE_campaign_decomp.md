@@ -1,4 +1,25 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
+## ★★★★★★ 08-14 — **PUMP + SUBMIT REFACTORED TO NATURAL C (the last standing form debt) —
+## and the differential earned its keep AGAIN: it caught a real rewrite bug before the gate
+## passed. asset_pump.cpp 1380→~460 lines; STRICT 398/398 re-proven.**
+
+sub_8813A738 (the ~650-insn job pump) and sub_8813A4D0 (submit) are now readable natural C —
+the ring/chain/state machine written as it IS: one slot per call, the record chain drained
+in-call through ARM(0) → DECODE(1) → PRODUCE(2/5) → FINISH(3), async-vs-sync read split on
+the submit callback, cell stall parking in state 2, sentinel = negative resId. Preserved
+shipped oddities documented in-file (submit's unguarded descriptor read + store order; the
+park-resume producing from never-read buffers). C1 = args + ctx.lr per call (the proven
+pattern); frame emulated (back-chain + lowered r1).
+
+**THE GATE CAUGHT A REAL BUG (the whole reason the transcriptions waited for it):** first run
+FAILED STRICT at decode #47 — exit r3=0, an EMPTY source buffer. Localization: ENQUEUE id
+streams identical ⇒ the first ASYNC-delivered record. Root: sub_880924E8 shares B20's
+(id, dst, slot) ABI and the generated body's r4 "leftover" from the alloc IS the dest arg —
+the rewrite omitted it, so the worker wrote to garbage. One line; re-run: **STRICT 398/398
+PASS both tiers, RT_UPCANARY ×16 through the new pump, full-loop validate arcade PASS.**
+Registry rows updated (gate strings note the refactor + the caught bug). Transcriptions live
+in git (≤ f79a8f1).
+
 ## ★★★★★★ 08-14 DAY-7 — **CONSOLIDATION DONE — THE WEEK PLAN IS COMPLETE. D1 full-loop
 ## re-pair 74/74 ×2 CANONICAL-IDENTICAL (the Day-1 debt paid); next-release bundle staged
 ## (no game data). Every day of the 08-12 week plan delivered.**
