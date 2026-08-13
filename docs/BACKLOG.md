@@ -134,9 +134,18 @@ consecutive ship-nothing legs ⇒ back here for re-ranking, not another leg.
 
 6. **D3 wall-dim exact factor at composite** (0.875 vs 0.90 = 1/16 quantization) — demoted
    07-27 (reload cost fixed); compose-path surgery, do attended with texel gates.
-7. **Honor-settings work-list** — geometry/FX screen settings ignored in present path (only
-   BG Wallpaper + BG Brightness honored). Geometry first (user-visible on Maniac Layout
-   presets). Oracle apparatus exists. Medium, well-understood.
+7. **Honor-settings work-list — ✅ CLOSED BY RE-DERIVATION 2026-08-13 (Day-3): the premise was
+   legacy-renderer-era.** Under RT_NVK=2 the GUEST applies its own settings and the renderer
+   reproduces them (settings_audit.md's own 0-PRE rotation proof, now extended). Save-poke
+   matrix on the ship build (evidence /c/tmp/day3/, ledger 08-13 Day-3 block): Rotation/TATE ✓,
+   Layout preset incl. ExtraView multi-panel ✓, Picture preset (scanline/effect renders) ✓,
+   Brightness ✓ (90→30 visibly dim), DropShadow ✓ + SimplifyDraw ✓ ([shadowring] gate14/gate18
+   track the save bytes — the guest gates its own draws), Wallpaper ✓ (pre-known). B1 (settings
+   reset when a replay exists — single-item enumerator) VERIFIED FIXED live: pkgs=2, both
+   SAVEGAME items served, savegame.bin resolves under systemdata.bin. STILL OPEN (small):
+   FrameDelay semantics untested (pacing, likely guest-internal; own leg if ever); Color/
+   ExtraView sub-offsets unpinned (N1, doc work); oracle-grade pixel fidelity of the effects
+   (post-beta); B3 user-driven menu save round-trip (attended acceptance, user's hands).
 8. **Card-page clipped fragment / title blink** — ledger says authentic/known; do not re-chase.
 
 ## FEATURES (post-gate)

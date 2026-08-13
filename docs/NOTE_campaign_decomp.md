@@ -1,4 +1,31 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
+## ★★★★★ 08-13 NIGHT-3 — **DAY-3 DONE: HONOR-SETTINGS CLOSED BY RE-DERIVATION — the guest
+## honors its OWN settings under RT_NVK=2; backlog #7's premise was legacy-era. B1 verified
+## fixed. Save-poke matrix, all green.**
+
+Method = settings_audit.md 0-PRE's own precedent (no checksum ⇒ poke savegame.bin, boot, look;
+_local/_tmpscripts/day3_poke.sh, one boot per variant, screenshots + instruments, evidence
+/c/tmp/day3/). Blk3 truth re-pinned en route: the recurring 8,8 pairs at 0x16F8 + i*0x80 are
+the per-preset ROTATION pairs (stride 0x80 re-confirmed; the audit's +0x34 "zoom pair" claim
+was its own retracted guess — zoom/position sub-offsets remain unpinned, N1). Picture presets
+@0x1AF8 + i*0x2C carry real factory content.
+
+**MATRIX (ship build b85119b, RT_NVK=2, frameclock default):**
+- Rotation/TATE (0x16FC=1): ✓ whole panel quarter-turn, guest-applied (08-01 proof holds today).
+- Layout preset idx (0x16F0=1): ✓ the ExtraView MULTI-PANEL layout renders — main panel + 3
+  positioned/zoomed sub-views. The "whole family ignored" audit verdict is REFUTED.
+- Picture preset idx (0x16F4=3): ✓ full-panel scanline/effect wash renders (Effect/Glare class).
+- Brightness (0x16DC 90→30): ✓ visibly dim.
+- DropShadow (0x16E0→0): ✓ [shadowring] gate14 1→0 — the guest reads the byte and gates its
+  own ring draws. SimplifyDraw (0x16E8→1): ✓ gate18 1→0. (The hook logs entry always; the
+  gate dwords are the verdict.)
+- B1 (settings-reset-when-replay-exists): the multi-item enumerator fix is IN and VERIFIED
+  live with a dual-package root (save_rdcval copy): pkgs=2, 'replaydata.bin' item 1 of 2 +
+  'systemdata.bin' item 2 of 2, savegame.bin resolves under systemdata.bin.
+**OPEN (small, banked in BACKLOG #7):** FrameDelay untested (pacing); Color/ExtraView
+sub-offsets unpinned (N1); oracle-grade effect fidelity post-beta; B3 user menu round-trip =
+attended acceptance (user's hands).
+
 ## ★★★★★★ 08-13 NIGHT-2 — **DAY-2 DONE: THE GAME-OVER BRANCH IS MAPPED AND THE FULL LOOP IS
 ## SCRIPTED — boot→stage→death→shell TOP MENU, both modules, 4/4 assertions, unattended.**
 
