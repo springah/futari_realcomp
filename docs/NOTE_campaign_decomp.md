@@ -6133,3 +6133,10 @@ register-leftover-as-argument like the r4 one the gate DID catch. The transcript
 E58/D50/CB8/D640 args control-vs-pilot the way declog covers decoders) + a pixel gate on the
 STAGE field, not just selects. Gate lesson: STRICT decode-stream equality passed while the
 game visibly broke — every produce-arm change needs its own instrument.**
+
+## 🚀 08-14 — **BETA2 F&F ZIP CUT** → Desktop\Futari_Realcomp_BETA2_FNF.zip (898MB, build
+## 183b038 = post-revert transcription pipeline, user-eyed playfield-right). Contents: combined
+## exe + 2 DLLs, wizard launcher "Futari 1.5.bat", README + README_FNF (assets INCLUDED for
+## instant play — private F&F precedent; friend can rename assets\ away to exercise the
+## extraction wizard with their own dump), tools/extract, docs/DUMPING.md, shell, save
+## template. Public zip stays the no-data shape per dist/next_release/STAGING.md.
