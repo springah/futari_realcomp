@@ -6119,3 +6119,17 @@ in the SAME capture (usersave_frame2977.rdc) with the markmap coordinates.
   hardcoded paths) on that pair. Shadow-only delta at steady state ⇒ chase ring/compose hop;
   equal ⇒ presented-domain theory dies and the box needs a fresh differential. Kill qrenderdoc
   after every --python run (lingers, looks stuck).
+
+## ⚠ 08-14 LATE — **THE PUMP REFACTOR IS REVERTED (acd96cd). USER-SIGHTED playfield regression;
+## the stream gate was NECESSARY BUT NOT SUFFICIENT.**
+User relaunched after the a15bdbc refactor: ROM playfield elements MISSING (shadows/items/
+enemy art thinned; legal + title panels falling to black/white placeholders), menus/borders
+fine. A/B same drive same scene: pre-refactor transcription = RICH field (screenshots banked);
+refactored = degraded. ROOT NOT ISOLATED — candidates: the produce-arm upload-descriptor
+ARGUMENTS (E58/D50/CB8 flag, D640 page packing) which RT_DECLOG cannot see, or a second
+register-leftover-as-argument like the r4 one the gate DID catch. The transcription is back
+(build rebuilt + attract re-verified rich); the natural-C body is preserved at a15bdbc and
+/c/tmp/asset_pump_refactored.cpp. **RETRY REQUIREMENTS: an upload-arg differential (log
+E58/D50/CB8/D640 args control-vs-pilot the way declog covers decoders) + a pixel gate on the
+STAGE field, not just selects. Gate lesson: STRICT decode-stream equality passed while the
+game visibly broke — every produce-arm change needs its own instrument.**
