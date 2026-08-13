@@ -98,6 +98,8 @@
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 
 #include "ppc_recomp_shared.h"   // ppc_config.h (base 0x88000000) + ppc_context.h + all callee decls
+#include <cstdio>                // RT_UPCANARY live-gate instrument only
+#include <cstdlib>
 
 namespace {
 
@@ -152,6 +154,16 @@ PPC_FUNC(sub_8808D640)
     const uint32_t pageId    = ctx.r3.u32;
     const uint32_t src       = ctx.r4.u32;
     const uint32_t sizeState = ctx.r5.u32;
+
+    // RT_UPCANARY=1: one-shot-ish execution proof for the live gate (this body is UNHOOKED, so
+    // no merged_game instrument can attest it runs — the map only proves linkage). Default-off.
+    if (std::getenv("RT_UPCANARY")) {
+        static int n = 0;
+        if (n < 4 || (n % 200) == 0)
+            std::fprintf(stderr, "[upcanary] Page_StageUpload #%d page=%u size=%u lr=%08X\n",
+                         n, pageId, sizeState, (uint32_t)ctx.lr);
+        ++n;
+    }
 
     const uint32_t sp = ctx.r1.u32 - 160;             // stwu r1,-160(r1)
     PPC_STORE_U32(sp, ctx.r1.u32);
@@ -288,6 +300,16 @@ PPC_FUNC(sub_8808DF70)
 
         if (PPC_LOAD_U32(rec + REC_SRCBUF) == 0)
             continue;                                             // nothing pending on this page
+
+        // RT_UPCANARY=1: live-gate execution proof for the FILL arm (only fires when a page has
+        // staged content, so no per-frame flood). Default-off; see the D640 twin note.
+        if (std::getenv("RT_UPCANARY")) {
+            static int n = 0;
+            if (n < 8 || (n % 100) == 0)
+                std::fprintf(stderr, "[upcanary] Page_FillFromCpu #%d page=%u stageSize=%u\n",
+                             n, pageId, PPC_LOAD_U32(rec + REC_STAGESIZE));
+            ++n;
+        }
 
         // Make sure the page has a live texture at the size the staged image was written for.
         ctx.r3.u32 = pageId; ctx.r4.u32 = PPC_LOAD_U32(rec + REC_STAGESIZE);

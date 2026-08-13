@@ -1,4 +1,26 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
+## ★★★★★★ 08-13 NIGHT — **GIG-5 (UPLOAD PATH) LIVE-GATED AND MERGED (b85119b + gate commit).
+## sub_8808D640 + sub_8808DF70 MATCHED. Registry: 13 fns promoted today total.**
+
+decomp-gig-5 (cae95e1, natural-C Page_StageUpload/Page_FillFromCpu, mechanical gates green in
+the worktree) merged to main, then live-gated on the decdiff apparatus:
+- **abn safety FIRST**: the TU hardcodes PAGE_TABLE 0x887518D0 / PAGE_LOCK 0x887398A8 /
+  G_DEVICE 0x887AD5D0 — VERIFIED +0x60-shifted in the abn twins (out_reco_abn ppc_recomp.4:
+  -10800→-10704, -26456→-26360, 6352→6448; symbols un-shifted, both fns below the split, so the
+  agent's nm check couldn't see it). asset_upload joined the abn exclusion in BOTH build scripts
+  + the control build's EXCLUDE — the exact landmine the differential caught this afternoon,
+  stopped pre-merge this time.
+- **Execution proof** (both bodies UNHOOKED ⇒ no existing instrument attests them): RT_UPCANARY
+  one-shot canaries added to the TU (default-off, kept). Pilot select drive: Page_StageUpload
+  ×5 (upload-descriptor path lr=88090F2C, pages 3-6), Page_FillFromCpu fill-arm ×11 (pages 3-8)
+  — the producer→consumer staging mailbox ran live end-to-end.
+- **Stream + visual**: RT_DECLOG vs rebuilt control STRICT 398/398 unchanged (RAW src-addr drift
+  only, the documented class); char select + shot select (THE page-compose screens) clean, my
+  eyes. Control ran 0 canaries (identity proof: generated upload on control).
+⇒ both rows DRAFT→MATCHED (gate strings updated in-row; asm_exact sha1s already banked).
+⏭ still owed from round 5: modes 1/3/4 live-fire coverage; pump/submit + modes 3/4 readable
+refactor; game_abn twins for all 5 excluded asset TUs if abn-side decomp is wanted.
+
 ## ★★★★★★★ 08-13 EVE — **THE ASSET-PIPELINE MATCHED DIFFERENTIAL RAN — AND FIRST CAUGHT A
 ## SHIP-BLOCKER: the decomp asset TUs broke the 360 MODULE (+0x60 .data literals). Fixed by
 ## abn exclusion; the arcade differential then PASSED every leg. 11 fns DRAFT→MATCHED.**
