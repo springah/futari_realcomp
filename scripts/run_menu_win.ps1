@@ -14,7 +14,7 @@ $root = $PSScriptRoot
 Remove-Item C:\tmp\rvk_last.png, C:\tmp\rvk_frame*.png, C:\tmp\rvk_state.txt -Force
 $env:RT_GAME_ROOT          = "$root\assets"
 $env:RT_BOOT_SHELL=1; $env:RT_THREADS=1; $env:RT_DEFERDRIVER=1; $env:RT_ASYNCIO=1
-$env:RT_EHCONTAIN=1; $env:RT_AUDIOPUMP=1; $env:RT_GAMEPUMP=1
+$env:RT_EHCONTAIN=1; $env:RT_AUDIOPUMP=1
 $env:RT_VK=1; $env:RVK_PERSIST=1; $env:RVK_RENDER_FROM=1; $env:RVK_NOHALVE=1
 $env:RVK_FIXVP=1; $env:RVK_REALALPHA=1; $env:RVK_BLEND=1
 $env:RT_PAD=1; $env:RT_NAV_SEQ="0:STARTx26@500,24000:Ax10@1000"; $env:RT_PAD_HOST=1

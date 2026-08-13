@@ -35,7 +35,7 @@ mkdir -p _local/logs /c/tmp
 PRE=$(powershell -NoProfile -Command "((Get-Process | Where-Object { \$_.ProcessName -like 'futari*' }).Id) -join ','" 2>/dev/null | tr -d '\r')
 [ -z "$PRE" ] || { echo "!!! ABORT: a futari process is already running (pids=$PRE)" >&2; exit 1; }
 
-export RT_BOOT_SHELL=1 RT_THREADS=1 RT_DEFERDRIVER=1 RT_ASYNCIO=1 RT_EHCONTAIN=1 RT_AUDIOPUMP=1 RT_GAMEPUMP=1
+export RT_BOOT_SHELL=1 RT_THREADS=1 RT_DEFERDRIVER=1 RT_ASYNCIO=1 RT_EHCONTAIN=1 RT_AUDIOPUMP=1
 export RT_VK=1 RT_NVK=2 RVK_PERSIST=1 RVK_RENDER_FROM=1 RVK_NOHALVE=1 RVK_FIXVP=1 RVK_BLEND=1 RVK_REALALPHA=1
 export RT_WALLPAPER=1 RVK_TEXPITCH=1 RVK_FMT3KEY=1 RVK_GPFIELD=1 RVK_C255=0.00625:0.00390625:-1:0
 export RVK_RESALIAS=1 RVK_RESFRESH=1 RVK_FIXB2=1 RVK_RESREAL=1 RVK_HDR=0

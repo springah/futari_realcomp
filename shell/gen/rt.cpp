@@ -668,9 +668,9 @@ PPC_FUNC_IMPL(__imp__VdEnableRingBufferRPtrWriteBack){ LOGN("VdEnableRingBufferR
 // too -- singleton will just be null until the shell reaches that code path).
 extern "C" void __imp__NtSetEvent(PPCContext& __restrict ctx, uint8_t* base);
 extern "C" int rt_audio_can_accept(void);   // rt_audio.cpp (audiopump pacing gate)
-// forward decls for the vblank-thread game pump (defined/declared further down in this file)
+// forward decls (the vblank-thread game pump that once used these was retired 08-13 Day-5;
+// g_game_tick_modectx survives for the [fsmlog] banner, rt_setup_thread_ctx for the frameclock)
 extern "C" uint32_t g_game_tick_modectx;
-extern "C" void __imp__sub_821C8DA8(PPCContext& __restrict, uint8_t*);
 static void rt_setup_thread_ctx(PPCContext&, uint8_t*);
 
 // ===================================================================================
@@ -1216,31 +1216,11 @@ PPC_FUNC_IMPL(__imp__VdSetGraphicsInterruptCallback){ LOGN("VdSetGraphicsInterru
           if(!once){ once=true; std::fprintf(stderr,"  [vbisr] real vblank ISR chain LIVE: dev=0x%08X vbc=%u swc=%u swapcb=0x%08X 8550=0x%08X%c",
             devp,rt_be32(B,devp+0x4174),rt_be32(B,devp+0x4188),rt_be32(B,devp+0x4170),rt_be32(B,0x821F8550),10); } }
         if(!isr_ran){ if(PPCFunc* tick=rt_lookup(B,0x8216AD38)) tick(c,B); }
-        // RT_GAMEPUMP_VBLANK (2026-07-17 attract-pacing DECOUPLING): the game's logic clock is
-        // the GameEntry(msg=5) handshake (ROM: sub_8808FB90 waits event 0x885C6528, granted by
-        // sub_8808FA68 from the msg-5 handler). The msg-5 pump lived only in the VdSwap impl —
-        // i.e. on the SHELL PRESENT PATH — so game logic ran at the legacy renderer's present
-        // rate (~10-15fps during the ROM attract; measured chain: render tail ~45ms + decode
-        // ~20ms -> presents 10/s -> msg-5 10/s -> task family 6-10/s -> the whole attract 6-10x
-        // slow). Hardware granted the tick per VBLANK. Pump it HERE, on the 59.94Hz vblank
-        // thread, so logic runs at console speed regardless of how fast we render. The VdSwap
-        // pump is skipped while this is on (double-granting would run logic >60Hz).
-        {
-          static bool vbpump = getenv("RT_GAMEPUMP_VBLANK")!=nullptr;
-          if(vbpump && g_game_tick_modectx){
-            static thread_local bool in_vbpump=false;
-            if(!in_vbpump){
-              in_vbpump=true;
-              PPCContext pc2{}; rt_setup_thread_ctx(pc2,B); pc2.r3.u32=g_game_tick_modectx;
-              __imp__sub_821C8DA8(pc2,B);
-              in_vbpump=false;
-              rt_fsmlog(B,"vbl");   // vblank-path pump: FSM timers tick at the fixed 59.94Hz
-
-              static std::atomic<long> vp{0}; long v=vp.fetch_add(1)+1;
-              if(v<=3||(v%600)==0) std::fprintf(stderr,"  [vbpump] msg5 tick #%ld @59.94Hz%c",v,10);
-            }
-          }
-        }
+        // (RT_GAMEPUMP_VBLANK vbpump RETIRED 2026-08-13, Day-5. The 07-17 vblank msg-5 pump was
+        // the attract-pacing bring-up; the NATURAL vbisr/shell chain dispatches msg-5 on arcade
+        // (Day-1 G6: pump unset -> logic 62.9/s, 0 [gamepump] lines, stage reached) and the abn
+        // grant lives on the dedicated frame-clock thread (RT_FRAMECLOCK_VBLANK, ship default).
+        // History: this comment block + git. No lever revives it — that is the point.)
         // (08-12 tick/present decoupling: the frame grant was FIRST tried here on the vblank
         // thread — but FA68 BLOCKS on the game's ack, monopolizing this thread and starving the
         // present/audio/graphics-int duties it also drives (measured: presents collapsed to
@@ -1252,8 +1232,8 @@ PPC_FUNC_IMPL(__imp__VdSetGraphicsInterruptCallback){ LOGN("VdSetGraphicsInterru
         // it timestamps FSM state (wall-ms) alongside the global present counter, so a window snap
         // taken at a known wall-ms can be checked against the FSM state at that same instant.
         { static bool mreport=false; if(!mreport){ mreport=true;
-            std::fprintf(stderr,"[fsmlog] g_game_tick_modectx=0x%08X RT_GAMEPUMP=%s RT_GAMEPUMP_VBLANK=%s%c",
-              g_game_tick_modectx, getenv("RT_GAMEPUMP")?"1":"0", getenv("RT_GAMEPUMP_VBLANK")?"1":"0",10); }
+            std::fprintf(stderr,"[fsmlog] g_game_tick_modectx=0x%08X (pump family retired 08-13; natural chain + frameclock own the tick)%c",
+              g_game_tick_modectx,10); }
           rt_fsmlog(B,"s60"); rt_reveallog(B); }
       }
     }).detach();
@@ -1760,26 +1740,17 @@ PPC_FUNC_IMPL(__imp__XNotifyGetNext){ LOGN("XNotifyGetNext");
 //   nearest_clamp_policy:1 (+11), base_address:20 (+12, "base address >> 12")
 // dword_2 (index 2, byte +8), size_2d union:
 //   width:13 (+0) height:13 (+13) stack_depth:6 (+26); stored as (actual-1)
-// GATE 3 per-frame game tick target: set by merged_xex.cpp after GameEntry init completes.
-// Defined HERE (not in merged_xex.cpp) so futari_shell — which does not link merged_xex.cpp —
-// still resolves the symbol (it stays 0 there, so the tick below never fires).
+// Per-frame game tick target: set by merged_shell.cpp after GameEntry init completes. Kept for
+// the [fsmlog] correlation banner and as the modectx handle other diagnostics read.
+// (THE GATE-3 PUMP FAMILY IS RETIRED — 2026-08-13 Day-5. RT_GAMETICK / RT_TREEPUMP /
+// RT_GAMEPUMP / RT_GAMEPUMP_VBLANK and the bring-up levers nested inside the pump body
+// (RT_STARTBIT, RT_ACKQUIESCE, RT_RELOADCLR, RT_MODE64, RT_KICKWORK, RT_DUMPGUEST,
+// RT_LOADSIG) were the 07-06..07-23 era scaffolding that drove the game's msg-5 clock from
+// the host present path before the natural chain worked. Day-1 G6 proved the natural
+// vbisr/shell chain dispatches msg-5 on arcade with the pump unset (logic 62.9/s, stage
+// reached), and the abn/arcade frame grants live on the dedicated frame-clock thread
+// (RT_FRAMECLOCK_VBLANK, ship default). History: git + NOTE_campaign_decomp.md.)
 extern "C" uint32_t g_game_tick_modectx = 0;
-extern "C" void __imp__sub_821C3278(PPCContext& __restrict, uint8_t*);  // shell per-frame game-mode tick
-extern "C" void __imp__sub_82173900(PPCContext& __restrict, uint8_t*);  // base task child-render pass
-// GATE 3 (2026-07-06, SDK-oracle finding): the game module renders its title/menu ONLY when
-// pumped GameEntry(msg=5) every frame. The SDK sends it from sub_821C8DA8(r3=modectx) — the mode
-// object's per-frame vtable update method (dispatched over the ACTIVE mode object in the app-state
-// tree). sub_821C3278/sub_821C69F0 above is the shell's UI tick and does NOT send msg 5, and can't
-// reach sub_821C8DA8 because our injected inner modectx is not registered in the loopobj tree. So
-// under RT_GAMEPUMP we call sub_821C8DA8(inner) directly each present to drive the game per-frame.
-extern "C" void __imp__sub_821C8DA8(PPCContext& __restrict, uint8_t*);  // per-frame GameEntry(msg=5) pump
-// GATE 3 (2026-07-06): the SDK's loading-complete signal. After the game has pumped msg-5 for a
-// while (assets loaded), the shell sends GameEntry msg 15, msg 11 (state 4), msg 15 — the trigger
-// that flips the game from "loading" to "build/render menu". Senders build their own args from the
-// modectx + shell state; sub_821C85A0's r4 = lifecycle state (4 = menu; derived: 1<<(4-4)=arg[0]=1,
-// matches the SDK oracle). Armed with RT_LOADSIG; fires once after RT_LOADSIG (default 300) presents.
-extern "C" void __imp__sub_821C88E8(PPCContext& __restrict, uint8_t*);  // sends GameEntry(msg=15)
-extern "C" void __imp__sub_821C85A0(PPCContext& __restrict, uint8_t*);  // sends GameEntry(msg=11, state r4)
 
 PPC_FUNC_IMPL(__imp__VdSwap){ LOGN("VdSwap");
   uint32_t buffer_ptr=ctx.r3.u32, fetch_ptr=ctx.r4.u32, writeback_ptr=ctx.r5.u32;
@@ -1805,154 +1776,8 @@ PPC_FUNC_IMPL(__imp__VdSwap){ LOGN("VdSwap");
   // LEG-27/40 ring-window: cursor before any game tick/pump runs in this impl.
   if(g_d3d_device) g_vk_vd_pre.store(rt_be32(base,g_d3d_device+0x30));
 
-  // GATE 3: drive the game's per-frame update once per present when armed. Reentrancy-guarded
-  // (the tick must never re-enter VdSwap); copy ctx so VdSwap's own registers are untouched.
-  if(g_game_tick_modectx && getenv("RT_GAMETICK") && !getenv("RT_TREEPUMP")){
-    static thread_local bool in_tick=false;
-    if(!in_tick){
-      in_tick=true;
-      PPCContext ic=ctx; ic.r3.u32=g_game_tick_modectx;
-      __imp__sub_821C3278(ic,base);
-      in_tick=false;
-      static std::atomic<int> tk{0}; int t=tk++;
-      if(t<5||(t%300)==0)
-        std::fprintf(stderr,"[gametick] present#%d ticked sub_821C3278(modectx=0x%08X)%c",n,g_game_tick_modectx,10);
-    }
-  }
-  // RT_TREEPUMP (2026-07-23 pump-hunt leg): register-true replacement for RT_GAMETICK's bare
-  // 69F0 call. The natural per-frame path (sub_8216EA68 on the wrapper the fake LOADGAME scene
-  // never pumps) calls modectx vt+0x04 = sub_82173B98 = the TASK-TREE TICK (runs the +0x48 state
-  // fn ONLY when modal child-list A is empty, then ticks child nodes A/B — the page/dialog tasks),
-  // and the walker's render pass renders the children. We deliver both: vt+0x04, then the base
-  // task child-render FUN_82173900(modectx, 0). Supersedes RT_GAMETICK when set.
-  if(g_game_tick_modectx && getenv("RT_TREEPUMP")){
-    static thread_local bool in_tp=false;
-    if(!in_tp){
-      in_tp=true;
-      uint32_t mc=g_game_tick_modectx;
-      uint32_t vt=rt_be32(base,mc), f04=vt?rt_be32(base,vt+4):0;
-      if(f04>=0x82000000u && f04<0x82200000u){
-        PPCContext ic=ctx; ic.r3.u32=mc;
-        (PPC_LOOKUP_FUNC(base, f04))(ic, base);
-      }
-      { PPCContext ir=ctx; ir.r3.u32=mc; ir.r4.u64=0;
-        __imp__sub_82173900(ir,base); }
-      in_tp=false;
-      static std::atomic<int> tp{0}; int t=tp++;
-      if(t<5||(t%300)==0)
-        std::fprintf(stderr,"[treepump] present#%d vt04=0x%08X tick+render (modectx=0x%08X)%c",n,f04,mc,10);
-    }
-  }
-
-  // GATE 3: the actual per-frame GameEntry(msg=5) pump (sub_821C8DA8), armed with RT_GAMEPUMP.
-  // RT_GAMEPUMP_VBLANK moves this grant to the 59.94Hz vblank thread (attract-pacing decoupling —
-  // see the vblank loop); pumping from BOTH would over-grant, so VdSwap steps aside.
-  static bool vbpump_owns = getenv("RT_GAMEPUMP_VBLANK")!=nullptr;
-  if(g_game_tick_modectx && !vbpump_owns && getenv("RT_GAMEPUMP")){
-    static thread_local bool in_pump=false;
-    if(!in_pump){
-      in_pump=true;
-      PPCContext pc=ctx; pc.r3.u32=g_game_tick_modectx;
-      __imp__sub_821C8DA8(pc,base);
-      in_pump=false;
-      rt_fsmlog(base,"pres");   // present-path pump: FSM timers tick at the (variable) present rate
-      static std::atomic<int> pk{0}; int p=pk++;
-      if(p<5||(p%300)==0)
-        std::fprintf(stderr,"[gamepump] present#%d pumped sub_821C8DA8(modectx=0x%08X) msg5%c",n,g_game_tick_modectx,10);
-
-      // GATE 3 visibility: game lifecycle state on change (cb2 buf, boot-FSM state 0x884D66A8,
-      // assets-committed flag byte 0x887AC973, lifecycle flags, input gate).
-      { static uint32_t ls=0xFFFFFFFFu, lf=0xFFFFFFFFu, lg=0xFFFFFFFFu, lfsm=0xFFFFFFFFu, l973=0xFFFFFFFFu;
-        uint32_t sc=rt_be32(base,0x88699894u), fl=rt_be32(base,0x88652DD8u), gt=rt_be32(base,g_game_tick_modectx+152);
-        uint32_t fsm=rt_be32(base,0x884D66A8u), f973=*(uint8_t*)(base+GA_ASSET_COMMIT);
-        uint32_t fctr=rt_be32(base,0x884D673Cu); // FSM global frame counter (88138F00 tail) — DE58 gates on bit 4
-        if(sc!=ls||fl!=lf||gt!=lg||fsm!=lfsm||f973!=l973){ ls=sc; lf=fl; lg=gt; lfsm=fsm; l973=f973;
-          std::fprintf(stderr,"[gstate] present#%d cb2buf=0x%X fsm=0x%X flag973=0x%X flags=0x%X inputgate=0x%X fctr=%u\n",p,sc,fsm,f973,fl,gt,fctr); }
-        static std::atomic<int> fc{0}; if((fc++%600)==0)
-          std::fprintf(stderr,"[fctr] present#%d fctr673C=%u (bit4=%u)\n",p,fctr,(fctr>>4)&1u); }
-
-      // RT_STARTBIT=<present>: inject the START button the way the TITLE FSM reads it —
-      // bit 0x8000 of guest words 0x885C33D8 / 0x885C3430 (sub_88138F00 state-3 handler tests
-      // these; on set it runs the NATURAL title->menu transition that constructs the menu's
-      // per-frame drawer). Held for RT_STARTHOLD frames (default 4) starting at the given present.
-      if(const char* sbe=getenv("RT_STARTBIT")){
-        int at=atoi(sbe); const char* she=getenv("RT_STARTHOLD"); int hold=she?atoi(she):4;
-        if(p>=at && p<at+hold){
-          auto orbit=[&](uint32_t a){ uint32_t v=rt_be32(base,a)|0x00008000u; *(uint32_t*)(base+a)=__builtin_bswap32(v); };
-          orbit(0x885C33D8u); orbit(0x885C3430u);
-          static int once=0; if(!once++){ std::fprintf(stderr,"[startbit] injecting START (0x8000) @0x885C33D8/3430 at present#%d hold=%d\n",p,hold); }
-        }
-      }
-
-      // LEG-15 quiesce/mode-load levers (bisect the state-2 menu-load wedge; workflow wf_9f3bce65).
-      // RT_ACKQUIESCE=1: each present, if the state-2 quiesce flag *(0x887AD1AC)!=0, clear it to 0
-      // (the ACK the game worker sub_88092C28 owes but doesn't deliver in merged). Optionally memset
-      // the worker's 6144-byte buffer @0x88299CC0 (RT_ACKQUIESCE>=2) to mimic the full ACK.
-      if(getenv("RT_ACKQUIESCE")){
-        if(rt_be32(base,0x887AD1ACu)!=0){
-          *(uint32_t*)(base+0x887AD1ACu)=0;
-          if(atoi(getenv("RT_ACKQUIESCE"))>=2) std::memset(base+0x88299CC0u,0,6144);
-          static std::atomic<int> ac{0}; int q=ac++;
-          if(q<3||(q%500)==0) std::fprintf(stderr,"[ackq] present#%d cleared quiesce flag 0x887AD1AC #%d\n",p,q);
-        }
-      }
-      // RT_RELOADCLR=1: each present, clear the scene reload flag *(0x887AD58C) so sub_88138F00
-      // state-6 takes the r28!=1 path (menu tick) instead of jamming back to state-2 teardown.
-      if(getenv("RT_RELOADCLR")){
-        if(rt_be32(base,GA_MB_RELOAD)!=0){ *(uint32_t*)(base+GA_MB_RELOAD)=0;
-          static std::atomic<int> rc{0}; int q=rc++;
-          if(q<3||(q%500)==0) std::fprintf(stderr,"[reloadclr] present#%d cleared 0x887AD58C #%d\n",p,q); }
-      }
-      // RT_MODE64=<v>: seed the session-mode selector *(0x887AD584)=v (1=NORMAL PLAY) before/while
-      // the menu is forced, so dispatch-1 snapshots a real mode and sub_88137708 avoids the d76=8
-      // hang body (goes to d76=7, id=48 factory). Held every present until observed nonzero.
-      if(const char* m64=getenv("RT_MODE64")){
-        uint32_t v=(uint32_t)strtoul(m64,nullptr,0);
-        if(rt_be32(base,GA_MB_MODE64)!=v){ *(uint32_t*)(base+GA_MB_MODE64)=__builtin_bswap32(v);
-          static std::atomic<int> mc{0}; int q=mc++;
-          if(q<3||(q%500)==0) std::fprintf(stderr,"[mode64] present#%d set 0x887AD584=%u #%d\n",p,v,q); }
-      }
-
-      // RT_KICKWORK=<present>:<hexhandle>: from that present on, signal the given event each
-      // present. Deferred variant of RT_SIGEV (which fires from the FIRST vblank and pre-vivifies
-      // the handle via rt_ev(k,true) — colliding with the deterministic boot handle order and
-      // wedging shell boot; cost 4 flaked runs 2026-07-07). Use for the game worker event
-      // (0x50000044 in the canonical boot order) to test the fsm-2 teardown wedge.
-      if(const char* kw=getenv("RT_KICKWORK")){
-        static int kw_at=-1; static uint32_t kw_h=0;
-        if(kw_at<0){ kw_at=atoi(kw); const char* c=strchr(kw,':'); kw_h=c?(uint32_t)strtoul(c+1,nullptr,16):0x50000044u; }
-        if(p>=kw_at && kw_h){
-          PPCContext k{}; k.r3.u64=kw_h; __imp__NtSetEvent(k,base);
-          static std::atomic<int> kc{0}; int q=kc++;
-          if(q<3||(q%2000)==0) std::fprintf(stderr,"[kickwork] present#%d SetEvent(0x%X) #%d\n",p,kw_h,q);
-        }
-      }
-
-      // RT_DUMPGUEST: one-shot guest heap+phys dump at present 12000 (asset-shader container
-      // hunt — XenosRecomp scans the dump for ShaderContainer blobs).
-      if(getenv("RT_DUMPGUEST")){ static bool dg_done=false;
-        if(!dg_done && n>=12000){ dg_done=true;
-          FILE* f=fopen("/tmp/guestheap.bin","wb");
-          if(f){ fwrite(base+0x0C000000u,1,0x0C000000u,f); fclose(f); }
-          FILE* g2=fopen("/tmp/guestphys.bin","wb");
-          if(g2){ fwrite(base+0x38000000u,1,0x08000000u,g2); fclose(g2); }
-          std::fprintf(stderr,"[dump] guest heap (0x0C000000+192MB) + phys (0x38000000+128MB) written\n"); } }
-
-      // GATE 3: fire the SDK's loading-complete signal once, after the game has loaded assets.
-      if(const char* ls=getenv("RT_LOADSIG")){
-        static bool fired=false; int thresh=atoi(ls); if(thresh<=0) thresh=300;
-        if(!fired && p>=thresh){
-          fired=true;
-          std::fprintf(stderr,"[loadsig] firing load-complete signal (msg15/msg11-state4/msg15) on modectx=0x%08X at present#%d\n",g_game_tick_modectx,p);
-          { PPCContext c=ctx; c.r3.u32=g_game_tick_modectx;            __imp__sub_821C88E8(c,base); }  // msg 15
-          { PPCContext c=ctx; c.r3.u32=g_game_tick_modectx; c.r4.u32=4; __imp__sub_821C85A0(c,base); }  // msg 11 state 4
-          { PPCContext c=ctx; c.r3.u32=g_game_tick_modectx;            __imp__sub_821C88E8(c,base); }  // msg 15
-          std::fprintf(stderr,"[loadsig] load-complete signal sent\n");
-        }
-      }
-    }
-  }
-
+  // (GATE-3 pump body DELETED here 2026-08-13 Day-5 — RT_GAMETICK, RT_TREEPUMP, RT_GAMEPUMP
+  //  and the seven bring-up levers nested inside it. See the g_game_tick_modectx note above.)
   // LEG-27/40 ring-window: cursor after the game pump -- the game's draw stream
   // (terrain + sprites) has been written into the ring by this point.
   if(g_d3d_device) g_vk_vd_pump.store(rt_be32(base,g_d3d_device+0x30));

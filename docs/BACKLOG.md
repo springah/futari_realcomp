@@ -152,10 +152,11 @@ consecutive ship-nothing legs ⇒ back here for re-ranking, not another leg.
 
 9. **2P join** — roadmap item; join gates identified (0x884D763C/7640, no game-side writer
    found yet). Needs input-infra + investigation. Medium-large.
-10. **Score Attack sign-in: GRACEFULLY DECLINE (USER RULING 2026-07-29).** No fake profile:
-    the port stays an unsigned console; Score Attack's sign-in prompt must follow the guest's
-    authentic declined flow cleanly (no hang, no crash, proper dialog dismissal). Work = verify
-    the current stubs already produce that flow end-to-end + fix any rough edge. Small.
+10. **Score Attack sign-in: GRACEFULLY DECLINE — ✅ VERIFIED END-TO-END 2026-08-13 (Day-5;
+    08-03 user ruling re-proven scripted).** Hub A → the guest's own "sign in to Xbox LIVE to
+    access rankings / A:OK" dialog → A → clean dismissal → the SCORE ATTACK submenu with only
+    LEADERBOARD greyed (declined-but-playable). No hang, no crash, no fake profile. Ledger
+    NIGHT-5 block has the marker chain + screenshots.
 11. **Audio** — PARKED by user 07-25; resume spec banked (xWMA decoder = highest value,
     design ready in [[futari-audio-bringup]]). Large. Bridge = audible fallback meanwhile.
 

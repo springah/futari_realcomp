@@ -1,4 +1,31 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
+## ★★★★★ 08-13 NIGHT-5 — **DAY-5 SWEEP DONE: THE GATE-3 PUMP FAMILY IS DELETED (Day-1's owed
+## retirement leg) — full ladder re-run GREEN on the pump-free build. Score Attack sign-in
+## decline re-verified end-to-end (#10).**
+
+**PUMP RETIREMENT (shell/gen/rt.cpp, ~175 lines deleted; tombstones + git carry history):**
+RT_GAMETICK, RT_TREEPUMP, RT_GAMEPUMP, RT_GAMEPUMP_VBLANK (vbpump) and the SEVEN bring-up
+levers nested inside the pump body (RT_STARTBIT, RT_ACKQUIESCE, RT_RELOADCLR, RT_MODE64,
+RT_KICKWORK, RT_DUMPGUEST, RT_LOADSIG) — the 07-06..07-23 scaffolding that drove msg-5 from
+the host present path. g_game_tick_modectx KEPT (merged_shell writes it; [fsmlog] banner reads
+it). RT_GAMEPUMP=1 dropped from every ACTIVE env (scripts/, dist/next_release launcher,
+_local/_tmpscripts ladder+drive scripts); historical probes keep their era's env (a stale set
+is a no-op now — the code is gone). NO revert lever, deliberately: G6 proved the natural
+vbisr/shell chain, and the frameclock owns the grants.
+**FULL LADDER on the pump-free build (the ruling's price, paid):** swapbounce PASS (slotreset
+6/6, epochinval 40, alive) · decouple abn 65.2/s vs 13.3/s DECOUPLED · decouple arcade 66.2/s
+vs 13.3/s DECOUPLED (0 drains-timeouts, nav 8/8) · day2_validate FULL LOOP arcade PASS + 360
+PASS (4/4 each). Five for five.
+
+**#10 SCORE ATTACK SIGN-IN GRACEFUL DECLINE — re-verified scripted on today's build** (08-03
+user ruling re-proven): hub A → the guest's own dialog "ランキングにアクセスするには Xbox LIVE
+にサインインする必要があります / A:OK" → A → BB298→BA4D8 clean → **the SCORE ATTACK submenu
+with only LEADERBOARD greyed** — declined-but-playable, no hang, no crash, screenshots banked.
+The unsigned-console stubs produce the authentic flow end-to-end. #10 CLOSED.
+
+Sweep residue folded in: dist/next_release launcher lost its inherited RT_GAMEPUMP line (and
+the sed-scar bare 'set' fixed).
+
 ## ★★★★★★ 08-13 NIGHT-4 — **DAY-4 DONE: ASSET EXTRACTION IS SHIPPED-SHAPE — user-supplied
 ## dumps work end-to-end, the DLC entitlement stub is GATED, and the next-release launcher
 ## carries the first-run wizard. Backlog #13 (the public-release critical-path item) is

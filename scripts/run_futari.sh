@@ -16,7 +16,7 @@ python3 -c "from PIL import Image; Image.new('RGB',(1280,720),(0,0,26)).save('$F
 start_merged() {
   RT_GAME_ROOT="$HOME/xr-work/assets" \
   VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json \
-  RT_BOOT_SHELL=1 RT_THREADS=1 RT_DEFERDRIVER=1 RT_ASYNCIO=1 RT_EHCONTAIN=1 RT_AUDIOPUMP=1 RT_GAMEPUMP=1 \
+  RT_BOOT_SHELL=1 RT_THREADS=1 RT_DEFERDRIVER=1 RT_ASYNCIO=1 RT_EHCONTAIN=1 RT_AUDIOPUMP=1 \
   RT_VK=1 RVK_RENDER_FROM=1 RVK_NOHALVE=1 RVK_FIXVP=1 RVK_REALALPHA=1 RVK_BLEND=1 \
   ./futari_merged 8208A2B8 0 shell/default.xex >"$LOG" 2>&1 &
   echo $!

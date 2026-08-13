@@ -8,7 +8,7 @@ mkdir -p /c/tmp
 rm -f /c/tmp/rvk_last.png /c/tmp/rvk_peak.png /c/tmp/rvk_menu.png /c/tmp/rvk_frame*.png /c/tmp/hktrace.log /c/tmp/cand_*.png 2>/dev/null
 ROOT="$(pwd -W 2>/dev/null || pwd)"
 export RT_GAME_ROOT="$ROOT/assets"
-export RT_BOOT_SHELL=1 RT_THREADS=1 RT_DEFERDRIVER=1 RT_ASYNCIO=1 RT_EHCONTAIN=1 RT_AUDIOPUMP=1 RT_GAMEPUMP=1
+export RT_BOOT_SHELL=1 RT_THREADS=1 RT_DEFERDRIVER=1 RT_ASYNCIO=1 RT_EHCONTAIN=1 RT_AUDIOPUMP=1
 export RT_VK=1 RVK_PERSIST=1 RVK_RENDER_FROM=1 RVK_NOHALVE=1 RVK_FIXVP=1 RVK_REALALPHA=1 RVK_BLEND=1
 export RT_HOOKRENDER=1 RVK_HKFLIPY=1 RT_HKTEXOFF=0x480 RT_HKTRACE=1 RT_HKTEXDBG=25
 export RVK_PNGEVERY="${RVK_PNGEVERY:-12}"   # rate-limit PNG -> ~23fps -> real-time-ish nav timing
