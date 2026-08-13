@@ -1,4 +1,32 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
+## ★★★★★★ 08-13 NIGHT-2 — **DAY-2 DONE: THE GAME-OVER BRANCH IS MAPPED AND THE FULL LOOP IS
+## SCRIPTED — boot→stage→death→shell TOP MENU, both modules, 4/4 assertions, unattended.**
+
+**THE 08-11 CONFUSION NAMED: two different game-over flows.** NORMAL PLAY idle-die with a
+non-ranking score shows exactly ONE prompt (replay-save; marker-less; the continue "PRESS
+START" screen beneath) then goes to the MODULE TITLE — no score-register, no ranking dialog.
+The Score-Attack flow (mapped 08-12) has all three prompts and lands on the HUB. The old blind
+B,B,A pressed two extra buttons into the title = the "unreliable post-game-over" desyncs.
+Mapping method: modified day2 harness to PARK AT DEATH with nothing pressed (the staged
+harness's own blind B,B,A would have destroyed the evidence), then screenshot-per-press.
+
+**THE MAPPED NP FLOW (markers all module-agnostic, NAV_MAP.md updated):**
+  replay prompt --B--> [gemsg] msg=10 (+ modegate +120 5→0) → TITLE
+  --START--> msg=11 + [p0build] 7 items / hub vt=0x820503B0
+  --B--> [decide] item=-1 confirm --A--> msg=13 then msg=3 → SHELL vt=0x82050518
+Death timing varies + marker-less prompt ⇒ the leg B-POLLS for msg=10 (in-stage B = bomb,
+harmless; at-title B = no-op). ⚠ [gemsg] detail = first 3 calls per msg per session.
+
+**DELIVERED:** scripts/futari_nav.sh nav_gameover_np_to_topmenu() (probe-verified retries);
+NAV_MAP.md GAME OVER split into the two flows; _local/_tmpscripts/day2_validate.sh = the
+FULL-LOOP validation (boot → card → land → selects → stage → idle-die → game-over → shell):
+**VALIDATE_arcade_PASS + VALIDATE_360_PASS, 4/4 assertions each, first try, unattended.**
+360 mirrors exactly (msg=10/11 same arg shapes, lr +8-shifted). Quit-family live-fire banked
+(msgs 10/11/13/3 in /c/tmp/day2/validate_*.log) — the D1 gate's return leg is UNBLOCKED and
+unattended full-loop soaks are now possible.
+⚠ OPEN EDGE: a RANKING score on NP may add the score-register prompt (unobserved) — the
+B-poll would decline it but the msg id is unverified; map it when a scoring drive exists.
+
 ## ★★★★★ 08-13 LATE — **MODES 1/3/4 COVERAGE CLOSED BY STATIC PROOF: UNREACHABLE-BY-DATA.
 ## Every cg archive is 100% mode 2. The round-5 coverage debt is settled, not deferred.**
 

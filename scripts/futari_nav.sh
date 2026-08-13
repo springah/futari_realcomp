@@ -168,6 +168,43 @@ nav_module_title_to_topmenu(){
   nav_base; nav_press 1000 0.2 1.5; nav_press 1000 0.2 2.0    # A + confirm A
   nav_wait_new 'BA4D8(ACTIVE)' 20 "shell TOP MENU"
 }
+# ---- NORMAL PLAY game-over -> shell TOP MENU (MAPPED BY EYE 2026-08-13, screenshot per press;
+# validated by this leg's own assertions on the scripted re-runs). The NORMAL PLAY death flow is
+# NOT the Score-Attack flow NAV_MAP mapped 08-12: with a non-ranking score there is exactly ONE
+# prompt (replay-save リプレイを保存しますか, A:はい B:いいえ — NO log marker of its own; the
+# continue "PRESS START BUTTON" screen sits beneath it) and NO score-register / ranking dialogs.
+#   B (decline)  -> [gemsg] msg=10 (+ modegate +120 5->0)  -> MODULE TITLE (attract entry)
+#   START        -> [gemsg] msg=11 + hub [p0build] items / vt=0x820503B0
+#   B            -> [decide] item=-1 (return-to-top confirm)
+#   A            -> [gemsg] msg=13 then msg=3 (quit/detach) -> SHELL TOP MENU vt=0x82050518
+# Death timing varies 30-60s and the prompt is marker-less => B-POLL: press B every ~5s until
+# msg=10 appears in NEW lines (stray in-stage B = bomb, harmless; at-title B = no-op).
+# ⚠ A RANKING score may add the score-register prompt (unobserved on NP; the Score-Attack flow
+# has it) — the B-poll would decline it and the msg id would differ; assert, don't assume.
+# ⚠ [gemsg] per-msg detail prints only each msg's first 3 calls per session — this leg is
+# single-shot per boot; a multi-gameover soak must not key on msg=10 reappearing.
+nav_gameover_np_to_topmenu(){
+  nav_say "NP game-over: B-polling for the replay-save prompt (msg=10)"
+  local _r _ok=0 _pref=$NAV_FAILS
+  for _r in 1 2 3 4 5 6 7 8; do
+    nav_base; nav_press 2000 0.25 2.5
+    if nav_new | grep -aq 'msg=10'; then
+      _ok=1; nav_say "PASS: replay prompt declined (msg=10, poll $_r)"; NAV_PASSES=$((NAV_PASSES+1)); break
+    fi
+    sleep 3
+  done
+  [ $_ok = 1 ] || { nav_say "FAIL: msg=10 never fired (death not reached?)"; NAV_FAILS=$((NAV_FAILS+1)); return 1; }
+  sleep 4                                                     # title fade-in
+  for _r in 1 2 3 4; do
+    nav_base; nav_press 10 0.3 2.5                            # START -> hub (probe-verified)
+    if nav_wait_new 'msg=11\|\[p0build\]' 8 "title -> hub (try $_r)"; then NAV_FAILS=$_pref; break; fi
+    [ "$_r" = "4" ] && return 1
+  done
+  nav_base; nav_press 2000 0.25 2.0                           # B on hub -> confirm
+  nav_wait_new '\[decide\].*item=-1' 8 "return-to-top confirm" || return 1
+  nav_base; nav_press 1000 0.25 3.0                           # A (はい)
+  nav_wait_new 'vt=0x82050518' 12 "shell TOP MENU (vt=0x82050518)"
+}
 nav_verdict(){ nav_say "assertions: $NAV_PASSES passed, $NAV_FAILS failed"; [ "$NAV_FAILS" -eq 0 ]; }
 
 # ⚠ KNOWN GAP (08-11 validation): the game-over return flow after a NORMAL-PLAY-entered stage

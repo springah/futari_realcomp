@@ -38,8 +38,22 @@ NORMAL PLAY SUBMENU: 1P SIDE START / 2P SIDE START / CONFIG / EXIT
 1P SIDE START -> MODE SELECT (Original/Maniac/Ultra, countdown) -> A
   -> CHARACTER SELECT -> A -> SHOT TYPE SELECT -> A -> STAGE.
 
-GAME OVER (idle ship dies in ~30-60s of stage 1) — MAPPED BY EYE 08-12 (RenderDoc + direct
-screenshot), correcting the 08-11 "parks at D70" misread:
+GAME OVER — TWO FLOWS, do not conflate (the 08-11/08-12 confusion):
+
+GAME OVER, NORMAL PLAY side (idle-die, NON-RANKING score) — MAPPED BY EYE 08-13, screenshot per
+press, marker per transition (nav_gameover_np_to_topmenu implements it):
+  replay-save prompt (リプレイを保存しますか A:はい B:いいえ; NO log marker of its own; the
+  continue "PRESS START BUTTON" screen sits BENEATH the dialog)
+    B (decline) .......... [gemsg] msg=10 (+ [modegate] +120 5->0) -> MODULE TITLE (attract)
+    START at title ....... [gemsg] msg=11 + hub [p0build] 7 items, vt=0x820503B0, cursor->0
+    B on hub ............. [decide] item=-1 (return-to-top confirm)
+    A (はい) ............. [gemsg] msg=13 then msg=3 (quit/detach) -> SHELL TOP MENU vt=0x82050518
+  NO score-register prompt, NO ranking-cancelled dialog on this path (small score). A RANKING
+  score may add prompts — unobserved on NP; assert by marker, don't assume the count.
+  Death timing varies 30-60s and the prompt is marker-less => the leg B-POLLS (in-stage stray
+  B = bomb, harmless; at-title B = no-op) until msg=10 fires.
+
+GAME OVER, SCORE ATTACK side — MAPPED BY EYE 08-12 (RenderDoc + direct screenshot):
   replay-save prompt (リプレイを保存しますか) ..... B declines
   score-register prompt (スコアを登録しますか) .... B declines
   ranking-cancelled OK dialog ..................... A
@@ -47,6 +61,8 @@ screenshot), correcting the 08-11 "parks at D70" misread:
   ⚠ The 08-11 "engst parks at D70 / vt 0x8204FDB8" was a RED HERRING: [engst] D70-PARKED fires
     CONSTANTLY from a persistent background object (seen firing even at the shell TOP MENU),
     regardless of screen. It is NOT a screen state — never gate nav on it.
+  ⚠ Why the old return leg desynced: NORMAL PLAY has ONE prompt, so the blind B,B,A pressed two
+    extra buttons into the title/attract. The flows split at the SECOND prompt.
 
 RETURN TO SHELL from the hub (VERIFIED, 3-press, shorter than the DOWNx6 item route):
   B (on the hub root) -> "トップメニューに戻ります。よろしいですか?" confirm ([decide] item=-1)
