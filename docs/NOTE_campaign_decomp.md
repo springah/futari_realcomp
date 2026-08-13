@@ -1,4 +1,26 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
+## ★★★★★★ 08-14 NIGHT-6 — **DAY-6: 2P JOIN OPENED AND WORKING (94030b2) — two-ship co-op
+## verified live. The backlog-#9 "no game-side writer" mystery was input starvation.**
+
+The join gates (0x884D763C/7640) never had a mystery: their writer, the join handler
+**sub_881366D0**, simply never ran because scripted XamInputGetState served user 0 only.
+Physical XInput index 1 → user==1 was ALREADY shipped (the RT_XINPUT leg). Day-6 added the
+scripted half: the pad FIFO takes an optional 4th hex field = the P2 word ("<p1> <lt> <rt>
+<p2>"; `echo "0 0 0 10"` = P2 START), OR'd into user==1 alongside XInput idx 1. Existing
+writers unaffected.
+
+**VERIFIED LIVE (RT_JOINP probes armed, screenshots banked):** 1P at arcade char select →
+P2 START → `[joinp] *** 881366D0 ENTER slot=1 ... WILL-JOIN ***` → the 2P frame fills
+(Palm & Hirow beside Reco & Kiniro, "No Entry" gone) → both players through char+shot
+selects on their OWN pad words → **TWO-SHIP co-op stage** (both ships, both HUDs, Original
+Mode) → unattended idle-die → the standard replay-save prompt, cleanly. **The 07-23
+post-join freeze (msg-10 pause spin, the RT_NOPAUSE origin story) did NOT reproduce** — the
+08-03 proper pause-flow fix retired it. Sequencer chain healthy throughout ([seq] ctxstate
+advancing, 0f4=1, [csa] reaching state 11).
+
+⏭ 2P polish remaining (small, backlog #9 row): isolated distinct-movement assert; the 2P
+SIDE START menu route; a 360-module 2P pass; nav_2p library leg for unattended co-op drives.
+
 ## ★★★★★ 08-13 NIGHT-5 — **DAY-5 SWEEP DONE: THE GATE-3 PUMP FAMILY IS DELETED (Day-1's owed
 ## retirement leg) — full ladder re-run GREEN on the pump-free build. Score Attack sign-in
 ## decline re-verified end-to-end (#10).**

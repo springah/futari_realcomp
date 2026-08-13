@@ -150,8 +150,15 @@ consecutive ship-nothing legs ⇒ back here for re-ranking, not another leg.
 
 ## FEATURES (post-gate)
 
-9. **2P join** — roadmap item; join gates identified (0x884D763C/7640, no game-side writer
-   found yet). Needs input-infra + investigation. Medium-large.
+9. **2P join — ✅ OPENED AND WORKING 2026-08-14 (Day-6, commit 94030b2; ledger NIGHT-6).**
+   The "no game-side writer" mystery was input-starvation: the writer (sub_881366D0) fires the
+   moment user==1 input exists. Physical XInput idx 1 was ALREADY a ship feature; added the
+   scripted P2 channel (pad FIFO optional 4th hex field → user==1). Verified live end-to-end:
+   P2 START at char select → [joinp] WILL-JOIN slot=1 → 2P frame fills → both selects →
+   TWO-SHIP co-op stage → 2P game-over reaches the replay prompt cleanly. The 07-23 post-join
+   freeze did NOT reproduce (retired by the 08-03 pause-flow fix). Remaining polish (small):
+   isolated distinct-movement assert in-stage; the 2P SIDE START menu route; 360-module 2P
+   pass; a nav_2p library leg for unattended co-op drives.
 10. **Score Attack sign-in: GRACEFULLY DECLINE — ✅ VERIFIED END-TO-END 2026-08-13 (Day-5;
     08-03 user ruling re-proven scripted).** Hub A → the guest's own "sign in to Xbox LIVE to
     access rankings / A:OK" dialog → A → clean dismissal → the SCORE ATTACK submenu with only
