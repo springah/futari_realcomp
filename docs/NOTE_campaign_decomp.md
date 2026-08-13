@@ -1,4 +1,26 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
+## ★★★★★ 08-13 LATE — **MODES 1/3/4 COVERAGE CLOSED BY STATIC PROOF: UNREACHABLE-BY-DATA.
+## Every cg archive is 100% mode 2. The round-5 coverage debt is settled, not deferred.**
+
+The question "which drive fires modes 1/3/4?" has a data answer, not a drive answer. The mode
+byte is TOC rec[2] (archive.cpp's disk-format writeup: 16B header — magic / totalSize /
+dataStart / entryCount — then entryCount × 12-byte records at offset 16, expanded to the 0x14
+in-mem TOC; self-check dataStart == 16 + count*12 holds on every file). Static parse of ALL SIX
+archives (cg_v154/cg_v102/cg_black × base/hi): **7239/7239 records are mode 2.** Modes 1
+(LZ77-ring A248), 3 (9D90) and 4 (9A88) are dead library codecs on this title — no asset can
+ever dispatch them, in either module, in any version.
+
+Empirical agreement: extended recon drive (decdiff_recon.sh — selects → stage → 55s gameplay →
+game-over prompts): **730/730 [declog] fires mode 2** (also free extra soak on the MATCHED
+pipeline: stage streaming + game-over ran the decomp asset path beyond the select gate).
+
+DISPOSITION (registry rows updated in-place): the three decoders stay DRAFT with an
+UNREACHABLE-BY-DATA gate note — no live differential is possible, deliberately not promoted.
+Modes 3/4 are ops-verbatim transcriptions (behavior-identical by construction); their queued
+readable refactor is DEPRIORITIZED as museum work on a dead path. Mode 1's only remaining
+promotion path = a matchlab asm-exact entry (none exists for any mode decoder). The pump/submit
+readable refactor stays QUEUED — those are live on every decode.
+
 ## ★★★★★★ 08-13 NIGHT — **GIG-5 (UPLOAD PATH) LIVE-GATED AND MERGED (b85119b + gate commit).
 ## sub_8808D640 + sub_8808DF70 MATCHED. Registry: 13 fns promoted today total.**
 
