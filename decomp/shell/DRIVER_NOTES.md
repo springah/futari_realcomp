@@ -207,3 +207,20 @@ the mode-launch path, so a single arcade entry drive live-fires L (and, through 
    360 / training path.
 3. `decomp/registry.toml`'s pre-existing strict-TOML break at (old) line 1394 is still there — the
    round-2 block parses clean in isolation; left alone per round 1.
+
+## §3 addendum — Day-7 FULL-LOOP RE-PAIR (2026-08-14)
+
+The Day-1 G5 debt is closed. decomp_d1_gate.sh's return leg was replaced with the Day-2
+mapped NP game-over route (nav_gameover_np_to_topmenu — idle-die → B-poll msg=10 → START
+msg=11 → hub B+A → msg=13/msg=3 → shell TOP MENU), so the drive now captures the QUIT
+family the 08-12 pairing could not reach. Control = fresh relink of build_win.sh objects
+minus decomp_driver_msgs.o (generated weak bodies win) → build/futari_ctrl.exe.
+
+| pair | verdict |
+|---|---|
+| ctrl_a vs ctrl_b (arm check) | CANONICAL-IDENTICAL 74/74 |
+| ctrl_a vs pilot_a | **CANONICAL-IDENTICAL 74/74 — GATE PASS** |
+| ctrl_b vs pilot_b | **CANONICAL-IDENTICAL 74/74 — GATE PASS** |
+
+Stream now includes 20 quit-family lines (msgs 10/11/13; msg-3 detach fires post-capture
+window). All 4 runs: every nav assertion green, unattended. Logs: _local/logs/d1r_*.

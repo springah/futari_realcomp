@@ -54,8 +54,11 @@ nav_boot_to_topmenu           || { kill $PID 2>/dev/null; exit 1; }
 nav_card_decide arcade 1      || { kill $PID 2>/dev/null; exit 1; }
 nav_360_land_to_modeselect    || { kill $PID 2>/dev/null; exit 1; }
 nav_selects_to_stage          || { kill $PID 2>/dev/null; exit 1; }
-nav_idle_die_to_module_title
-nav_module_title_to_topmenu
+# RETURN leg (Day-7 re-pair): the Day-2 MAPPED NP game-over route replaces the old unreliable
+# title flow — idle-die, B-poll the replay prompt (msg=10), START->hub (msg=11), B+A quit
+# (msg=13, msg=3) -> shell TOP MENU. Fires the whole quit family into the captured stream.
+sleep 50
+nav_gameover_np_to_topmenu
 nav_verdict; RC=$?
 
 kill $PID 2>/dev/null; sleep 1

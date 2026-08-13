@@ -1,4 +1,26 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
+## ★★★★★★ 08-14 DAY-7 — **CONSOLIDATION DONE — THE WEEK PLAN IS COMPLETE. D1 full-loop
+## re-pair 74/74 ×2 CANONICAL-IDENTICAL (the Day-1 debt paid); next-release bundle staged
+## (no game data). Every day of the 08-12 week plan delivered.**
+
+**D1 FULL RE-PAIR (the Day-1 G5 debt):** decomp_d1_gate.sh's return leg swapped to the Day-2
+mapped route (nav_gameover_np_to_topmenu) — the drive now fires and captures the QUIT family.
+Control = build_win.sh objects relinked minus decomp_driver_msgs.o → build/futari_ctrl.exe.
+Four unattended runs, every nav assert green: ctrl-vs-ctrl 74/74 (arms matched);
+**ctrl-vs-pilot 74/74 CANONICAL-IDENTICAL in BOTH pairings** — full loop incl. 20 quit-family
+lines (msgs 10/11/13). DRIVER_NOTES.md §3 addendum has the table; logs _local/logs/d1r_*.
+
+**BUNDLE STAGED (dist/next_release/):** wizard launcher + README (2P + no-game-data + settings
+notes) + STAGING.md (assembly recipe: binaries at release sha, tools/extract, DUMPING.md,
+save_freshcard; ⛔ assets\ AND shell\ excluded — default.xex is disc content, the wizard
+stages it). Owed before a PUBLIC zip: user wizard run + play sign-off; go-public = user call.
+
+**THE WEEK (08-12 plan → done):** D1 frameclock flip ✅ · D2 game-over map + full loop ✅ ·
+D3 honor-settings (closed by re-derivation) ✅ · D4 asset extraction shipped-shape ✅ ·
+D5 pump-family deletion + ladder ✅ · D6 2P join working ✅ · D7 this. Standing owed:
+pump/submit readable refactor; 2P polish row (#9); attended user acceptances (wizard run,
+save round-trip B3, 2-pad couch session).
+
 ## ★★★★★★ 08-14 NIGHT-6 — **DAY-6: 2P JOIN OPENED AND WORKING (94030b2) — two-ship co-op
 ## verified live. The backlog-#9 "no game-side writer" mystery was input starvation.**
 
