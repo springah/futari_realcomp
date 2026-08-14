@@ -11122,6 +11122,17 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
         std::memcpy(g_vsConstF, nf->vsBanks + (size_t)d.bank * 1024, 4096);
         std::memcpy(g_psConstF, nf->psBanks + (size_t)d.bank * 896, 3584);
       }
+      // ★ RT_VSXFORM half 2 (§5.7 measurement): the per-draw bound bank — c0..c3 and c10..c13
+      // (the shell rect-transform region per the SPEC's RVK_SHADOWDUMP precedent). Paired
+      // offline against [vsxf] guest writes on the same held frame.
+      { static const bool vx = std::getenv("RT_VSXFORM") != nullptr;
+        if (vx) { static long n = 0;
+          if (n++ < 400)
+            std::fprintf(stderr, "[vsxb] #%ld vs=%d bank=%u c0=%.5f,%.5f,%.5f,%.5f c10=%.5f,%.5f,%.5f,%.5f c12=%.5f,%.5f,%.5f,%.5f\n",
+              n, vsIdx, d.bank,
+              g_vsConstF[0], g_vsConstF[1], g_vsConstF[2], g_vsConstF[3],
+              g_vsConstF[40], g_vsConstF[41], g_vsConstF[42], g_vsConstF[43],
+              g_vsConstF[48], g_vsConstF[49], g_vsConstF[50], g_vsConstF[51]); } }
       loadShaderDefs(vsIdx, false);
       // RT_NVKA1 probe: force c14.a=1 on VTE-off (field) draws — isolates the c14.w=0 transparency
       static bool nvkA1 = std::getenv("RT_NVKA1") != nullptr;

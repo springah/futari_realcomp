@@ -617,6 +617,24 @@ extern "C" void nvk_on_present_frame(uint8_t* base) {
         std::fprintf(stderr, "[nvk] f%ld draws=%d vtx=%uB banks=%d clear=%08X\n",
                      g_f.frame, g_f.nDraws, g_f.vtxBytes, g_nBanks, g_f.clearARGB);
     nvk_frame_submit(base, &g_f);
+    // ★ RT_VEILLOG half 2 (compose lane, 2026-08-14): the veil-active windows — poll
+    // *(*(*(0x821F858C)+0xC)+0x598) each present and print TRANSITIONS with the frame number.
+    // Pairs with [veilblob] (rt.cpp) to give the future RVK_VEILCOVER draw its arm windows.
+    {
+        static const bool vl = std::getenv("RT_VEILLOG") != nullptr;
+        if (vl) {
+            static uint32_t last = 0xFFFFFFFFu;
+            auto be32 = [&](uint32_t ea) { uint32_t u; std::memcpy(&u, base + ea, 4); return __builtin_bswap32(u); };
+            uint32_t v = 0;
+            const uint32_t fx = be32(0x821F858Cu);
+            if (fx) { const uint32_t blk = be32(fx + 12); if (blk) v = be32(blk + 0x598); }
+            if (v != last) {
+                std::fprintf(stderr, "[veilwin] f%ld veil %s (0x598=%08X was %08X)\n",
+                             g_f.frame, v ? "ACTIVE" : "clear", v, last);
+                last = v;
+            }
+        }
+    }
     // ★ RT_EXPECTCENSUS frame close (backlog #0 missing-draw census, 2026-08-14): the present
     // IS the frame boundary, so the emit/drain pairing is printed + reset here — independent
     // of RVK_DRAWTRIP (unlike [mvtick]). One line per frame with any activity; a picture node

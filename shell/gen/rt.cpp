@@ -3534,8 +3534,33 @@ NVK_HOOK(820975E8, "RS_ZEnable")
 PPC_FUNC_IMPL(__imp__sub_8209A998);
 PPC_FUNC(sub_8209A998){
   NVK_TAP("SetVSConstantF");
+  // ★ RT_VSXFORM (§5.7 canvas→clip measurement, 2026-08-14): log every guest VS-constant write
+  // (StartReg, count, first 8 floats) so a held shell frame's FUN_8216BED0 product can be
+  // paired offline against the renderer's per-draw bank snapshot ([vsxb] in vk_render). The
+  // spec's own prescription: MEASURE the matrix before touching placement code.
+  { static const bool vx = std::getenv("RT_VSXFORM") != nullptr;
+    if(vx){ static long n=0;
+      if(n++ < 400){
+        float f[8]; for(int i=0;i<8;i++){ uint32_t u=PPC_LOAD_U32(ctx.r5.u32+(uint32_t)i*4u); std::memcpy(&f[i],&u,4); }
+        std::fprintf(stderr,"[vsxf] reg=%u n=%u %.5f %.5f %.5f %.5f | %.5f %.5f %.5f %.5f\n",
+          (unsigned)ctx.r4.u32,(unsigned)ctx.r6.u32,f[0],f[1],f[2],f[3],f[4],f[5],f[6],f[7]); } } }
   // (stage-2: consts now snapshot register-true from dev+0x780/0x1780 at draw time, dirty-gated)
   __imp__sub_8209A998(ctx,base);
+}
+// ★ RT_VEILLOG half 1 (compose lane, 2026-08-14): sub_820B6770 builds the veil's RUNTIME-
+// PATCHED cover shader (template copy + the +0x37485157 signature patch, SPEC §6.1) — its blob
+// can never match the static ucode table, so the future RVK_VEILCOVER draw needs the blob
+// captured AT CREATION. Capture-only this leg; the cover draw itself is the attended follow-up.
+// UNOWNED (measured; the caller sub_82182BD0 is owned by merged_shell, untouched) → strong
+// wrapper over the generated weak alias. Verify via map: sub_820B6770 -> shellkernel_rt.o.
+PPC_FUNC_IMPL(__imp__sub_820B6770);
+PPC_FUNC(sub_820B6770){
+  static const bool vl = std::getenv("RT_VEILLOG") != nullptr;
+  uint32_t a=ctx.r3.u32,b=ctx.r4.u32,c=ctx.r5.u32,d=ctx.r6.u32,l=(uint32_t)ctx.lr;
+  __imp__sub_820B6770(ctx,base);
+  if(vl){ static long n=0; if(n++ < 40)
+    std::fprintf(stderr,"[veilblob] r3=%08X r4=%08X r5=%08X r6=%08X lr=%08X -> r3=%08X\n",
+      a,b,c,d,l,ctx.r3.u32); }
 }
 PPC_FUNC_IMPL(__imp__sub_820A19F0);
 PPC_FUNC(sub_820A19F0){
