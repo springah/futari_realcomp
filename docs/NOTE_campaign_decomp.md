@@ -1,4 +1,78 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
+## ★★★★★★ 08-14 EVE-2 — **RETRY PREREQUISITES BUILT + THE SECOND PUMP BUG NAMED STATICALLY:
+## the reverted refactor's sub_88090E58 call omits r5=id (read unconditionally as the
+## 500-slot cache index). Commits ae43cbf + 1e2d964.**
+
+(1) **UPLOAD-ARG DIFFERENTIAL** (revert-block requirement #1): `RT_UPLOG=1` covers
+sub_88090E58/D50/CB8 + sub_880924E8 (UPLOAD_LOG_WRAP, merged_game.cpp — wrappers win over
+generated bodies on the control DLLs and the abn arm) and sub_8808D640/DF70 (identical-format
+in-body logs in decomp/game/asset_upload.cpp — the decomp is the pilot link winner, so the
+wrapper is dead there BY DESIGN). r3..r8+lr+exit per call. decdiff_arcade.sh exports it;
+_local/_tmpscripts/updiff_compare.py judges: STRICT rides a LEARNED noise mask
+(`--learn ctrlA ctrlB` — fields differing between two control runs are wall-clock noise),
+DF70 = masked multiset (per-frame count legitimately differs), positive control = per-fn
+presence must MATCH across arms (absent-one-arm = FAIL; the shadowed-hook lesson).
+(2) **STAGE PIXEL GATE** (requirement #2): _local/_tmpscripts/stagepix_{gate.sh,cap.ps1,
+metric.py} — day2 legs to the stage, 6-cap PrintWindow burst, richness metrics on the center
+crop (uniq colors + edge density + placeholder black/white creep), pilot ≥ 0.70× control.
+≥97% white = INVALID not FAIL (the display-off capture trap); control arm not rich =
+NO-VERDICT (an instrument that can't see known-good can't judge the pilot).
+(3) **STATIC ROOT (agent pass over ppc_recomp ground truth):** the a15bdbc rewrite's E58 call
+sets only r3=buf, r4=flag — but sub_88090E58 reads **r5 unconditionally as its first insn**
+(`rlwinm r7,r5,2,0,29`, ppc_recomp.5.cpp:2329 — the 500-slot id-cache index); the generated
+pump carries id live-through ~85 insns (loaded ppc_recomp.18.cpp:11761, bl :11850) — the SAME
+leftover-register-as-argument class as the caught 924E8 r4. E58's branch = plain-resource art
+= the missing shadows/items/enemy-art symptom. D50/CB8/924E8 arg setups verified correct
+against ground truth. **RETRY RECIPE: a15bdbc + `ctx.r5.u32=id` before the E58 call. Run the
+UNFIXED body through updiff FIRST — the instrument must catch the known bug (its own positive
+control) — then the fixed body through updiff + stagepix + full loops. Final acceptance stays
+USER EYES per the revert block.**
+**ALSO BANKED (parallel agent passes):** FrameDelay (save 0x16E4) is REAL and currently
+UNHONORED — chain: save→`DAT_821F8558` (FUN_82187ee0 applier, verbatim copy)→FUN_8216B148
+(per-frame present tail)→dev+0x5E80/0x35EC present-interval flags→a real PM4 present-interval
+packet that nothing walks at RT_NVK=2 (host pacing is frameclock-owned). Honoring = read the
+bare shell global into present pacing; WHETHER to honor is a user design call; probe recipe
+banked in the agent report. · d3d9.lib register audit: all ~53 D3D-family hooks CLEAN, the r5
+resolve fix intact, no clone-bypass risk in the D3D set; 3 known label swaps confirmed
+cosmetic. · Shell-compose delta map: §9 items 2/4/6 are implemented BY CONSTRUCTION (the
+recompiled guest computes colour multiply/quad geometry/paint order; capture passes them
+through — vk_render.cpp:6445 copies vertex bytes verbatim, no reorder pass exists); REAL gaps
+= the veil's runtime-PATCHED cover shader (template + `+0x37485157` signature patch can never
+match the static ucode table — needs an interposer on sub_820B6770) and the canvas→clip
+VS-constant verification (§5.7 measurement BEFORE coding); missing-draw census design banked
+(guest-expected walk on sub_82178E78 with the full §5.4 predicate — both 0x1B4&&0x1B5, type 0,
+rec+0x5C, element hide byte; RT_MVTICK's predicate is wrong on 3 counts — paired with the
+existing NvkCensusEnt renderer half, keyed by texture base, RVK_DRAWCENSUS mode 3).
+
+## ★★★★★★ 08-14 EVE — **rt_phys.cpp LANDED (ae43cbf): THE ALLOCATOR IS SPEC CODE, THE LEVER
+## TOWER IS GONE. Full ladder green. The 08-04-ruled rewrite is paid.**
+
+harness.cpp 885→397 lines; out_reco/rt_phys.cpp (~240 lines, both trees) states the five
+decomp-proven laws once: (1) kernel never zeroes (rt_alloc_raw raw / rt_alloc = NtVA-zeroing
+semantics), (2) LIFO age-0 reuse (copy-at-record e5f4989 retired the quarantine's reason to
+exist), (3) every tracked free recycles — no floor, (4) never cross 0x20000000 (hi-addr skip
+in normal reuse + frontier retreat 2s/0s + age-0 best-fit line defense — the relax ladder
+collapsed to its final rung: with quar dead the earlier rungs only reordered preference),
+(5) 16KB granule + insert-time coalescing — which makes EMERGENCY-MERGE dead code (a
+maximally-coalesced pool has no adjacent entries): deleted. **DELETED levers (15):**
+RT_HEAPGRAN(_SZ) RT_ALLOCZERO RT_HEAPRETREAT RT_POOLNOHI RT_FREEPOOL_QUAR_MS RT_POOLFIFO
+RT_FREEPOOL_SPLIT RT_FREEPOOL_LINEMERGE RT_FREEPOOL_BIGRES RT_FREEPOOL_COALESCE
+RT_FREEPOOL_MIN RT_FREEPOOL RT_HEAPPAD(_MS) — no script/env sets any (grepped). KEPT:
+RT_DECOMMIT(_QUAR_MS) (dormant future-leg feature, not a revert arm). bigReserve deleted
+(default-off since 08-04). rt_free_ex keeps its (addr, lr) ABI; lr now unused. Epoch table +
+every gate-parsed telemetry string preserved verbatim.
+⚠ **REAL DIVERGENCE FIXED IN PASSING:** out_reco_abn/rt.cpp's Mm hook still called zeroing
+rt_alloc — the 08-04 HW-true fix was never mirrored ("byte-identical across trees" was false
+for that line); standalone-abn research builds were zero-on-reuse until today.
+**GATES (all on the rewritten allocator):** swapbounce_0811 P1–P7 PASS (6 swaps, high-water
+496MB = baseline-identical, retreats 22 live, epochinval 40 bounded, census clean, proc
+alive); day2_validate arcade PASS + 360 PASS (boot→stage→death→shell); decouple proofs abn
+65.4/s vs 13.3/s + arcade 65.4/s vs 13.3/s; D1: ctrl relinked from CURRENT objects minus
+decomp_driver_msgs.o → ctrl-vs-ctrl 56/56 CANONICAL-IDENTICAL, ctrl-vs-pilot 56/56 ×2 after
+normalizing the documented two-arm msg=10 r4 stack pointer. Honest: 56-line streams this pass
+(the return leg — nav's documented unreliable branch — didn't capture; day2 loops covered
+game-over→shell separately). Logs: /c/tmp/rtphys_gates/ + _local/logs/d1p_*.
+
 ## ★★★★★ 08-14 — **2P POLISH ROW CLOSED — co-op is scripted, mapped, and green on both
 ## modules. Backlog #9 reduced to the user's couch session.**
 
