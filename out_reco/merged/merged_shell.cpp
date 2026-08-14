@@ -3114,10 +3114,16 @@ extern "C" void __imp__sub_82168E58(PPCContext& __restrict, uint8_t*);
 // called from here because this file already owns the PPC_FUNC and a duplicate in rt.cpp would be
 // silently shadowed by link order. Default OFF (getenv inside), read-only.
 extern "C" void rt_picnode_report(uint32_t n, uint8_t* base);
+// RT_EXPECTCENSUS drain half (2026-08-14): rt.cpp owns the counters + the emit hook; the drain
+// is reported from HERE because this file already owns this PPC_FUNC (same shadowing rule as
+// rt_picnode_report above). Queue = P+0x4C(begin)/+0x50(end), entries are Q* (stride 4).
+extern "C" void rt_expcensus_drain(uint32_t P, int qdepth);
 PPC_FUNC(sub_82168E58){
   static bool logon=std::getenv("RT_MENULOG")!=nullptr;
+  static bool censOn=std::getenv("RT_EXPECTCENSUS")!=nullptr;
   uint32_t l=ctx.r3.u32;
   rt_picnode_report(l, base);
+  if(censOn&&l) rt_expcensus_drain(l,(int)((PPC_LOAD_U32(l+0x50)-PPC_LOAD_U32(l+0x4c))>>2));
   bool menu=(l && l==g_menuLoader.load());
   int q0=0;
   if(logon&&l) q0=(int)((PPC_LOAD_U32(l+0x50)-PPC_LOAD_U32(l+0x4c))>>2);
@@ -3138,7 +3144,13 @@ PPC_FUNC(sub_82168E58){
 // flag misses it — scoping the flame flag HERE catches the strip whether walked standalone or nested.
 // Container = ctx-0x10 (mvc=container+0x10). Save/restore g_inFlameWalk for nesting.
 extern "C" void __imp__sub_82178E78(PPCContext& __restrict, uint8_t*);
+// RT_EXPECTCENSUS emit half (2026-08-14): reported from HERE because this file owns this
+// PPC_FUNC (a duplicate in rt.cpp was silently link-shadowed — the map file named this object
+// as the winner; same rule as rt_picnode_report). Counter bodies live in shell/gen/rt.cpp.
+extern "C" void rt_expcensus_emit(uint32_t c, uint8_t* base);
 PPC_FUNC(sub_82178E78){
+  { static const bool censOn = std::getenv("RT_EXPECTCENSUS") != nullptr;
+    if(censOn) rt_expcensus_emit(ctx.r3.u32, base); }
   if(!rt_d1active()){ __imp__sub_82178E78(ctx,base); return; }   // zero-overhead in normal runs
   uint32_t r3=ctx.r3.u32;
   uint32_t mvc=0;

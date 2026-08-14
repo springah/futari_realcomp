@@ -3432,6 +3432,64 @@ PPC_FUNC(sub_8217F948){
   g_mv_t[s] = (int)rt_be32(base, obj + 0x10C);
 }
 
+// ★ RT_EXPECTCENSUS (backlog #0 acceptance prerequisite, 2026-08-14) — MEASURE ONLY, DEFAULT
+// OFF. The missing-draw census the flicker lane needs: drawtrip only ever counted EXTRA draws;
+// element DROPOUT was unmeasurable. SPEC_shell_compose_1to1.md §11.5's own prescription:
+// FUN_82178E78 outer emits and FUN_82168E58 drains must be 1:1 per picture node per frame.
+// This hook counts, per picture node P (= *(u32*)(ctx+0x04)), (a) emit entries and (b) quads
+// the §5.4 predicate says the guest WILL push: walk records 1..N-1 (record 0 = element root),
+// type = rec+0x08 — types 3/4 skipped HERE because the guest recurses into them and this hook
+// fires again at that level; require BOTH visibility bytes rec+0x1B4 && rec+0x1B5 (RT_MVTICK's
+// single-byte count is the wrong predicate), then type==0 && rec+0x5C != 0. The drain half
+// (counted from merged_shell.cpp's existing [flush] wrapper via rt_expcensus_drain — a second
+// PPC_FUNC here would be link-shadowed) records drains + queue depth per P. vk_render's
+// RVK_MVLOG frame-close prints the pairing ([expcen]) and resets — the renderer owns the frame
+// boundary. A frame with expected quads and zero drain = the dropout, caught on its FIRST
+// frame. ⚠ Pair any MISS verdict with RVK_TITLEPROBE: authored hide-byte square waves (PRESS
+// START blink, logo swap) are AUTHENTIC single-frame transients, not defects.
+#define EC_MAX 16
+extern "C" {
+  volatile int      g_ec_calls = 0;         // emit entries (all P) since renderer reset
+  volatile int      g_ec_n     = 0;         // roster slots in use
+  volatile unsigned g_ec_P[EC_MAX]       = {0};  // picture node (guest addr)
+  volatile int      g_ec_entries[EC_MAX] = {0};  // emit entries this frame
+  volatile int      g_ec_expq[EC_MAX]    = {0};  // predicate-expected quads this frame
+  volatile int      g_ec_drains[EC_MAX]  = {0};  // flush calls this frame
+  volatile int      g_ec_qdepth[EC_MAX]  = {0};  // queue depth seen at last flush entry
+}
+static int rt_ec_slot(uint32_t P){
+  for(int i = 0; i < g_ec_n && i < EC_MAX; ++i) if(g_ec_P[i] == P) return i;
+  if(g_ec_n >= EC_MAX) return -1;
+  int s = g_ec_n++; g_ec_P[s] = P; return s;
+}
+extern "C" void rt_expcensus_drain(uint32_t P, int qdepth){   // called by merged_shell [flush]
+  int s = rt_ec_slot(P); if(s < 0) return;
+  ++g_ec_drains[s]; g_ec_qdepth[s] = qdepth;
+}
+// Called from merged_shell.cpp's sub_82178E78 wrapper (which OWNS that PPC_FUNC — a duplicate
+// here was silently link-shadowed; the map file named merged_shell.o the winner). Records are
+// settled by the step-1b tick walk before the 1c emit, so entry-time reads are final.
+extern "C" void rt_expcensus_emit(uint32_t c, uint8_t* base){
+  if(!c) return;
+  ++g_ec_calls;
+  uint32_t P = rt_be32(base, c + 0x04);
+  int s = rt_ec_slot(P); if(s < 0) return;
+  ++g_ec_entries[s];
+  uint32_t pb = rt_be32(base, c + 0xFC), pe = rt_be32(base, c + 0x100);
+  if(!pb || pe <= pb || (pe - pb) >= 0x80000u || (pe - pb) % 0x20Cu) return;
+  int N = (int)((pe - pb) / 0x20Cu);
+  int q = 0;
+  for(int i = 1; i < N; ++i){               // record 0 is the element's own root — skip
+    uint32_t rec = pb + (uint32_t)i * 0x20Cu;
+    uint32_t ty  = rt_be32(base, rec + 0x08);
+    if(ty == 3 || ty == 4) continue;        // guest recurses; counted at that level
+    if(!*(uint8_t*)(base + rec + 0x1B4) || !*(uint8_t*)(base + rec + 0x1B5)) continue;
+    if(ty != 0 || !*(uint8_t*)(base + rec + 0x5C)) continue;
+    ++q;
+  }
+  g_ec_expq[s] += q;
+}
+
 // ===== HARD PIVOT (2026-07-28): nvk stage-0 trace hooks for the previously-unhooked wrapper
 // functions (C2 census, ATLAS_d3d_wrapper.md). Pure taps: log at entry, call through. The
 // q_-prefixed pair carries the lane-A/lane-C identity conflict; the trace resolves it.

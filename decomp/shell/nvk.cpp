@@ -594,6 +594,12 @@ extern "C" void nvk_on_resolve(uint8_t* base, unsigned dev, unsigned flags, unsi
     ++g_f.nDraws;
 }
 
+// RT_EXPECTCENSUS counters — strong defs in shell/gen/rt.cpp (emit hook + drain reporter).
+extern "C" {
+  extern volatile int g_ec_calls, g_ec_n;
+  extern volatile unsigned g_ec_P[16];
+  extern volatile int g_ec_entries[16], g_ec_expq[16], g_ec_drains[16], g_ec_qdepth[16];
+}
 extern "C" void nvk_on_present_frame(uint8_t* base) {
     if (g_mode < 2) return;
     nvkCopyPending(base);   // flush the tail draws' bytes
@@ -611,6 +617,33 @@ extern "C" void nvk_on_present_frame(uint8_t* base) {
         std::fprintf(stderr, "[nvk] f%ld draws=%d vtx=%uB banks=%d clear=%08X\n",
                      g_f.frame, g_f.nDraws, g_f.vtxBytes, g_nBanks, g_f.clearARGB);
     nvk_frame_submit(base, &g_f);
+    // ★ RT_EXPECTCENSUS frame close (backlog #0 missing-draw census, 2026-08-14): the present
+    // IS the frame boundary, so the emit/drain pairing is printed + reset here — independent
+    // of RVK_DRAWTRIP (unlike [mvtick]). One line per frame with any activity; a picture node
+    // with expected quads and ZERO drains this frame is the dropout, flagged MISS on its FIRST
+    // frame. ⚠ Judge MISS lines against RVK_TITLEPROBE — authored hide square waves (PRESS
+    // START blink, logo swap) are AUTHENTIC transients, not defects.
+    {
+        static const bool ecOn = std::getenv("RT_EXPECTCENSUS") != nullptr;
+        if (ecOn) {
+            int en = g_ec_n; if (en > 16) en = 16;
+            bool any = false; char rb[512]; int ro = 0; int miss = 0;
+            for (int i = 0; i < en && ro < (int)sizeof(rb) - 56; ++i) {
+                if (!g_ec_entries[i] && !g_ec_expq[i] && !g_ec_drains[i]) continue;
+                any = true;
+                bool m = g_ec_expq[i] > 0 && g_ec_drains[i] == 0;
+                if (m) ++miss;
+                ro += std::snprintf(rb + ro, sizeof(rb) - ro, " |%X:e%d:x%d:d%d:q%d%s",
+                    (unsigned)(g_ec_P[i] & 0xFFFFF), (int)g_ec_entries[i], (int)g_ec_expq[i],
+                    (int)g_ec_drains[i], (int)g_ec_qdepth[i], m ? ":MISS" : "");
+            }
+            if (any)
+                std::fprintf(stderr, "[expcen] f%ld emits=%d nP=%d miss=%d%s\n",
+                             g_f.frame, (int)g_ec_calls, en, miss, rb);
+            g_ec_calls = 0;
+            for (int i = 0; i < en; ++i) { g_ec_entries[i] = 0; g_ec_expq[i] = 0; g_ec_drains[i] = 0; g_ec_qdepth[i] = 0; }
+        }
+    }
     g_f.nDraws = 0; g_f.vtxBytes = 0; g_f.hasClear = 0;
     g_nvk_fBuild = 0; g_nvk_fNoScratch = 0; g_nvk_fSpliced = 0;   // per-frame recorder counters
     g_nBanks = 0; g_copiedUpTo = 0;
