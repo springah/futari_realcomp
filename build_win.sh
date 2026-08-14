@@ -34,6 +34,11 @@ GAME_INC="-I out_reco -I $DERISK/XenonUtils -I $DERISK/thirdparty/simde"
 SHELL_INC="-I shell/gen -I out_reco -I $DERISK/thirdparty/simde"
 XS="-D_xstart=_xstart_shell -D__imp___xstart=__imp___xstart_shell"
 RT="-include out_reco/rt_indirect.h"
+# DECOMP_DIR: the readable-decomp source tree, split into its own sibling repo
+# projects/futari_decomp on 2026-08-14 (registry + atlases + campaign ledger live there too).
+# Override with env DECOMP_DIR for a pinned checkout; the seam/link semantics are unchanged —
+# only the path moved.
+export DECOMP_DIR="${DECOMP_DIR:-../futari_decomp/decomp}"
 mkdir -p build/obj_win
 rm -f build/obj_win/*.o build/obj_win/*.err build/futari_merged.exe
 
@@ -45,8 +50,8 @@ cc(){ # name  src  flags...
   sem
 }
 
-echo "== DECOMP tree (decomp/game/*.cpp + decomp/shell/*.cpp — game_abn/ EXCLUDED; __imp__ overrides, linked FIRST) =="
-for f in decomp/game/*.cpp; do
+echo "== DECOMP tree ($DECOMP_DIR/game/*.cpp + $DECOMP_DIR/shell/*.cpp — game_abn/ EXCLUDED; __imp__ overrides, linked FIRST) =="
+for f in "$DECOMP_DIR"/game/*.cpp; do
   [ -f "$f" ] || continue
   n=$(basename "$f" .cpp); cc "decomp_$n" "$f" $GAME_INC $RT
 done
@@ -54,7 +59,7 @@ done
 # (PPC_IMAGE_BASE 0x82000000 vs 0x88000000, different CODE_BASE/SIZE), and SHELL_INC puts
 # shell/gen first so its config wins. Compiling a sub_82* body with GAME_INC would build it
 # against the wrong module geometry.
-for f in decomp/shell/*.cpp; do
+for f in "$DECOMP_DIR"/shell/*.cpp; do
   [ -f "$f" ] || continue
   n=$(basename "$f" .cpp); cc "decomp_$n" "$f" $SHELL_INC $XS $RT
 done

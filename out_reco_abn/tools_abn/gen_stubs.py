@@ -41,12 +41,15 @@ unres = sorted(set('sub_' + m for m in re.findall(r'dllimport\) _sub_(88[0-9A-Fa
 src = {}
 DEF = re.compile(r'(PPC_FUNC|PPC_FUNC_IMPL|[A-Z][A-Za-z0-9_]*(?:_WRAP|_TRACE|_WATCH_WRAP))'
                  r'\((?:__imp__)?(sub_88[0-9A-Fa-f]{6})\)')
-for f in ['out_reco/merged/merged_game.cpp',      # was merged_xex.cpp before the L2 3-way split
-          'out_reco/merged/merged_bridge.cpp',
-          'out_reco/merged/merged_shell.cpp',
-          'decomp/game/game_entry_msgs.cpp',
-          'decomp/game/nvk_game_hooks.cpp', 'decomp/shell/nvk.cpp']:
-    p = os.path.join(XRW, f)
+# DECOMP_DIR: the readable-decomp tree moved to the sibling repo projects/futari_decomp
+# (2026-08-14 split); env override matches the build scripts' DECOMP_DIR.
+DECOMP = os.environ.get('DECOMP_DIR') or os.path.join(XRW, '..', 'futari_decomp', 'decomp')
+for p in [os.path.join(XRW, 'out_reco/merged/merged_game.cpp'),   # was merged_xex.cpp pre-L2 split
+          os.path.join(XRW, 'out_reco/merged/merged_bridge.cpp'),
+          os.path.join(XRW, 'out_reco/merged/merged_shell.cpp'),
+          os.path.join(DECOMP, 'game/game_entry_msgs.cpp'),
+          os.path.join(DECOMP, 'game/nvk_game_hooks.cpp'),
+          os.path.join(DECOMP, 'shell/nvk.cpp')]:
     if not os.path.exists(p):
         continue
     for line in open(p, encoding='utf-8', errors='replace'):

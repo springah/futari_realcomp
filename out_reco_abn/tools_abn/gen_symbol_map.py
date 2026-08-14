@@ -51,9 +51,12 @@ DELTA = 8
 # (merged_game.cpp) is force-included with abn_symbol_map.h, so it is the only one scanned.
 # merged_bridge.cpp / merged_shell.cpp name zero sub_88 symbols in code regions (measured
 # _tmpscripts/l2_flags.py: all 85 renamed symbols are referenced from game-half blocks only).
+# DECOMP_DIR: the readable-decomp tree moved to the sibling repo projects/futari_decomp
+# (2026-08-14 split); env override matches the build scripts' DECOMP_DIR.
+DECOMP = os.environ.get('DECOMP_DIR') or os.path.join(REPO, '..', 'futari_decomp', 'decomp')
 SCAN = ['out_reco/merged/merged_game.cpp'] + \
-       [f for f in sorted(glob.glob(os.path.join(REPO, 'decomp/game/*.cpp')) +
-                          glob.glob(os.path.join(REPO, 'decomp/shell/*.cpp')))
+       [f for f in sorted(glob.glob(os.path.join(DECOMP, 'game', '*.cpp')) +
+                          glob.glob(os.path.join(DECOMP, 'shell', '*.cpp')))
         if os.path.basename(f) != 'game_entry_msgs.cpp']
 SCAN = [f if os.path.isabs(f) else os.path.join(REPO, f) for f in SCAN]
 

@@ -79,6 +79,10 @@ DSHIFT="-DGA_DSHIFT=0x60u"                    # guest .data +0x60 law — NOW re
 #   where dropping this flag would silently address reco_normal .data.  Folding it in is the
 #   documented L3 follow-up (_tmpscripts/l3_descriptorise_notes.md).
 
+# DECOMP_DIR: readable-decomp tree, now the sibling repo projects/futari_decomp (2026-08-14
+# split). Exported so gen_symbol_map.py sees the same override; defined BEFORE the map regen.
+export DECOMP_DIR="${DECOMP_DIR:-../futari_decomp/decomp}"
+
 # Re-apply the two hand fixups XenonRecomp does not emit (idempotent; see the script).
 python "$OUT/postregen_abn.py" || exit 1
 # Regenerate the +8 symbol map from the census + the split rule (aborts loudly on any violation:
@@ -99,7 +103,7 @@ cc(){ # name  src  flags...
 echo "== DECOMP tree (decomp/*/*.cpp — campaign C1+; __imp__ overrides, linked FIRST) =="
 echo "   +8 symbol map applied; game_entry_msgs + the 4 asset-pipeline TUs EXCLUDED (bodies"
 echo "   carry reco_normal .data literals that move +0x60 — see the script header)."
-for f in decomp/game/*.cpp decomp/shell/*.cpp; do
+for f in "$DECOMP_DIR"/game/*.cpp "$DECOMP_DIR"/shell/*.cpp; do
   [ -f "$f" ] || continue
   n=$(basename "$f" .cpp)
   # abn-excluded: reco_normal .data literals move +0x60 (see build_win_dll.sh; the asset TUs
@@ -111,7 +115,7 @@ done
 # GameEntry re-earn TU). NO symbol map here — renaming abn-native names would double-shift.
 # Deliberately a separate dir: build_win.sh globs decomp/game/*.cpp, so a TU there would leak
 # into the NORMAL build (landmine found by the MATCHED-prep agent).
-for f in decomp/game_abn/*.cpp; do
+for f in "$DECOMP_DIR"/game_abn/*.cpp; do
   [ -f "$f" ] || continue
   n=$(basename "$f" .cpp)
   cc "decomp_$n" "$f" $GAME_INC $RT

@@ -48,6 +48,10 @@ VKSDK=$(ls -d /c/VulkanSDK/*/ 2>/dev/null | sort -V | tail -1)
 BUILD_ID="$(git rev-parse --short HEAD 2>/dev/null || echo nogit)$(git diff --quiet 2>/dev/null || echo -dirty)"
 BASE="--target=x86_64-pc-windows-msvc -std=c++20 -O2 -D_CRT_SECURE_NO_WARNINGS -Wno-macro-redefined -DFUTARI_BUILD_ID=\"$BUILD_ID\""
 XS="-D_xstart=_xstart_shell -D__imp___xstart=__imp___xstart_shell"
+# DECOMP_DIR: readable-decomp tree, now the sibling repo projects/futari_decomp (2026-08-14
+# split). Exported so gen_symbol_map.py/gen_stubs.py see the same override. Defined BEFORE
+# step 0 — gen_symbol_map.py scans the shared decomp TUs.
+export DECOMP_DIR="${DECOMP_DIR:-../futari_decomp/decomp}"
 
 fail=0
 banner(){ echo; echo "=============== $* ==============="; }
@@ -86,7 +90,7 @@ cc(){ local n="$1" s="$2"; shift 2
   ( "$CXX" $STD "$@" -c "$s" -o "$OBJ/$n.o" 2>"$OBJ/$n.err" || echo "FAILED: $n" ) & sem; }
 
 echo "-- decomp (shell only; decomp/game* rides into the DLLs)"
-for f in decomp/shell/*.cpp; do n=$(basename "$f" .cpp); cc "decomp_$n" "$f" $GI $RT; done
+for f in "$DECOMP_DIR"/shell/*.cpp; do n=$(basename "$f" .cpp); cc "decomp_$n" "$f" $GI $RT; done
 
 echo "-- game-tree KERNEL (rt/stubs/harness only — the generated tree has left the exe)"
 # ORDER IS LOAD-BEARING (plan §4.3): 66 __imp__X are defined in BOTH out_reco/{rt,stubs}.cpp and
@@ -190,7 +194,7 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
   echo "-- game hooks (merged_game.cpp, +8 renamed on the abn arm)"
   cc "merged_game" "out_reco/merged/merged_game.cpp" $GI $RT $MAP
   echo "-- decomp game TUs"
-  for f in decomp/game/*.cpp; do
+  for f in "$DECOMP_DIR"/game/*.cpp; do
     n=$(basename "$f" .cpp)
     # ABN-EXCLUDED TUs: bodies that carry reco_normal .data literals, which move +0x60 in the
     # abn image. The +8 symbol map renames FUNCTION symbols only — embedded data addresses are
@@ -205,7 +209,7 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
     cc "decomp_$n" "$f" $GI $RT $MAP
   done
   if [ "$MIDX" = "1" ]; then
-    for f in decomp/game_abn/*.cpp; do n=$(basename "$f" .cpp); cc "decomp_$n" "$f" $GI $RT; done
+    for f in "$DECOMP_DIR"/game_abn/*.cpp; do n=$(basename "$f" .cpp); cc "decomp_$n" "$f" $GI $RT; done
   fi
   echo "-- host-facing shim (moduleshim/, NEVER a glob-swept dir)"
   cc "module_shim" "moduleshim/module_shim_$NAME.cpp" $GI $RT
