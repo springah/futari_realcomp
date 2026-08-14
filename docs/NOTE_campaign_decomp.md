@@ -1,4 +1,28 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
+## ★★★★★ 08-14 NIGHT-6 (day close) — **Logo_Build lowered (0eac415 — the family is 6/6) ·
+## compose-lane instruments landed + FIRST MEASUREMENT (5eec6c2) · NP ranking edge CLOSED.**
+
+**Logo_Build (0eac415):** full generated-body lowering — two scaffold groups (identity
+0x820514B4 / transform+clip 0x820514C0 with the authored no-clip x1/y1 from 0x8204F7E8), the
+container (ctor+bind+permanent unhide), both elements (names STACK-COPIED via sub_82060190
+then **sub_8217AA80(elem, container, nameCopy) — THREE args**, the note's two-arg row was
+wrong), intrusive child wiring to the task ring +0x40. The +0x40 note shift extends to the
+element name/clip constants (cave 0x8204F794/9C, M2 0x8204F73C/0x8204F7A4). Gated: map win,
+Build canary ×1 with the FSM timeline unchanged (61/121/61 + 2 transitions), expcen identical,
+day2 PASS. Registry 34 MATCHED.
+**Compose instruments (5eec6c2, all default-off):** RT_VSXFORM = [vsxf] guest SetVSConstantF
+writes + [vsxb] renderer per-draw bound bank — **first banked run (/c/tmp/t7_measure.log):
+the canvas→clip basis is c0={0.5625,0,0,0}/{0,1,..} (720/1280 aspect) and guest-write ==
+renderer-bind — NO stale snapshot for this class.** RT_VEILLOG = [veilblob] (sub_820B6770
+wrapper, strong-over-weak map-verified; 10 creations captured, templates 0x82044418/0x82044618
+sizes 0xC0/0x110) + [veilwin] veil-active transitions at present (boot veil ACTIVE at f2).
+⏭ The RVK_VEILCOVER draw itself = attended follow-up (visual change, user eyes).
+**NP RANKING EDGE CLOSED (np_rank_probe.sh, _local):** empty ranking table + fire-accrued
+score → death → the game-over flow is IDENTICAL to the Day-2 non-ranking map (one prompt,
+all nav asserts green through TOP MENU). Normal Play's prompt chain is score-independent —
+the mode is non-ranking by design; the open edge was a non-edge. N1 per-field pinning stays
+banked (stride 0x80/preset confirmed; menu-poke method, settings_audit §204).
+
 ## ★★★★★ 08-14 NIGHT-5 — **THE INTRO FSM GOES READABLE (b5d5183): logo fade-in/hold/fade-out
 ## + indicator tick/show-hide naturalized (5 of 6; Logo_Build stays generated, note §7).**
 
