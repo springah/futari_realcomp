@@ -1,4 +1,32 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
+## ★★★★★★ 08-14 NIGHT-4 — **THE CONSUME SIDE GOES READABLE (471257d): Page_EnsureTexture +
+## THE PAGE BAKE + Sprite_EmitQuad naturalized, full ladder green. + the logo/indicator
+## naturalization draft banked (a2cb47e).**
+
+Wave-2 agent drafts INTEGRATED same night: sub_8808D838 (asset_upload.cpp) + sub_8808DC10 +
+sub_8808E298 (new decomp/game/page_bake.cpp; E298 = __imp__ override form — NVK_GHOOK owns the
+outer symbol, checked BEFORE drafting this time). The bake's mechanism preserved verbatim:
+BAKE and PASTE read DIFFERENT phases (the G_LAST_PHASE store sits between the halves and the
+paste re-derives from it); batch-cache poisoning is load-bearing invalidation; both
+Sprite_FlushBatch leftover-r3 sites preserved and loudly commented; vertex-template store
+order 3,2,1,0 kept. LADDER: map link-win (3/3 to decomp objects) → RT_UPCANARY (Bake ×139
+live phase transitions 2→3→6, Ensure ×88) → declog 398/398 + uplog PASS + arcdiff PASS vs
+generated control → stagepix PASS (the display-off trap FIRED on the first pilot run — 6/6
+white captures correctly NO-VERDICTed, F15 wake + rerun) → day2 full loop PASS → char+shot
+select captures eyeballed CLEAN (banked /c/tmp/pb_select). Registry: 3 rows, MATCHED
+(matchlab partials cited as independent semantic cross-check, not ASM-EXACT).
+**★★ NEW ABN LAW LIMIT (agent-measured): the ROM float pool (0x88063370) shifts −48 in the
+abn image, NOT +0x60 — a different segment with independent drift. A blanket +0x60 literal
+patch can NEVER port sub_8808DC10 to abn; the float pool needs its own audit first. (E298 +
+D838 touch no float-pool literals — uniform +0x60 class only.) page_bake joined all three
+abn/control exclusion lists.**
+ALSO BANKED: decomp/shell/NOTE_logo_indicator_naturalization.md (a2cb47e) — the boot-logo +
+NOW-LOADING family draft: LAB_821D1740/1670 are REAL FUNCTIONS (recompiler .pdata splits;
+0x821CD140 mis-bound re-confirmed from the recomp side), CD120/CCC48 are hook-OWNED (__imp__
+form required), zero leftover-arg hazards, new oddity = task+0x68 logo-skip byte cleared ONLY
+by fade-in. Integration leg = lower the draft helpers to ctx bridging + the control-vs-pilot
+expcen ladder (§6 of the note).
+
 ## ★★★★ 08-14 NIGHT-3 — **DECOMP VERIFICATION WAVE: three independent audits came back CLEAN —
 ## the DLL-side pipeline + driver surface are FULLY naturalized already; the readable frontier
 ## is the consume side + shell intro. Archive gate hole closed (arcdiff_compare.py).**
