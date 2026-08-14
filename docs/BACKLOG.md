@@ -142,8 +142,19 @@ consecutive ship-nothing legs ⇒ back here for re-ranking, not another leg.
    Brightness ✓ (90→30 visibly dim), DropShadow ✓ + SimplifyDraw ✓ ([shadowring] gate14/gate18
    track the save bytes — the guest gates its own draws), Wallpaper ✓ (pre-known). B1 (settings
    reset when a replay exists — single-item enumerator) VERIFIED FIXED live: pkgs=2, both
-   SAVEGAME items served, savegame.bin resolves under systemdata.bin. STILL OPEN (small):
-   FrameDelay semantics untested (pacing, likely guest-internal; own leg if ever); Color/
+   SAVEGAME items served, savegame.bin resolves under systemdata.bin.
+   **FrameDelay ✅ HONORED 2026-08-15 (user-signed design call):** decomp recovered full
+   semantics (save 0x16E4 = display-latency enum 0V Tearing/1V Fast/2V PCB/3V Slow, default
+   1V; futari_decomp NOTE_options_game.md §4). Guest chain reaches a PM4 present-interval
+   packet nothing walks at RT_NVK=2 — now honored in the window-present path (vk_render.cpp):
+   reads the guest-applied shell global DAT_821F8558 per present; 2V/3V = composed-frame
+   delay ring (+1/+2 frames of display latency, tear-free, zero contact with frameclock or
+   game logic); 0V ≡ 1V BY DESIGN (MAILBOX is already non-blocking minimal-latency; the 360
+   needed tearing only to dodge its vsync wait). Lever RVK_FRAMEDELAY=0 reverts to inert.
+   Smoke: day3_poke 0x16E4:2/3 → "[rvk] framedelay=1V→2V/3V" transitions (proves renderer
+   read + guest applier), attract runs clean, frameclock cadence unchanged (logs
+   /c/tmp/day3/poke_fd2v.log, poke_fd3v.log). OWED: user-eyes feel check at 3V (+2-frame
+   lag just-perceptible = the ring's positive control). STILL OPEN (small): Color/
    ExtraView sub-offsets unpinned (N1, doc work); oracle-grade pixel fidelity of the effects
    (post-beta); B3 user-driven menu save round-trip (attended acceptance, user's hands).
 8. **Card-page clipped fragment / title blink** — ledger says authentic/known; do not re-chase.

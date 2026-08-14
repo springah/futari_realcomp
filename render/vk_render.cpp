@@ -4593,6 +4593,61 @@ void rvkWindowPresent(bool asyncShow = false) {
   VkImage blitSrc = g.image;
   if (asyncShow) blitSrc = g.imageShow;   // worker already tonemapped/published a complete frame
   else if (rvk_hdr()) { recordTonemapToLdr(gw.cmd); blitSrc = g.imageLdr; }
+  // ★ FrameDelay honoring (2026-08-15, user-signed design call). The guest's Screen->Extra
+  // Setting "FrameDelay" (save 0x16E4; shell global DAT_821F8558, kept a verbatim copy by the
+  // guest's own applier FUN_82187ee0) is a display-latency enum: 0V Tearing / 1V Fast / 2V PCB
+  // / 3V Slow, shipped default 1V. On hardware it lands in a PM4 present-interval packet that
+  // nothing walks at RT_NVK=2 (host pacing is frameclock-owned), so it was inert here. 2V/3V
+  // are honored as a composed-frame DELAY RING: present the frame composed N presents ago
+  // (N = value-1) — exactly N*16.68ms extra display latency, tear-free, zero contact with the
+  // frameclock/grant path or game logic (the same tick/display split the hardware had).
+  // 0V ≡ 1V on host BY DESIGN: MAILBOX present is already non-blocking with sub-refresh
+  // latency; the 360 needed tearing only to dodge its blocking vsync wait. RVK_FRAMEDELAY=0
+  // reverts to inert. Screenshot/PNG/RenderDoc paths read the live compose, NOT the ring —
+  // instruments always see the current frame.
+  VkImage presentSrc = blitSrc;
+  VkImage fdSlot = VK_NULL_HANDLE; bool fdSlotHasContent = false;
+  {
+    static int fdLever = -1;
+    if (fdLever < 0) { const char* e = getenv("RVK_FRAMEDELAY"); fdLever = (!e || atoi(e) != 0) ? 1 : 0; }
+    static VkImage ring[2] = {}; static VkDeviceMemory ringMem[2] = {};
+    static uint32_t prevVal = ~0u; static int fill = 0, slot = 0; static bool dead = false;
+    uint32_t val = (fdLever && g_base) ? be32(0x821F8558) : 1u;
+    if (val > 3u) val = 1u;                       // enum is 0..3; anything else = shipped default
+    uint32_t delayN = (val >= 2u) ? val - 1u : 0u;
+    if (dead) delayN = 0;
+    if (val != prevVal) {
+      std::fprintf(stderr, "[rvk] framedelay=%uV -> +%u frame(s) display latency%s\n",
+                   val, delayN, fdLever ? "" : " (RVK_FRAMEDELAY=0: inert)");
+      prevVal = val; fill = 0; slot = 0;          // depth change: re-warm the ring
+    }
+    if (delayN > 0 && !ring[0] && !dead) {
+      VkImageCreateInfo ri{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
+      ri.imageType = VK_IMAGE_TYPE_2D; ri.format = g_rtFmt; ri.extent = {kW, kH, 1};
+      ri.mipLevels = 1; ri.arrayLayers = 1; ri.samples = VK_SAMPLE_COUNT_1_BIT;
+      ri.tiling = VK_IMAGE_TILING_OPTIMAL;
+      ri.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+      ri.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+      for (int i = 0; i < 2; ++i) {
+        if (vkCreateImage(g.dev, &ri, nullptr, &ring[i]) != VK_SUCCESS) { dead = true; break; }
+        VkMemoryRequirements mr{}; vkGetImageMemoryRequirements(g.dev, ring[i], &mr);
+        VkMemoryAllocateInfo ai{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+        ai.allocationSize = mr.size; ai.memoryTypeIndex = findMem(mr.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        if (vkAllocateMemory(g.dev, &ai, nullptr, &ringMem[i]) != VK_SUCCESS ||
+            vkBindImageMemory(g.dev, ring[i], ringMem[i], 0) != VK_SUCCESS) { dead = true; break; }
+      }
+      if (dead) { std::fprintf(stderr, "[rvk] framedelay ring bring-up FAILED — staying inert\n"); delayN = 0; }
+    }
+    if (delayN > 0) {
+      // N slots = N frames delay: show ring[slot] (written N presents ago), then overwrite it
+      // with this frame's compose below. Warm-up (fill<N) shows the live frame while filling.
+      if (slot >= (int)delayN) slot = 0;
+      fdSlot = ring[slot]; fdSlotHasContent = (fill >= (int)delayN);
+      if (fdSlotHasContent) presentSrc = fdSlot;
+      slot = (slot + 1) % (int)delayN;
+      if (fill < (int)delayN) ++fill;
+    }
+  }
   VkImageMemoryBarrier toDst{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
   toDst.srcQueueFamilyIndex = toDst.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
   toDst.image = gw.scImages[idx]; toDst.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
@@ -4628,8 +4683,30 @@ void rvkWindowPresent(bool asyncShow = false) {
     else if (upfEnv == 1) upf = VK_FILTER_LINEAR;
     else upf = ((uint32_t)fitW % kW == 0 && (uint32_t)fitH % kH == 0)
              ? VK_FILTER_NEAREST : VK_FILTER_LINEAR; }   // judge by the FIT rect, not the full extent
-  vkCmdBlitImage(gw.cmd, blitSrc, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+  vkCmdBlitImage(gw.cmd, presentSrc, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                  gw.scImages[idx], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, upf);
+  if (fdSlot) {
+    // FrameDelay ring write: this frame's compose goes into the slot just shown (or, during
+    // warm-up, the still-empty slot), to come back out N presents from now. WAR on the shown
+    // slot is ordered by the SRC->DST barrier; UNDEFINED oldLayout on first touch discards.
+    VkImageMemoryBarrier rb{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+    rb.srcQueueFamilyIndex = rb.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    rb.image = fdSlot; rb.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    rb.oldLayout = fdSlotHasContent ? VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
+    rb.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    rb.srcAccessMask = fdSlotHasContent ? VK_ACCESS_TRANSFER_READ_BIT : 0;
+    rb.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    vkCmdPipelineBarrier(gw.cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &rb);
+    VkImageBlit rblit{};
+    rblit.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}; rblit.srcOffsets[1] = {(int32_t)kW, (int32_t)kH, 1};
+    rblit.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}; rblit.dstOffsets[1] = {(int32_t)kW, (int32_t)kH, 1};
+    vkCmdBlitImage(gw.cmd, blitSrc, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                   fdSlot, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &rblit, VK_FILTER_NEAREST);
+    VkImageMemoryBarrier rs = rb;
+    rs.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; rs.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    rs.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; rs.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    vkCmdPipelineBarrier(gw.cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &rs);
+  }
   VkImageMemoryBarrier toPresent = toDst;
   toPresent.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; toPresent.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
   toPresent.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; toPresent.dstAccessMask = 0;
