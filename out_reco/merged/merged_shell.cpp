@@ -2308,11 +2308,106 @@ PPC_FUNC(sub_82088438){
   if(i<=6) std::fprintf(stderr,"[svc] 88438 poll h=0x%X arg=%u -> r3=0x%X\n",h,a,ctx.r3.u32);
 }
 
+// ===================================================================================
+// [l1gate] LEG-1 WHOLE-SHELL GATE CENSUS  (2026-08-15, P1 leg 1 A/B referee apparatus)
+// ADDITIVE AND DEFAULT-OFF: everything below is inert unless RT_L1GATE=<dir> is set.
+// It exists because the four instruments the gate needs are all capped or deduped:
+//   * [res] (sub_82079FD8) logs only the FIRST call per distinct size -> no size SEQUENCE;
+//   * rt_menu_vt_census keeps 8 slots, first-seen-only, and is gated on g_rt_romactive;
+//   * [decide] caps at 12 calls; [mstate] prints i<=4 || i%120.
+// Records written (one line each, to <dir>/l1seq.txt, append-only, flushed by a 250 ms
+// writer thread so a taskkill loses at most a quarter second of a quiescent tail):
+//   R <bytes> <lr>          every operator-new (sub_82079FD8) call, uncapped
+//   S <vt> <from> <to>      a menu/panel state-machine TRANSITION (thunk-observed)
+//   K <modelvt> <item>      a DECIDE commit (sub_821D0CB0), uncapped
+// Plus a census snapshot rewritten every ~1 s to <dir>/l1cen.txt:
+//   T <slotthunk> <vt> <ticks>   raw per-(state-thunk, vtable) tick counts
+// ⚠ WHY TRANSITIONS AND NOT TICKS CARRY THE VERDICT: tick counts are frame counts, and a
+// FIFO-pad drive is wall-clock timed, so they carry dwell noise. The TRANSITION sequence and
+// the ALLOCATION sequence are event-ordered and therefore comparable A vs B. The tick census
+// is supporting evidence (the vtable SET is the part of it that is timing-independent).
+// ⚠ SEAM SAFETY: every function wrapped here (82079FD8, 82061D50/D70, 82065AB8/5A78/5A88,
+// 82063A58, 821D0CB0) is either __imp__-seamed by the leg-1 decomp TUs or untouched by them,
+// so the wrapper fires IDENTICALLY in the pilot and the control link. Never wrap a symbol a
+// decomp TU owns with a plain PPC_FUNC — under /FORCE:MULTIPLE the instrument would be dead
+// in one arm and live in the other, i.e. the A/B would be measuring the instrument.
+#include <thread>
+#include <cstdarg>
+#include <string>
+static const char* rt_l1_dir(){ static const char* d=std::getenv("RT_L1GATE"); return d; }
+static bool rt_l1_on(){ static bool on=rt_l1_dir()!=nullptr; return on; }
+static std::mutex g_l1_mu;
+static std::string g_l1_buf;
+static std::atomic<long> g_l1_recs{0};
+struct L1Key { uint32_t slot, vt; bool operator==(const L1Key&o)const{return slot==o.slot&&vt==o.vt;} };
+struct L1KeyHash { size_t operator()(const L1Key&k)const{ return (size_t)k.slot*1000003u ^ (size_t)k.vt; } };
+static std::unordered_map<L1Key,long,L1KeyHash> g_l1_ticks;
+static void rt_l1_writer();
+static void rt_l1_start(){
+  static std::once_flag f;
+  std::call_once(f,[]{ g_l1_buf.reserve(1<<20); std::thread(rt_l1_writer).detach(); });
+}
+static void rt_l1_emit(const char* fmt, ...){
+  if(!rt_l1_on()) return;
+  rt_l1_start();
+  char line[128]; va_list ap; va_start(ap,fmt);
+  int n=std::vsnprintf(line,sizeof(line),fmt,ap); va_end(ap);
+  if(n<=0) return;
+  std::lock_guard<std::mutex> l(g_l1_mu); g_l1_buf.append(line,(size_t)n); g_l1_recs.fetch_add(1);
+}
+static void rt_l1_tick(uint32_t slot, uint32_t vt){
+  if(!rt_l1_on()||!vt) return;
+  std::lock_guard<std::mutex> l(g_l1_mu); g_l1_ticks[L1Key{slot,vt}]++;
+}
+static void rt_l1_writer(){
+  const char* d=rt_l1_dir();
+  std::string seqp=std::string(d)+"/l1seq.txt", cenp=std::string(d)+"/l1cen.txt";
+  FILE* seq=std::fopen(seqp.c_str(),"wb");
+  if(!seq){ std::fprintf(stderr,"[l1gate] CANNOT OPEN %s — census DISABLED\n",seqp.c_str()); return; }
+  std::fprintf(stderr,"[l1gate] ARMED -> %s (+ %s)\n",seqp.c_str(),cenp.c_str());
+  int round=0;
+  for(;;){
+    std::string out; std::vector<std::pair<L1Key,long>> cen;
+    { std::lock_guard<std::mutex> l(g_l1_mu);
+      out.swap(g_l1_buf); g_l1_buf.reserve(1<<20);
+      if((round%4)==0){ cen.reserve(g_l1_ticks.size()); for(auto&kv:g_l1_ticks) cen.push_back(kv); } }
+    if(!out.empty()){ std::fwrite(out.data(),1,out.size(),seq); std::fflush(seq); }
+    if(!cen.empty()){
+      std::sort(cen.begin(),cen.end(),[](const std::pair<L1Key,long>&a,const std::pair<L1Key,long>&b){
+        return a.first.slot!=b.first.slot ? a.first.slot<b.first.slot : a.first.vt<b.first.vt; });
+      FILE* c=std::fopen(cenp.c_str(),"wb");
+      if(c){ for(auto&kv:cen) std::fprintf(c,"T %X %X %ld\n",kv.first.slot,kv.first.vt,kv.second); std::fclose(c); }
+    }
+    ++round;
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+  }
+}
+// The six state thunks of the shared menu/panel state ring (NOTE_options_base.md §0.B.5).
+// Each is a 4-instruction dispatch of ONE vtable slot; the object's current state pointer
+// lives at +0x48 (== this+72). Observing +0x48 across the call yields the transition edge.
+#define L1_STATE_THUNK(ADDR)                                                             \
+  extern "C" void __imp__sub_##ADDR(PPCContext& __restrict, uint8_t*);                   \
+  PPC_FUNC(sub_##ADDR){                                                                  \
+    uint32_t o=ctx.r3.u32, vt=o?PPC_LOAD_U32(o):0, s0=o?PPC_LOAD_U32(o+0x48):0;          \
+    rt_l1_tick(0x##ADDR##u, vt);                                                         \
+    __imp__sub_##ADDR(ctx,base);                                                         \
+    uint32_t s1=o?PPC_LOAD_U32(o+0x48):0;                                                \
+    if(s1!=s0) rt_l1_emit("S %X %X %X\n",vt,s0,s1);                                      \
+  }
+L1_STATE_THUNK(82065AB8)   // decide-commit  (dispatches vt+0x38)
+L1_STATE_THUNK(82065A78)   // cancel-commit  (dispatches vt+0x3C)
+L1_STATE_THUNK(82065A88)   // slide-out      (dispatches vt+0x40)
+L1_STATE_THUNK(82063A58)   // terminal       (dispatches vt+0x44)
+
 // [res] sub_82079FD8(id) = shell resource-registry getter (the long-suspected session-4
 // "config/feature getter"). Census: log each distinct id's first result + totals.
+// ⚠ CORRECTED 2026-08-15 (NOTE_menu_containers.md §3.4 / NOTE_options_idiom.md §0.B B9):
+// this is operator new and r3 is a BYTE COUNT, not an id. Every historical "[res] id=NNN"
+// line is an allocation SIZE.
 extern "C" void __imp__sub_82079FD8(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_82079FD8){
   uint32_t id=ctx.r3.u32;
+  rt_l1_emit("R %u %X\n",id,(uint32_t)ctx.lr);   // [l1gate] uncapped allocation-size sequence
   __imp__sub_82079FD8(ctx,base);
   static std::mutex m; static std::unordered_map<uint32_t,std::pair<long,uint32_t>> seen;
   bool log=false; uint32_t r=ctx.r3.u32;
@@ -2845,6 +2940,7 @@ PPC_FUNC(sub_821D0CB0){
   static std::atomic<long> n{0}; long i=n.fetch_add(1)+1;
   static bool hold=std::getenv("RT_MENUHOLD")!=nullptr;
   uint32_t m=ctx.r3.u32; bool isMenu=(m&&PPC_LOAD_U32(m)==0x820503B0u);
+  rt_l1_emit("K %X %d\n",m?PPC_LOAD_U32(m):0,(int)ctx.r4.u32);   // [l1gate] uncapped decide stream
   if(i<=12) std::fprintf(stderr,"[decide] 821D0CB0#%ld model=0x%X item=%d lr=0x%X%s\n",
     i,m,(int)ctx.r4.u32,(uint32_t)ctx.lr,(hold&&isMenu)?" BLOCKED":"");
   if(hold&&isMenu) return;
@@ -3660,20 +3756,26 @@ PPC_FUNC(sub_821C69F0){
 extern "C" void __imp__sub_82061D50(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_82061D50){
   static std::atomic<long> n{0}; long i=n.fetch_add(1)+1;
+  uint32_t l1o=ctx.r3.u32, l1vt=l1o?PPC_LOAD_U32(l1o):0, l1s0=l1o?PPC_LOAD_U32(l1o+0x48):0;
+  rt_l1_tick(0x82061D50u,l1vt);
   if(i<=10||i%600==0){
     uint32_t o=ctx.r3.u32, vt=o?PPC_LOAD_U32(o):0, tgt=vt?PPC_LOAD_U32(vt+48):0;
     std::fprintf(stderr,"[engst] D50-ACTIVE#%ld obj=0x%X vt=0x%X -> fn30=0x%X lr=0x%X\n",i,o,vt,tgt,(uint32_t)ctx.lr);
   }
   __imp__sub_82061D50(ctx,base);
+  { uint32_t l1s1=l1o?PPC_LOAD_U32(l1o+0x48):0; if(l1s1!=l1s0) rt_l1_emit("S %X %X %X\n",l1vt,l1s0,l1s1); }
 }
 extern "C" void __imp__sub_82061D70(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_82061D70){
   static std::atomic<long> n{0}; long i=n.fetch_add(1)+1;
+  uint32_t l1o=ctx.r3.u32, l1vt=l1o?PPC_LOAD_U32(l1o):0, l1s0=l1o?PPC_LOAD_U32(l1o+0x48):0;
+  rt_l1_tick(0x82061D70u,l1vt);
   if(i<=5||i%1800==0){
     uint32_t o=ctx.r3.u32, vt=o?PPC_LOAD_U32(o):0, tgt=vt?PPC_LOAD_U32(vt+52):0;
     std::fprintf(stderr,"[engst] D70-PARKED#%ld obj=0x%X vt=0x%X -> fn34=0x%X\n",i,o,vt,tgt);
   }
   __imp__sub_82061D70(ctx,base);
+  { uint32_t l1s1=l1o?PPC_LOAD_U32(l1o+0x48):0; if(l1s1!=l1s0) rt_l1_emit("S %X %X %X\n",l1vt,l1s0,l1s1); }
 }
 // [pgr] page renderer FUN_821c6560(engine,page,changed) — the natural content pump (6860's
 // change path). 6860 itself is already wrapped as [ntick2] above.
