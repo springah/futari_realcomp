@@ -109,7 +109,8 @@ for f in "$DECOMP_DIR"/game/*.cpp "$DECOMP_DIR"/shell/*.cpp; do
   # abn-excluded: reco_normal .data literals move +0x60 (see build_win_dll.sh; the asset TUs
   # joined game_entry_msgs 2026-08-13 after the differential caught the abn pump dead).
   case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake) continue;; esac
-  cc "decomp_$n" "$f" $GAME_INC $RT $MAP
+  # -I . : decomp TUs reference host/render headers realcomp-root-relative (repo split).
+  cc "decomp_$n" "$f" $GAME_INC -I . $RT $MAP
 done
 # decomp/game_abn/ = abn-NATIVE translations (addresses already +8/+0x60-resolved; the C1-class
 # GameEntry re-earn TU). NO symbol map here — renaming abn-native names would double-shift.
@@ -118,7 +119,7 @@ done
 for f in "$DECOMP_DIR"/game_abn/*.cpp; do
   [ -f "$f" ] || continue
   n=$(basename "$f" .cpp)
-  cc "decomp_$n" "$f" $GAME_INC $RT
+  cc "decomp_$n" "$f" $GAME_INC -I . $RT
 done
 
 echo "== GAME tree ($OUT/*.cpp, minus shell_only_stubs and abn_hook_stubs) =="

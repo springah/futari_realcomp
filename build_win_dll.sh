@@ -90,7 +90,8 @@ cc(){ local n="$1" s="$2"; shift 2
   ( "$CXX" $STD "$@" -c "$s" -o "$OBJ/$n.o" 2>"$OBJ/$n.err" || echo "FAILED: $n" ) & sem; }
 
 echo "-- decomp (shell only; decomp/game* rides into the DLLs)"
-for f in "$DECOMP_DIR"/shell/*.cpp; do n=$(basename "$f" .cpp); cc "decomp_$n" "$f" $GI $RT; done
+# -I . : decomp TUs reference host/render headers realcomp-root-relative (repo split).
+for f in "$DECOMP_DIR"/shell/*.cpp; do n=$(basename "$f" .cpp); cc "decomp_$n" "$f" $GI -I . $RT; done
 
 echo "-- game-tree KERNEL (rt/stubs/harness only — the generated tree has left the exe)"
 # ORDER IS LOAD-BEARING (plan §4.3): 66 __imp__X are defined in BOTH out_reco/{rt,stubs}.cpp and
@@ -206,10 +207,10 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
     if [ "$MIDX" = "1" ]; then
       case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake) continue;; esac
     fi
-    cc "decomp_$n" "$f" $GI $RT $MAP
+    cc "decomp_$n" "$f" $GI -I . $RT $MAP
   done
   if [ "$MIDX" = "1" ]; then
-    for f in "$DECOMP_DIR"/game_abn/*.cpp; do n=$(basename "$f" .cpp); cc "decomp_$n" "$f" $GI $RT; done
+    for f in "$DECOMP_DIR"/game_abn/*.cpp; do n=$(basename "$f" .cpp); cc "decomp_$n" "$f" $GI -I . $RT; done
   fi
   echo "-- host-facing shim (moduleshim/, NEVER a glob-swept dir)"
   cc "module_shim" "moduleshim/module_shim_$NAME.cpp" $GI $RT

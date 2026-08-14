@@ -53,7 +53,8 @@ cc(){ # name  src  flags...
 echo "== DECOMP tree ($DECOMP_DIR/game/*.cpp + $DECOMP_DIR/shell/*.cpp — game_abn/ EXCLUDED; __imp__ overrides, linked FIRST) =="
 for f in "$DECOMP_DIR"/game/*.cpp; do
   [ -f "$f" ] || continue
-  n=$(basename "$f" .cpp); cc "decomp_$n" "$f" $GAME_INC $RT
+  # -I . : decomp TUs reference host/render headers realcomp-root-relative (repo split).
+  n=$(basename "$f" .cpp); cc "decomp_$n" "$f" $GAME_INC -I . $RT
 done
 # Shell-side decomp needs the SHELL headers: shell/gen/ppc_config.h differs from the game's
 # (PPC_IMAGE_BASE 0x82000000 vs 0x88000000, different CODE_BASE/SIZE), and SHELL_INC puts
@@ -61,7 +62,7 @@ done
 # against the wrong module geometry.
 for f in "$DECOMP_DIR"/shell/*.cpp; do
   [ -f "$f" ] || continue
-  n=$(basename "$f" .cpp); cc "decomp_$n" "$f" $SHELL_INC $XS $RT
+  n=$(basename "$f" .cpp); cc "decomp_$n" "$f" $SHELL_INC -I . $XS $RT
 done
 
 echo "== GAME tree (out_reco/*.cpp, minus shell_only_stubs) =="
