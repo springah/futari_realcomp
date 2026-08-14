@@ -3596,6 +3596,41 @@ DECODER_LOG_WRAP(sub_88139D90)
 DECODER_LOG_WRAP(sub_8813A248)
 DECODER_LOG_WRAP(sub_8813A118)
 
+// RT_UPLOG=1 (pump-refactor retry prerequisite; ledger 08-14 revert block): the produce arm's
+// upload-descriptor ARGUMENTS are invisible to RT_DECLOG — the a15bdbc refactor shipped a
+// user-visible playfield regression THROUGH a 398/398 STRICT decode-stream pass. Cover the
+// descriptor-build trio (sub_88090E58/D50/CB8), the async cache-line read variant
+// (sub_880924E8 — its r4 dest arg is the "leftover register IS an argument" precedent), and
+// the upload pair (sub_8808D640/DF70) the way declog covers the decoders. r3..r8 at entry
+// (capture MORE than the known arity — leftovers can BE arguments), lr, r3 at exit.
+//
+// LINK-ORDER CONTRACT (the shadowed-hook seam, ledger 08-13): merged_game.o precedes gen_*.o,
+// so these wrappers win over GENERATED bodies — they fire on the control DLLs (asset decomp
+// excluded) and on the abn ship arm (same exclusion). On the PILOT normal arm,
+// decomp_asset_upload.o precedes merged_game.o, so the D640/DF70 wrappers are DEAD there BY
+// DESIGN — decomp/game/asset_upload.cpp carries identical-format in-body logs instead.
+// POSITIVE CONTROL: a differential run must show >0 [uplog] lines per covered fn per arm
+// (updiff_compare.py enforces this) — "wrapper printed nothing" NEVER means "path not taken".
+#define UPLOAD_LOG_WRAP(FN)                                                              \
+  extern "C" void __imp__##FN(PPCContext& __restrict, uint8_t*);                         \
+  PPC_FUNC(FN){                                                                          \
+    static const bool lg = std::getenv("RT_UPLOG")!=nullptr;                             \
+    uint32_t a=ctx.r3.u32,b=ctx.r4.u32,c=ctx.r5.u32,d=ctx.r6.u32,e=ctx.r7.u32,           \
+             f=ctx.r8.u32,l=(uint32_t)ctx.lr;                                            \
+    __imp__##FN(ctx,base);                                                               \
+    if(lg){                                                                              \
+      std::fprintf(stderr,"[uplog] " #FN " r3=%08X r4=%08X r5=%08X r6=%08X r7=%08X r8=%08X lr=%08X -> r3=%08X\n", \
+        a,b,c,d,e,f,l,ctx.r3.u32);                                                       \
+      std::fflush(stderr);                                                               \
+    }                                                                                     \
+  }
+UPLOAD_LOG_WRAP(sub_88090E58)
+UPLOAD_LOG_WRAP(sub_88090D50)
+UPLOAD_LOG_WRAP(sub_88090CB8)
+UPLOAD_LOG_WRAP(sub_880924E8)
+UPLOAD_LOG_WRAP(sub_8808D640)
+UPLOAD_LOG_WRAP(sub_8808DF70)
+
 // ---- SESSION 6e: tripwires for unresolved-jump-table functions. sub_8807D838 and
 // sub_8808B330 contain byte-lookup jump tables that were never resolved during
 // recompilation. If either fires inside the CD20 call window, it's a prime suspect

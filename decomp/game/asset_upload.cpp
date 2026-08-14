@@ -124,6 +124,21 @@ constexpr uint32_t XGDESC_SIZE           = 0x3C;
 constexpr uint32_t XGDESC_HEIGHTINBLOCKS = 0x24;
 constexpr uint32_t XGDESC_BYTESPERBLOCK  = 0x2C;
 
+// RT_UPLOG in-body twin of merged_game.cpp's UPLOAD_LOG_WRAP (pump-refactor retry
+// prerequisite, ledger 08-14 revert block). On the PILOT normal arm these decomp bodies are
+// the link winners (decomp_*.o first), so the merged_game wrapper is dead here BY DESIGN and
+// this in-body log carries the differential instead. The line below must stay byte-compatible
+// with the wrapper's format — updiff_compare.py parses both identically.
+static inline void uplog_line(const char* fn, uint32_t a, uint32_t b, uint32_t c, uint32_t d,
+                              uint32_t e, uint32_t f, uint32_t l, uint32_t exitR3)
+{
+    static const bool lg = std::getenv("RT_UPLOG") != nullptr;
+    if (!lg) return;
+    std::fprintf(stderr, "[uplog] %s r3=%08X r4=%08X r5=%08X r6=%08X r7=%08X r8=%08X lr=%08X -> r3=%08X\n",
+                 fn, a, b, c, d, e, f, l, exitR3);
+    std::fflush(stderr);
+}
+
 } // namespace
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════
@@ -154,6 +169,8 @@ PPC_FUNC(sub_8808D640)
     const uint32_t pageId    = ctx.r3.u32;
     const uint32_t src       = ctx.r4.u32;
     const uint32_t sizeState = ctx.r5.u32;
+    // RT_UPLOG entry capture (r3..r8 + lr, mirroring the wrapper — leftovers can BE arguments).
+    const uint32_t upD = ctx.r6.u32, upE = ctx.r7.u32, upF = ctx.r8.u32, upL = (uint32_t)ctx.lr;
 
     // RT_UPCANARY=1: one-shot-ish execution proof for the live gate (this body is UNHOOKED, so
     // no merged_game instrument can attest it runs — the map only proves linkage). Default-off.
@@ -179,6 +196,7 @@ PPC_FUNC(sub_8808D640)
     {
         ctx.r1.u32 = sp + 160;
         ctx.r3.s64 = 0;
+        uplog_line("sub_8808D640", pageId, src, sizeState, upD, upE, upF, upL, 0);
         return;
     }
 
@@ -217,6 +235,7 @@ PPC_FUNC(sub_8808D640)
 
     ctx.r1.u32 = sp + 160;
     ctx.r3.u64 = staged;   // r3 set after the leave call, as generated (mr r3,r25)
+    uplog_line("sub_8808D640", pageId, src, sizeState, upD, upE, upF, upL, staged);
 }
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════
@@ -269,6 +288,10 @@ PPC_FUNC(sub_8808D640)
 PPC_FUNC(sub_8808DF70)
 {
     PPC_FUNC_PROLOGUE();
+    // RT_UPLOG entry capture — DF70 takes no arguments, so these are caller leftovers; the
+    // compare tool's learned noise mask strips them, and the line exists for count/sequence.
+    const uint32_t upA = ctx.r3.u32, upB = ctx.r4.u32, upC = ctx.r5.u32, upD = ctx.r6.u32,
+                   upE = ctx.r7.u32, upF = ctx.r8.u32, upL = (uint32_t)ctx.lr;
 
     const uint32_t sp = ctx.r1.u32 - 240;             // stwu r1,-240(r1)
     PPC_STORE_U32(sp, ctx.r1.u32);
@@ -364,4 +387,5 @@ PPC_FUNC(sub_8808DF70)
 
     ctx.r1.u32 = sp + 240;
     // r3 left = the leave call's leftover, matching the generated exit (no mr r3 after it).
+    uplog_line("sub_8808DF70", upA, upB, upC, upD, upE, upF, upL, ctx.r3.u32);
 }
