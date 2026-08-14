@@ -1,6 +1,12 @@
 # NOTE — boot-logo + NOW-LOADING overlay family: naturalization draft (2026-08-14, agent pass)
 
-Status: **DRAFT NOTE, NOT CODE** — the integration leg starts here. Ground truth = the
+Status: **INTEGRATED 2026-08-14 NIGHT (5 of 6 fns — decomp/shell/logo_indicator.cpp).**
+Logo_Build (821D1890) stays generated; its lowering remains this note's §7 follow-up.
+⚠ TWO CORRECTIONS earned by the integration's full generated-body read (trust the TU over §1):
+(1) the §1 float-constant table is +0x40 OFF — real pool base 0x8204F7B0 (step 0x8204F838,
+logo scale 0x8204F8D4, indicator alpha scale 0x8204F868, clip consts 0x8204F824/28/2C, unity
+0x8203AAB4, zero 0x82045508); (2) §2.6's layout-bit sense is INVERTED — the A/wide clip
+constant is selected when FX+0x5A8 bit0 is CLEAR. Ground truth = the
 generated recomp (never Ghidra alone), E58 discipline applied (every callee's r3..r10 walked
 back). Companion docs: NOTE_fnf12_loading_overlay.md, ATLAS_scene_system.md §8.5-8.10,
 SPEC_shell_compose_1to1.md.

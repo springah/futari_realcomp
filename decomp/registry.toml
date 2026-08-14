@@ -3886,3 +3886,58 @@ provenance = "out_reco/ppc_recomp.4.cpp:10490 register-exact [RT]; tools/matchla
 file = "decomp/game/page_bake.cpp"
 gate = "FULL LADDER 2026-08-14 NIGHT: MAP GATE __imp__sub_8808E298 -> decomp_page_bake.o (SEAM: NVK_GHOOK 'G_SpriteEmit' owns the strong sub_ symbol -> this body is the __imp__ override form, the mem_util sub_88072260 precedent; the trace tap keeps firing around it). LIVE: execution free via the nvk tap; declog 398/398 + uplog PASS + arcdiff PASS; stagepix PASS (every field sprite rides this fn); day2 full loop PASS; select pixel-visual CLEAN. SCOPE: arcade only (uniform +0x60 class; no float-pool literals). Rollback = drop obj decomp_page_bake.o."
 asm_exact = false
+
+[[fn]]
+addr = "0x821D1780"
+module = "shell"
+name = "sub_821d1780"
+role = "**Logo FADE-IN** (60f). First tick: unhide cave elem (+0x5C) + start clip (rec+0x1DD=1). Skip byte +0x68: CLEARED here (the ONLY clear site) + cnt=60. Modulate cave via sub_821796B0(cave+0x10,(a,a,a,0x80)), a=(u8)(cnt*(1/60)*128) [fctidz] — RGB ramp, alpha pinned 0x80-unity. Pre-increment cnt>=60 -> cnt=0, state=0x821D1740."
+status = "MATCHED"
+provenance = "shell/gen/ppc_recomp.36.cpp:7267 full read this session [RT]; NOTE_logo_indicator_naturalization.md (+0x40 constant-table correction earned)"
+file = "decomp/shell/logo_indicator.cpp"
+gate = "2026-08-14 NIGHT ladder: map link-win -> decomp_logo_indicator.o; RT_UPCANARY x6 prints = the exact 61-tick fade-in; [expcen] control-vs-pilot steady patterns IDENTICAL modulo heap node addresses, miss=0 both entire runs; day2 arcade full loop PASS. UNHOOKED -> plain PPC_FUNC."
+asm_exact = false
+
+[[fn]]
+addr = "0x821D1740"
+module = "shell"
+name = "sub_821d1740"
+role = "**Logo HOLD** (120f). Ghidra's LAB_821D1740 is a REAL FUNCTION (recompiler .pdata split). Skip byte read, cnt=120 forced, NOT cleared. cnt++ always; pre-increment >=120 -> cnt=0, state=0x821D1670. Leaf, frameless, no colour writes."
+status = "MATCHED"
+provenance = "shell/gen/ppc_recomp.36.cpp:7229 full read [RT]"
+file = "decomp/shell/logo_indicator.cpp"
+gate = "2026-08-14 ladder (see 0x821D1780): canary x7 prints = the exact 121-tick hold; expcen identical; day2 PASS. UNHOOKED -> plain PPC_FUNC."
+asm_exact = false
+
+[[fn]]
+addr = "0x821D1670"
+module = "shell"
+name = "sub_821d1670"
+role = "**Logo FADE-OUT** (60f). Ghidra's LAB_821D1670 is a REAL FUNCTION. Skip byte read, cnt=60 forced, NOT cleared. a'=(u8)(0x80-a) subfic-exact; no unhide/clip block. Transition -> state=0x821D1540 (CAVE->M2 swap, still generated)."
+status = "MATCHED"
+provenance = "shell/gen/ppc_recomp.36.cpp:7105 full read [RT]"
+file = "decomp/shell/logo_indicator.cpp"
+gate = "2026-08-14 ladder: canary x6 = the exact 61-tick fade-out; expcen identical; day2 PASS. UNHOOKED -> plain PPC_FUNC."
+asm_exact = false
+
+[[fn]]
+addr = "0x821CD120"
+module = "shell"
+name = "sub_821cd120"
+role = "**Indicator per-frame alpha ramp + the only elem-hide writer** (real entry 0x821CD120; NO fn at 0x821CD140 — recompiler confirms the known Ghidra mis-bound). enable(+0x71)!=0: alpha(+0x78) += 1/60 clamp 1.0, modulate. else alpha>0: -= 1/60 clamp 0.0, modulate, and at EXACT 0.0f re-hide + stop clip (AUTHENTIC-UNREACHABLE live — preserved, do not fix). Modulate arg = (u8)(alpha*[0x8204F868]) | (elem+0xFC & 0xFFFFFF00); lr 0x821CD1B0/0x821CD21C."
+status = "MATCHED"
+provenance = "shell/gen/ppc_recomp.35.cpp:13209 full read [RT]; NOTE_fnf12_loading_overlay.md semantics re-confirmed"
+file = "decomp/shell/logo_indicator.cpp"
+gate = "2026-08-14 ladder: canary x27 prints = every-frame tick; expcen identical; day2 PASS. SEAM: OWNED by merged_shell's RT_D1PROBE wrapper -> __imp__ override form; the tap keeps firing."
+asm_exact = false
+
+[[fn]]
+addr = "0x821CCC48"
+module = "shell"
+name = "sub_821ccc48"
+role = "**Indicator SHOW/HIDE**. Leaf, frameless. Idempotent on +0x71 (elem null-guard BEFORE the store). ALWAYS re-derives the clip window on both arms: start = [0x8204F824] when widescreen[0x821ECF39]!=0 AND (FX+0x5A8 & 1)==0 (⚠ bit CLEAR selects the A arm — the note's sense was inverted), else [0x8204F82C]; end = [0x8204F828] both. HIDE returns after the window stores (arms the ramp only); SHOW: instant unhide + clip start."
+status = "MATCHED"
+provenance = "shell/gen/ppc_recomp.35.cpp:12478 full read [RT] — the bit-sense correction earned here"
+file = "decomp/shell/logo_indicator.cpp"
+gate = "2026-08-14 ladder: canary x2 = exactly the SHOW+HIDE transition pair; expcen identical; day2 PASS. SEAM: OWNED by rt.cpp's LP2_SHOWHIDE -> __imp__ override form."
+asm_exact = false
