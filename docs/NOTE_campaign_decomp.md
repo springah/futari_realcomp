@@ -1,4 +1,35 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
+## ★★★★★★★ 08-14 NIGHT — **THE PUMP RETRY LANDED (1878ef0): natural-C pump back in the tree
+## WITH the E58 r5=id fix, every gate green, the instrument caught the bug it was built for.
+## OWED: user-eyes final acceptance before any release cut.**
+
+The full retry protocol ran exactly as the revert block demanded: (a) instruments validated
+on the known-good pair first (uplog all-fns-fire positive control; ctrl-vs-ctrl learn found
+exactly ONE run-noise field = 924E8's alloc-returned r4 — the field theory predicts; stagepix
+PASS on known-good with ~200k uniq colors / edge ~41 and my own eyes on the banked PNG);
+(b) **NEGATIVE CONTROL: the UNFIXED a15bdbc body FAILS updiff at E58 (STRICT entry 0, CORE
+entry 1 — exit cache handles diverge) while declog counts 398 BLIND, reproducing the 08-14
+escape mechanically**; (c) fixed body (one line: `ctx.r5.u32=id` before the E58 call): updiff
+PASS, declog STRICT 398/398, stagepix PASS (pilot 184k/37.9 vs control 198k/41.0, creep
+clean; capture eyeballed — enemy DROP SHADOWS, item gems, explosion art, aura all present =
+the exact 08-14 missing classes), day2 arcade full loop PASS. abn arm structurally unaffected
+(asset TUs build-excluded there).
+**MASK DOCTRINE SETTLED EN ROUTE:** the learned ctrl-vs-ctrl mask is too strict cross-arm
+(addresses are deterministic within an arm, shifted across arms), and a learned cross-arm mask
+can't distinguish stable-leftover from argument. Final = the ABI READ-SET mask
+(uplog_mask_abi.json): judge exactly the registers the callee reads (per the instruction-level
+ABI reconstruction), minus the one address-valued read field per fn (decdiff's own precedent);
+unread r7/r8 leftovers differing is the natural-C body correctly NOT reproducing dead register
+state. Residual accepted + noted: address-valued args (924E8 dst, D640 src) are unjudged by
+STRICT — behavior divergence there still lands in CORE/exit + declog + stagepix.
+⚠ Fresh trap, cost 5 launches: BACKGROUND Bash shells start from the SESSION cwd, which only
+FOREGROUND cd's move — a cd inside a backgrounded chain never persists, and I re-pasted the
+same cd-less template four times (two chains then ran the game CONCURRENTLY and taskkilled
+each other — those nav fails were collision artifacts, not regressions). Rule: absolute
+script paths in every backgrounded chain; the gate scripts cd themselves.
+⚠ stagepix compare must pass WINDOWS-style paths to python (MSYS_NO_PATHCONV=1 is exported,
+so /c/tmp never gets translated — python read zero captures until fixed).
+
 ## ★★★★★★ 08-14 EVE-2 — **RETRY PREREQUISITES BUILT + THE SECOND PUMP BUG NAMED STATICALLY:
 ## the reverted refactor's sub_88090E58 call omits r5=id (read unconditionally as the
 ## 500-slot cache index). Commits ae43cbf + 1e2d964.**
