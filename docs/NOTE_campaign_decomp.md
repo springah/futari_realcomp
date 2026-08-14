@@ -1,4 +1,25 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
+## ★★★★★ 08-14 NIGHT-2 — **RT_EXPECTCENSUS LANDED (e6ff192): element dropout is finally
+## MEASURABLE — the backlog-#0 flicker lane has its acceptance instrument.**
+
+The spec's own §11.5 prescription implemented: emit (FUN_82178E78) vs drain (FUN_82168E58)
+paired 1:1 per picture node per frame. Emit half emulates the FULL §5.4 predicate (type
+rec+0x08, types 3/4 skipped — guest recursion re-fires the hook; BOTH visibility bytes
+0x1B4&&0x1B5; type==0 && rec+0x5C) → expected quads per P; drain half reports queue depth
+from merged_shell's [flush] wrapper; [expcen] print+reset at nvk_on_present_frame (present IS
+the frame boundary — deliberately NOT the RVK_DRAWTRIP-gated [mvtick] close). Default OFF.
+**POSITIVE CONTROL PASS with an internal cross-check better than designed: expected == actual
+queue depth EXACTLY per node per frame (x13==q13 x18==q18 x9==q9), 2547/2565 frames paired,
+miss=0 across the steady TOP MENU dwell.** A dropout now prints :MISS on its FIRST frame.
+Judge MISS against RVK_TITLEPROBE (authored blink square waves are AUTHENTIC). Regression:
+day2 arcade full loop PASS. ⚠ Shadow rule re-taught IN BOTH DIRECTIONS today: merged_shell.o
+owns PPC_FUNC(sub_82178E78) — the rt.cpp duplicate linked silently DEAD (map-file proof;
+e0/x0 while drains ran was the tell) → report-from-the-owner (rt_expcensus_emit), the
+rt_picnode_report pattern. Apparatus: _local/_tmpscripts/expcen_boot.sh.
+⏭ THE LANE'S NEXT LEGS (delta map, EVE-2 block): user-soak the census over the flicker repro
+(MISS lines = the dropout localized guest-vs-port) · veil cover interposer on sub_820B6770
+(RVK_VEILCOVER) · canvas→clip §5.7 measurement. Items 2/4/6 remain closed-by-construction.
+
 ## ★★★★★★★ 08-14 NIGHT — **THE PUMP RETRY LANDED (1878ef0): natural-C pump back in the tree
 ## WITH the E58 r5=id fix, every gate green, the instrument caught the bug it was built for.
 ## OWED: user-eyes final acceptance before any release cut.**
