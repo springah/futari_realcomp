@@ -2382,6 +2382,40 @@ static void rt_l1_writer(){
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
   }
 }
+// ---- [l1cur] CURSOR ORACLE (2026-08-15, round 3) -------------------------------------------
+// The whole-shell walk cannot be scripted assert-per-press without knowing where the cursor is,
+// and the shipped [mcur] instrument is scoped to ONE vtable (menu_game_title 0x820503B0), so
+// the OPTIONS page and every OPTIONS panel are invisible to it. Two cursor fields exist:
+//   * menu-family classes  — cursor at +0x9C   (the BA4D8/BB1D8/BB298 chain)
+//   * OptionsPanelBase     — cursor at +336    (P_CURSOR, options_panel_base.cpp:178)
+// ⚠ The panel read is ALLOWLISTED by vtable on purpose. Reading +336 off a menu-family object
+// would be reading past its allocation, and heap garbage differs between runs — which would
+// inject fake divergence into the very A/B this instrument exists to serve.
+static bool rt_l1_panel_vt(uint32_t vt){
+  switch(vt){
+    case 0x820506D0u: case 0x820509E0u: case 0x82050A40u: case 0x82050AA0u:
+    case 0x82050B00u: case 0x82050BC0u: case 0x82050C20u: case 0x82050F00u:
+    case 0x82050730u: case 0x82050868u: case 0x820508C8u: case 0x82050CE8u:
+    case 0x82050D48u: case 0x82050DB0u: return true;
+    default: return false;
+  }
+}
+static void rt_l1_cursor(uint8_t* base, uint32_t obj, uint32_t vt){
+  if(!rt_l1_on() || !obj || !vt) return;
+  bool panel = rt_l1_panel_vt(vt);
+  bool menu  = (vt==0x820503B0u||vt==0x820504D0u||vt==0x82050518u||vt==0x82050440u||vt==0x82050574u);
+  if(!panel && !menu) return;
+  uint32_t cur = PPC_LOAD_U32(obj + (panel ? 336u : 0x9Cu));
+  static std::mutex m; static std::unordered_map<uint32_t,uint32_t> last;
+  uint32_t prev; bool first;
+  { std::lock_guard<std::mutex> l(m); auto it=last.find(obj); first=(it==last.end());
+    prev = first?0u:it->second; last[obj]=cur; }
+  if(first || prev==cur) return;
+  rt_l1_emit("C %X %u %u\n", vt, prev, cur);
+  std::fprintf(stderr,"[l1cur] vt=0x%X obj=0x%X cursor %u->%u%s\n", vt, obj, prev, cur,
+              panel ? " (panel+336)" : " (menu+9C)");
+}
+
 // The six state thunks of the shared menu/panel state ring (NOTE_options_base.md §0.B.5).
 // Each is a 4-instruction dispatch of ONE vtable slot; the object's current state pointer
 // lives at +0x48 (== this+72). Observing +0x48 across the call yields the transition edge.
@@ -3763,6 +3797,7 @@ PPC_FUNC(sub_82061D50){
     std::fprintf(stderr,"[engst] D50-ACTIVE#%ld obj=0x%X vt=0x%X -> fn30=0x%X lr=0x%X\n",i,o,vt,tgt,(uint32_t)ctx.lr);
   }
   __imp__sub_82061D50(ctx,base);
+  rt_l1_cursor(base,l1o,l1vt);                    // [l1cur] cursor oracle (menu +0x9C / panel +336)
   { uint32_t l1s1=l1o?PPC_LOAD_U32(l1o+0x48):0; if(l1s1!=l1s0) rt_l1_emit("S %X %X %X\n",l1vt,l1s0,l1s1); }
 }
 extern "C" void __imp__sub_82061D70(PPCContext& __restrict, uint8_t*);
@@ -3775,6 +3810,7 @@ PPC_FUNC(sub_82061D70){
     std::fprintf(stderr,"[engst] D70-PARKED#%ld obj=0x%X vt=0x%X -> fn34=0x%X\n",i,o,vt,tgt);
   }
   __imp__sub_82061D70(ctx,base);
+  rt_l1_cursor(base,l1o,l1vt);                    // [l1cur] cursor oracle (menu +0x9C / panel +336)
   { uint32_t l1s1=l1o?PPC_LOAD_U32(l1o+0x48):0; if(l1s1!=l1s0) rt_l1_emit("S %X %X %X\n",l1vt,l1s0,l1s1); }
 }
 // [pgr] page renderer FUN_821c6560(engine,page,changed) — the natural content pump (6860's
