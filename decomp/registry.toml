@@ -3853,3 +3853,36 @@ provenance = "ATLAS_shell_menus §2 Shell→game protocol + §3 GameDriverTask t
 file = "decomp/shell/driver_msgs.cpp (shape body: decomp/shell/driver_msgs.inl)"
 gate = "PENDING-GATE (round-2 decomp side-gig, branch decomp-gig-2). Translated + linked + SEAM-PROVEN: a fresh build/futari_merged.map resolves all 32 round-2 sub_* symbols to decomp_driver_msgs.o while the generated __imp__ bodies stay linked as the rollback path, and build_win.sh links green with them in. The clone set for this slot is MECHANICALLY verified (normalise address literals out of every generated body in shell/gen/ppc_recomp.*.cpp, group by result -> EXACTLY 8 byte-identical members; entry-relative return offsets verified equal across all 8). NO LIVE-FIRE this session: these slots only fire once a real mode module is loaded (a plain boot/attract calls no GameEntry at all — measured 0 gemsg lines in a 45s idle boot), and the mode-launch nav drive (scripts/decomp_d1_gate.sh) could not get a stable windowed boot in the background side-gig session (Vulkan window init segfaults early ~half the runs). The main session owns that harness + the game-over nav gap; control-vs-pilot stream equality on the mode-launch drive is the outstanding evidence. Rollback = drop obj_win/decomp_driver_msgs.o from the link line."
 
+
+[[fn]]
+addr = "0x8808D838"
+module = "game"
+name = "sub_8808d838"
+role = "**Page ensure-texture** (select-compose page cache). sub_8808D838(pageId=r3, sizeState=r4)->r3=1 has-texture / 0 invalid-or-failed. Valid iff pageId<0x200 and sizeState in {1,2}; dim=sizeState<<8. A stored-sizeState mismatch releases the existing texture (sub_8807F8C8) first; create (sub_88079970, args S,S,1,1,0,0x18280143,0,3) only fires on rec.tex==0 -- release-then-recreate, never resize. Stamps rec.sizeState with the REQUESTED size on every success path. Callers: sub_8808DC10 bake loop (sizeState=2) and sub_8808DF70 (stageSize)."
+status = "MATCHED"
+provenance = "out_reco/ppc_recomp.4.cpp:8821 register-exact [RT]; tools/matchlab game_8808D838_PageEnsureTexture.cpp (independent semantic model, 35/50 partial byte-map -- cross-check, not ASM-EXACT) [RT]; agent ABI pass 2026-08-14 (ledger NIGHT-3+)"
+file = "decomp/game/asset_upload.cpp"
+gate = "FULL LADDER 2026-08-14 NIGHT: MAP GATE futari_merged.map ?sub_8808D838 -> decomp_asset_upload.o, generated __imp__ retained as rollback. LIVE: RT_UPCANARY Page_EnsureTexture x88 on the scripted arcade select drive; RT_DECLOG STRICT 398/398 + RT_UPLOG PASS (ABI mask) + arcdiff PASS vs generated control; stagepix stage-field PASS; day2 full loop PASS; char+shot select pixel-visual CLEAN (banked /c/tmp/pb_select). C1 discipline at both conditional bl boundaries (lr=0x8808D89C release, lr=0x8808D8D8 create -- HOOKED callee sub_88079970 called via plain symbol so G_CreateTexture tap fires). SEAM: UNHOOKED (measured) -> plain PPC_FUNC. SCOPE: arcade arm only (TU abn-excluded, +0x60 law). Rollback = drop the body from decomp_asset_upload.o."
+asm_exact = false
+
+[[fn]]
+addr = "0x8808DC10"
+module = "game"
+name = "sub_8808dc10"
+role = "**THE PAGE BAKE** (select-compose scroll cache; NOTES_select_compose.md). sub_8808DC10(phase=r3), gate = phase != lastPhase [0x887AD5F0]. Drains the sprite batch (sub_880702B0 -- LEFTOVER-r3 site, preserved), poisons the batch redundancy caches (load-bearing invalidation), then TWO HALVES READING DIFFERENT PHASES: BAKE resolves 512-wide pane windows into the OLD phase's page(s) (Resolve Flags=0, rect {x,0,x+512,512} x-clamped to 640; phase 0 = pages 0..1, else pageIds[phase]); the phase store sits BETWEEN the halves; PASTE re-derives from the updated global and draws the NEW phase's page(s) back as full-height strips (backdrop VS/PS, blend 0x10001, -0.5f bias, TRIANGLESTRIP DrawVerticesUP stride 0x1C), then hands VS/PS/alpha-test back to the sprite pipeline. Vertex-template store order 3,2,1,0 preserved."
+status = "MATCHED"
+provenance = "out_reco/ppc_recomp.4.cpp:9416 register-exact [RT]; tools/matchlab game_8808DC10_Page_Bake.cpp (independent model, 146/190 non-reloc positional -- residue = register-rank tie, no logic disagreement) [RT]; agent ABI pass 2026-08-14; the sub_88071134 'blr-identity phase pass' of old notes = __savegprlr_19 millicode, not a call"
+file = "decomp/game/page_bake.cpp"
+gate = "FULL LADDER 2026-08-14 NIGHT: MAP GATE ?sub_8808DC10 -> decomp_page_bake.o. LIVE: RT_UPCANARY Page_Bake x139 with real phase transitions (2->3->6...) on the select drive; declog 398/398 + uplog PASS + arcdiff PASS vs control; stagepix PASS (display-off trap fired once and was correctly NO-VERDICTed -- rerun awake); day2 full loop PASS; char+shot select pixel-visual CLEAN. C1 at all 13 dynamic bl boundaries incl. the stack args (sp+92 ClearStencil, sp+100 pParameters) and f1=ClearZ on the Resolve. SEAM: UNHOOKED -> plain PPC_FUNC; hooked callees (74F98 bracket-wrap, 77AA8/79B70/7F138/7DD88/702B0 nvk taps) via plain symbols. SCOPE: arcade only -- ⚠ the ROM float pool (0x88063370) shifts -48 in abn, NOT +0x60: a blanket literal patch can NEVER port this fn; float-pool audit required first (agent-measured, ledger). Rollback = drop obj decomp_page_bake.o."
+asm_exact = false
+
+[[fn]]
+addr = "0x8808E298"
+module = "game"
+name = "sub_8808e298"
+role = "**Sprite emit quad** (bake-on-demand trigger). sub_8808E298(attr=r3, srcUV=r4, dstXY=r5, extent=r6, blend=r7) void. Decodes u:13/v:12 src split, SIGNED dest shorts, (w-1,h-1) extent; page = ((y>>3)&~0x1F)|(x>>8); dstPage in the six baked pages (id<0x40 && (id&0x1F)>0x1C) -> phase 1..6 with page-local &0xFF coords, else phase 0 with -32,-32 canvas bias; calls sub_8808DC10(phase) UNCONDITIONALLY (the only-on-change gate lives in the bake -- do not optimize phase 0 away); flush/rebind on texPage/blend/flags mismatch or ring full (0x800); appends 3 verts (rect-as-strip TL,TR,BL) with 4-way UV mirror from attr bits 26-27 (case names per matchlab labeling). BOTH Sprite_FlushBatch calls are LEFTOVER-r3 sites -- preserved, registers deliberately not set."
+status = "MATCHED"
+provenance = "out_reco/ppc_recomp.4.cpp:10490 register-exact [RT]; tools/matchlab game_8808E298_Sprite_EmitQuad.cpp (independent model, 63/116 -- residue = pure nonvolatile-rank permutation) [RT]; agent ABI pass 2026-08-14"
+file = "decomp/game/page_bake.cpp"
+gate = "FULL LADDER 2026-08-14 NIGHT: MAP GATE __imp__sub_8808E298 -> decomp_page_bake.o (SEAM: NVK_GHOOK 'G_SpriteEmit' owns the strong sub_ symbol -> this body is the __imp__ override form, the mem_util sub_88072260 precedent; the trace tap keeps firing around it). LIVE: execution free via the nvk tap; declog 398/398 + uplog PASS + arcdiff PASS; stagepix PASS (every field sprite rides this fn); day2 full loop PASS; select pixel-visual CLEAN. SCOPE: arcade only (uniform +0x60 class; no float-pool literals). Rollback = drop obj decomp_page_bake.o."
+asm_exact = false

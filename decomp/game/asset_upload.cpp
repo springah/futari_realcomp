@@ -89,9 +89,11 @@
 //   either function reads anything but r3.
 //
 // CALLEE STATUS at the bl boundaries:
-//   TRANSLATED: sub_88072260 (guest memcpy — decomp/game/mem_util.cpp).
+//   TRANSLATED: sub_88072260 (guest memcpy — decomp/game/mem_util.cpp) · sub_8808D838
+//     (page-texture ensure — THIS FILE, bottom, 2026-08-14) · sub_8808DC10/sub_8808E298
+//     (bake + quad emit — decomp/game/page_bake.cpp, 2026-08-14).
 //   STILL GENERATED (called via plain sub_* so their wrappers keep firing): sub_880836D0 (aligned
-//     alloc), sub_88083758 (free), sub_8808D838 (page-texture ensure), sub_8807F8C8 (texture
+//     alloc), sub_88083758 (free), sub_8807F8C8 (texture
 //     release), sub_88082978→sub_88082548 (XGGetTextureDesc), sub_88083380 (SetRect),
 //     sub_88079948 (D3DTexture_LockRect), sub_880822C0→sub_88081EF0 (XGTileSurface),
 //     sub_88078308 (D3DTexture_UnlockRect), and the two Rtl*CriticalSection imports.
@@ -388,4 +390,82 @@ PPC_FUNC(sub_8808DF70)
     ctx.r1.u32 = sp + 240;
     // r3 left = the leave call's leftover, matching the generated exit (no mr r3 after it).
     uplog_line("sub_8808DF70", upA, upB, upC, upD, upE, upF, upL, ctx.r3.u32);
+}
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// sub_8808D838 — PAGE ENSURE TEXTURE. UNHOOKED → plain PPC_FUNC. NON-LEAF.
+//
+//   sub_8808D838(pageId = r3, sizeState = r4) -> r3 = 1 (has a texture) / 0 (invalid or create failed)
+//
+// Ground truth: out_reco/ppc_recomp.4.cpp:8821-8935 (register-exact, __savegprlr_26/-0x90 frame ->
+// __restgprlr_26 tail). Cross-checked against tools/matchlab/src/game_8808D838_PageEnsureTexture.cpp
+// (independent from-scratch model) — field layout, argument order and the CreateTexture format word
+// agree. Callers: sub_8808DC10's bake loop (pageId, sizeState=2) and sub_8808DF70 above (pageId,
+// stageSize).
+//
+// Valid iff pageId < PAGE_COUNT and sizeState is 1 or 2. A SIZE CHANGE (stored sizeState != the
+// requested one) drops the existing texture first — the create block only fires when rec.tex == 0,
+// so a size change is release-then-recreate, never a resize. dim = (sizeState << 8) & 0xFFFFFF00
+// (the D640/DF70 idiom) — 1 -> 256, 2 -> 512. On success rec.sizeState is stamped with the
+// REQUESTED sizeState, including on the common already-right-size no-op path.
+//
+// C1 boundaries (2, both conditional): sub_8807F8C8(release) lr=0x8808D89C only when the size
+// changed AND a texture exists · sub_88079970(CreateTexture — HOOKED nvk G_CreateTexture, called
+// via the plain symbol so the tap fires) lr=0x8808D8D8 only when rec.tex==0. CreateTexture args
+// (S,S,1,1,0,0x18280143,0,3) — the format word is the SAME 0x18280143 the bake pass's
+// D3DRESOLVE_PARAMETERS.ColorFormat carries: same six pages, same pixel format, both ends.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+PPC_FUNC(sub_8808D838)
+{
+    PPC_FUNC_PROLOGUE();
+    const uint32_t pageId    = ctx.r3.u32;
+    const uint32_t sizeState = ctx.r4.u32;
+
+    // RT_UPCANARY=1: execution proof for the live gate (unhooked body — the map only proves
+    // linkage). Default-off; same shape as the D640/DF70 canaries above.
+    if (std::getenv("RT_UPCANARY")) {
+        static int n = 0;
+        if (n < 6 || (n % 200) == 0)
+            std::fprintf(stderr, "[upcanary] Page_EnsureTexture #%d page=%u size=%u lr=%08X\n",
+                         n, pageId, sizeState, (uint32_t)ctx.lr);
+        ++n;
+    }
+
+    const uint32_t sp = ctx.r1.u32 - 144;             // stwu r1,-144(r1)
+    PPC_STORE_U32(sp, ctx.r1.u32);
+    ctx.r1.u32 = sp;
+
+    const uint32_t dim = (sizeState << 8) & 0xFFFFFF00u;   // page edge in texels
+
+    uint32_t result = 0;
+    if (pageId < PAGE_COUNT && sizeState != 0 && sizeState <= 2)
+    {
+        const uint32_t rec = PAGE_TABLE + pageId * PAGE_STRIDE;
+
+        // A size change invalidates the existing texture (release, then fall into the create).
+        if (PPC_LOAD_U32(rec + REC_SIZESTATE) != sizeState &&
+            PPC_LOAD_U32(rec + REC_TEX) != 0)
+        {
+            ctx.r3.u32 = PPC_LOAD_U32(rec + REC_TEX);
+            ctx.lr = 0x8808D89C; sub_8807F8C8(ctx, base);     // Gpu_ReleaseTexture(tex)
+            PPC_STORE_U32(rec + REC_TEX, 0);
+        }
+
+        if (PPC_LOAD_U32(rec + REC_TEX) == 0)
+        {
+            ctx.r3.u32 = dim;  ctx.r4.u32 = dim;  ctx.r5.u64 = 1;  ctx.r6.u64 = 1;
+            ctx.r7.u64 = 0;    ctx.r8.u32 = 0x18280143;  ctx.r9.u64 = 0;  ctx.r10.u64 = 3;
+            ctx.lr = 0x8808D8D8; sub_88079970(ctx, base);     // Gpu_CreateTexture(S,S,1,1,0,fmt,0,3)
+            PPC_STORE_U32(rec + REC_TEX, ctx.r3.u32);
+        }
+
+        if (PPC_LOAD_U32(rec + REC_TEX) != 0)
+        {
+            PPC_STORE_U32(rec + REC_SIZESTATE, sizeState);
+            result = 1;
+        }
+    }
+
+    ctx.r1.u32 = sp + 144;
+    ctx.r3.u64 = result;
 }

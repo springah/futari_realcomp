@@ -104,7 +104,7 @@ for f in decomp/game/*.cpp decomp/shell/*.cpp; do
   n=$(basename "$f" .cpp)
   # abn-excluded: reco_normal .data literals move +0x60 (see build_win_dll.sh; the asset TUs
   # joined game_entry_msgs 2026-08-13 after the differential caught the abn pump dead).
-  case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload) continue;; esac
+  case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake) continue;; esac
   cc "decomp_$n" "$f" $GAME_INC $RT $MAP
 done
 # decomp/game_abn/ = abn-NATIVE translations (addresses already +8/+0x60-resolved; the C1-class
