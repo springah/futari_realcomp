@@ -1,4 +1,37 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
+## ★★★★ 08-14 NIGHT-3 — **DECOMP VERIFICATION WAVE: three independent audits came back CLEAN —
+## the DLL-side pipeline + driver surface are FULLY naturalized already; the readable frontier
+## is the consume side + shell intro. Archive gate hole closed (arcdiff_compare.py).**
+
+Three read-only agent audits (E58-discipline: every callee's r3..r10 walked back through the
+generated ground truth) over the surfaces presumed to need naturalizing — all three were
+ALREADY DONE in the 08-12/08-13 rounds; the audits re-verified them independently:
+- **asset_decode mode-2** (6a2f222, MATCHED): every load-bearing insn re-checked; the pump's
+  dispatch bl confirmed clean of the leftover-arg class; sharpened oddity banked — mode 2's
+  back-ref window is UNWRAPPED LINEAR into live output (its siblings use ring/scratch dicts).
+- **driver_msgs** (12 shapes / 128 clones, 74/74-gated): 18 clones diffed insn-for-insn incl.
+  every entry-relative published lr — zero defects. Gate-hole proposal banked: the D1 stream
+  cannot see non-message side effects (shape-K array-slot stores; Driver_Init's two back-link
+  stores through returned pointers) — cheapest closer = memory-value assertions on the banked
+  ctrl/pilot pair + an r3 log on the predicate canary ("executed" → "output-verified").
+- **archive** (8 fns): ALL EIGHT leftover-register-as-argument instances in the generated
+  bodies already correctly explicit in the C (2 init, 3 companion-open, 3 teardown, 1 chain
+  walk — zero unfixed). Oddity re-verified: the disk→memory TOC field SWAP (rec[4..7]→+8,
+  rec[8..11]→+4) and the 92B80 unlocked descriptor re-read (a real preserved race window).
+**GATE HOLE CLOSED:** archive fns were only ever proven TRANSITIVELY through the decode
+stream. New _local/_tmpscripts/arcdiff_compare.py STRICT-diffs the [winit]/[wjob]/[gwork]
+lines already present in every decdiff log (masks: wjob-enq r4 dst addr; winit-mgr/gwork
+handle fields) — **PASS on today's banked pilot/ctrl pair** (1+1+46+40 sampled entries;
+gwork absent = teardown never fires on the select drive, exactly as the audit stated).
+⚠ Sampled coverage only — supplements the decode/upload differentials. Still unexercised by
+ANY drive: sub_880929C8 teardown + sub_88092668 companion open (needs a quit-to-teardown /
+non-empty-suffix drive — banked, not built).
+**SEAM QUESTION ASKED AND ANSWERED (do not re-hunt):** decomp/shell/*.cpp compiled with
+game-tree -I flags in build_win_dll.sh/build_win_abn.sh DOES resolve the game
+ppc_recomp_shared.h — but the forced -include rt_indirect.h #undef's and re-defines
+PPC_CALL_INDIRECT_FUNC as the module-aware rt_indirect_call shim BEFORE any header wins (its
+own header says so; preprocessor-verified today). The seam is neutralized BY DESIGN.
+
 ## ★★★★★ 08-14 NIGHT-2 — **RT_EXPECTCENSUS LANDED (e6ff192): element dropout is finally
 ## MEASURABLE — the backlog-#0 flicker lane has its acceptance instrument.**
 
