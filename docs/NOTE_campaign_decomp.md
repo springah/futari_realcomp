@@ -1,4 +1,25 @@
 # NOTE_campaign_decomp.md — decomp→recomp campaign ledger
+## ★★★★★ 08-14 NIGHT-5 — **THE INTRO FSM GOES READABLE (b5d5183): logo fade-in/hold/fade-out
+## + indicator tick/show-hide naturalized (5 of 6; Logo_Build stays generated, note §7).**
+
+decomp/shell/logo_indicator.cpp, transcribed from FULL generated-body reads this session (not
+the note alone) — which earned TWO corrections now stamped into the note: (1) the float-
+constant table was +0x40 off everywhere (real pool base 0x8204F7B0 — the SPEC §1.2-derived
+addresses were shifted); (2) CCC48's layout-bit sense was INVERTED (FX+0x5A8 bit CLEAR selects
+the wide clip constant). Seams honored: LAB_821D1740/1670 = real functions (plain PPC_FUNC);
+CD120/CCC48 = __imp__ override forms (merged_shell + rt.cpp own the outers; taps keep firing);
+sub_821796B0 declared locally (the combined build compiles decomp/shell with game include
+paths — the neutralized seam, now with its first practical consequence).
+**LADDER:** map link-win 5/5 → **canary counts reproduce the spec timeline EXACTLY (61-tick
+fade-in / 121-tick hold / 61-tick fade-out / every-frame indicator / exactly 2 show-hide
+transitions)** → [expcen] control-vs-pilot steady patterns IDENTICAL modulo heap node
+addresses (e0:x0:d1:q0 · e1:x9:d1:q9 · e13:x18:d1:q18 both arms), miss=0 across both entire
+runs → day2 full loop PASS. Registry: 5 rows MATCHED (registry now 33).
+⚠ Instrument lesson: an inline-fn static in a shared canary = ONE counter across all call
+sites — the every-frame indicator ate the print budget and the logo stages looked dead on the
+first pilot (LI_CANARY macro = per-callsite counters; "printed nothing ⇒ not taken" struck
+again, this time inside the instrument itself).
+
 ## ★★★★★★ 08-14 NIGHT-4 — **THE CONSUME SIDE GOES READABLE (471257d): Page_EnsureTexture +
 ## THE PAGE BAKE + Sprite_EmitQuad naturalized, full ladder green. + the logo/indicator
 ## naturalization draft banked (a2cb47e).**
