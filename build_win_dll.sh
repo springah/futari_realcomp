@@ -97,6 +97,7 @@ echo "-- game-tree KERNEL (rt/stubs/harness only — the generated tree has left
 cc "game_rt"      "out_reco/rt.cpp"      $GI $RT
 cc "game_stubs"   "out_reco/stubs.cpp"   $GI $RT
 cc "game_harness" "out_reco/harness.cpp" $GI $RT
+cc "game_rt_phys" "out_reco/rt_phys.cpp" $GI $RT
 
 echo "-- module registry (load / bind / activate / swap)"
 cc "host_module_registry" "host/module_registry.cpp" $GI $RT

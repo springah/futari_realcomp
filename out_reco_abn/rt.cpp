@@ -97,7 +97,12 @@ PPC_FUNC_IMPL(__imp__VdQueryVideoMode){ LOGN("VdQueryVideoMode");
   ctx.r3.u32=0;
 }
 // --- memory ---
-PPC_FUNC_IMPL(__imp__MmAllocatePhysicalMemoryEx){ LOGN("MmAllocatePhysicalMemoryEx"); uint32_t sz=ctx.r4.u32; ctx.r3.u32=rt_alloc(sz?sz:0x1000,0x1000);
+// HW-true (2026-08-04 decomp verdict, mirrored from the canonical out_reco copy 2026-08-14):
+// physical allocations are NOT kernel-zeroed — the guest wrappers memset themselves when flag
+// 0x40000000 asks. rt_alloc_raw reuses without zeroing (rt_phys.cpp, law 1). This tree had
+// silently kept the pre-08-04 zeroing rt_alloc here — a real standalone-abn divergence.
+extern "C" uint32_t rt_alloc_raw(uint32_t size,uint32_t align);
+PPC_FUNC_IMPL(__imp__MmAllocatePhysicalMemoryEx){ LOGN("MmAllocatePhysicalMemoryEx"); uint32_t sz=ctx.r4.u32; ctx.r3.u32=rt_alloc_raw(sz?sz:0x1000,0x1000);
   // Big-alloc census (2026-07-20 soak leak hunt): log every phys alloc >= 256KB with size + lr
   // so the per-attract-cycle leak class (frees are no-op stubs) can be attributed to a caller.
   if(sz>=0x40000){ static long bn=0; if(bn++<200)

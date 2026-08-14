@@ -112,7 +112,7 @@ PPC_FUNC_IMPL(__imp__VdQueryVideoMode){ LOGN("VdQueryVideoMode");
 // --- memory ---
 // HW-true (2026-08-04 decomp verdict): physical allocations are NOT kernel-zeroed — the guest
 // wrappers memset themselves when flag 0x40000000 asks (shell FUN_82089ed8 / game FUN_880836d0
-// callers, identical XAPI code). rt_alloc_raw reuses without zeroing; RT_ALLOCZERO=1 reverts.
+// callers, identical XAPI code). rt_alloc_raw reuses without zeroing (rt_phys.cpp, law 1).
 extern "C" uint32_t rt_alloc_raw(uint32_t size,uint32_t align);
 PPC_FUNC_IMPL(__imp__MmAllocatePhysicalMemoryEx){ LOGN("MmAllocatePhysicalMemoryEx"); uint32_t sz=ctx.r4.u32; ctx.r3.u32=rt_alloc_raw(sz?sz:0x1000,0x1000);
   // Big-alloc census (2026-07-20 soak leak hunt): log every phys alloc >= 256KB with size + lr
