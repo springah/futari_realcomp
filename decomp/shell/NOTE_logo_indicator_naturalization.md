@@ -1,7 +1,10 @@
 # NOTE — boot-logo + NOW-LOADING overlay family: naturalization draft (2026-08-14, agent pass)
 
-Status: **INTEGRATED 2026-08-14 NIGHT (5 of 6 fns — decomp/shell/logo_indicator.cpp).**
-Logo_Build (821D1890) stays generated; its lowering remains this note's §7 follow-up.
+Status: **FULLY INTEGRATED 2026-08-14 NIGHT — ALL SIX fns (decomp/shell/logo_indicator.cpp).**
+Logo_Build lowered same night from a full generated-body read; §7 is PAID. Further corrections
+earned there: the element name/clip addresses also carry the +0x40 shift (real: cave
+0x8204F794/0x8204F79C, M2 0x8204F73C/0x8204F7A4, r28=0x8204F7A4) and sub_8217AA80 takes THREE
+args (elem, container, stack-copied name via sub_82060190) — §3's two-arg row was wrong.
 ⚠ TWO CORRECTIONS earned by the integration's full generated-body read (trust the TU over §1):
 (1) the §1 float-constant table is +0x40 OFF — real pool base 0x8204F7B0 (step 0x8204F838,
 logo scale 0x8204F8D4, indicator alpha scale 0x8204F868, clip consts 0x8204F824/28/2C, unity

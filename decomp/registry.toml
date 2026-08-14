@@ -3941,3 +3941,14 @@ provenance = "shell/gen/ppc_recomp.35.cpp:12478 full read [RT] — the bit-sense
 file = "decomp/shell/logo_indicator.cpp"
 gate = "2026-08-14 ladder: canary x2 = exactly the SHOW+HIDE transition pair; expcen identical; day2 PASS. SEAM: OWNED by rt.cpp's LP2_SHOWHIDE -> __imp__ override form."
 asm_exact = false
+
+[[fn]]
+addr = "0x821D1890"
+module = "shell"
+name = "sub_821d1890"
+role = "**Logo task BUILD** (one-shot ctor). Identity-matrix group (28B, vt 0x820514B4) -> task+0x50; transform+clip group (72B, vt 0x820514C0; pivot/offset 0, scale 1, rot 0, clip x0/y0=1.0, x1/y1=[0x8204F7E8] no-clip shape) -> task+0x54; movie container (144B, ctor sub_8217A960, bind sub_8217B6A8 to task+0x4C, hide=0 PERMANENT) -> task+0x58; elements cave/M2 (556B each; names STACK-COPIED via sub_82060190 then sub_8217AA80(elem, container, nameCopy) -- THREE args; clips via sub_8217C468(elem+0x10, name, 0); born hidden, clips stopped) -> +0x5C/+0x60. Intrusive child lists (node+4 next, parent+16 first, parent+20 tail): container/cave/M2 -> clip group -> identity group -> task ring +0x40. Ends cnt=0, state=FadeIn. Element name/clip addresses = the +0x40-corrected set (cave 0x8204F794/9C, M2 0x8204F73C/0x8204F7A4)."
+status = "MATCHED"
+provenance = "shell/gen/ppc_recomp.36.cpp:7424-7822 FULL read this session [RT]; corrections over the agent note earned in the lowering (three-arg AA80, +0x40 name addresses)"
+file = "decomp/shell/logo_indicator.cpp"
+gate = "2026-08-14 NIGHT ladder: map link-win -> decomp_logo_indicator.o (generated __imp__ retained as rollback); canary Logo_Build x1 (one-shot, exactly as designed) with the downstream FSM timeline UNCHANGED (61/121/61 ticks + 2 indicator transitions); [expcen] steady pattern identical to the banked control, miss=0 entire run; day2 arcade full loop PASS. UNHOOKED -> plain PPC_FUNC. Faithful residue: alloc-failure arms reproduce the generated null-deref behavior (allocs never fail live); the dead pre-append addi is not reproduced."
+asm_exact = false
