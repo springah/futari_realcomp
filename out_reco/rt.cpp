@@ -5,6 +5,7 @@
 #include <cstring>
 #include <atomic>
 #include <cstdint>
+#include <cstdlib>   // std::getenv/std::atoll — RT_INDCENSUS reads env above the later include
 #include <mutex>
 #include <condition_variable>
 #include <unordered_map>
@@ -430,6 +431,70 @@ PPC_FUNC_IMPL(__imp__RtlInitAnsiString){ LOGN("RtlInitAnsiString");
   uint32_t dst=ctx.r3.u32, src=ctx.r4.u32; uint16_t len=0; if(src){const char*s=(const char*)(base+src); while(s[len]&&len<0xFFFE)++len;}
   if(dst){ *(uint16_t*)(base+dst)=__builtin_bswap16(len); *(uint16_t*)(base+dst+2)=__builtin_bswap16(src?len+1:0); *(uint32_t*)(base+dst+4)=__builtin_bswap32(src);} (void)base; }
 
+// ── RT_INDCENSUS (default OFF): the INDIRECT-TARGET LIVENESS CENSUS ──────────────────────────
+// rt_indirect.h routes EVERY PPC_CALL_INDIRECT_FUNC in BOTH trees through rt_indirect_call, and
+// the module DLLs carry no copy of this TU (build_win_dll.sh links no game_rt — the DLL imports
+// this one), so a single bitmap here sees every callback dispatch in the process: shell + game,
+// host thread + workers.  That makes it the liveness oracle the decomp campaign has been missing.
+// Instead of one placement canary per drafted TU — one body at a time, and exposed to the
+// PPC_FUNC clone-bypass landmine — ONE drive answers "which of the 5,438 reco_normal / 9,149
+// shell bodies actually executed indirectly", which is exactly the question the objAction leg's
+// dormancy finding (NOTE_campaign_decomp, "10 OF THE 11 BODIES NEVER EXECUTE") left open.
+//
+// Two rules this instrument obeys, both learned the hard way:
+//   * POSITIVE CONTROL IS STRUCTURAL — the census cannot print zero for families we have already
+//     watched run, so every dump carries the live-family counts next to the region under test.
+//     A dark-run zero is only evidence while the live counts are non-zero in the SAME dump.
+//   * The file is REWRITTEN IN PLACE every RT_INDCENSUS_EVERY dispatches, because drives end in
+//     Stop-Process -Force: an atexit dump would never fire and the artifact would always be
+//     missing exactly when the drive did the most interesting thing.
+// Cost when off: one relaxed load of a function-local static.  When on: a bit test per dispatch.
+namespace {
+constexpr uint32_t IC_GAME = 0x88000000u, IC_SHELL = 0x82000000u, IC_SPAN = 0x00300000u;
+constexpr uint32_t IC_WORDS = IC_SPAN / 4 / 32;          // bits at 4-byte granularity, per image
+constexpr uint32_t IC_DARK_LO = 0x88170000u, IC_DARK_HI = 0x88250000u;   // the objAction dark run
+
+inline bool ic_on(){ static const bool on = std::getenv("RT_INDCENSUS") != nullptr; return on; }
+inline std::atomic<uint32_t>* ic_bits(){
+  static std::atomic<uint32_t>* b = new std::atomic<uint32_t>[IC_WORDS * 2]();
+  return b;
+}
+inline void ic_note(uint32_t t){
+  uint32_t idx;
+  if(t>=IC_GAME && t<IC_GAME+IC_SPAN)        idx = (t-IC_GAME)>>2;
+  else if(t>=IC_SHELL && t<IC_SHELL+IC_SPAN) idx = ((t-IC_SHELL)>>2) + IC_WORDS*32;
+  else return;
+  auto* b = ic_bits();
+  const uint32_t w = idx>>5, m = 1u<<(idx&31);
+  if(!(b[w].load(std::memory_order_relaxed) & m)) b[w].fetch_or(m, std::memory_order_relaxed);
+}
+void ic_dump(long long dispatches){
+  auto* b = ic_bits();
+  const char* p = std::getenv("RT_INDCENSUS_OUT");
+  std::string path = p ? p : "C:/tmp/indcensus.txt";
+  FILE* fp = std::fopen(path.c_str(), "w");
+  unsigned nga=0, nsh=0, ndark=0;
+  for(uint32_t i=0;i<IC_WORDS*2;i++){
+    uint32_t v = b[i].load(std::memory_order_relaxed);
+    if(!v) continue;
+    for(int k=0;k<32;k++){
+      if(!(v & (1u<<k))) continue;
+      const uint32_t idx = i*32+k;
+      const bool game = idx < IC_WORDS*32;
+      const uint32_t a = game ? IC_GAME + (idx<<2) : IC_SHELL + ((idx - IC_WORDS*32)<<2);
+      if(game){ nga++; if(a>=IC_DARK_LO && a<IC_DARK_HI) ndark++; } else nsh++;
+      if(fp) std::fprintf(fp, "%s 0x%08X\n", game?"game":"shell", a);
+    }
+  }
+  if(fp){ std::fprintf(fp, "# dispatches=%lld game=%u shell=%u dark=%u\n", dispatches, nga, nsh, ndark);
+          std::fclose(fp); }
+  // the verdict line, in the drive log itself: dark count next to its own positive control
+  std::fprintf(stderr, "[indcensus] dispatches=%lld distinct game=%u shell=%u  DARK(0x8817-0x8824)=%u  -> %s\n",
+               dispatches, nga, nsh, ndark, path.c_str());
+  std::fflush(stderr);
+}
+}  // namespace
+
 // Checked indirect call (see rt_indirect.h): log + skip unmapped targets, r3=0.
 // Cross-module dispatch (futari_merged / RT_SHELL probe): the flat guest lookup-table
 // region normally reserved for one module's own code range is, in the merged binary,
@@ -487,6 +552,16 @@ extern "C" void rt_indirect_call(PPCContext& ctx, uint8_t* base, uint32_t target
     if(f && shellhits++<10) std::fprintf(stderr,"[indirect] SHELL target=0x%08X -> dispatched\n",target);
   }
   if(f){
+    if(ic_on()){                       // RT_INDCENSUS: note the target that is about to run
+      ic_note(target);
+      static std::atomic<long long> n{0};
+      const long long c = n.fetch_add(1, std::memory_order_relaxed) + 1;
+      static const long long every = [] {
+        const char* e = std::getenv("RT_INDCENSUS_EVERY");
+        long long v = e ? std::atoll(e) : 0; return v > 0 ? v : 500000LL;
+      }();
+      if((c % every) == 0) ic_dump(c);
+    }
     // r26-clobber hunt: the indirect call at ppc_recomp.4.cpp:15012 (sub_8808FDF8, ret
     // lr=0x8808FEE4) is the prime suspect for clobbering non-volatile r26 (game-main fn ptr
     // 0x88168D48) on the real-.data path. Name its target + report if r26 isn't preserved.
