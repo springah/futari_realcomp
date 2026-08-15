@@ -3727,6 +3727,44 @@ PPC_FUNC(sub_8824E698){
     }
   }
   __imp__sub_8824E698(ctx,base);
+  // ── RT_DRVMEM (2026-08-15): close driver_msgs' banked GATE HOLE ──────────────────────────────
+  // The driver_msgs A/B compared the shell->game COMMAND STREAM, which is blind to the family's
+  // non-message side effects: shape K (Driver_ArmModeStaged) primes two array slots on the driver
+  // object and Driver_Init back-links two returned pointers. Nothing about those stores reaches
+  // GameEntry, so both arms could differ there and every gate would still say IDENTICAL.
+  //
+  // This makes them observable WITHOUT a per-arm tap: the tap lives in merged_game.cpp, which is
+  // in the DLLs and therefore byte-identical in both arms (the arms differ only by
+  // decomp_driver_msgs.o on the HOST link line), and it self-locates the driver object from the
+  // back-links themselves -- driver = *0x887AD5D4 - 0x4C -- so no address needs to be passed in.
+  //   *0x887AD5D4 / *0x887AD5DC   the two Driver_Init back-links (driver+0x4C / +0x50)
+  //   +0x74 toggle · +0x78 launchState · +0x7C stageWord · +0x88 field88 · +0x98 modeArg
+  //   +0x80 / +0x84               the two array slots shape K primes, (toggle+32)*4
+  // Diff the [drvmem] lines between a pilot and a control drive: identical = the hole is closed.
+  {
+    static const bool drvmem = std::getenv("RT_DRVMEM")!=nullptr;
+    if(drvmem){
+      const uint32_t bl1=PPC_LOAD_U32(0x887AD5D4u), bl2=PPC_LOAD_U32(0x887AD5DCu);
+      // ⚠ The driver is a HEAP object and this port's guest heap is LOW (payload pointers show up
+      // as 0x0034xxxx). The first cut guarded with `bl1>=0x82000000`, which is the image base, so
+      // every valid pointer was rejected and the tap printed NOTHING on a drive where the whole
+      // message stream was flowing -- silence that would have read as "the stores never happen".
+      if(bl1>0x4Cu && bl1<0x8B000000u){
+        const uint32_t d=bl1-0x4Cu;
+        // vt = the object's vtable word. This is the ANCHOR VALIDATOR: a real GameDriverTask has
+        // one of the eight family vtables (0x8204FB38..0x8204FFA8). The first cut validated on
+        // "bl2 == bl1+4" instead and got ZERO valid samples out of 7,811 lines — the second
+        // back-link does not land where the transcription implies, so the anchor could never be
+        // trusted and the comparison had nothing to compare.
+        std::fprintf(stderr,"[drvmem] msg=%-2u drv=0x%08X vt=%08X bl=%08X/%08X t74=%08X st78=%08X sw7C=%08X "
+                            "a80=%08X a84=%08X f88=%08X ma98=%08X\n",
+          m,d,(unsigned)PPC_LOAD_U32(d),bl1,bl2,
+          (unsigned)PPC_LOAD_U32(d+0x74u),(unsigned)PPC_LOAD_U32(d+0x78u),(unsigned)PPC_LOAD_U32(d+0x7Cu),
+          (unsigned)PPC_LOAD_U32(d+0x80u),(unsigned)PPC_LOAD_U32(d+0x84u),(unsigned)PPC_LOAD_U32(d+0x88u),
+          (unsigned)PPC_LOAD_U32(d+0x98u));
+      }
+    }
+  }
   if(n>0 && n<=3) std::fprintf(stderr,"[gemsg] GameEntry(msg=%u) -> r3=0x%X\n",m,ctx.r3.u32);
   if((verbose||stream) && crit && n>0 && (stream || n<=6)){
     std::fprintf(stderr,"[msglog] POST msg=%u#%ld -> r3=0x%X | 58c=%u 547=%u  (msg14 arms credited when 58c->2)\n",
