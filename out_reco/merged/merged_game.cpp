@@ -3744,13 +3744,35 @@ PPC_FUNC(sub_8824E698){
   {
     static const bool drvmem = std::getenv("RT_DRVMEM")!=nullptr;
     if(drvmem){
-      const uint32_t bl1=PPC_LOAD_U32(0x887AD5D4u), bl2=PPC_LOAD_U32(0x887AD5DCu);
-      // ⚠ The driver is a HEAP object and this port's guest heap is LOW (payload pointers show up
-      // as 0x0034xxxx). The first cut guarded with `bl1>=0x82000000`, which is the image base, so
-      // every valid pointer was rejected and the tap printed NOTHING on a drive where the whole
-      // message stream was flowing -- silence that would have read as "the stores never happen".
-      if(bl1>0x4Cu && bl1<0x8B000000u){
-        const uint32_t d=bl1-0x4Cu;
+      // ── FINDING THE DRIVER OBJECT ────────────────────────────────────────────────────────────
+      // v1 anchored on `driver = *0x887AD5D4 - 0x4C` (from Driver_Init's back-link store) and got
+      // 0 valid samples out of 7,811: that word does not hold driver+0x4C here -- the object it
+      // points at has vtable FFFF0000.
+      // v2 uses the CALLER'S OWN REGISTER instead of a fixed guest word. Every shape that reaches
+      // GameEntry parks the driver in the nonvolatile r31 first (Driver_Init: `mr r31,r3`;
+      // shape K likewise), and the GENERATED bodies do exactly the same -- it is the same code --
+      // so this is arm-symmetric. It is then SELF-VALIDATED against the eight driver-family
+      // vtables, so a wrong guess can never be sampled: no vtable match, no line.
+      static const uint32_t kDrvVts[8] = {0x8204FB38u,0x8204FBB8u,0x8204FC38u,0x8204FCB8u,
+                                          0x8204FD38u,0x8204FE98u,0x8204FF18u,0x8204FFA8u};
+      auto vtOf=[&](uint32_t p)->uint32_t{
+        if(p<0x1000u || p>=0x8B000000u) return 0;
+        const uint32_t vt=PPC_LOAD_U32(p);
+        for(uint32_t k : kDrvVts) if(vt==k) return vt;
+        return 0;
+      };
+      // Cache it: the per-frame msg-5 traffic does not come from the driver, but the object is the
+      // same one, and continuous sampling is what makes the two arms comparable. Re-validate every
+      // time so a mode swap that frees the task cannot leave us reading a stale address.
+      static uint32_t g_drv=0;
+      if(!g_drv || !vtOf(g_drv)){
+        g_drv=0;
+        const uint32_t cand[3]={ctx.r31.u32,ctx.r30.u32,ctx.r4.u32};
+        for(uint32_t c : cand) if(vtOf(c)){ g_drv=c; break; }
+      }
+      if(g_drv){
+        const uint32_t d=g_drv;
+        const uint32_t bl1=PPC_LOAD_U32(0x887AD5D4u), bl2=PPC_LOAD_U32(0x887AD5DCu);
         // vt = the object's vtable word. This is the ANCHOR VALIDATOR: a real GameDriverTask has
         // one of the eight family vtables (0x8204FB38..0x8204FFA8). The first cut validated on
         // "bl2 == bl1+4" instead and got ZERO valid samples out of 7,811 lines — the second
