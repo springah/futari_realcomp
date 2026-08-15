@@ -27,13 +27,19 @@
 // twin executes.  Deliberate: boot-gate log parsers stay identical across the two builds.
 #pragma once
 
-// 87 shifted symbols renamed (174 #defines); 137 referenced symbols are below the split and
+// 89 shifted symbols renamed (178 #defines); 143 referenced symbols are below the split and
 // need no rename; 0 referenced symbols land inside the edited function sub_880DEF88.
+// 2 not inventoried by the census - resolved by the +8 rule and existence-checked
+// against out_reco_abn/ppc_recomp_shared.h: 0x880E27E8 0x880E32D0
 
+#define sub_880E27E8         sub_880E27F0
+#define __imp__sub_880E27E8  __imp__sub_880E27F0
 #define sub_880E3128         sub_880E3130
 #define __imp__sub_880E3128  __imp__sub_880E3130
 #define sub_880E31B0         sub_880E31B8
 #define __imp__sub_880E31B0  __imp__sub_880E31B8
+#define sub_880E32D0         sub_880E32D8
+#define __imp__sub_880E32D0  __imp__sub_880E32D8
 #define sub_880E3888         sub_880E3890
 #define __imp__sub_880E3888  __imp__sub_880E3890
 #define sub_880E4948         sub_880E4950
