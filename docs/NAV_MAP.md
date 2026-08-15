@@ -38,6 +38,20 @@ NORMAL PLAY SUBMENU: 1P SIDE START / 2P SIDE START / CONFIG / EXIT
 1P SIDE START -> MODE SELECT (Original/Maniac/Ultra, countdown) -> A
   -> CHARACTER SELECT -> A -> SHOT TYPE SELECT -> A -> STAGE.
 
+TRAINING (hub row 2) — MAPPED BY EYE 2026-08-15 (computer-use, screenshot per press). The
+log-only probe could not resolve this branch: **no `[mcur]` fires on its first screen**, so a
+marker-driven driver sees "not a list screen" and learns nothing. The flow is:
+  A on TRAINING ...... caption 「トレーニングをプレイします。」 -> **STAGE SELECT**
+  STAGE SELECT ....... caption 「ステージを選択します。」, controls ⬅➡:選択 START:開始 B:戻る.
+    ⚠ LEFT/RIGHT (pad 4/8) changes NOTHING on a `save_freshcard` card — only the reached stage is
+      offered, so a fresh card gives stage 1 and nothing else. A save with progress is the
+      prerequisite for practising a later stage (and savegame.bin has no checksum, so a poke leg
+      is the cheap way there — see [[poke-the-save-before-hand-rolling]]).
+  START .............. -> MODE SELECT (Original/Maniac/Ultra, 48-count) -> A -> char -> shot -> STAGE
+  ⚠ TRAINING GIVES NO INVINCIBILITY: an idle ship dies and the run ends in the ordinary NORMAL
+    PLAY game-over flow (replay-save prompt 「リプレイを保存しますか?」, B declines). So training
+    is NOT a route to a boss for an unattended drive.
+
 GAME OVER — TWO FLOWS, do not conflate (the 08-11/08-12 confusion):
 
 GAME OVER, NORMAL PLAY side (idle-die, NON-RANKING score) — MAPPED BY EYE 08-13, screenshot per

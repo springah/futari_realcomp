@@ -488,9 +488,13 @@ void ic_dump(long long dispatches){
   }
   if(fp){ std::fprintf(fp, "# dispatches=%lld game=%u shell=%u dark=%u\n", dispatches, nga, nsh, ndark);
           std::fclose(fp); }
-  // the verdict line, in the drive log itself: dark count next to its own positive control
-  std::fprintf(stderr, "[indcensus] dispatches=%lld distinct game=%u shell=%u  DARK(0x8817-0x8824)=%u  -> %s\n",
-               dispatches, nga, nsh, ndark, path.c_str());
+  // the verdict line, in the drive log itself: dark count next to its own positive control.
+  // ⚠ SAY SO WHEN THE FILE DID NOT GET WRITTEN. An MSYS-style "/c/tmp/..." path (the drive
+  // scripts run under Git Bash) is not a Windows path: fopen fails, and the first version of this
+  // printed the same confident "-> <path>" line anyway, so a whole run looked banked and wasn't.
+  std::fprintf(stderr, "[indcensus] dispatches=%lld distinct game=%u shell=%u  DARK(0x8817-0x8824)=%u  -> %s%s\n",
+               dispatches, nga, nsh, ndark, path.c_str(),
+               fp ? "" : "   ** NOT WRITTEN (fopen failed — Windows-style path required, e.g. C:/tmp/...)");
   std::fflush(stderr);
 }
 }  // namespace
