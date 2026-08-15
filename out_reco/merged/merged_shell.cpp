@@ -2397,6 +2397,13 @@ static bool rt_l1_panel_vt(uint32_t vt){
     case 0x82050B00u: case 0x82050BC0u: case 0x82050C20u: case 0x82050F00u:
     case 0x82050730u: case 0x82050868u: case 0x820508C8u: case 0x82050CE8u:
     case 0x82050D48u: case 0x82050DB0u: return true;
+    // ⚠ 2026-08-16 (gate round 10): these two were MISSING and the omission was invisible —
+    // a panel absent from this list has NO [l1cur] line, so a referee drive reads the cursor of
+    // whatever was in front BEFORE it and concludes the panel never opened. That is exactly what
+    // happened to Extra Setting: its ctor ran (364 @ lr 0x821A7CD4, Options_ScreenExtra_Build +
+    // _OnDecide + _Dtor canaries all fired) while the walk recorded "NOT ENTERED" and skipped
+    // every edit in it. 0x82050B60 = Extra Setting, 0x820505B0 = OptionsPanelBase itself.
+    case 0x82050B60u: case 0x820505B0u: return true;
     default: return false;
   }
 }
