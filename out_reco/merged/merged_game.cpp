@@ -3686,6 +3686,46 @@ PPC_FUNC(sub_8824E698){
     std::fprintf(stderr,"[msglog] PRE  msg=%u#%ld lr=0x%X r4=0x%X arg[0..3]=%08X %08X %08X %08X | 58c=%u 547=%u 584=%u\n",
       m,n,(unsigned)ctx.lr,r4,w0,w1,w2,w3,(unsigned)PPC_LOAD_U32(GA_MB_RELOAD),(unsigned)PPC_LOAD_U8(GA_MB_CREDITED),(unsigned)PPC_LOAD_U32(GA_MB_MODE64));
   }
+  // ── RT_TRAINSTAGE (2026-08-15): reach a LATER STAGE / BOSS without playing there ─────────────
+  // Why here. The objAction lane needs one drive that reaches a boss (NOTE_campaign_decomp: the
+  // last untested case before a dead-code ruling). The in-game route is TRAINING's stage select,
+  // but it only offers the stage the card has REACHED, a fresh card gives stage 1, and training
+  // grants no invincibility. A savegame.bin poke was tried and failed, and the phase diff
+  // (tools/cartography/phase_diff.py) says why: the screen is built SHELL-side and its item count
+  // comes off the engine singleton 0x821F8588 through a pointer chain -- a heap field, not a file
+  // byte. The shell hands the selection to the game HERE, as a GameEntry message, so this is the
+  // one place a stage index can be substituted with a two-line change and no gameplay code edit.
+  //
+  // The payload is a guest struct pointer (r4), and WHICH field holds the stage is not yet known
+  // -- so this ships as a probe FIRST and an override second, rather than guessing an offset:
+  //   RT_TRAINPROBE=1              dump 0x40 bytes of the payload for the training-flow messages
+  //                                (18/19) so two drives can be diffed to locate the field
+  //   RT_TRAINSTAGE=<n>            the stage index to force
+  //   RT_TRAINSTAGE_AT=<msg>:<off> where to write it: message id and BYTE offset into the payload
+  // With RT_TRAINSTAGE_AT unset nothing is written -- the probe alone is byte-inert. Both are
+  // default-off, so the gate arms are unaffected.
+  {
+    static const bool probe = std::getenv("RT_TRAINPROBE")!=nullptr;
+    static const char* stg  = std::getenv("RT_TRAINSTAGE");
+    static const char* at   = std::getenv("RT_TRAINSTAGE_AT");
+    if((probe||stg) && (m==18||m==19) && ctx.r4.u32){
+      const uint32_t p=ctx.r4.u32;
+      if(probe){
+        std::fprintf(stderr,"[trainprobe] msg=%u lr=0x%X payload=0x%X:",m,(unsigned)ctx.lr,p);
+        for(int i=0;i<0x40;i+=4) std::fprintf(stderr," %08X",(unsigned)PPC_LOAD_U32(p+i));
+        std::fprintf(stderr,"\n");
+      }
+      if(stg && at){
+        unsigned wm=0,wo=0;
+        if(std::sscanf(at,"%u:%x",&wm,&wo)==2 && wm==m){
+          const unsigned v=(unsigned)std::atoi(stg);
+          std::fprintf(stderr,"[trainstage] msg=%u payload+0x%X: %02X -> %02X\n",
+                       m,wo,(unsigned)PPC_LOAD_U8(p+wo),v);
+          PPC_STORE_U8(p+wo,(uint8_t)v);
+        }
+      }
+    }
+  }
   __imp__sub_8824E698(ctx,base);
   if(n>0 && n<=3) std::fprintf(stderr,"[gemsg] GameEntry(msg=%u) -> r3=0x%X\n",m,ctx.r3.u32);
   if((verbose||stream) && crit && n>0 && (stream || n<=6)){
