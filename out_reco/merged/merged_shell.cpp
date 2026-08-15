@@ -2443,6 +2443,100 @@ PPC_FUNC(sub_821D3A20){
   __imp__sub_821D3A20(ctx,base);
 }
 
+// ---- [evtrace] VALUE TRACE on sub_8217D1D8 = PsbMovie_EvaluateAtTime (2026-08-16, round 14) --
+// The registry holds 0x8217D1D8 at DRAFT for one reason: "three inlined PSB element reads still
+// never probe-isolated". Those reads are INSIDE the body, so no wrapper can see them directly —
+// but every one of them terminates in an OBSERVABLE STORE on the movie object, and the three
+// stores are disjoint. Dumping them after the call therefore isolates all three:
+//     read A -> cursor +320, times +324/+328        (track +312)
+//     read B -> cursor +272, times +276/+280, and the WHOLE 8-byte content PsbRef at +284
+//     read C -> per layer (stride 524, from index 1): xformA +132, xformB +280, flags +140,
+//               dirty +428, result +432
+// ⚠ IT LIVES HERE, NOT IN psb_core.cpp, FOR THE SAME REASON [gstap] does: merged_shell.o links
+// into EVERY gate arm. The pilot/ctrl arms EXCLUDE the three PSB TUs, so there the __imp__ is the
+// GENERATED body; the ship arm links psb_core.o, so there it is the DRAFT. One printf, two arms,
+// directly diffable. psb_core.cpp's seam was changed to PPC_FUNC_IMPL(__imp__sub_8217D1D8) in the
+// same commit — without that, /FORCE:MULTIPLE keeps the FIRST definition on the link line (the
+// decomp object) and this tap vanishes from the ship arm with no diagnostic.
+// ⚠ NO RAW POINTERS ARE PRINTED. Heap addresses differ between arms for reasons that have nothing
+// to do with this body, and printing them would manufacture divergence in the very diff this tap
+// exists to serve. Call ordinal + layer index only.
+extern "C" void __imp__sub_8217D1D8(PPCContext& __restrict, uint8_t*);
+PPC_FUNC(sub_8217D1D8){
+  static const bool on = std::getenv("RT_EVTRACE")!=nullptr;
+  if(!on){ __imp__sub_8217D1D8(ctx,base); return; }
+  const uint32_t self = ctx.r3.u32;
+  static std::atomic<long> n{0}; long i = n.fetch_add(1)+1;
+  const uint32_t now  = self?PPC_LOAD_U32(self+184):0;          // raw bits, not %f
+  const uint32_t trA  = self?PPC_LOAD_U32(self+312):0;
+  const uint32_t trB  = self?PPC_LOAD_U32(self+292):0;
+  const uint32_t lb0  = self?PPC_LOAD_U32(self+252):0, le0 = self?PPC_LOAD_U32(self+256):0;
+  const int nlay = (self && le0>lb0 && ((le0-lb0)%524u)==0) ? (int)((le0-lb0)/524u) : -1;
+  std::fprintf(stderr,"[evtrace] IN  #%ld now=%08X trackA=%s trackB=%s layers=%d\n",
+    i,now,trA?"y":"n",trB?"y":"n",nlay);
+  __imp__sub_8217D1D8(ctx,base);
+  if(!self) return;
+  std::fprintf(stderr,"[evtrace] A   #%ld cur=%u t0=%08X t1=%08X\n",
+    i,PPC_LOAD_U32(self+320),PPC_LOAD_U32(self+324),PPC_LOAD_U32(self+328));
+  std::fprintf(stderr,"[evtrace] B   #%ld cur=%u t0=%08X t1=%08X content=%08X%08X\n",
+    i,PPC_LOAD_U32(self+272),PPC_LOAD_U32(self+276),PPC_LOAD_U32(self+280),
+    PPC_LOAD_U32(self+284),PPC_LOAD_U32(self+288));
+  const uint32_t lb = PPC_LOAD_U32(self+252), le = PPC_LOAD_U32(self+256);
+  if(le>lb && ((le-lb)%524u)==0){
+    int cnt=(int)((le-lb)/524u);
+    for(int k=1;k<cnt && k<64;k++){
+      uint32_t L=lb+(uint32_t)k*524u;
+      std::fprintf(stderr,"[evtrace] L%02d #%ld xA=%08X %08X %08X %08X xB=%08X %08X %08X %08X fl=%08X d=%u r=%08X\n",
+        k,i,PPC_LOAD_U32(L+132),PPC_LOAD_U32(L+136),PPC_LOAD_U32(L+144),PPC_LOAD_U32(L+148),
+        PPC_LOAD_U32(L+280),PPC_LOAD_U32(L+284),PPC_LOAD_U32(L+288),PPC_LOAD_U32(L+292),
+        PPC_LOAD_U32(L+140),(unsigned)PPC_LOAD_U8(L+428),PPC_LOAD_U32(L+432));
+    }
+  }
+}
+// ---- [psbfmt] PLATFORM / FORMAT TOKEN TAP inside the PSB image loader (round 14, job 4) ------
+// 0x820787E0 Win_ExpandCI4's ONLY caller is sub_821680D0 (0x821680D0..0x82168E48) at lr
+// 0x82168D44, inside the `win` arm of a FIVE-WAY PLATFORM DISPATCH on root["spec"], behind a
+// second "CI4" token test. Reachability is therefore a DATA question, and the shell's PSBs are
+// LZX-packed on disk — so ask the loader instead of the container. Both compare helpers are
+// tapped (the loader deliberately uses two: sub_820654F8(str,len,lit,litlen) int 0==equal for
+// revo/psp/ps3/win and win's RGBA8; sub_820659A0(str,cstr) bool for win's CI8/CI4 and BOTH x360
+// tests — DO-NOT-FIX 4). lr-filtered to the loader's extent so the other ~12 call sites of
+// 820654F8 elsewhere in the shell cost nothing.
+static inline void psbfmt_lit(uint8_t* base, uint32_t p, char* out, int cap){
+  int k=0; for(; k<cap-1 && p; ++k){ uint8_t c=PPC_LOAD_U8(p+(uint32_t)k); if(!c) break;
+    out[k]=(c>=0x20&&c<0x7F)?(char)c:'.'; } out[k]='\0'; }
+static inline bool psbfmt_in_loader(uint32_t lr){ return lr>=0x82168000u && lr<0x82169000u; }
+extern "C" void __imp__sub_820654F8(PPCContext& __restrict, uint8_t*);
+PPC_FUNC(sub_820654F8){
+  static const bool on = std::getenv("RT_PSBFMT")!=nullptr;
+  uint32_t lr=(uint32_t)ctx.lr, lit=ctx.r5.u32, n=ctx.r6.u32;
+  bool want = on && psbfmt_in_loader(lr);
+  __imp__sub_820654F8(ctx,base);
+  if(want){ char t[24]; psbfmt_lit(base,lit,t,sizeof t);
+    std::fprintf(stderr,"[psbfmt] cmpN lr=0x%08X lit=\"%s\" n=%u -> %d%s\n",
+      lr,t,n,(int)ctx.r3.u32,(int)ctx.r3.u32==0?"  MATCH":""); }
+}
+extern "C" void __imp__sub_820659A0(PPCContext& __restrict, uint8_t*);
+PPC_FUNC(sub_820659A0){
+  static const bool on = std::getenv("RT_PSBFMT")!=nullptr;
+  uint32_t lr=(uint32_t)ctx.lr, lit=ctx.r4.u32;
+  bool want = on && psbfmt_in_loader(lr);
+  __imp__sub_820659A0(ctx,base);
+  if(want){ char t[24]; psbfmt_lit(base,lit,t,sizeof t);
+    std::fprintf(stderr,"[psbfmt] cmpZ lr=0x%08X lit=\"%s\" -> %d%s\n",
+      lr,t,(int)ctx.r3.u32,(int)ctx.r3.u32!=0?"  MATCH":""); }
+}
+// The CI4 decoder itself: a canary with the loader tap above as its positive control. Silence
+// here alone would prove nothing (PPC_FUNC wrapper CLONE BYPASS); silence PLUS a loader that
+// demonstrably ran its platform tests N times is the terminal evidence.
+extern "C" void __imp__sub_820787E0(PPCContext& __restrict, uint8_t*);
+PPC_FUNC(sub_820787E0){
+  static std::atomic<long> n{0};
+  std::fprintf(stderr,"[psbfmt] ★ Win_ExpandCI4 0x820787E0 CALLED #%ld lr=0x%08X\n",
+    n.fetch_add(1)+1,(uint32_t)ctx.lr);
+  __imp__sub_820787E0(ctx,base);
+}
+
 static void rt_l1_cursor(uint8_t* base, uint32_t obj, uint32_t vt){
   if(!rt_l1_on() || !obj || !vt) return;
   bool panel = rt_l1_panel_vt(vt);
