@@ -27,7 +27,7 @@
 // twin executes.  Deliberate: boot-gate log parsers stay identical across the two builds.
 #pragma once
 
-// 87 shifted symbols renamed (174 #defines); 126 referenced symbols are below the split and
+// 87 shifted symbols renamed (174 #defines); 137 referenced symbols are below the split and
 // need no rename; 0 referenced symbols land inside the edited function sub_880DEF88.
 
 #define sub_880E3128         sub_880E3130
