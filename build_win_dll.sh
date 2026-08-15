@@ -207,7 +207,11 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
     if [ "$MIDX" = "1" ]; then
       # objaction joined 2026-08-16: its four allocator constants (bytemap 0x88507DE8 / arena
       # 0x88508468 / bytemap 0x884F20A0 / arena 0x884EBCA0) are reco_normal .data literals.
-      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction) continue;; esac
+      # objaction_queue joined 2026-08-16 (r18 leg): sub_880DCE90 embeds SIX reco_normal .data
+      # pages (0x88280000/0x88290000/0x884D0000/0x88310000/0x88060000/0x887B0000) and
+      # sub_880D8BB8 embeds 16 distinct .data addresses (twelve 0x882750xx words + three
+      # byte-table bases + 0x887AD164).  Its abn arm runs the GENERATED bodies.
+      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue) continue;; esac
     fi
     cc "decomp_$n" "$f" $GI -I . $RT $MAP
   done
