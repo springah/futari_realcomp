@@ -3668,8 +3668,19 @@ PPC_FUNC(sub_8824E698){
   if(n>0 && (n<=3 || n%600==0)) std::fprintf(stderr,"[gemsg] GameEntry(msg=%u, r4=0x%X) call#%ld\n",m,ctx.r4.u32,n);
   const bool verbose = std::getenv("RT_MSGLOG")!=nullptr;
   // The rare, credited-flow-relevant messages: arm/config setters + the msg-14 credited trigger.
-  const bool crit = (m==9||m==10||m==11||m==12||m==13||m==14||m==15||m==16||m==17||m==18||m==19||m==20);
-  if(verbose && crit && n>0 && n<=6){
+  bool crit = (m==9||m==10||m==11||m==12||m==13||m==14||m==15||m==16||m==17||m==18||m==19||m==20);
+  // RT_DRVSTREAM (2026-08-15, decomp/shell/driver_msgs.cpp gate lane): widen [msglog] to EVERY
+  // message id (adds Driver_Init's boot burst 1/2/6/7/8, which `crit` excludes) and remove the
+  // per-id cap, so the shell->game command stream can be compared CALL-FOR-CALL between the
+  // decomp arm and the generated-body control arm. `lr` is the caller's published return address,
+  // which identifies the sending clone AND shape exactly -- it is the one thing the 128 wrapper
+  // bodies could get wrong that a msg-id-only stream would not see. This hook lives in
+  // merged_game.cpp (the DLLs), which is IDENTICAL in both arms, so the tap is arm-symmetric:
+  // the arms differ only by decomp_driver_msgs.o on the host link line.
+  // Default-off; when unset the behaviour is exactly the prior logger.
+  const bool stream = std::getenv("RT_DRVSTREAM")!=nullptr;
+  if(stream) crit = true;
+  if((verbose||stream) && crit && n>0 && (stream || n<=6)){
     uint32_t r4=ctx.r4.u32; uint32_t w0=0,w1=0,w2=0,w3=0;
     if(r4){ w0=PPC_LOAD_U32(r4); w1=PPC_LOAD_U32(r4+4); w2=PPC_LOAD_U32(r4+8); w3=PPC_LOAD_U32(r4+12); }
     std::fprintf(stderr,"[msglog] PRE  msg=%u#%ld lr=0x%X r4=0x%X arg[0..3]=%08X %08X %08X %08X | 58c=%u 547=%u 584=%u\n",
@@ -3677,7 +3688,7 @@ PPC_FUNC(sub_8824E698){
   }
   __imp__sub_8824E698(ctx,base);
   if(n>0 && n<=3) std::fprintf(stderr,"[gemsg] GameEntry(msg=%u) -> r3=0x%X\n",m,ctx.r3.u32);
-  if(verbose && crit && n>0 && n<=6){
+  if((verbose||stream) && crit && n>0 && (stream || n<=6)){
     std::fprintf(stderr,"[msglog] POST msg=%u#%ld -> r3=0x%X | 58c=%u 547=%u  (msg14 arms credited when 58c->2)\n",
       m,n,ctx.r3.u32,(unsigned)PPC_LOAD_U32(GA_MB_RELOAD),(unsigned)PPC_LOAD_U8(GA_MB_CREDITED));
   }
