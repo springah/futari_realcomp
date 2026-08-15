@@ -27810,7 +27810,18 @@ PPC_FUNC_IMPL(__imp__sub_8219D544) {
 	ctx.r10.u64 = ctx.r11.u64;
 	// mr r3,r11
 	ctx.r3.u64 = ctx.r11.u64;
-	// blr 
+	// blr
+	return;
+}
+
+__attribute__((alias("__imp__sub_8219D57C"))) PPC_WEAK_FUNC(sub_8219D57C);
+PPC_FUNC_IMPL(__imp__sub_8219D57C) {
+	PPC_FUNC_PROLOGUE();
+	// mr r10,r11
+	ctx.r10.u64 = ctx.r11.u64;
+	// mr r3,r11
+	ctx.r3.u64 = ctx.r11.u64;
+	// blr
 	return;
 }
 

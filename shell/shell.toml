@@ -12,6 +12,7 @@ savevmx_64_address = 0x8215AB04
 switch_table_file_path = "shell_switches.toml"
 functions = [
     { address = 0x8219D5E0, size = 0x8 },
+    { address = 0x8219D57C, size = 0xC },
     { address = 0x8207BEF8, size = 0x48 },
     { address = 0x8208164C, size = 0x184 },
     { address = 0x82081874, size = 0x94 },
