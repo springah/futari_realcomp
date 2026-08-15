@@ -2407,10 +2407,53 @@ static bool rt_l1_panel_vt(uint32_t vt){
     default: return false;
   }
 }
+// ---- [gstap] SOURCE-STRING TAP on sub_821D3A20 (2026-08-16, gate round 10 residue) ----------
+// sub_821D3A20(dst, src) = gstring -> render-string; it allocates 2*len(src) at lr 0x821D3AB4.
+// Round 10's deep A/B found the COUNT of those allocations identical per phase but the SIZE MIX
+// trading 1:1 -- the pilot reaches this copy with length-1 sources where the control has the true
+// 4..14-char caption. This tap answers the one question that splits the two possible causes:
+// is the SOURCE already length-1 when it arrives (defect upstream, in whoever builds it), or does
+// the copy truncate it (defect in 821B6D20)?
+//
+// ⚠ IT LIVES HERE, NOT IN THE DECOMP TU, ON PURPOSE. merged_shell.o links into BOTH gate arms,
+// so this prints identically on control and pilot and the two streams are directly diffable. An
+// instrument inside the decomp C body would only exist on the pilot and could prove nothing.
+// ⚠ LANDMINE (memory: PPC_FUNC wrapper CLONE BYPASS): "printed nothing" is NOT proof the body was
+// not taken. Read the positive-control count before drawing any conclusion from silence.
+extern "C" void __imp__sub_821D3A20(PPCContext& __restrict, uint8_t*);
+PPC_FUNC(sub_821D3A20){
+  static const bool on = std::getenv("RT_GSTAP")!=nullptr;
+  if(on){
+    const uint32_t src = ctx.r4.u32;
+    if(src){
+      const uint32_t size = PPC_LOAD_U32(src + 20);      // gstring::size
+      const uint32_t cap  = PPC_LOAD_U32(src + 24);      // >=16 => heap, else inline SSO buffer
+      const uint32_t buf  = (cap >= 16u) ? PPC_LOAD_U32(src + 4) : (src + 4);
+      char txt[24]; unsigned k = 0;
+      for(; k < 20u && k < size; ++k){
+        uint8_t c = PPC_LOAD_U8(buf + k);
+        txt[k] = (c >= 0x20 && c < 0x7F) ? (char)c : '.';
+      }
+      txt[k] = '\0';
+      std::fprintf(stderr,"[gstap] lr=0x%08X size=%u cap=%u \"%s\"\n", (unsigned)ctx.lr, size, cap, txt);
+    } else {
+      std::fprintf(stderr,"[gstap] lr=0x%08X src=NULL\n", (unsigned)ctx.lr);
+    }
+  }
+  __imp__sub_821D3A20(ctx,base);
+}
+
 static void rt_l1_cursor(uint8_t* base, uint32_t obj, uint32_t vt){
   if(!rt_l1_on() || !obj || !vt) return;
   bool panel = rt_l1_panel_vt(vt);
-  bool menu  = (vt==0x820503B0u||vt==0x820504D0u||vt==0x82050518u||vt==0x82050440u||vt==0x82050574u);
+  // ⚠ 2026-08-16 (round 11): the menu list had the SAME gap the panel list had — three of the
+  // seven classes in the 821BB670/821BA4D8 family were missing, so any drive through them read a
+  // stale cursor and concluded "never opened" (round 10's Extra lesson, second instance).
+  // 0x820503F8 = the NORMAL PLAY page (FUN_821CFD30) — the parent of the Config panel, whose
+  // vt+0x1C item-action dispatcher 0x821D03A8 builds it on item id 2. Without it the Config
+  // route cannot be driven at all. 0x820502E0 and 0x82050488 are the other two of the seven.
+  bool menu  = (vt==0x820503B0u||vt==0x820504D0u||vt==0x82050518u||vt==0x82050440u||vt==0x82050574u
+                ||vt==0x820503F8u||vt==0x820502E0u||vt==0x82050488u);
   if(!panel && !menu) return;
   uint32_t cur = PPC_LOAD_U32(obj + (panel ? 336u : 0x9Cu));
   static std::mutex m; static std::unordered_map<uint32_t,uint32_t> last;
