@@ -2307,7 +2307,7 @@ extern "C" void __imp__sub_88136660(PPCContext& __restrict, uint8_t*);  // nativ
 extern "C" void __imp__sub_88133E30(PPCContext& __restrict, uint8_t*);  // ranking-insert (RT_PJOIN live-run mark)
 extern "C" void __imp__sub_88133DB0(PPCContext& __restrict, uint8_t*);  // live-player rank check (RT_PJOIN verify)
 extern "C" void __imp__sub_88134658(PPCContext& __restrict, uint8_t*);  // slot ACTIVATOR (1P SIDE START: slot+0=1, credits, score=0) — LEG-40f
-extern "C" void __imp__sub_88136BC8(PPCContext& __restrict, uint8_t*);  // STAGE-SIM creator: creates REQ id-44 (factory sub_8814FDF8 -> per-frame stage tick sub_8814F558) — RT_STAGERUN (Fable-5 RE)
+extern "C" void __imp__sub_88136BC8(PPCContext& __restrict, uint8_t*);  // STAGE-SIM creator: creates REQ id-44 (factory sub_8814FDF8 -> sub_8814F558; r22 CORRECTION: 8814F558 is the CONFIRM-WIDGET FSM (15-way bctr on 0x8844A3B8, writer of 0x884D67C0), NOT a per-frame stage tick — matches the :632 [744p] hook; see futari_decomp draft_8814F558.md) — RT_STAGERUN (Fable-5 RE)
 // Cross-module capture gate (2026-07-14): set to 1 by the RT_NAVREAL observer once the arcade-select
 // FSM has SUBMITTED to gameplay (maxD76>=8 = real stage entered). vk_render.cpp's RVK_ARENADUMP
 // reads this so the one-shot PM4 kick-arena capture fires on the REAL held stage-1 field, not the
@@ -3827,17 +3827,18 @@ PPC_FUNC(sub_8824E698){
       m,n,ctx.r3.u32,(unsigned)PPC_LOAD_U32(GA_MB_RELOAD),(unsigned)PPC_LOAD_U8(GA_MB_CREDITED));
   }
 }
-// SIGFPE GUARD (2026-07-12, RT_SAVE options-menu recipe): sub_882272E8 is an in-game-menu
-// layout/selection helper (reached via the OPTION item, cursor84=4, d76 2->3). Deep inside it
-// (ppc_recomp.30.cpp ~line 24746) it does `divwu r8,r11,r10` with r10 loaded fresh from a
-// guest global divisor at 0x887ACE14 (`lis r10,-30597; lwz r10,-12780(r10)`). The real ucode
-// guards this divide with a trap (twllei) that XenonRecomp drops -> a raw host `divl` faults
-// (EXCEPTION_INT_DIVIDE_BY_ZERO, symbolicated via a /MAP relink + llvm-objdump at the exact
-// fault RVA) when 0x887ACE14 is still 0 -- observed on every RT_NATPLAY_CURSOR=4 (OPTION) run
-// in the headless recomp; the value is presumably populated by some options-data/config-table
-// init we haven't traced. Repair-not-crash, same convention as sub_82114628 above: if the
-// divisor is ever seen at 0, set it to 1 (matches "denominator floor" style guards elsewhere)
-// so the layout math degenerates harmlessly instead of faulting, then call through.
+// SIGFPE GUARD (2026-07-12, RT_SAVE options-menu recipe; IDENTIFICATION CORRECTED r22):
+// sub_882272E8 is THE PLAYER-SHIP DRAW callback (registered id 33 by ShipCtor sub_8814DDC8;
+// futari_decomp draft_882272E8.md — the old "in-game-menu layout helper reached via the
+// OPTION item" reading was wrong; the OPTION-item correlation was route coincidence). Deep
+// inside it (ppc_recomp.30.cpp ~line 24746) it does `divwu r8,r11,r10` with r10 loaded fresh
+// from 0x887ACE14 (`lis r10,-30597; lwz r10,-12780(r10)`) — r22: that global is the ship's
+// BLINK-PERIOD divisor. The real ucode guards this divide with a trap (twllei) that
+// XenonRecomp drops -> a raw host `divl` faults (EXCEPTION_INT_DIVIDE_BY_ZERO, symbolicated
+// via a /MAP relink + llvm-objdump at the exact fault RVA) when 0x887ACE14 is still 0.
+// Repair-not-crash, same convention as sub_82114628 above: if the divisor is ever seen at 0,
+// set it to 1 (denominator floor) so the blink math degenerates harmlessly instead of
+// faulting, then call through. The 0->1 repair stays sound under the corrected identity.
 extern "C" void __imp__sub_882272E8(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_882272E8){
   // CODE_REVIEW_0804: this WRITES guest state (unlike the skip-only sub_82114628 sibling) and
