@@ -214,7 +214,21 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
       # bossvein_object joined 2026-08-16 (r20 leg): 24 distinct reco_normal .data globals
       # across five pages (sine LUT 0x88062550, session 0x884Dxxxx, scene ptr 0x887AD130,
       # nodepark 0x883E0240/01D8, spawn gate 0x884D66A4, …), all decimal-emitted.
-      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|bossvein_object) continue;; esac
+      # objaction_queue2 joined 2026-08-16 (r22ext leg): the remaining 14 bodies of the queue
+      # slice embed 642 distinct reco_normal data addresses (530 after collapsing adjacent byte
+      # pairs) across EIGHT pages — 0x88060000 (.rdata, incl. the sine LUT), 0x88250000,
+      # 0x88260000, 0x88270000, 0x88310000 (the RNG seed page), 0x88350000, 0x884D0000 and
+      # 0x887A0000 (incl. the 0x887AD164 emit counter).  Measured by walking the generated
+      # bodies' asm COMMENTS and re-executing the address arithmetic
+      # (decomp/game/drafts/ABN_EXCLUSION_queue_r22.txt §B): the recompiler emits these constants
+      # in DECIMAL, so a hex scan for 0x........ reports a FALSE ZERO for all fourteen.
+      # Its abn arm runs the GENERATED bodies.
+      #
+      # ⚠ THIS CASE LIST MATCHES ON TU BASENAME ($n = basename $f .cpp).  A TU renamed on
+      # promotion — which the CONVERTED tier does BY DESIGN — must have its new basename added
+      # here in the same change, or the exclusion silently does nothing: no build error, and the
+      # abn arm links the TU and reads the wrong +0x60-shifted globals.
+      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object) continue;; esac
     fi
     cc "decomp_$n" "$f" $GI -I . $RT $MAP
   done
