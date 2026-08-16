@@ -384,13 +384,17 @@ PPC_FUNC(sub_88226EB0){
     i,ctx.r3.u32,ctx.r4.u32,(uint32_t)ctx.lr,maskc,maska, (maskc||maska)?"<==WOULD PAUSE":"draws");
   __imp__sub_88226EB0(ctx,base);
 }
-// [gpupd] the GAMEPLAY per-frame UPDATE installed at registry-node+12 by the id47 factory
-// (sub_880FA720). If it ticks each frame, game logic runs -> sprites/draws emitted. If it never
-// fires, the per-frame walker of the registry list *(0x88449D4C) isn't reaching the gameplay node.
+// [gpupd] ⚠ LABEL CORRECTED r20 (2026-08-16, draft_880FA720.md): this is NOT "the gameplay
+// per-frame update". sub_880FA720 is the NAME-ENTRY / RANKING scene tick (installer 0x880FBB08
+// = scene id 0x2F=47 factory; the body runs the initials-entry handler sub_880FA0D8 and the
+// high-score-table insert sub_880F12F0 @0x884E7B10). It ticks ONLY while that scene exists —
+// any past inference of the form "[gpupd] fires => game logic runs" read the WRONG SCENE and
+// is void. The plumbing note stands: it is installed at registry-node+12 and walked off
+// *(0x88449D4C). Instrument kept (tick evidence for the id47 window is still useful).
 extern "C" void __imp__sub_880FA720(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_880FA720){
   static std::atomic<long long> n{0}; long long i=n.fetch_add(1)+1;
-  if(i<=5||i%600==0) std::fprintf(stderr,"[gpupd] gameplay-update sub_880FA720 tick#%lld r3=0x%X\n",i,ctx.r3.u32);
+  if(i<=5||i%600==0) std::fprintf(stderr,"[gpupd] name-entry/ranking scene sub_880FA720 tick#%lld r3=0x%X\n",i,ctx.r3.u32);
   __imp__sub_880FA720(ctx,base);
 }
 // [reg] the drawer-REGISTER fns (sub_880938F0/sub_880939F0 push a per-frame callback into the
