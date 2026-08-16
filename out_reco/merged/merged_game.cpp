@@ -2446,6 +2446,36 @@ PPC_FUNC(sub_88138F00){
         cnt=0; sxfirst=sxlast; sxmin=sxmax=sxlast; symin=symax=sy; fmin=fmax=fw; }
     } else { have=0; cnt=0; }
   }
+  // ══ RT_PICK130 (2026-08-16 r19, Fable-5) — validate draft_880E76C0's session+0x130 claim ═══════
+  // The char-select scene tick draft (decomp/game/drafts/draft_880E76C0.md §9) claims that on EVERY
+  // confirm — (edge & 0x70) or the +588 timeout — the scene does `stw r25,304(r27)` with
+  // r27=0x884D6740, i.e. *(u32*)0x884D6870 = session workspace +0x130 := 1 at the moment of pick.
+  // That field is in NO atlas table; if the claim holds live, it is a clean scene-side "pick
+  // committed" oracle (independent of nav timing) for every future select drive. This probe is the
+  // draft's execution witness: log EVERY transition of 0x884D6870 with the select context — csfsm
+  // (0x884EA3DC), session d76 (0x884D678C U16), the select-done latch 0x887AD0F8 (draft table row),
+  // P1/P2 join bytes (0x884D6CE8/+196), and the P1 edge word 0x885C33D8 (U32 — the 33Dx words are
+  // `stw`-written; U16 reads the always-zero high half, see RT_INTAP header). Expectation on a
+  // working 1P pick: 0->1 at char confirm; whether it re-arms (1->0) before shot confirm is exactly
+  // what this run is for. Default-off, byte-inert (read-only).
+  // ✅ VERDICT (r19 drive, bank/r19/verdict.txt, nav 0 fails / 0 faults): CONFIRMED, and the
+  // semantics are a ONE-SHOT HANDSHAKE, not a latch: 0->1 at the CHAR pick (f3506 csfsm=4 d76=2),
+  // cleared+re-set ONE FRAME apart at the SHOT pick (f3615/f3616 csfsm=7 d76=3), consumed 1->0
+  // exactly at d76 3->4 play entry (f3708), and one more set in the post-death flow (f5588,
+  // join[P1]=0 — the timeout-confirm arm the draft predicted). Each 0->1 edge = one commit event.
+  // USE: watch edges of 0x884D6870 as the scene-side commit oracle in any select drive.
+  if(std::getenv("RT_PICK130")){
+    uint32_t v=PPC_LOAD_U32(0x884D6870u);
+    static uint32_t lv=0xDEADBEEFu; static int nlog=0;
+    if(v!=lv){
+      uint32_t csfsm=PPC_LOAD_U32(0x884EA3DCu), sess=PPC_LOAD_U16(0x884D678Cu),
+               sdone=PPC_LOAD_U32(0x887AD0F8u), edge=PPC_LOAD_U32(0x885C33D8u);
+      uint32_t j0=PPC_LOAD_U8(0x884D6CE8u), j1=PPC_LOAD_U8(0x884D6CE8u+196u);
+      std::fprintf(stderr,"[pick130] f%d 884D6870: %s0x%X -> 0x%X | csfsm=%u d76=%u seldone0F8=%u edge33D8=0x%04X join[P1=%u P2=%u] out=%u\n",
+        n,(lv==0xDEADBEEFu)?"(first) ":"",lv,v,csfsm,sess,sdone,edge,j0,j1,st);
+      lv=v; nlog++;
+    }
+  }
   // RT_INMODE=<v>: diagnostic — force DAT_887ad574 to <v> (0=live,2=record) whenever it reads 4
   // (attract replay) while a field is active. Tests whether the live pad reaches the ship once the
   // replay-mode lock is removed (register-true target is FUN_88137320 firing; this isolates the
