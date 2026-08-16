@@ -211,7 +211,10 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
       # pages (0x88280000/0x88290000/0x884D0000/0x88310000/0x88060000/0x887B0000) and
       # sub_880D8BB8 embeds 16 distinct .data addresses (twelve 0x882750xx words + three
       # byte-table bases + 0x887AD164).  Its abn arm runs the GENERATED bodies.
-      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue) continue;; esac
+      # bossvein_object joined 2026-08-16 (r20 leg): 24 distinct reco_normal .data globals
+      # across five pages (sine LUT 0x88062550, session 0x884Dxxxx, scene ptr 0x887AD130,
+      # nodepark 0x883E0240/01D8, spawn gate 0x884D66A4, …), all decimal-emitted.
+      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|bossvein_object) continue;; esac
     fi
     cc "decomp_$n" "$f" $GI -I . $RT $MAP
   done
