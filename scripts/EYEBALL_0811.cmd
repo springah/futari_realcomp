@@ -55,6 +55,15 @@ set RT_PAD_HOST=1
 set RT_SNDQFREE=1
 set RT_RESCACHE=1
 set RT_HEAPLOCK=1
+REM ── RT_INDCENSUS (user-ordered 2026-08-16): every attended session doubles as a liveness
+REM    harvest for the decomp campaign — real play (bosses, deaths, continues, deep stages)
+REM    reaches code no scripted drive has. Read-only instrument, byte-inert to gameplay.
+REM    Per-session stamped output so sessions never clobber each other.
+if not exist "%HERE%\_local\play_census" mkdir "%HERE%\_local\play_census"
+set RT_INDCENSUS=1
+set "RT_INDCENSUS_OUT=%HERE%\_local\play_census\census_%STAMP%.txt"
+set RT_INDCENSUS_EVERY=200000
+echo Play census: %RT_INDCENSUS_OUT%
 echo Session log: %LOG%
 echo.
 cd /d "%HERE%"
