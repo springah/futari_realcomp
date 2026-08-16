@@ -157,7 +157,7 @@ _Init_thread_abort _Init_thread_epoch _Init_thread_footer _Init_thread_header
 _Mtx_lock _Mtx_unlock _Query_perf_counter _Query_perf_frequency
 __CxxFrameHandler3 __acrt_iob_func __chkstk
 __std_exception_copy __std_exception_destroy __std_terminate
-__stdio_common_vfprintf __stdio_common_vsprintf
+__stdio_common_vfprintf __stdio_common_vsprintf __stdio_common_vsscanf
 _fltused _invoke_watson _tls_index
 atexit atoi ceilf fclose fflush fopen fputc fwrite getenv
 memcpy memmove memset strchr strcmp strlen strncmp strtoul truncf
