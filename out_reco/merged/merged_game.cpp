@@ -1869,6 +1869,94 @@ PPC_FUNC(sub_88136FF0){
   }
   __imp__sub_88136FF0(ctx,base);
 }
+// ★★★ [c220]/[be18] RT_BLKGATE (r23-w8, driver lane) — THE 27-FUNCTION BLOCK'S OWN ENTRY CHAIN.
+//   The block 0x881E9870-0x881EDF78 is entered when 0x881EC308 runs, because 881EC308 is a
+//   40-instruction UNCONDITIONAL installer that does `addi r5,r6,-19984` (= 0x881EB1F0) then
+//   `bl 0x88096950` — no branch, no selector (draft_881EB1F0.md, re-derived from
+//   ppc_recomp.27.cpp:44636).  So "what enters the block" reduces to "what calls 0x881EC308",
+//   and the cartography says there are exactly TWO call sites, both via FUN_880969a8:
+//       callback_index_reco_normal.tsv:2829   installer 0x8809BE18  site 0x8809BF84
+//       callback_index_reco_normal.tsv:2830   installer 0x8809C220  site 0x8809C3D4
+//
+//   sub_8809C220 is a THREE-STAGE timer-driven cutscene sequencer (reco_normal_decomp_all.txt
+//   :29736-29806).  Register-true, its structure is:
+//       if (DAT_884d66a0 != 0) return;                      // world-freeze gate
+//       stage = param_1[0x173];
+//       stage 0 : countdown param_1[0x186] -> installs 0x881ECD60   (a block member)
+//       stage 1 : countdown param_1[0x187], and  ★ if (DAT_884d6884 == 0) { [0x187] = 300; return; }
+//       stage 2 : countdown param_1[0x188], and  ★ if (DAT_884d6884 == 0) { [0x188] = 300; return; }
+//       tail    : ... FUN_880969a8(param_1[6], 0x881EC308, 0);   // ⇒ installs 0x881EB1F0
+//
+//   ★ DAT_884D6884 IS +324 (DECIMAL) ON 0x884D6740, and it is recomputed FROM SCRATCH every frame
+//     in sub_88137498 (zeroed at :124989, then rebuilt by FUN_881363e0(...,88135d68,...)).
+//     FUN_881363e0's walk (register-true) increments it for each of the two player slots where
+//         (slot byte0 & 1) != 0        slot ACTIVE
+//         && FUN_88152b00(slot+0x34)   the slot's SCENE IS ALIVE
+//         && *(int*)(slot+0x88) == 0   ★ THE SLOT HAS NOT CONFIRMED
+//     and sub_8814B930 (the side-panel decide-commit) sets slot+0x88 = 1 permanently.
+//   ⇒ HYPOTHESIS THIS PROBE TESTS: every campaign drive confirms its slot as early as it can (it
+//     must, to reach the field), which pins +324 at 0 for the whole session, which makes stages 1
+//     and 2 reset their countdown to 300 forever, which means 0x881EC308 is never installed and
+//     the 27-function block is never entered.  If so the block is not "un-installed by the port"
+//     at all — it is gated on a JOINED-BUT-UNCONFIRMED PLAYER SLOT, and the lever is a 2P drive
+//     that holds the second slot un-confirmed.
+//   ⚠ THIS PROBE DOES NOT ASSUME THE HYPOTHESIS.  It logs the stage, all three countdowns and the
+//     gate, so a stage that advances, or a nonzero +324, falsifies it just as loudly.
+//   Read-only, default-off, arm-symmetric (merged_game.cpp links into both arms — LAWS G2).
+static inline bool rt_blkgate(){ static int v=(std::getenv("RT_BLKGATE")||std::getenv("RT_S5"))?1:0; return v; }
+extern "C" void __imp__sub_8809C220(PPCContext& __restrict, uint8_t*);
+PPC_FUNC(sub_8809C220){
+  if(rt_blkgate()){
+    uint32_t o=ctx.r3.u32; bool v=(o>=0x82000000u&&o<0x8B000000u);
+    uint32_t g324=PPC_LOAD_U32(0x884D6884u), g66a0=PPC_LOAD_U32(0x884D66A0u);
+    uint32_t st=v?PPC_LOAD_U32(o+0x173u*4u):0xEEEEEEEEu;
+    uint32_t c0=v?PPC_LOAD_U32(o+0x186u*4u):0, c1=v?PPC_LOAD_U32(o+0x187u*4u):0, c2=v?PPC_LOAD_U32(o+0x188u*4u):0;
+    // change-keyed + throttled: this is a per-frame tick, so only print when something moves.
+    static std::atomic<uint64_t> lk{~0ull}; static std::atomic<int> c{0}; int i=c.fetch_add(1);
+    uint64_t k=((uint64_t)(st&0xFF))|((uint64_t)(g324!=0)<<8)|((uint64_t)(g66a0!=0)<<9)
+              |((uint64_t)((c1>>5)&0x3FF)<<10)|((uint64_t)((c2>>5)&0x3FF)<<20);
+    if(k!=lk.exchange(k) || (i%1200)==0)
+      std::fprintf(stderr,"[c220] #%d obj=0x%X stage(0x173)=%u cd[186]=%d cd[187]=%d cd[188]=%d | ★GATE324=%u 66a0=%u d76=%u %s\n",
+        i,o,st,(int)c0,(int)c1,(int)c2,g324,g66a0,(uint32_t)PPC_LOAD_U16(0x884D678Cu),
+        (g324==0)?"<== GATE SHUT (stages 1/2 will reset cd to 300)":"<== ★★ GATE OPEN");
+  }
+  __imp__sub_8809C220(ctx,base);
+}
+// the OTHER caller of 0x881EC308 — unconditional at its tail, so if THIS fires the block is
+// entered by a completely different route and the [c220] hypothesis is beside the point.
+extern "C" void __imp__sub_8809BE18(PPCContext& __restrict, uint8_t*);
+PPC_FUNC(sub_8809BE18){
+  if(rt_blkgate()){
+    static std::atomic<int> c{0}; int i=c.fetch_add(1);
+    if(i<24) std::fprintf(stderr,"[be18] #%d ★★★ THE OTHER 881EC308 INSTALLER PATH RAN r3=0x%X | GATE324=%u mode(887ad130+54)=%u tgtpg(+58)=%u d76=%u\n",
+      i,ctx.r3.u32,PPC_LOAD_U32(0x884D6884u),
+      (PPC_LOAD_U32(0x887AD130u)>=0x1000u)?PPC_LOAD_U32(PPC_LOAD_U32(0x887AD130u)+0x54u):0xFFFFFFFFu,
+      (PPC_LOAD_U32(0x887AD130u)>=0x1000u)?PPC_LOAD_U32(PPC_LOAD_U32(0x887AD130u)+0x58u):0xFFFFFFFFu,
+      (uint32_t)PPC_LOAD_U16(0x884D678Cu));
+  }
+  __imp__sub_8809BE18(ctx,base);
+}
+// ★ [d60] RT_SCENEID / RT_S5 (r23-w8, driver lane) — THE PER-SIDE SUB-SCREEN SCENE CREATE.
+//   sub_88136D60 is called from sub_88136FF0's `slot+2 != 0` branch (ppc_recomp.18.cpp:3094) —
+//   i.e. it is the call that brings up the NEXT sub-screen after one dies.  It matters because the
+//   ROM-timeline clock gate DAT_884D66A0 is computed from the +332 LIVE-SCENE census: if this call
+//   stops happening while slots are still active, +332 falls to 0, 66a0 latches 1, sub_88131C30
+//   stops advancing the track clocks, the page ladder never reaches page 4, the type-0xD9 card
+//   manager (0x880A4628) is never spawned, the 881EBxxx card FSMs never exist, DAT_88353036 stays
+//   0 — and the 27-function block at 0x881E9870-0x881EDF78 is unreachable.  July named that chain
+//   but never logged THIS call, so "the scene is never recreated" was an inference.  This makes it
+//   a measurement.  Read-only; logs every call (they are rare) plus the gate operands.
+extern "C" void __imp__sub_88136D60(PPCContext& __restrict, uint8_t*);
+PPC_FUNC(sub_88136D60){
+  if(std::getenv("RT_SCENEID")||std::getenv("RT_S5")){
+    static std::atomic<int> c{0}; int i=c.fetch_add(1);
+    if(i<64)
+      std::fprintf(stderr,"[d60] #%d SUBSCREEN-SCENE-CREATE r3=0x%X r4=0x%X lr=0x%08X | d76=%u 66a0=%u +332=%u +328=%u\n",
+        i,ctx.r3.u32,ctx.r4.u32,(uint32_t)ctx.lr,(uint32_t)PPC_LOAD_U16(0x884D678Cu),
+        PPC_LOAD_U32(0x884D66A0u),PPC_LOAD_U32(0x884D688Cu),PPC_LOAD_U32(0x884D6888u));
+  }
+  __imp__sub_88136D60(ctx,base);
+}
 // [b930]/[b378] RT_CR328 leg 2 (2026-07-25, Fable-5): the sub-screen decide->scene-death chain.
 // Register-true (reco_normal decomp): decide -> sub_8814B930 (arms per-side job record
 // 0x8844A898+side*0xA0: +0x60(8F8)=1 step-armed, +0x64(8FC)=0, +0x68(900)=obj, +0x6C(904)=cont
@@ -2044,13 +2132,30 @@ PPC_FUNC(sub_88131C30){
         }
       }
     }
+    // ★ r23-w8 ADDITION (2026-08-18, driver lane): THE CLOCK GATE, which [trk] as banked did not
+    //   print.  LEG-14's VM decode concluded "the stall is the CLOCK GATE, not the VM":
+    //   sub_88131C30 only does acc += speed when DAT_884D66A0 == 0 && TR+0xC0 == 0.  Without these
+    //   fields a track-frame plateau cannot distinguish "clock frozen" from "VM waiting", so the
+    //   July conclusion was un-rechecked on the current build.  66a0 = the "no live select scene,
+    //   8-frame debounce" word computed in sub_88137498 from the +332 live-scene census; h0..h3 =
+    //   the four per-track halt-self flags TR+0xC0 (base 0x884D7708 stride 0xD4, so TR+0xC0 is at
+    //   0x884D7708 + t*0xD4 + 0xC0); +332/+328 = the live-scene / joined-slot censuses that FEED
+    //   66a0.  READ-ONLY, RT_S5-gated, byte-inert — same shape as every other field on this line.
+    uint32_t g66a0=PPC_LOAD_U32(0x884D66A0u);
+    uint32_t h0=PPC_LOAD_U32(0x884D7708u+0xC0u),      h1=PPC_LOAD_U32(0x884D7708u+0xD4u+0xC0u);
+    uint32_t h2=PPC_LOAD_U32(0x884D7708u+0x1A8u+0xC0u), h3=PPC_LOAD_U32(0x884D7708u+0x27Cu+0xC0u);
     if(k!=lk.exchange(k) || (i%300)==0 || fv>0)
-      std::fprintf(stderr,"[trk] #%d%s scr=0x%X pg58=%u pg5c=%u trk=%u idx=%u f0=%u f1=%u f2=%u f3=%u 7a58=%u\n",
+      std::fprintf(stderr,"[trk] #%d%s scr=0x%X pg58=%u pg5c=%u trk=%u idx=%u f0=%u f1=%u f2=%u f3=%u 7a58=%u | ★66a0=%u halt[%u %u %u %u] +332=%u +328=%u d76=%u BLKGATE324=%u\n",
         i,(fv>0)?" POST-INIT":"",
         scr,p58,p5c,PPC_LOAD_U32(0x884D76F8u),PPC_LOAD_U32(0x884D76FCu),
         PPC_LOAD_U32(0x884D7710u),PPC_LOAD_U32(0x884D7710u+0xD4u),
         PPC_LOAD_U32(0x884D7710u+0x1A8u),PPC_LOAD_U32(0x884D7710u+0x27Cu),
-        PPC_LOAD_U32(0x884D7A58u));
+        PPC_LOAD_U32(0x884D7A58u),
+        g66a0,h0,h1,h2,h3,
+        PPC_LOAD_U32(0x884D688Cu),                 // +332 (DECIMAL offset on 0x884D6740) = live-scene census
+        PPC_LOAD_U32(0x884D6888u),                 // +328 (DECIMAL) = joined-slot census
+        (uint32_t)PPC_LOAD_U16(0x884D678Cu),
+        PPC_LOAD_U32(0x884D6884u));                // ★ +324 = the 27-BLOCK GATE (see [c220] below)
   }
   __imp__sub_88131C30(ctx,base);
 }
@@ -2913,6 +3018,28 @@ extern "C" void __imp__sub_88152B00(PPCContext& __restrict, uint8_t*);
 static std::atomic<int> g_req{0}, g_poll{0};
 PPC_FUNC(sub_881526C0){
   uint32_t id=ctx.r4.u32&0xFFFF, a3=ctx.r3.u32, a5=ctx.r5.u32;
+  // ★ RT_SCENEID (r23-w8, driver lane) — THE SCENE-CREATE CENSUS.  sub_881526C0(installer, id, ctx)
+  //   is the choke point every scene creation goes through (34 call sites in ppc_recomp.18 alone),
+  //   so a per-id FIRST-SIGHTING roster answers "which scene ids does this build ever create?"
+  //   directly, instead of inferring it from drawlist membership.  The w8 hunt needs exactly that:
+  //   the card chain requires ids 0x13/0x15 (per-side sub-screens), 0x2B (page timeline), 0x2C
+  //   (confirm widget) and the 0xD8/0xD9 child spawn; a roster that is missing one NAMES the
+  //   missing scene-create.  Roster capped at 512 (LAWS: INSTRUMENT SATURATION — cap-hit is
+  //   printed, so a saturated roster can never read as a complete one).  Default-off, read-only.
+  if(std::getenv("RT_SCENEID")){
+    static std::atomic<uint32_t> seen[512]; static std::atomic<int> nseen{0};
+    bool have=false; int n=nseen.load();
+    for(int j=0;j<n&&j<512;j++) if(seen[j].load()==id){ have=true; break; }
+    if(!have){
+      int slot=nseen.fetch_add(1);
+      if(slot<512){ seen[slot].store(id);
+        std::fprintf(stderr,"[screate] NEW id=%u (0x%X) installer=0x%08X ctx=0x%08X lr=0x%08X | d76=%u 66a0=%u +332=%u +328=%u\n",
+          id,id,a3,a5,(uint32_t)ctx.lr,(uint32_t)PPC_LOAD_U16(0x884D678Cu),
+          PPC_LOAD_U32(0x884D66A0u),PPC_LOAD_U32(0x884D688Cu),PPC_LOAD_U32(0x884D6888u));
+      } else { static std::atomic<int> w{0}; if(w.fetch_add(1)==0)
+        std::fprintf(stderr,"[screate] ROSTER CAP 512 HIT — the roster is INCOMPLETE from here on\n"); }
+    }
+  }
   // [desc] descriptor-registry dump at first REQ: walk *(0x88449D4C) printing {id@+8,
   // factory@+12}. SDK oracle proved this list is populated BEFORE the first REQ; if it's
   // empty here, the init-time populator (suspect: msg-2 DA28 -> sub_880750A0 builds,

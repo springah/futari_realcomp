@@ -233,12 +233,28 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
       # POINTER).  Measured from the asm COMMENTS, decimal-emitted — a hex scan for 0x........
       # reports a false zero.  Its abn arm runs the GENERATED bodies.
       # (decomp/game/drafts/ABN_EXCLUSION_fam4_w3.txt §A/§C/§D.)
+      # fam{1,3,9,10}_arms joined 2026-08-18 (r23 window 8, promoted out of staging/ this leg): the
+      # +0x48 mode-arm trios of four families — the scene[84]-selected fire-control arms, three per
+      # family, exactly one installed per object per run.  Each TU embeds reco_normal data addresses
+      # on the 0x884D0000 run-state page (0x884D66A4 the emit ENABLE gate, read by all twelve
+      # bodies; 0x884D6738 G_SUBSCREEN_SEQ in fam-3; 0x884D673C G_FLAGS_673C in fam-9's ==2 arm);
+      # fam10_arms additionally embeds 0x88500000 and 0x88560000 (the scene-guard neighbourhood).
+      # SIX distinct addresses / THREE pages over 2,022 instructions — the smallest data footprint
+      # yet gated — and ALL READS, no `stw` to any module global anywhere in the twelve bodies.
+      # ⚠ ALL-READS DOES NOT MAKE THE EXCLUSION OPTIONAL: without it the abn arm MISREADS the
+      # +0x60-shifted enable gate, and a misread enable gate silently changes whether an arm fires
+      # at all — a behaviour divergence that would be attributed to the conversion.
+      # Measured from the asm COMMENTS, which the recompiler emits in DECIMAL — a hex scan for
+      # 0x........ reports a false zero for every one of the six.
+      # (decomp/game/drafts/ABN_EXCLUSION_arms_w7.txt §A/§C/§D.)  Their abn arms run the GENERATED
+      # bodies.  ★ FOUR basenames, four independent rollback units — a promotion that moves three
+      # of the four TUs and forgets the fourth is the exact failure shape §5.4 warns about.
       #
       # ⚠ THIS CASE LIST MATCHES ON TU BASENAME ($n = basename $f .cpp).  A TU renamed on
       # promotion — which the CONVERTED tier does BY DESIGN — must have its new basename added
       # here in the same change, or the exclusion silently does nothing: no build error, and the
       # abn arm links the TU and reads the wrong +0x60-shifted globals.
-      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object) continue;; esac
+      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms) continue;; esac
     fi
     cc "decomp_$n" "$f" $GI -I . $RT $MAP
   done
