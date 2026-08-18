@@ -811,6 +811,63 @@ PPC_FUNC(sub_881F1968){
       pred56?1:0, pred56?0x881F0BC8u:0x881EF798u, why,
       (uint32_t)PPC_LOAD_U16(0x884D678Cu),(unsigned)PPC_LOAD_U8(0x88353036u),PPC_LOAD_U32(0x884EA3DCu));
   }
+  // ════════════════════════════════════════════════════════════════════════════════════════
+  // ★★★ [f1968poke] RT_F1968_POKE — A LABELLED DIAGNOSTIC INSTRUMENT.  NOT A FIX.  DEFAULT-OFF.
+  //   PRE-REGISTERED IN bank/r23/w10/PREREG_w10_ADDENDUM_poke.txt BEFORE IT WAS WRITTEN.
+  //
+  //   WHY A POKE IS LICENSED HERE, AND WHY IT IS NOT THE w8 A2-LAUNDERING TRAP.
+  //   w9 §7 explicitly refused to force `fsm[56] = 1`, and was right to: fsm[56] is the gate's
+  //   OUTCOME, and forcing an outcome installs a body while destroying the only evidence about
+  //   whether it should have been installed.  This poke does the opposite — it writes the gate's
+  //   OPERANDS and lets the gate itself decide:
+  //     * C2/C3 are set to 0.  ★ THAT IS A VALUE THE ENGINE ITSELF WRITES: sub_88133B68 is
+  //       PlayerSlots_Reset() and it `memset(record, 0, 196)`s both slots (MISSION1_PHASEA §2.3a).
+  //       So the poked state is one the engine genuinely occupies at every session start — this
+  //       is not a state the machine can never be in.
+  //     * C4 is set to 2.  ★ THAT IS ALSO ENGINE-WRITTEN: st[28] is seeded from scene[84] by
+  //       sub_880A4628, and scene[84]==2 is ULTRA (LAWS measured binding).
+  //     * C1 IS NOT TOUCHED.  It is already true on route, and leaving one condition to the real
+  //       machine keeps a live check that the gate is still being evaluated at all.
+  //   ⇒ Every gate BELOW this one still runs on real state, because the poke is REVERTED the
+  //     instant the call returns.  The only thing changed in the whole process lifetime is the
+  //     value read during ONE evaluation of ONE gate, and the log says so.
+  //
+  //   ⚠ WHAT THIS CANNOT SHOW, DECLARED BEFORE THE RUN: that the route would EVER reach this
+  //     state on its own.  Phase B measured that it does not (C2 saturates at 9 within ~5 minutes
+  //     of play and the card FSM registers ~30 minutes in).  A green board here is evidence about
+  //     THE CHAIN BELOW THE GATE, and about nothing else.  It must never be quoted as "the
+  //     27-block is reachable on this build".
+  //   ⚠ AND IF 881F0BC8 IS INSTALLED AND THEN ITS OWN BODY RE-READS C2, IT WILL SEE THE RESTORED
+  //     9.  That is deliberate and is the honest behaviour: only the gate was lied to.
+  if(rt_f1968() && std::getenv("RT_F1968_POKE")){
+    const uint32_t own=ctx.r3.u32;
+    auto ok=[](uint32_t a){ return a>=0x1000u && a<0xFFFF0000u; };
+    const uint32_t st=ok(own)?PPC_LOAD_U32(own+2304u):0u;
+    const uint32_t p =ok(st)?PPC_LOAD_U32(st+4u):0u;
+    if(ok(st)&&ok(p)){
+      const uint32_t o2=PPC_LOAD_U32(p+1476u), o3=PPC_LOAD_U32(p+1672u), o4=PPC_LOAD_U32(st+28u);
+      const uint32_t c1=PPC_LOAD_U32(st+10028u);
+      PPC_STORE_U32(p+1476u,0u); PPC_STORE_U32(p+1672u,0u); PPC_STORE_U32(st+28u,2u);
+      // ⚠ READ THIS BEFORE SCORING THE [f1968] LINE ABOVE.  That line prints the PRE-POKE board
+      //   and therefore predicts body=0x881EF798, by design: it is the honest record of what the
+      //   ROUTE actually had.  On a poke drive its PRED must NOT be compared against the
+      //   [objactfn] Bank5_Rebind arm -- they are deliberately measuring different worlds, and a
+      //   "disagreement" there is this instrument working, not w9's M2-P2 control failing.  The
+      //   POST-POKE prediction is the one printed here.
+      std::fprintf(stderr,"[f1968poke] ★★★ POKED THE GATE OPERANDS FOR ONE CALL: "
+        "C2 %u->0  C3 %u->0  C4 %u->2  (C1 untouched, reads %u — gate needs 1)"
+        " | POST-POKE PRED body=%s | st=0x%08X p=0x%08X"
+        " | ⚠ the [f1968] line above is the PRE-POKE board and predicts 0x881EF798 BY DESIGN\n",
+        o2,o3,o4,c1,(c1==1u)?"0x881F0BC8":"0x881EF798 (C1 still false — poke cannot help)",st,p);
+      __imp__sub_881F1968(ctx,base);
+      PPC_STORE_U32(p+1476u,o2); PPC_STORE_U32(p+1672u,o3); PPC_STORE_U32(st+28u,o4);
+      std::fprintf(stderr,"[f1968poke] ★★★ REVERTED: C2 back to %u  C3 back to %u  C4 back to %u"
+        " | the process state is now exactly what it would have been\n",o2,o3,o4);
+      return;
+    }
+    std::fprintf(stderr,"[f1968poke] !! NOT POKED — st/p unresolved (st=0x%08X p=0x%08X);"
+      " the call proceeds untouched and this run scores nothing\n",st,p);
+  }
   __imp__sub_881F1968(ctx,base);
 }
 // (installer) sub_880A4628 sets obj+0x40=880a4190 tick + thresholds keyed on MODE(*(DAT_887ad130+0x54));
