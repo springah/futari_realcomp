@@ -4505,6 +4505,82 @@ W10_W28(8814DDC8)
 // 0x8813xxxx bodies are watched with them, for free.
 #undef W10_W28
 
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ★★★ r23-w11 DRIVER LANE — [wwatch] BACK END.  The macro front end lives in out_reco/rt_indirect.h
+// and carries the full rationale, the positive control and the coverage limits.  This is only the
+// reporting side.  Compiled out entirely unless -DFUTARI_W11_WWATCH.
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+#ifdef FUTARI_W11_WWATCH
+// The RVA anchor.  Its own address is resolved in futari_game_normal.map; every reported store
+// site is printed as a SIGNED BYTE OFFSET from it, so the .map alone turns a hit into a symbol
+// with no runtime Windows API and no assumption about the module base.
+extern "C" __attribute__((noinline)) void rt_w11_wwatch_refsym(void) { }
+
+namespace {
+  struct W11Site { const void* ra; unsigned long long hits; };
+  W11Site   g_w11_sites[64];
+  int       g_w11_nsites   = 0;
+  uint32_t  g_w11_lastval  = 0xDEADBEEFu;   // a value the guest word cannot legitimately hold
+  bool      g_w11_haveprev = false;
+  unsigned long long g_w11_total = 0;
+  std::atomic_flag  g_w11_lock{};   // C++20 value-init == clear (ATOMIC_FLAG_INIT is deprecated)
+}
+
+extern "C" __attribute__((noinline)) void rt_w11_wwatch(uint32_t ea, uint32_t width,
+                                                        uint32_t val, const void* ra)
+{
+  while (g_w11_lock.test_and_set(std::memory_order_acquire)) { }
+  ++g_w11_total;
+
+  // (a) FIRST SIGHTING OF A STORE SITE.  This is the roster the campaign could not build
+  //     statically -- it is discovered, not guessed.
+  int idx = -1;
+  for (int i = 0; i < g_w11_nsites; ++i) if (g_w11_sites[i].ra == ra) { idx = i; break; }
+  if (idx < 0 && g_w11_nsites < (int)(sizeof(g_w11_sites)/sizeof(g_w11_sites[0]))) {
+    idx = g_w11_nsites++;
+    g_w11_sites[idx].ra = ra; g_w11_sites[idx].hits = 0;
+    std::fprintf(stderr,
+      "[wwatch] ★ NEW STORE SITE #%d  ra=%p  refsym%+lld  ea=0x%08X w=%u val=%u (0x%08X)\n",
+      idx, ra, (long long)((const char*)ra - (const char*)&rt_w11_wwatch_refsym),
+      ea, width, val, val);
+    std::fflush(stderr);
+  }
+  if (idx >= 0) ++g_w11_sites[idx].hits;
+
+  // (b) EVERY VALUE TRANSITION, WITH THE SITE THAT CAUSED IT.  This is the whole measurement:
+  //     the 0x5A5A5A5A -> 0 zeroing (the positive control) and each 0->1->...->9 increment,
+  //     each one ATTRIBUTED.  Writes of the value already present are counted but not printed,
+  //     which is what keeps a per-frame idempotent writer from flooding the log.
+  if (!g_w11_haveprev || val != g_w11_lastval) {
+    std::fprintf(stderr,
+      "[wwatch] ★★★ C2 %u -> %u  (0x%08X -> 0x%08X)  BY site#%d ra=%p refsym%+lld  ea=0x%08X w=%u  total=%llu\n",
+      g_w11_haveprev ? g_w11_lastval : 0u, val,
+      g_w11_haveprev ? g_w11_lastval : 0u, val,
+      idx, ra, (long long)((const char*)ra - (const char*)&rt_w11_wwatch_refsym),
+      ea, width, g_w11_total);
+    std::fflush(stderr);
+    g_w11_lastval = val; g_w11_haveprev = true;
+  }
+  g_w11_lock.clear(std::memory_order_release);
+}
+
+namespace {
+  const struct W11Armed {
+    W11Armed(){
+      std::fprintf(stderr,
+        "[wwatch] ARMED — r23-w11 program-wide store watch on guest 0x%08X..0x%08X (C2 = "
+        "PlayerSlot[0]+28 = W+1476).  refsym=%p.  Every PPC store in the GAME module is tested; "
+        "the shell binary is NOT rebuilt and is outside coverage.  POSITIVE CONTROL: the "
+        "session-start memset (sub_88073BD0, called from sub_88133B68 PlayerSlots_Reset) MUST "
+        "appear as a site writing 0 over the 0x5A5A5A5A poison -- if it does not, this "
+        "instrument is broken and no zero on this drive is readable.\n",
+        FUTARI_W11_WLO, FUTARI_W11_WHI, (void*)&rt_w11_wwatch_refsym);
+      std::fflush(stderr);
+    }
+  } g_w11_armed;
+}
+#endif  // FUTARI_W11_WWATCH
+
 // ── ★ THE w10 ARMED BANNER (LAW M+).  UNGATED, from a file-scope static at DLL load: its ABSENCE
 //    from a log means "wrong binary / TU not linked", never "nothing happened".
 namespace {
