@@ -2336,9 +2336,16 @@ extern "C" void __imp__sub_88136A58(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_88136A58){
   if(std::getenv("RT_S5")){
     static std::atomic<int> c{0}; int i=c.fetch_add(1);
-    std::fprintf(stderr,"[a58] #%d CALLED r3=0x%X | W+10=0x%X pg58=%u pg5c=%u d76=%u fsm=0x%X\n",
+    // ★ r23-w16 D4: THE RETURN ADDRESS IS APPENDED, NOT INSERTED.  w15 settled that 88136A58 is
+    //   A committer and not THE committer (881378A0 @88137B84 duplicates the +0x58:=+0x5c commit),
+    //   and 88136A58 itself has TWO static callers -- so "which caller actually commits" is a
+    //   question only the live return address can answer.  It goes at the END of the format on
+    //   purpose: five windows of scorers grep the record head '[a58] #<n> CALLED', and a field
+    //   inserted before it would silently re-point every one of them (the campaign has already
+    //   filed three counter defects of exactly that shape).
+    std::fprintf(stderr,"[a58] #%d CALLED r3=0x%X | W+10=0x%X pg58=%u pg5c=%u d76=%u fsm=0x%X lr=0x%08X\n",
       i,ctx.r3.u32,PPC_LOAD_U32(0x884D6750u),PPC_LOAD_U32(0x884D6798u),PPC_LOAD_U32(0x884D679Cu),
-      (uint32_t)PPC_LOAD_U16(0x884D678Cu),PPC_LOAD_U32(0x8844A3B8u));
+      (uint32_t)PPC_LOAD_U16(0x884D678Cu),PPC_LOAD_U32(0x8844A3B8u),(uint32_t)ctx.lr);
   }
   __imp__sub_88136A58(ctx,base);
 }
@@ -5184,6 +5191,36 @@ static void s88_poll(uint8_t* base){
       g_s88_c63.load(), g_s88_c63gate.load(), g_s88_c163.load(), g_s88_c163gate.load());
     std::fflush(stderr);
   }
+
+  // ---- ★ r23-w16 D4: [d6e70] — THE UNENUMERATED COMPANION WORD -------------------------------
+  //   0x884D6E70 carries NINE static writers and TWO readers and has never been enumerated live.
+  //   It rides the same per-frame walk the [s88] poll rides, but it gets ITS OWN TAG AND ITS OWN
+  //   LINE and is deliberately NOT folded into the [s88] heartbeat record: that record head is
+  //   grepped by five windows of banked scorers and changing its shape would re-point all of them
+  //   silently.  RT_D6E70, default-off, READ-ONLY.
+  //   ⚠ WHAT THIS CAN AND CANNOT SAY: it is a CHANGE WATCH AT POLL GRANULARITY, not a store watch.
+  //   It sees the value the per-frame walk sees.  A write that is undone between two polls is
+  //   INVISIBLE to it, so a small change count is a LOWER BOUND and must never be reported as
+  //   "only N writes happened".  The INITIAL line exists so that a zero is falsifiable (LAW M+:
+  //   a canary's zero is unreadable without an armed banner).
+  if(std::getenv("RT_D6E70")){
+    static uint32_t d6q=0; static bool d6have=false; static std::atomic<int> d6n{0};
+    const uint32_t d6v = PPC_LOAD_U32(0x884D6E70u);
+    if(!d6have){
+      d6have=true; d6q=d6v;
+      std::fprintf(stderr,"[d6e70] INITIAL poll#%lld t+%lldms *(0x884D6E70)=0x%08X"
+        "  (change watch at POLL granularity -- counts are LOWER BOUNDS)\n", i, ms, d6v);
+      std::fflush(stderr);
+    } else if(d6v!=d6q){
+      const int k=d6n.fetch_add(1);
+      if(k<300){
+        std::fprintf(stderr,"[d6e70] CHANGE #%d poll#%lld t+%lldms 0x%08X -> 0x%08X"
+          " | [88]=%u W+58=%u W+5c=%u [176]=%u\n", k, i, ms, d6q, d6v, s88, pg58, pg5c, s176);
+        std::fflush(stderr);
+      }
+      d6q=d6v;
+    }
+  }
 }
 
 // ---- ★ D2: THE TWO GATED DARK CLASSES, WATCHED AT THEIR OWN ENTRY -----------------------------
@@ -5329,6 +5366,61 @@ PPC_FUNC(sub_880F25B8){
     std::fflush(stderr);
   }
 }
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ★★★ [c64ctor] — r23-w16 DRIVER LANE, D4 RIDER, ORIGINATING FROM THE NAMER LANE'S READ OF
+//     sub_88136030 (bank/r23/w16/name_88136030_read_w16.md).  The namer derived — statically, and
+//     said so — that 88136030 is BOTH the second request path AND the session confirm, that its
+//     sole static caller is sub_88102A78, and that 88102A78 is slot [3] of class id 64's vtable,
+//     so it runs AT CLASS-64 CONSTRUCTION while the armer path runs off a director's 0x28 timer.
+//     THE HYPOTHESIS THAT COSTS ONE WRAPPER: the 10.3-12.2 s request-to-commit gap that w14/w15
+//     measured is the wait for a class-64 object to be CONSTRUCTED.
+//     This tap does not test the hypothesis by itself -- it puts a TIMESTAMP on the construction
+//     so the gap can be measured against the [744p]/[armer]/[a58] records already on the log.
+//   ⚠ THE NAMER'S OWN FALSIFIERS, carried here so they cannot be lost between lanes:
+//       * the cfg sweep that found "sole static caller" is a DECLARED LOWER BOUND in bctr bodies;
+//       * a non-vtable route to 88102A78 would break the class-64 attribution;
+//       * CONTINUOUS class-64 construction makes the timestamps UNINFORMATIVE -- if this tap fires
+//         constantly, it has not confirmed anything, and that outcome is registered in advance.
+//     RT_C64CTOR, default-off, READ-ONLY: writes no guest memory.
+namespace {
+  inline long long c64_ms(){
+    static const std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
+    return (long long)std::chrono::duration_cast<std::chrono::milliseconds>(
+             std::chrono::steady_clock::now() - t0).count();
+  }
+}
+extern "C" void __imp__sub_88102A78(PPCContext& __restrict, uint8_t*);
+PPC_FUNC(sub_88102A78){
+  if(std::getenv("RT_C64CTOR")){
+    static std::atomic<int> c{0}; const int k=c.fetch_add(1);
+    if(k<400){
+      std::fprintf(stderr,"[c64ctor] #%d t+%lldms r3=0x%08X lr=0x%08X | pg58=%u pg5c=%u d76=%u\n",
+        k, c64_ms(), ctx.r3.u32, (uint32_t)ctx.lr,
+        PPC_LOAD_U32(0x884D6798u), PPC_LOAD_U32(0x884D679Cu),
+        (uint32_t)PPC_LOAD_U16(0x884D678Cu));
+      std::fflush(stderr);
+    }
+  }
+  __imp__sub_88102A78(ctx,base);
+}
+
+namespace {
+  const struct W16Armed {
+    W16Armed(){
+      std::fprintf(stderr,"[w16] ARMED — r23-w16 driver batch linked (merged_game.cpp): "
+        "[c64ctor] the class-64 construction timestamp on sub_88102A78 (RT_C64CTOR=%s, namer "
+        "rider: is the 10-12s request-to-commit gap the wait for a class-64 object?), "
+        "[d6e70] the poll-granularity change watch on the unenumerated companion word "
+        "0x884D6E70 (RT_D6E70=%s, 9 writers/2 readers; counts are LOWER BOUNDS), and the "
+        "return address APPENDED to the existing [a58] record (RT_S5, two static callers -- "
+        "which one commits?).  All three are READ-ONLY and write no guest memory.  Every "
+        "earlier batch's record heads are UNCHANGED, deliberately.\n",
+        std::getenv("RT_C64CTOR")?"1":"unset", std::getenv("RT_D6E70")?"1":"unset");
+      std::fflush(stderr);
+    }
+  } g_w16_armed;
+}
+
 namespace {
   const struct W15Armed {
     W15Armed(){
