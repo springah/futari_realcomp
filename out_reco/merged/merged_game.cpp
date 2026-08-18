@@ -741,12 +741,74 @@ PPC_FUNC(sub_880A3F98){
   }
   __imp__sub_880A3F98(ctx,base);
 }
+// ★★★ [f1968] RT_F1968 (r23-w9, driver lane) — THE FOUR-CONDITION SELECTOR THAT DECIDES WHICH OF
+//   0x881EF798 / 0x881F0BC8 GETS INSTALLED.  Spec: bank/r23/w8/MISSION1_VERDICT_w8.txt §3.
+//
+//   ⚠ THE STATE ROOT IS RESOLVED FROM THE GENERATED BODY, NOT FROM THE VERDICT'S PROSE
+//     (out_reco/ppc_recomp.28.cpp, __imp__sub_881F1968).  Register-true, entry chain:
+//         mr   r29,r4                       ; r29 = param_2 (the bank owner passed to 88096950)
+//         lwz  r31,2304(r3)                 ; ★ r31 = THE STATE ROOT  =  *(entry_r3 + 2304)
+//         mr   r28,r5 ; mr r30,r3
+//         li r5,60 ; mr r4,r28 ; mr r3,r29 ; bl 0x880968B8   ; r3 = the new 60-byte FSM
+//         stw  r10,0(r3) ; stw r10,56(r3)   ; fsm[0]=0, fsm[56]=0
+//         lwz  r11,10028(r31) ; cmpwi cr6,r11,1  ; bne -> loc_881F19DC    (C1)
+//         lwz  r11,4(r31)                        ; p = st[4]
+//         lwz  r9,1476(r11)   ; cmplwi 0 ; bne   -> loc_881F19DC          (C2)
+//         lwz  r11,1672(r11)  ; cmplwi 0 ; bne   -> loc_881F19DC          (C3)
+//         lwz  r11,28(r31)    ; cmplwi 2 ; bne   -> loc_881F19DC          (C4)
+//         stw  r6,56(r3)                         ; fsm[56] = 1
+//       loc_881F19DC: ...
+//         lwz  r5,56(r3) ; cmpwi 0 ; bne loc_881F1A30
+//           lis r11,-30689 ; addi r5,r11,-2152   ; 0x881F0000-2152 = 0x881EF798   (fsm[56]==0)
+//         loc_881F1A30:
+//           lis r11,-30689 ; addi r5,r11,3016    ; 0x881F0000+3016 = 0x881F0BC8   (fsm[56]!=0)
+//         bl 0x88096950                          ; ★ ONE shared call site, 0x881F1A38
+//   ⇒ C2 and C3 hang off the SAME pointer p = st[4] (the verdict's "st[4][1476]"/"st[4][1672]").
+//
+//   ★ THE SELECTION ITSELF NEEDS NO NEW TAP AND MUST NOT GET ONE.  0x88096950 is Bank5_Rebind and
+//     it is ALREADY defined as PPC_FUNC(sub_88096950) in decomp/game/objaction.cpp:326, which
+//     carries ObjActTap + the [objactfn] first-sighting roster.  A second PPC_FUNC here would be a
+//     DUPLICATE STRONG DEFINITION and would lose the link silently (LAW I4: /FORCE:MULTIPLE,
+//     decomp_*.o first) — a dead instrument printing a confident zero.  Instead the MEASURED arm is
+//     read off the pre-existing line that lands immediately after this one under RT_OBJACTFN=1:
+//         [objactfn] NEW Bank5_Rebind  fn=0x881EF798 ...
+//     ⇒ PRED body (computed here, from the four operands) vs fn= (measured there, by a different
+//       instrument on a different code path) is an INDEPENDENT positive control on this probe's
+//       state-root resolution.  If they ever disagree, THIS probe is wrong, not the gate.
+//   Read-only, default-off, arm-symmetric (merged_game.cpp links into both arms — LAWS G2).
+static inline bool rt_f1968(){ static int v=std::getenv("RT_F1968")?1:0; return v; }
 extern "C" void __imp__sub_881F1968(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_881F1968){
   if(rt_cardfsm()){
     static std::atomic<int> c{0}; if(c.fetch_add(1)<20)
       std::fprintf(stderr,"[cardfsm] ***** 881F1968 CARD-FSM-CREATE (spawns 881ef798/881f0bc8) csfsm=%u d76=%u adv353036=%u\n",
         PPC_LOAD_U32(0x884EA3DCu),PPC_LOAD_U16(0x884D678Cu),PPC_LOAD_U8(0x88353036u));
+  }
+  if(rt_f1968()){
+    const uint32_t own=ctx.r3.u32;
+    const bool ov=(own>=0x1000u&&own<0xFFFF0000u);
+    const uint32_t st=ov?PPC_LOAD_U32(own+2304u):0u;
+    const bool sv=(st>=0x1000u&&st<0xFFFF0000u);
+    const uint32_t p =sv?PPC_LOAD_U32(st+4u):0u;
+    const bool pv=(p>=0x1000u&&p<0xFFFF0000u);
+    const uint32_t c1=sv?PPC_LOAD_U32(st+10028u):0xEEEEEEEEu;   // want == 1  (signed cmpwi)
+    const uint32_t c2=pv?PPC_LOAD_U32(p +1476u ):0xEEEEEEEEu;   // want == 0
+    const uint32_t c3=pv?PPC_LOAD_U32(p +1672u ):0xEEEEEEEEu;   // want == 0
+    const uint32_t c4=sv?PPC_LOAD_U32(st+28u   ):0xEEEEEEEEu;   // want == 2
+    const bool k1=(sv&&c1==1u), k2=(pv&&c2==0u), k3=(pv&&c3==0u), k4=(sv&&c4==2u);
+    const bool pred56=(k1&&k2&&k3&&k4);
+    char why[96]; why[0]='\0';
+    if(!sv||!pv) std::snprintf(why,sizeof why,"UNRESOLVED(st=%s p=%s)",sv?"ok":"BAD",pv?"ok":"BAD");
+    else if(pred56) std::snprintf(why,sizeof why,"none — ALL FOUR TRUE");
+    else std::snprintf(why,sizeof why,"%s%s%s%s",k1?"":"C1 ",k2?"":"C2 ",k3?"":"C3 ",k4?"":"C4 ");
+    static std::atomic<int> c{0};
+    std::fprintf(stderr,"[f1968] #%d own=0x%08X st=0x%08X p=st[4]=0x%08X | C1 st[10028]=%u(want 1)%s"
+      " C2 p[1476]=%u(want 0)%s C3 p[1672]=%u(want 0)%s C4 st[28]=%u(want 2)%s"
+      " | PRED fsm[56]=%d PRED body=0x%08X | ★ FALSE=[%s] | d76=%u adv353036=%u csfsm=%u\n",
+      c.fetch_add(1),own,st,p,
+      c1,k1?"":" <<FALSE", c2,k2?"":" <<FALSE", c3,k3?"":" <<FALSE", c4,k4?"":" <<FALSE",
+      pred56?1:0, pred56?0x881F0BC8u:0x881EF798u, why,
+      (uint32_t)PPC_LOAD_U16(0x884D678Cu),(unsigned)PPC_LOAD_U8(0x88353036u),PPC_LOAD_U32(0x884EA3DCu));
   }
   __imp__sub_881F1968(ctx,base);
 }
@@ -788,12 +850,31 @@ PPC_FUNC(sub_880A4190){
   }
   __imp__sub_880A4190(ctx,base);
 }
+// ★ r23-w9: the THREE already-wrapped armers gain the [w353] BEFORE/AFTER differencing that the
+//   other four get from the W353_ARMER macro at the foot of this file.  The [cardfsm] line itself
+//   is UNCHANGED so every w8 board stays directly comparable.  rt_w353() is declared below.
+static inline bool rt_w353();
 extern "C" void __imp__sub_881EF798(PPCContext& __restrict, uint8_t*);
-PPC_FUNC(sub_881EF798){ if(rt_cardfsm()){ static std::atomic<int> c{0}; int q=c.fetch_add(1); if(q<8) std::fprintf(stderr,"[cardfsm] 881EF798 card-FSM TICK #%d adv353036=%u\n",q,PPC_LOAD_U8(0x88353036u)); } __imp__sub_881EF798(ctx,base); }
+PPC_FUNC(sub_881EF798){ if(rt_cardfsm()){ static std::atomic<int> c{0}; int q=c.fetch_add(1); if(q<8) std::fprintf(stderr,"[cardfsm] 881EF798 card-FSM TICK #%d adv353036=%u\n",q,PPC_LOAD_U8(0x88353036u)); }
+  if(!rt_w353()){ __imp__sub_881EF798(ctx,base); return; }
+  static std::atomic<long long> n{0}; long long i=n.fetch_add(1); uint8_t pre=PPC_LOAD_U8(0x88353036u);
+  __imp__sub_881EF798(ctx,base); uint8_t post=PPC_LOAD_U8(0x88353036u);
+  if(pre!=post) std::fprintf(stderr,"[armer] ★★★ 0x881EF798 WROTE DAT_88353036 %u -> %u (call #%lld) d76=%u\n",(unsigned)pre,(unsigned)post,i,(uint32_t)PPC_LOAD_U16(0x884D678Cu));
+  else if(i<2||(i%20000)==0) std::fprintf(stderr,"[armer] 0x881EF798 tick #%lld flag=%u d76=%u\n",i,(unsigned)post,(uint32_t)PPC_LOAD_U16(0x884D678Cu)); }
 extern "C" void __imp__sub_881F0BC8(PPCContext& __restrict, uint8_t*);
-PPC_FUNC(sub_881F0BC8){ if(rt_cardfsm()){ static std::atomic<int> c{0}; int q=c.fetch_add(1); if(q<8) std::fprintf(stderr,"[cardfsm] 881F0BC8 card-FSM TICK #%d adv353036=%u\n",q,PPC_LOAD_U8(0x88353036u)); } __imp__sub_881F0BC8(ctx,base); }
+PPC_FUNC(sub_881F0BC8){ if(rt_cardfsm()){ static std::atomic<int> c{0}; int q=c.fetch_add(1); if(q<8) std::fprintf(stderr,"[cardfsm] 881F0BC8 card-FSM TICK #%d adv353036=%u\n",q,PPC_LOAD_U8(0x88353036u)); }
+  if(!rt_w353()){ __imp__sub_881F0BC8(ctx,base); return; }
+  static std::atomic<long long> n{0}; long long i=n.fetch_add(1); uint8_t pre=PPC_LOAD_U8(0x88353036u);
+  __imp__sub_881F0BC8(ctx,base); uint8_t post=PPC_LOAD_U8(0x88353036u);
+  if(pre!=post) std::fprintf(stderr,"[armer] ★★★ 0x881F0BC8 WROTE DAT_88353036 %u -> %u (call #%lld) d76=%u\n",(unsigned)pre,(unsigned)post,i,(uint32_t)PPC_LOAD_U16(0x884D678Cu));
+  else if(i<2||(i%20000)==0) std::fprintf(stderr,"[armer] 0x881F0BC8 tick #%lld flag=%u d76=%u\n",i,(unsigned)post,(uint32_t)PPC_LOAD_U16(0x884D678Cu)); }
 extern "C" void __imp__sub_881EB1F0(PPCContext& __restrict, uint8_t*);
-PPC_FUNC(sub_881EB1F0){ if(rt_cardfsm()){ static std::atomic<int> c{0}; int q=c.fetch_add(1); if(q<8) std::fprintf(stderr,"[cardfsm] 881EB1F0 card-FSM TICK #%d adv353036=%u\n",q,PPC_LOAD_U8(0x88353036u)); } __imp__sub_881EB1F0(ctx,base); }
+PPC_FUNC(sub_881EB1F0){ if(rt_cardfsm()){ static std::atomic<int> c{0}; int q=c.fetch_add(1); if(q<8) std::fprintf(stderr,"[cardfsm] 881EB1F0 card-FSM TICK #%d adv353036=%u\n",q,PPC_LOAD_U8(0x88353036u)); }
+  if(!rt_w353()){ __imp__sub_881EB1F0(ctx,base); return; }
+  static std::atomic<long long> n{0}; long long i=n.fetch_add(1); uint8_t pre=PPC_LOAD_U8(0x88353036u);
+  __imp__sub_881EB1F0(ctx,base); uint8_t post=PPC_LOAD_U8(0x88353036u);
+  if(pre!=post) std::fprintf(stderr,"[armer] ★★★ 0x881EB1F0 WROTE DAT_88353036 %u -> %u (call #%lld) d76=%u\n",(unsigned)pre,(unsigned)post,i,(uint32_t)PPC_LOAD_U16(0x884D678Cu));
+  else if(i<2||(i%20000)==0) std::fprintf(stderr,"[armer] 0x881EB1F0 tick #%lld flag=%u d76=%u\n",i,(unsigned)post,(uint32_t)PPC_LOAD_U16(0x884D678Cu)); }
 // [gmstage] (2026-07-23 sequencer leg): poor-man's stack sampler for the game-main freeze.
 // Main-loop wrappers stamp g_gm_stage on ENTER/EXIT (odd=inside, even=returned); the tid is
 // pinned by the sub_8813A738 wrapper (called once per main-loop iteration, main-loop only).
@@ -3995,4 +4076,168 @@ PPC_FUNC(sub_880901B8){
       std::fprintf(stderr,"[stopslot] #%ld slot=%u lr=0x%X\n",n,(unsigned)ctx.r3.u32,(uint32_t)ctx.lr);
   }
   __imp__sub_880901B8(ctx,base);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ★★★ r23-w9 DRIVER-LANE INSTRUMENT BATCH — [w353] / [armer] / [958a0].  Owed item ⑤ of window 9.
+//   All read-only, all default-off, all in merged_game.cpp so they link into BOTH arms (LAWS G2).
+//
+//   WHY: w8 established that DAT_88353036 IS armed on this build, but the proof was by CALL-SITE
+//   ARGUMENT FORM (MISSION1_VERDICT_w8.txt §2 P1) — the [744p] change-watch "cannot catch a 0->1:
+//   the watch samples inside sub_8814F558, which barely runs, and the consumer clears the flag in
+//   the same statement that reads it".  Nobody has ever logged the transition itself.
+//
+//   THE COMPLETE WRITER SET, enumerated (not assumed) from reco_normal_decomp_all.txt:
+//       :25024  sub_88094F38  DAT_88353036 = 0            (session init)
+//       :25551  sub_88095950  if (DAT_88353036 != 0) { DAT_88353036 = 0; FUN_88136bc8(...) }
+//       :241254 881EB1F0 · :243896 881EF798 · :244360 881F0BC8 · :247580 881F6000 ·
+//       :249625 881F95E8 · :251867 881FD3E8 · :254955 882023E8      = 1   (the seven armers)
+//   ⇒ SEVEN armers, ONE consumer, ONE initialiser.  RT_CARDFSM covered only three of the seven
+//     (w8 §2 P6).  This batch covers all seven plus the consumer, so a 0->1 anywhere is ATTRIBUTED.
+//
+//   THE WATCH IS BY DIFFERENCING, AND THAT IS STATED RATHER THAN GLOSSED.  A recomp has no page
+//   protection to hang a real hardware write-watch on, so each wrapper samples the byte
+//   IMMEDIATELY BEFORE and IMMEDIATELY AFTER the body it wraps.  A pre!=post pair NAMES the writer
+//   with certainty (the store is inside that body).  What differencing CANNOT see is an arm+clear
+//   that both happen inside one wrapped body — so the CONSUMER wrapper below is the other half:
+//   it prints whenever it OBSERVES the flag nonzero at its own entry, which is the armed state of
+//   the flag read directly out of guest memory rather than inferred from an argument.
+//
+//   ⚠ SEAM CHANGE, AND THE DRAFTING LANE MUST KNOW: wrapping 881F6000 / 881F95E8 / 881FD3E8 /
+//     882023E8 here makes all four HOOKED.  draft_881F6000.md, draft_881F95E8.md,
+//     draft_881FD3E8.md and draft_882023E8.md each say "SEAM: UNHOOKED (measured) -> plain
+//     PPC_FUNC(sub_X)".  That line is now STALE for all four: a future decomp TU for any of them
+//     must ship PPC_FUNC_IMPL(__imp__sub_X) or this wrapper dies (LAW I1).  (Those same drafts also
+//     claim the RT_CARDFSM wrappers on 881EF798/881F0BC8/881EB1F0 "are no longer in
+//     merged_game.cpp" — they are, all three, and have been all along; that claim is wrong
+//     independently of this change.)
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+static inline bool rt_w353(){ static int v=std::getenv("RT_W353")?1:0; return v; }
+
+// ── THE CONSUMER, sub_88095950 (reco_normal_decomp_all.txt:25456-25557).  Walks the 0x248-stride
+//    actor table every frame and, at the tail of the walk, consumes the flag.  It runs from very
+//    early in the session and never stops, so its HEARTBEAT is this batch's LIVE POSITIVE CONTROL:
+//    "[w353] heartbeat" lines prove the batch is linked and executing in the driven binary, which
+//    is what makes every OTHER zero in the batch falsifiable (LAW M+, r22ext staged-binary form).
+extern "C" void __imp__sub_88095950(PPCContext& __restrict, uint8_t*);
+PPC_FUNC(sub_88095950){
+  if(!rt_w353()){ __imp__sub_88095950(ctx,base); return; }
+  static std::atomic<long long> n{0};
+  const long long i=n.fetch_add(1);
+  const uint8_t pre=PPC_LOAD_U8(0x88353036u);
+  if(pre!=0)
+    std::fprintf(stderr,"[w353] ★★★ CONSUMER ENTRY #%lld SEES THE FLAG ARMED: DAT_88353036=%u"
+      " — about to clear it and call FUN_88136BC8(page+1) | d76=%u tgtpg(+58)=%u\n",
+      i,(unsigned)pre,(uint32_t)PPC_LOAD_U16(0x884D678Cu),
+      (PPC_LOAD_U32(0x887AD130u)>=0x1000u)?PPC_LOAD_U32(PPC_LOAD_U32(0x887AD130u)+0x58u):0xFFFFFFFFu);
+  __imp__sub_88095950(ctx,base);
+  const uint8_t post=PPC_LOAD_U8(0x88353036u);
+  if(pre!=post)
+    std::fprintf(stderr,"[w353] ★★★ CONSUMER #%lld TRANSITION %u -> %u (the one-shot fired)\n",
+      i,(unsigned)pre,(unsigned)post);
+  if((i%3600)==0)
+    std::fprintf(stderr,"[w353] heartbeat #%lld flag=%u d76=%u actors(88568BCC)=%d\n",
+      i,(unsigned)post,(uint32_t)PPC_LOAD_U16(0x884D678Cu),(int)PPC_LOAD_U32(0x88568BCCu));
+}
+
+// ── THE FOUR UNINSTRUMENTED ARMERS.  Same shape as the three RT_CARDFSM ones above.  These are
+//    per-frame FSM ticks and can be hot, so the no-transition path is throttled hard; the
+//    TRANSITION path is never throttled, because it is the whole point of the instrument.
+#define W9_ARMER(HEX)                                                                              \
+  extern "C" void __imp__sub_##HEX(PPCContext& __restrict, uint8_t*);                              \
+  PPC_FUNC(sub_##HEX){                                                                             \
+    if(!rt_w353()){ __imp__sub_##HEX(ctx,base); return; }                                          \
+    static std::atomic<long long> n{0};                                                            \
+    const long long i=n.fetch_add(1);                                                              \
+    const uint8_t pre=PPC_LOAD_U8(0x88353036u);                                                    \
+    __imp__sub_##HEX(ctx,base);                                                                    \
+    const uint8_t post=PPC_LOAD_U8(0x88353036u);                                                   \
+    if(pre!=post)                                                                                  \
+      std::fprintf(stderr,"[armer] ★★★ 0x" #HEX " WROTE DAT_88353036 %u -> %u (call #%lld) d76=%u\n",\
+        (unsigned)pre,(unsigned)post,i,(uint32_t)PPC_LOAD_U16(0x884D678Cu));                       \
+    else if(i<2||(i%20000)==0)                                                                     \
+      std::fprintf(stderr,"[armer] 0x" #HEX " tick #%lld flag=%u d76=%u\n",                        \
+        i,(unsigned)post,(uint32_t)PPC_LOAD_U16(0x884D678Cu));                                     \
+  }
+W9_ARMER(881F6000)
+W9_ARMER(881F95E8)
+W9_ARMER(881FD3E8)
+W9_ARMER(882023E8)
+#undef W9_ARMER
+
+// ── ★★★ sub_880958A0 = THE ENGINE OBJECT FACTORY.  Spawn(classId, x16, y16, initBlock).
+//    ⚠ REVISED r23-w9 AFTER THE FIRST D1/D2 PAIR — the first spelling of this probe logged the
+//      WRONG REGISTERS because it trusted the Ghidra listing.  RE-DERIVED REGISTER-TRUE FROM THE
+//      GENERATED BODY (out_reco/ppc_recomp.6.cpp, __imp__sub_880958A0):
+//          mflr r12 ; bl 0x88071154        <- __savegprlr_27, the PROLOGUE SAVE THUNK
+//          mr r30,r3 ; mr r28,r4 ; mr r27,r5 ; mr r29,r6
+//          cmplwi cr6,r3,256 ; bge -> return 0          ★ THE BOUND IS ON r3
+//          ... free-slot scan: r31 = 0x88520000-1168 = 0x8851FB70, stride 2336, 128 slots
+//          lis r11,-30683 ; rlwinm r10,r30,2 ; addi r9,r11,12264   ; 0x88250000+12264 = 0x88252FE8
+//          lwzx r8,r10,r9 ; stw r8,64(r31)              ★ classPtr = FACTORY_TABLE[r3]
+//          beq -> return 0                              (id with no class ⇒ nothing is created)
+//          bl 0x88095640(slot) ; stw r28,32(r31) ; stw r27,36(r31) ; stw r30,4(r31)
+//          if (r6) FUN_88072260(slot+120, r6, 44)        (the D-class 44-byte copy, LAWS r23-w3/w5)
+//      ⇒ ★ THE CLASS ID IS r3, THE FIRST ARGUMENT.  Ghidra renders it as
+//        `uVar1 = FUN_88071154();` because it believes the millicode save-thunk RETURNS in r3 and
+//        clobbers the parameter.  It does not.  This is the SAME MILLICODE TRAP that made Ghidra
+//        wrong about 0x880F34B0's site count (LAWS r23-w8) — second witness, and this time it cost
+//        a probe that had already flown two drives logging r4/r5/r6 and never the id.
+//      ⇒ THE MEASURED ARGUMENTS AGREE: D1 logged r4 ∈ {0, 0x200000, 0x400000} and r5 = 0x1400000,
+//        i.e. 0.0 / 32.0 / 64.0 and 320.0 in 16.16 — a SPAWN POSITION, not the opaque param_2/
+//        param_3 the old comment claimed.  Returned r3 was 0x8851FB70+k*2336, i.e. the SLOT
+//        POINTER (Ghidra's `return piVar3[0x245]` is the same mis-read one level down).
+//    WHY IT MATTERS BEYOND THIS LANE: the scanner lane's 27-block chain runs
+//      881F1968 → 881F0BC8 → 881EE630 → 881EDF78 → factory(id=244) → ctor 880A2140 → … →
+//      factory(id=243) → ctor 8809C9E0 → thunk 0x8809C9D8 → 8809C220 → 881EC308 → the 27-block.
+//    One probe on this one function therefore observes EVERY class creation on the route, so
+//    "are 243 and 244 ever created?" becomes a grep instead of a chain of static readings.
+//    ⚠ SOLE-CREATOR IS ONLY SOLE-STATIC-IMMEDIATE-CREATOR: the scanner found four call sites that
+//      pass DATA-DRIVEN ids (two spawn-record walkers, the 0x8822B520 VM, the sibling factory), so
+//      the call-site column below is load-bearing — an id arriving from the VM is not a defect.
+//    POSITIVE CONTROL (scanner's, adopted): fam-12 is class id 76 and is lit 17/3/3, so id=76 MUST
+//    appear in the roster.  Its absence condemns THIS probe, not the route.
+//    Read-only, default-off, arm-symmetric.  First-sighting roster + a bounded raw tail.
+extern "C" void __imp__sub_880958A0(PPCContext& __restrict, uint8_t*);
+PPC_FUNC(sub_880958A0){
+  if(!rt_w353()){ __imp__sub_880958A0(ctx,base); return; }
+  static std::atomic<long long> n{0};
+  const long long i=n.fetch_add(1);
+  const uint32_t id=ctx.r3.u32, x16=ctx.r4.u32, y16=ctx.r5.u32, ini=ctx.r6.u32;
+  const uint32_t site=(uint32_t)ctx.lr;
+  const uint32_t clsp=(id<256u)?PPC_LOAD_U32(0x88252FE8u+id*4u):0u;   // FACTORY_TABLE[id]
+  __imp__sub_880958A0(ctx,base);
+  const uint32_t slot=ctx.r3.u32;
+  // ★ FIRST-SIGHTING ROSTER over the 256 legal ids, so the log stays small however long the drive
+  //   runs and a class created once on frame 9000 is still recorded (INSTRUMENT SATURATION LAW: the
+  //   roster is EXHAUSTIVE by construction here — 256 ids, one bit each — so it cannot truncate).
+  static std::atomic<bool> seen[257];
+  const bool first=(id<256u) && !seen[id].exchange(true);
+  if(first || i<48 || slot==0u)
+    std::fprintf(stderr,"[958a0]%s #%lld ★CLASS id=%u cls=0x%08X site=0x%08X"
+      " pos=(%.2f,%.2f) init=0x%X -> slot=0x%08X%s | d76=%u\n",
+      first?" NEW":"",i,id,clsp,site,
+      (double)(int32_t)x16/65536.0,(double)(int32_t)y16/65536.0,ini,slot,
+      (slot==0u)?"  <<NOT CREATED (id>=256, table full, or FACTORY_TABLE[id]==0)":"",
+      (uint32_t)PPC_LOAD_U16(0x884D678Cu));
+  // the two ids the 27-block chain turns on — never throttled, however often they arrive
+  if(id==243u||id==244u)
+    std::fprintf(stderr,"[958a0] ★★★★★ CHAIN CLASS id=%u CREATED cls=0x%08X site=0x%08X -> slot=0x%08X\n",
+      id,clsp,site,slot);
+}
+
+// ── ★ THE ARMED BANNER (LAW M+, and the r22ext "prove the driven binary CONTAINS the code under
+//    test" form).  UNGATED on purpose: it fires from a file-scope static at DLL load whether or not
+//    the probes are armed, so its ABSENCE from a log means "wrong binary / TU not linked", never
+//    "nothing happened".  Every zero this batch reports is unreadable without it.
+namespace {
+  const struct W9Armed {
+    W9Armed(){
+      std::fprintf(stderr,"[w9] ARMED — r23-w9 driver batch linked (merged_game.cpp): "
+        "probes [f1968] [w353] [armer]x7 [958a0]  |  RT_F1968=%s RT_W353=%s  |  the selection arm "
+        "is read from the pre-existing [objactfn] Bank5_Rebind line, NOT from a tap of our own\n",
+        std::getenv("RT_F1968")?"1":"unset", std::getenv("RT_W353")?"1":"unset");
+      std::fflush(stderr);
+    }
+  } g_w9_armed;
 }
