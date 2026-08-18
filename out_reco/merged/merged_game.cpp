@@ -5250,3 +5250,97 @@ namespace {
     }
   } g_w14_armed;
 }
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// ★★★ r23-w15 DRIVER BATCH — [p25b8], THE RECORD PROBE FOR THE ctx.r5 DEFECT (MISSION D1).
+//
+//   WHAT IS BEING GATED.  The MATCHED TU decomp/game/objaction_queue2.cpp performs the guest's
+//   `stw r5,12384(r18)` but never assigns ctx.r5, while the guest leaves r5 = (q7+phaseB)&0xF
+//   LIVE across `bl 0x880f25b8` (out_reco/ppc_recomp.7.cpp, lr 0x880A17AC).  The callee's
+//   `stw r5,48(r29)` therefore wrote whatever the previous call had left in r5.  The one-line
+//   remedy assigns ctx.r5.  This probe is how that is MEASURED rather than argued.
+//
+//   ★ THE PROBE CARRIES ITS OWN ORACLE, AND THE ORACLE IS IN BOTH ARMS.  The same caller stores
+//     the CORRECT masked value to G_EMITARG60_MaskedSmall = 0x88353060 one line before the bl,
+//     and that store is present in the UNFIXED TU too.  So `g60` read at callee entry is what
+//     rec+48 SHOULD be, on either arm, with no cross-run comparison required.  The A/B is still
+//     flown (arm symmetry) but the oracle is what makes each arm interpretable ON ITS OWN.
+//     ⚠ THE ORACLE IS SOUND ONLY AT lr=0x880A17AC.  Other bl 0x880f25b8 sites exist in the
+//       generated tree and do NOT store that global; they are counted separately BY lr and the
+//       oracle column is printed for them as informational only.  Nothing is claimed about them.
+//
+//   ★ THE UNIT IS THE RECORD (LAWS): one line per ALLOCATION, never per frame and never per
+//     tick.  Head string "[p25b8] rec#" is unique to this probe and appears in NO other probe's
+//     banner — the ARMED banner below deliberately does not quote it (r23-w14 law: an ARMED
+//     banner must not quote another probe's record-head string, and must not quote its own in a
+//     form the record counter would match).
+//
+//   READ-ONLY.  Writes no guest memory.  Default-off, armed by RT_P25B8.  Identical in both
+//   arms by construction: it lives in realcomp, which does not change across the arm axis.
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+static inline bool rt_p25b8(){ static int v=std::getenv("RT_P25B8")?1:0; return v; }
+namespace {
+  constexpr uint32_t kP25B8_SiteLR = 0x880A17ACu;   // the queue2 TU's one call site
+  constexpr uint32_t kP25B8_G60    = 0x88353060u;   // G_EMITARG60_MaskedSmall (the oracle)
+  std::atomic<long long> g_p25_site{0};    // records at kP25B8_SiteLR
+  std::atomic<long long> g_p25_other{0};   // records at every other lr
+  std::atomic<long long> g_p25_agree{0};   // site records with f48 == g60
+  std::atomic<long long> g_p25_disagree{0};// site records with f48 != g60
+  std::atomic<long long> g_p25_r5eq{0};    // site records with f48 == r5-at-entry
+  std::atomic<long long> g_p25_full{0};    // site records where the pool refused (rec == 0)
+}
+extern "C" void __imp__sub_880F25B8(PPCContext& __restrict, uint8_t*);
+PPC_FUNC(sub_880F25B8){
+  if(!rt_p25b8()){ __imp__sub_880F25B8(ctx,base); return; }
+  const uint32_t lr = (uint32_t)ctx.lr;
+  const uint32_t a3 = ctx.r3.u32, a4 = ctx.r4.u32, a5 = ctx.r5.u32;
+  const uint32_t g60 = PPC_LOAD_U32(kP25B8_G60);
+  __imp__sub_880F25B8(ctx,base);
+  const uint32_t rec = ctx.r3.u32;
+  const bool ok = (rec >= 0x1000u && rec < 0xFFFF0000u);
+  const uint32_t f48 = ok ? PPC_LOAD_U32(rec + 48u) : 0u;
+  const uint32_t f8  = ok ? PPC_LOAD_U32(rec +  8u) : 0u;
+  const uint32_t f32 = ok ? PPC_LOAD_U32(rec + 32u) : 0u;
+  if(lr != kP25B8_SiteLR){
+    const long long n = g_p25_other.fetch_add(1);
+    if(n < 8 || (n % 20000) == 0)
+      std::fprintf(stderr,"[p25b8] rec# OTHERSITE n=%lld lr=0x%08X r3=%u r4=%u r5=0x%08X"
+        " | rec=0x%08X f48=0x%08X (oracle column not applicable at this site)\n",
+        n,lr,a3,a4,a5,rec,f48);
+    return;
+  }
+  const long long n = g_p25_site.fetch_add(1);
+  if(!ok) g_p25_full.fetch_add(1);
+  if(ok && f48 == g60) g_p25_agree.fetch_add(1); else if(ok) g_p25_disagree.fetch_add(1);
+  if(ok && f48 == a5)  g_p25_r5eq.fetch_add(1);
+  if(n < 24 || (n % 2000) == 0 || (ok && f48 != g60 && g_p25_disagree.load() < 24)){
+    std::fprintf(stderr,"[p25b8] rec# %lld SITE lr=0x%08X | args r3=%u r4=%u r5=0x%08X"
+      " | oracle g60=0x%08X | rec=0x%08X%s | rec+8=%u rec+32=%u ★ rec+48=0x%08X"
+      " | f48==g60 %s | f48==r5 %s\n",
+      n,lr,a3,a4,a5,g60,rec,ok?"":" ★ POOL FULL (refusal arm)",f8,f32,f48,
+      (ok && f48==g60)?"YES":"★ NO",(ok && f48==a5)?"YES":"★ NO");
+    std::fflush(stderr);
+  }
+  if((n % 5000) == 0 && n > 0){
+    std::fprintf(stderr,"[p25b8] TALLY site=%lld other=%lld | agree(f48==g60)=%lld"
+      " disagree=%lld | f48==r5 %lld | poolfull=%lld\n",
+      g_p25_site.load(),g_p25_other.load(),g_p25_agree.load(),
+      g_p25_disagree.load(),g_p25_r5eq.load(),g_p25_full.load());
+    std::fflush(stderr);
+  }
+}
+namespace {
+  const struct W15Armed {
+    W15Armed(){
+      std::fprintf(stderr,"[w15] ARMED — r23-w15 driver batch linked (merged_game.cpp): the "
+        "record probe on sub_880F25B8 (Pool25B8_AllocRecord), which prints the three argument "
+        "registers at entry, the value the caller placed in the A2+ argument block at 0x88353060 "
+        "as a WITHIN-RUN ORACLE, and the allocated record's +48 word after the call returns  |  "
+        "RT_P25B8=%s  |  the oracle column is meaningful ONLY at call site lr=0x880A17AC (the "
+        "queue2 TU's one site); every other site is counted apart and claims nothing  |  the "
+        "unit is the ALLOCATION  |  READ-ONLY: writes no guest memory.\n",
+        std::getenv("RT_P25B8")?"1":"unset");
+      std::fflush(stderr);
+    }
+  } g_w15_armed;
+}
