@@ -4325,8 +4325,13 @@ extern "C" void __imp__sub_88095950(PPCContext& __restrict, uint8_t*);
 //   INDEPENDENTLY of RT_W353 (and runs before the early-return) so neither batch can mask the
 //   other — a w10 drive can arm [wgate] alone, or both, and the zeros stay readable either way.
 static void wgate_poll(uint8_t* base);
+// ★ r23-w14: [s88] rides the SAME per-frame walk, gated on RT_S88 INDEPENDENTLY of RT_W353 and of
+//   RT_WGATE, and placed before every early return, so none of the three batches can mask another.
+//   Full rationale, controls and declared limits live with the definition at the end of this file.
+static void s88_poll(uint8_t* base);
 PPC_FUNC(sub_88095950){
   wgate_poll(base);
+  s88_poll(base);
   if(!rt_w353()){ __imp__sub_88095950(ctx,base); return; }
   static std::atomic<long long> n{0};
   const long long i=n.fetch_add(1);
@@ -4994,4 +4999,254 @@ namespace {
       std::fflush(stderr);
     }
   } g_w13_armed;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ★★★ [s88] — r23-w14 DRIVER LANE.  **THE STAGE-INDEX CROSS-CHECK.**
+//
+//   w13's D3 census rode free on the [ringp] TALLY line and measured scene[88] walking
+//   0 -> 1 -> 2 -> 3 -> 4 monotone over one 2,202 s session.  It PROPOSED that word as the stage
+//   index and — correctly — refused to claim it, because there was no in-drive corroborator:
+//   RT_S5 was unset, so [25c8] never printed.  The owed cross-check was "arm RT_S5 beside [ringp]
+//   and check the two walk together".
+//
+//   ⚠⚠ AND THE FIRST THING THIS BATCH HAS TO SAY IS THAT THE CROSS-CHECK AS NAMED MAY BE
+//   DEGENERATE, because the campaign carries TWO VOCABULARIES FOR ONE OBJECT and has never
+//   crossed them:
+//       the SCENE-CENSUS vocabulary uses DECIMAL offsets on *(0x887AD130)   ->  "scene[88]"
+//       the TIMELINE   vocabulary uses HEX     offsets on W = 0x884D6740   ->  "W+0x58"
+//   and 88 decimal == 0x58 hex.  With w13's measured root 0x884D6740 those are ONE WORD at
+//   0x884D6798 — which is the very address [a58] and [trk] already read as "W+58 (tgt page)" and
+//   which the [w353] consumer wrapper above already computes FROM THE SCENE ROOT and prints as
+//   "tgtpg(+58)".  Nobody noticed, because no line ever printed both spellings together.
+//   ⇒ IF that identity holds at run time, then "scene[88] and W+0x58 walk together" is a
+//     tautology and proves NOTHING, and the finding is the identity itself.
+//   ⇒ SO THIS PROBE DOES NOT ASSERT THE IDENTITY — IT PRINTS BOTH EFFECTIVE ADDRESSES AND THE
+//     VERDICT, at poll #0, before any transition exists to be scored.  (r23-w10 law: offset
+//     coincidence is not identity.  Here the suspicion runs the other way — an offset IDENTITY
+//     hiding behind two spellings — but the remedy is the same one: measure the EA, do not
+//     compute it in the verdict.)
+//
+//   ⇒ AND IT REPLACES THE DEGENERATE WITNESS WITH STRUCTURAL EVENTS, which a value cannot be:
+//       W-a  [744p] "88136BC8 CREATE page=N"      a page-create CALL           (RT_744P)
+//       W-b  [w353] "CONSUMER ENTRY SEES THE FLAG ARMED" / "CONSUMER TRANSITION"
+//                                                  the named writer EXECUTING   (RT_W353)
+//       W-c  [25c8] TIMELINE-INIT / [a58] CALLED   the timeline scene RE-CREATED (RT_S5)
+//       W-d  W+0x5c (curpg), a DIFFERENT word      co-movement here is NOT degenerate
+//     The ledger's own reading names the writer: sub_88095950 does
+//       `if (DAT_88353036 != 0) { DAT_88353036 = 0; FUN_88136BC8(page + 1); }`
+//     — so the page-advance one-shot is a CANDIDATE incrementer, and this probe samples
+//     DAT_88353036 on the same line as the value so the two can be bound per-transition.
+//
+//   CONTROLS (LAWS M+ / M4), fixed in PREREG_w14.txt before this code was written:
+//     * ARMED BANNER, ungated: prints at DLL load whenever the TU is linked, so a zero below is
+//       distinguishable from the wrong binary.
+//     * INITIAL line, printed unconditionally at poll #0 — a drive with no transitions is
+//       distinguishable from a probe that never ran.
+//     * HEARTBEAT every 3600 polls, unconditional — liveness independent of any transition.
+//     * ★ TWO READERS, ONE ANSWER: [ringp]'s TALLY (armed on the same drive) reads the identical
+//       four scene fields from the sprite-draw API, a completely different code path.  Their
+//       scene[88] values must agree; if they disagree, BOTH are unreadable.
+//     * ★ THE CLASS-63/163 ZEROS ARE READABLE ONLY BECAUSE OF THE ABOVE.  Those two bodies are
+//       two of the fourteen ids the w13 orphan verdict says have NO CREATOR IN SHIPPED DATA, so
+//       zero entries is the PREDICTED outcome — and a predicted zero from an unlit probe is
+//       worthless.  The heartbeat is what makes it worth something.
+//
+//   DECLARED LIMITS, in advance rather than in the retraction:
+//     ⚠ THIS IS A POLL, NOT A HARDWARE WATCHPOINT.  scene[176] moves fast (w13 saw it rise and
+//       reset across thousands), so a transient 988 between two polls is INVISIBLE.  "988 never
+//       observed" is therefore NOT "988 never occurred".  The near-988 counter (|d| <= 8) is
+//       banked so the poll's own resolution is measurable, and the class-63 entry sampler is a
+//       second, EVENT-DRIVEN reader of the same word.
+//     ⚠ THE SLOW-WORD CHANGE WATCH covers scene[88]/[220]/[224] and W+0x58/W+0x5c ONLY.
+//       scene[176] is deliberately NOT in the change predicate — it would fire every frame and
+//       drown the log.  It is carried on every printed line and summarised by min/max/counters.
+//     ⚠ NOT CLAIMED BY CONSTRUCTION: "page" is not shown here to mean "stage".  W+0x58 is named
+//       "timeline target page" everywhere in this codebase and page==stage is an unmeasured
+//       equation.  This batch measures WHAT MOVES THE WORD, not what the word means.
+//     ⚠ SEAM CHANGE (LAW I1): sub_881315C8 and sub_88198850 are now HOOKED.  Neither is defined
+//       in any decomp/game/*.cpp TU today (checked by name, and the arm build asserts it
+//       mechanically) — but any FUTURE decomp TU for either must ship PPC_FUNC_IMPL(__imp__sub_X)
+//       or this wrapper dies silently.
+//   Read-only (it writes no guest memory, so there is nothing to revert), default-off (RT_S88),
+//   arm-symmetric by construction (merged_game.cpp links into both arms — LAWS G2).
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+static bool rt_s88(){ static int v=std::getenv("RT_S88")?1:0; return v!=0; }
+
+namespace {
+  constexpr uint32_t W14_SCENEPTR = 0x887AD130u;   // the global holding the scene root
+  constexpr uint32_t W14_W_EXPECT = 0x884D6740u;   // the root w13 measured — ON A POKED DRIVE
+  constexpr uint32_t W14_PG58_ABS = 0x884D6798u;   // the EA [a58]/[trk] read as "W+58 (tgt page)"
+  constexpr uint32_t W14_PG5C_ABS = 0x884D679Cu;   // ...and as "W+5c (cur page)"
+  constexpr uint32_t W14_ADVFLAG  = 0x88353036u;   // DAT_88353036, the page-advance one-shot
+
+  std::atomic<long long> g_s88_polls{0}, g_s88_chg{0}, g_s88_inc{0},
+                         g_s88_988hit{0}, g_s88_988near{0}, g_s88_unres{0},
+                         g_s88_c63{0}, g_s88_c63gate{0}, g_s88_c163{0}, g_s88_c163gate{0};
+
+  // ms since the first poll, so a transition can be bound to a photograph and to the neighbouring
+  // [744p]/[w353]/[25c8] lines by more than log order alone.
+  inline long long s88_ms(){
+    static const std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
+    return (long long)std::chrono::duration_cast<std::chrono::milliseconds>(
+             std::chrono::steady_clock::now() - t0).count();
+  }
+}
+
+static void s88_poll(uint8_t* base){
+  if(!rt_s88()) return;
+  const long long i = g_s88_polls.fetch_add(1);
+  const long long ms = s88_ms();
+  const uint32_t sc = PPC_LOAD_U32(W14_SCENEPTR);
+  const bool scok = (sc>=0x1000u && sc<0xFFFF0000u);
+
+  // ---- ★ PREREG P-1: THE EA IDENTITY, MEASURED AND PRINTED, NEVER COMPUTED IN THE VERDICT ----
+  //      Printed at poll #0 and again the FIRST time the root resolves, because at poll #0 the
+  //      root is routinely still zero (w13's own first TALLY read scene=0x00000000).
+  static bool s88_ident_done=false;
+  if(i==0 || (scok && !s88_ident_done)){
+    if(scok) s88_ident_done=true;
+    std::fprintf(stderr,
+      "[s88] INITIAL poll#%lld t+%lldms | *(0x%08X)=0x%08X %s | &scene[88](dec)=0x%08X"
+      "  &W+0x58(hex)=0x%08X  ==> %s | &W+0x5c=0x%08X | rootIsW13Value=%s\n",
+      i, ms, W14_SCENEPTR, sc, scok?"RESOLVED":"UNRESOLVED",
+      scok?(sc+88u):0u, W14_PG58_ABS,
+      (scok && (sc+88u)==W14_PG58_ABS)
+        ? "★★★ SAME WORD — scene[88] IS the [25c8]/[a58] stage selector W+0x58"
+        : (scok ? "DIFFERENT WORDS — the cross-witness is genuinely independent"
+                : "(root unresolved: NOT a verdict, retry pending)"),
+      W14_PG5C_ABS, scok?((sc==W14_W_EXPECT)?"yes(0x884D6740)":"NO — w13's root was a POKED drive"):"?");
+    std::fflush(stderr);
+  }
+  if(!scok){
+    const long long u=g_s88_unres.fetch_add(1);
+    if((u%3600)==0){
+      std::fprintf(stderr,"[s88] heartbeat #%lld t+%lldms ROOT UNRESOLVED (*(0x%08X)=0x%08X)"
+        " — no census is being taken\n", i, ms, W14_SCENEPTR, sc);
+      std::fflush(stderr);
+    }
+    return;
+  }
+
+  const uint32_t s88 =PPC_LOAD_U32(sc+88u);
+  const uint32_t s176=PPC_LOAD_U32(sc+176u);
+  const uint32_t s220=PPC_LOAD_U32(sc+220u);
+  const uint32_t s224=PPC_LOAD_U32(sc+224u);
+  const uint32_t pg58=PPC_LOAD_U32(W14_PG58_ABS);   // the ABSOLUTE the timeline taps read
+  const uint32_t pg5c=PPC_LOAD_U32(W14_PG5C_ABS);
+  const uint32_t adv =PPC_LOAD_U8 (W14_ADVFLAG);    // the one-shot, sampled beside the value
+  const uint32_t d76 =(uint32_t)PPC_LOAD_U16(0x884D678Cu);
+
+  // ---- the scene[176] == 988 watch (PREREG P-4 / D2), with its resolution measured -----------
+  static uint32_t m176lo=0xFFFFFFFFu, m176hi=0u;
+  if(s176<m176lo) m176lo=s176;
+  if(s176>m176hi) m176hi=s176;
+  if(s176==988u){
+    const long long k=g_s88_988hit.fetch_add(1);
+    if(k<8 || (k%1000)==0){
+      std::fprintf(stderr,"[s88] ★★★ SCENE176==988 HIT #%lld poll#%lld t+%lldms | scene[88]=%u"
+        " | class63 entries so far=%lld (gate-passes=%lld) | d76=%u\n",
+        k,i,ms,s88,g_s88_c63.load(),g_s88_c63gate.load(),d76);
+      std::fflush(stderr);
+    }
+  } else if(s176>=980u && s176<=996u){
+    g_s88_988near.fetch_add(1);
+  }
+
+  // ---- the SLOW-WORD change watch (scene[176] deliberately excluded — see declared limits) ---
+  static uint32_t q88=0x5A5A5A5Au,q220=0x5A5A5A5Au,q224=0x5A5A5A5Au,
+                  q58=0x5A5A5A5Au,q5c=0x5A5A5A5Au;
+  const bool first=(q88==0x5A5A5A5Au);
+  const bool ch=(s88!=q88)||(s220!=q220)||(s224!=q224)||(pg58!=q58)||(pg5c!=q5c);
+  if(ch){
+    const long long c=g_s88_chg.fetch_add(1);
+    const bool inc=(!first && s88==q88+1u);
+    if(!first && s88!=q88 && inc) g_s88_inc.fetch_add(1);
+    std::fprintf(stderr,
+      "[s88] %s #%lld poll#%lld t+%lldms | scene[88] %u->%u%s | W+0x58 %u->%u | W+0x5c %u->%u"
+      " | scene[220] %u->%u | scene[224] %u->%u(gate163 wants 46) | scene[176]=%u(gate63 wants 988)"
+      " | DAT_88353036=%u | d76=%u | c63=%lld c163=%lld\n",
+      first?"BOARD":"CHANGE", c, i, ms,
+      first?s88:q88, s88, (inc?"  ★ +1 INCREMENT":(first?"":(s88!=q88?"  ★ NON-UNIT STEP":""))),
+      first?pg58:q58, pg58, first?pg5c:q5c, pg5c,
+      first?s220:q220, s220, first?s224:q224, s224, s176, adv, d76,
+      g_s88_c63.load(), g_s88_c163.load());
+    std::fflush(stderr);
+    q88=s88; q220=s220; q224=s224; q58=pg58; q5c=pg5c;
+  } else if((i%3600)==0){
+    std::fprintf(stderr,
+      "[s88] heartbeat #%lld t+%lldms scene=0x%08X [88]=%u W+58=%u W+5c=%u [176]=%u"
+      " (lo=%u hi=%u hit988=%lld near988=%lld) [220]=%u [224]=%u adv=%u d76=%u"
+      " | changes=%lld unitIncs=%lld | c63=%lld/%lld c163=%lld/%lld\n",
+      i, ms, sc, s88, pg58, pg5c, s176, m176lo, m176hi,
+      g_s88_988hit.load(), g_s88_988near.load(), s220, s224, adv, d76,
+      g_s88_chg.load(), g_s88_inc.load(),
+      g_s88_c63.load(), g_s88_c63gate.load(), g_s88_c163.load(), g_s88_c163gate.load());
+    std::fflush(stderr);
+  }
+}
+
+// ---- ★ D2: THE TWO GATED DARK CLASSES, WATCHED AT THEIR OWN ENTRY -----------------------------
+//      class 63  = sub_881315C8 (153 insns) — inner gate scene[176] == 988; latches scene[88]
+//      class 163 = sub_88198850 (155 insns) — inner gate scene[224] == 46
+//      (bank/r23/w12/draft_f2b_lightmap_w12.md).  These are EVENT-DRIVEN readers of exactly the
+//      two words the poll above can only sample, which is why they are worth their two wrappers:
+//      a 988 that the poll misses is still caught here IF the body runs at that instant.
+//      ⚠ Both are PREDICTED to be structurally zero (PREREG P-5): they are two of the fourteen
+//        ids w13 ruled TRUE ORPHANS with no creator in shipped data.  Any entry line at all
+//        CONTRADICTS that verdict and is the largest finding this drive could carry.
+extern "C" void __imp__sub_881315C8(PPCContext& __restrict, uint8_t*);
+PPC_FUNC(sub_881315C8){
+  if(rt_s88()){
+    const uint32_t sc=PPC_LOAD_U32(W14_SCENEPTR);
+    const bool ok=(sc>=0x1000u&&sc<0xFFFF0000u);
+    const uint32_t s176=ok?PPC_LOAD_U32(sc+176u):0xEEEEEEEEu;
+    const uint32_t s88 =ok?PPC_LOAD_U32(sc+88u ):0xEEEEEEEEu;
+    const long long k=g_s88_c63.fetch_add(1);
+    const bool gate=(ok && s176==988u);
+    if(gate) g_s88_c63gate.fetch_add(1);
+    if(k<16 || gate || (k%5000)==0){
+      std::fprintf(stderr,"[s88] ★★★ CLASS63 ENTRY #%lld sub_881315C8 this=0x%08X lr=0x%08X"
+        " | scene=0x%08X [88]=%u [176]=%u | INNER GATE (176==988) %s | t+%lldms\n",
+        k,ctx.r3.u32,(uint32_t)ctx.lr,sc,s88,s176,gate?"★ PASSES":"fails",s88_ms());
+      std::fflush(stderr);
+    }
+  }
+  __imp__sub_881315C8(ctx,base);
+}
+extern "C" void __imp__sub_88198850(PPCContext& __restrict, uint8_t*);
+PPC_FUNC(sub_88198850){
+  if(rt_s88()){
+    const uint32_t sc=PPC_LOAD_U32(W14_SCENEPTR);
+    const bool ok=(sc>=0x1000u&&sc<0xFFFF0000u);
+    const uint32_t s224=ok?PPC_LOAD_U32(sc+224u):0xEEEEEEEEu;
+    const long long k=g_s88_c163.fetch_add(1);
+    const bool gate=(ok && s224==46u);
+    if(gate) g_s88_c163gate.fetch_add(1);
+    if(k<16 || gate || (k%5000)==0){
+      std::fprintf(stderr,"[s88] ★★★ CLASS163 ENTRY #%lld sub_88198850 this=0x%08X lr=0x%08X"
+        " | scene=0x%08X [224]=%u | INNER GATE (224==46) %s | t+%lldms\n",
+        k,ctx.r3.u32,(uint32_t)ctx.lr,sc,s224,gate?"★ PASSES":"fails",s88_ms());
+      std::fflush(stderr);
+    }
+  }
+  __imp__sub_88198850(ctx,base);
+}
+
+namespace {
+  const struct W14Armed {
+    W14Armed(){
+      std::fprintf(stderr,"[w14] ARMED — r23-w14 driver batch linked (merged_game.cpp): [s88] "
+        "(the scene[88] / W+0x58 slow-word change watch on the sub_88095950 per-frame walk, which "
+        "PRINTS BOTH EFFECTIVE ADDRESSES at poll #0 rather than asserting they are the same word; "
+        "plus the scene[176]==988 sampler and the scene[224] census) and the two D2 entry taps on "
+        "sub_881315C8 (class 63) / sub_88198850 (class 163)  |  RT_S88=%s  |  CROSS-WITNESSES, "
+        "which must be armed SEPARATELY and are structural EVENTS not values: [744p] 88136BC8 "
+        "CREATE page= (RT_744P), [w353] consumer/armers (RT_W353), [25c8]/[a58] timeline re-init "
+        "(RT_S5)  |  SECOND READER: [ringp] TALLY (RT_RINGP) reads the same four scene fields "
+        "through the sprite-draw API.  READ-ONLY: writes no guest memory.\n",
+        std::getenv("RT_S88")?"1":"unset");
+      std::fflush(stderr);
+    }
+  } g_w14_armed;
 }
