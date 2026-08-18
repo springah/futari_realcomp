@@ -932,24 +932,107 @@ PPC_FUNC(sub_880A4190){
   }
   __imp__sub_880A4190(ctx,base);
 }
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ★★★ [f0state] — r23-w12 DRIVER LANE.  THE CARD-FSM STATE TRAJECTORY.
+//
+//   WHY.  w11 banked "adv353036 stayed 0 across all 8 ticks of 881F0BC8 ⇒ a FURTHER condition
+//   downstream".  Two things are wrong with that sentence and this instrument exists to settle
+//   both:
+//     (1) the "8 ticks" is [cardfsm]'s own print cap (`if(q<8)`), NOT a tick count — a banner
+//         counter naming its own probe, the exact w11 defect class;
+//     (2) the STATIC read (Ghidra + codegen, both agreeing) says it is not a further condition
+//         at all.  sub_881F0BC8's ONLY store of DAT_88353036 is in case 0x28, and its case 0x23
+//         computes the next state as
+//             subfic r6,fsm56,0 ; subfe r5,r6,r6 ; rlwinm r11,r5,0,0,29 ; addi r4,r11,40
+//         = 40 (0x28) when fsm[56]==0 and 36 (0x24) when fsm[56]!=0 — and fsm[56] is the
+//         FOUR-CONDITION GATE'S OWN VERDICT, written by sub_881F1968.  So under the poke the FSM
+//         is routed to state 0x24 and the page-advance arm is UNREACHABLE BY CONSTRUCTION.
+//   ⚠ That is a chain of correct readings, which this campaign's own law says is not a
+//     measurement.  [f0state] is the measurement.
+//
+//   HOW.  All five card-FSM bodies (881EF798, 881F0BC8, 881F6000, 881F95E8, 881FD3E8, 882023E8)
+//   open with the IDENTICAL idiom, verified per body from the codegen rather than inherited from
+//   a family header (T4 header-inheritance trap):
+//       mr rX,r4 ; mr r4,r5 ; li r5,0 ; mr r3,rX ; bl 0x880968B8   ⇒ accessor(bank=r4, key=r5, 0)
+//   so at the wrapper's entry, ctx.r4 is the bank and ctx.r5 is the key.  The lookup half of
+//   sub_880968B8 is replicated READ-ONLY below; its allocator call (FUN_880963B0) is NOT made, so
+//   this probe can never create an FSM that the guest would not have created.
+//
+//   CONTROLS, fixed before the build (LAW M4/M+):
+//     * POSITIVE, LIVE SIBLING, IN-DRIVE: the four W9_ARMER bodies fire their
+//       "[armer] WROTE DAT_88353036 0 -> 1" line on EVERY banked drive.  [f0state] therefore
+//       must show at least one of them walking to state 0x28 in the same drive.  If it does not,
+//       the accessor replication is broken and NO [f0state] line in that drive is readable —
+//       including a zero.  Pre-registered as P-4 in bank/r23/w12/PREREG_w12.txt.
+//     * RESOLUTION BANNER: each body prints one RESOLVE line naming the bank/key/fsm it got, so
+//       "no state lines" can be told apart from "the pointer never resolved".
+//     * CROSS-INSTRUMENT: fsm[56] read here must equal the PRED fsm[56] that [f1968] computed
+//       from the four operands, by two different code paths in the same run.
+//   Read-only, default-off (RT_F0STATE), arm-symmetric (merged_game.cpp links into both arms).
+static inline bool rt_f0state(){ static int v=std::getenv("RT_F0STATE")?1:0; return v; }
+static inline bool w12_ok(uint32_t a){ return a>=0x1000u && a<0xFFFF0000u; }
+// READ-ONLY replication of sub_880968B8's LOOKUP half (reco_normal_decomp_all.txt:26153).
+//   if (key != 0) { for (5 entries of stride 0x68) if (e[6]!=0 && e[4]==(key&0xFFFF)) return e[0x60]; }
+static uint32_t w12_fsm_lookup(uint8_t* base, uint32_t bank, uint32_t key){
+  if(key==0u) return 0u;
+  for(int i=0;i<5;i++, bank+=0x68u){
+    if(!w12_ok(bank)) return 0u;
+    if(PPC_LOAD_U16(bank+6u)!=0u && PPC_LOAD_U16(bank+4u)==(uint16_t)(key&0xFFFFu))
+      return PPC_LOAD_U32(bank+0x60u);
+  }
+  return 0u;
+}
+// One call = one tick's worth of state accounting for one body.  `pre` is sampled at wrapper
+// entry (before the guest body runs) and `post` after it returns, so a state CHANGE is attributed
+// to the tick that made it.
+struct W12F0 { uint32_t fsm, st, s56; };
+static W12F0 w12_f0_read(uint8_t* base, uint32_t bank, uint32_t key){
+  W12F0 r{0,0xEEEEEEEEu,0xEEEEEEEEu};
+  r.fsm = w12_fsm_lookup(base,bank,key);
+  if(w12_ok(r.fsm)){ r.st = PPC_LOAD_U32(r.fsm+0u); r.s56 = PPC_LOAD_U32(r.fsm+56u); }
+  return r;
+}
+#define W12_F0STATE_BODY(HEXSTR, CNT, PRE, POST, BANK, KEY)                                        \
+  do{ static std::atomic<int> nres{0};                                                             \
+      if(nres.fetch_add(1)==0)                                                                     \
+        std::fprintf(stderr,"[f0state] RESOLVE %s bank=0x%08X key=0x%08X -> fsm=0x%08X %s\n",       \
+          HEXSTR,(BANK),(KEY),(PRE).fsm, w12_ok((PRE).fsm)?"OK":"UNRESOLVED (no line below is readable)"); \
+      if(w12_ok((PRE).fsm)){                                                                       \
+        if((PRE).st!=(POST).st || (CNT)<3)                                                          \
+          std::fprintf(stderr,"[f0state] %s tick#%lld fsm=0x%08X state 0x%X -> 0x%X fsm56=%u%s\n",  \
+            HEXSTR,(long long)(CNT),(PRE).fsm,(PRE).st,(POST).st,(POST).s56,                        \
+            ((POST).st==0x28u)?"  <<< STATE 0x28 — THE PAGE-ADVANCE ARM":                           \
+            (((POST).st==0x24u)?"  <<< STATE 0x24 — THE GATE-TRUE TERMINAL ARM":""));               \
+        else if(((CNT)%20000)==0)                                                                   \
+          std::fprintf(stderr,"[f0state] %s heartbeat tick#%lld state 0x%X fsm56=%u\n",             \
+            HEXSTR,(long long)(CNT),(POST).st,(POST).s56);                                          \
+      } }while(0)
+
 // ★ r23-w9: the THREE already-wrapped armers gain the [w353] BEFORE/AFTER differencing that the
 //   other four get from the W353_ARMER macro at the foot of this file.  The [cardfsm] line itself
 //   is UNCHANGED so every w8 board stays directly comparable.  rt_w353() is declared below.
 static inline bool rt_w353();
 extern "C" void __imp__sub_881EF798(PPCContext& __restrict, uint8_t*);
+// ★ r23-w12: [f0state] is folded in AROUND THE SAME SINGLE CALL as [armer], so the two
+//   instruments cannot double-invoke the body and either can be armed without the other.
+#define W12_CARDFSM_WRAP(HEX, HEXSTR)                                                              \
+  const bool f0=rt_f0state(), w3=rt_w353();                                                        \
+  if(!f0 && !w3){ __imp__sub_##HEX(ctx,base); return; }                                            \
+  static std::atomic<long long> n{0}; const long long i=n.fetch_add(1);                            \
+  const uint32_t bk=ctx.r4.u32, ky=ctx.r5.u32;                                                     \
+  W12F0 fpre{}; if(f0) fpre=w12_f0_read(base,bk,ky);                                                    \
+  const uint8_t pre=PPC_LOAD_U8(0x88353036u);                                                      \
+  __imp__sub_##HEX(ctx,base);                                                                      \
+  const uint8_t post=PPC_LOAD_U8(0x88353036u);                                                     \
+  if(f0){ W12F0 fpo=w12_f0_read(base,bk,ky); W12_F0STATE_BODY(HEXSTR,i,fpre,fpo,bk,ky); }               \
+  if(w3){                                                                                          \
+    if(pre!=post) std::fprintf(stderr,"[armer] ★★★ " HEXSTR " WROTE DAT_88353036 %u -> %u (call #%lld) d76=%u\n",(unsigned)pre,(unsigned)post,i,(uint32_t)PPC_LOAD_U16(0x884D678Cu)); \
+    else if(i<2||(i%20000)==0) std::fprintf(stderr,"[armer] " HEXSTR " tick #%lld flag=%u d76=%u\n",i,(unsigned)post,(uint32_t)PPC_LOAD_U16(0x884D678Cu)); }
 PPC_FUNC(sub_881EF798){ if(rt_cardfsm()){ static std::atomic<int> c{0}; int q=c.fetch_add(1); if(q<8) std::fprintf(stderr,"[cardfsm] 881EF798 card-FSM TICK #%d adv353036=%u\n",q,PPC_LOAD_U8(0x88353036u)); }
-  if(!rt_w353()){ __imp__sub_881EF798(ctx,base); return; }
-  static std::atomic<long long> n{0}; long long i=n.fetch_add(1); uint8_t pre=PPC_LOAD_U8(0x88353036u);
-  __imp__sub_881EF798(ctx,base); uint8_t post=PPC_LOAD_U8(0x88353036u);
-  if(pre!=post) std::fprintf(stderr,"[armer] ★★★ 0x881EF798 WROTE DAT_88353036 %u -> %u (call #%lld) d76=%u\n",(unsigned)pre,(unsigned)post,i,(uint32_t)PPC_LOAD_U16(0x884D678Cu));
-  else if(i<2||(i%20000)==0) std::fprintf(stderr,"[armer] 0x881EF798 tick #%lld flag=%u d76=%u\n",i,(unsigned)post,(uint32_t)PPC_LOAD_U16(0x884D678Cu)); }
+  W12_CARDFSM_WRAP(881EF798,"0x881EF798") }
 extern "C" void __imp__sub_881F0BC8(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_881F0BC8){ if(rt_cardfsm()){ static std::atomic<int> c{0}; int q=c.fetch_add(1); if(q<8) std::fprintf(stderr,"[cardfsm] 881F0BC8 card-FSM TICK #%d adv353036=%u\n",q,PPC_LOAD_U8(0x88353036u)); }
-  if(!rt_w353()){ __imp__sub_881F0BC8(ctx,base); return; }
-  static std::atomic<long long> n{0}; long long i=n.fetch_add(1); uint8_t pre=PPC_LOAD_U8(0x88353036u);
-  __imp__sub_881F0BC8(ctx,base); uint8_t post=PPC_LOAD_U8(0x88353036u);
-  if(pre!=post) std::fprintf(stderr,"[armer] ★★★ 0x881F0BC8 WROTE DAT_88353036 %u -> %u (call #%lld) d76=%u\n",(unsigned)pre,(unsigned)post,i,(uint32_t)PPC_LOAD_U16(0x884D678Cu));
-  else if(i<2||(i%20000)==0) std::fprintf(stderr,"[armer] 0x881F0BC8 tick #%lld flag=%u d76=%u\n",i,(unsigned)post,(uint32_t)PPC_LOAD_U16(0x884D678Cu)); }
+  W12_CARDFSM_WRAP(881F0BC8,"0x881F0BC8") }
 extern "C" void __imp__sub_881EB1F0(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_881EB1F0){ if(rt_cardfsm()){ static std::atomic<int> c{0}; int q=c.fetch_add(1); if(q<8) std::fprintf(stderr,"[cardfsm] 881EB1F0 card-FSM TICK #%d adv353036=%u\n",q,PPC_LOAD_U8(0x88353036u)); }
   if(!rt_w353()){ __imp__sub_881EB1F0(ctx,base); return; }
@@ -4249,15 +4332,25 @@ PPC_FUNC(sub_88095950){
 // ── THE FOUR UNINSTRUMENTED ARMERS.  Same shape as the three RT_CARDFSM ones above.  These are
 //    per-frame FSM ticks and can be hot, so the no-transition path is throttled hard; the
 //    TRANSITION path is never throttled, because it is the whole point of the instrument.
+// ★ r23-w12: these four are [f0state]'s LIVE POSITIVE CONTROL.  All four fire the "WROTE
+//   DAT_88353036 0 -> 1" line on every banked drive, so if the state-trajectory probe is sound
+//   at least one of them must be seen walking to state 0x28 in the SAME drive that the probe
+//   reports 881F0BC8 never reaching it.  Their accessor idiom was verified per body from the
+//   codegen (mr rX,r4 ; mr r4,r5 ; li r5,0 ; bl 0x880968B8) — not inherited from a header.
 #define W9_ARMER(HEX)                                                                              \
   extern "C" void __imp__sub_##HEX(PPCContext& __restrict, uint8_t*);                              \
   PPC_FUNC(sub_##HEX){                                                                             \
-    if(!rt_w353()){ __imp__sub_##HEX(ctx,base); return; }                                          \
+    const bool f0=rt_f0state(), w3=rt_w353();                                                      \
+    if(!f0 && !w3){ __imp__sub_##HEX(ctx,base); return; }                                          \
     static std::atomic<long long> n{0};                                                            \
     const long long i=n.fetch_add(1);                                                              \
+    const uint32_t bk=ctx.r4.u32, ky=ctx.r5.u32;                                                   \
+    W12F0 fpre{}; if(f0) fpre=w12_f0_read(base,bk,ky);                                                  \
     const uint8_t pre=PPC_LOAD_U8(0x88353036u);                                                    \
     __imp__sub_##HEX(ctx,base);                                                                    \
     const uint8_t post=PPC_LOAD_U8(0x88353036u);                                                   \
+    if(f0){ W12F0 fpo=w12_f0_read(base,bk,ky); W12_F0STATE_BODY("0x" #HEX,i,fpre,fpo,bk,ky); }          \
+    if(!w3) return;                                                                                \
     if(pre!=post)                                                                                  \
       std::fprintf(stderr,"[armer] ★★★ 0x" #HEX " WROTE DAT_88353036 %u -> %u (call #%lld) d76=%u\n",\
         (unsigned)pre,(unsigned)post,i,(uint32_t)PPC_LOAD_U16(0x884D678Cu));                       \
@@ -4595,4 +4688,97 @@ namespace {
       std::fflush(stderr);
     }
   } g_w10_armed;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ★★★ [q2rec] — r23-w12 DRIVER LANE.  WHAT THE TWO POKE-EXCLUSIVE queue2 DRAWERS ACTUALLY DO.
+//
+//   w11 measured that the poke buys exactly two queue2 slots: 0x880A0E30 (HudGauge_DrawFrame)
+//   and 0x880A19B0 (QueueForwardPair), reached through the director 0x881ECDE0.  [objq2] proves
+//   they RAN and nothing more — and its per-slot counter is capped at 4, so even its counts are
+//   saturated (INSTRUMENT SATURATION LAW).  This batch asks the next question: does that work
+//   reach draw code, and through which fields.
+//
+//   ⚠ WHY THE TAPS ARE ON THE CALLEES AND NOT ON THE TWO DRAWERS THEMSELVES — LAW I4.
+//     0x880A0E30, 0x880A19B0, 0x880A5590 and 0x880D0030 are ALREADY defined as PPC_FUNC in
+//     decomp/game/objaction_queue2.cpp (the converted TU that carries [objq2]).  A second
+//     PPC_FUNC here would be a duplicate strong definition; under /FORCE:MULTIPLE with
+//     decomp_*.o first the decomp copy wins and THIS tap would be dead code printing a
+//     confident zero.  So the tap goes on the four callees, each of which was measured UNHOOKED
+//     and undefined in every compiled decomp TU before it was wrapped.
+//
+//   THE FOUR, and what each one's presence means (all offsets re-derived from the CODEGEN, which
+//   prints displacements in decimal — LAW M2 — not from the drafts' prose):
+//     0x880A0C48  first sub-drawer of 880A19B0.  Gate: st[14176] != 0, else immediate bail.
+//     0x880A0A10  second sub-drawer of 880A19B0. Gate: st[26472] != 0, else immediate bail.
+//     0x880A0360  880A0E30's tail branch taken when *0x884D66A0 == 0 && (g&3)==0.
+//                 Own early-out: st[26472] >= 128 returns immediately.
+//     0x880A0478  880A0E30's OTHER tail branch (taken when *0x884D66A0 != 0).  Gate st[26472]!=0.
+//   ⇒ a [q2rec] line from 880A0360 or 880A0478 is an EXECUTION WITNESS THAT 880A0E30 REACHED ITS
+//     TAIL, which no census can give (the census sees indirect dispatch only — LAW M6 — and all
+//     four of these are direct bl).
+//
+//   The line also carries 880A0E30's own discriminators, read off the same st: st[472] is the
+//   8-way body-part arm selector, st[564] the optional sub-emit gate, st[1168]/st[1172] the
+//   radial-ring gate and radius.  ⚠ THAT IS AN INFERENCE UNTIL THE `this` VALUES MATCH: 880A19B0
+//   and 880A0E30 are installed on the same owner by 880A1A40, so their st SHOULD be the same
+//   record.  The line prints `this` and `st` for every body precisely so that can be checked in
+//   the log instead of assumed.
+//
+//   CONTROLS (LAW M+ / M4), fixed before the build:
+//     * ARMED BANNER, ungated by any route: prints at DLL load whenever RT_Q2REC=1, so a zero is
+//       distinguishable from an unlinked TU or a wrong binary.
+//     * POSITIVE, IN-DRIVE: 0x880A0A10 and 0x880A0478 are ALSO reachable from route-normal code
+//       paths; if every one of the four is silent while [objq2] shows its usual 12 slots firing,
+//       the batch is broken and no zero here is readable.  Pre-registered as P-8.
+//   ⚠⚠ THE LINE DIRECTLY ABOVE IS FALSE AND IS LEFT STANDING SO THE CORRECTION IS VISIBLE.
+//     Written 2026-08-18 MID-DRIVE, after actually ENUMERATING the callers instead of assuming
+//     them (bank/r23/w12/PREREG_w12_ADDENDUM_q2rec_control.txt, written before any [q2rec] line
+//     existed).  The real call graph is:
+//         bl 0x880a0c48 <- sub_880A19B0 ONLY      bl 0x880a0a10 <- sub_880A19B0 ONLY
+//         bl 0x880a0360 <- sub_880A0E30 ONLY      bl 0x880a0478 <- sub_880A0E30 and sub_8809C400
+//     and ALL of those callers are themselves in the poke-exclusive set.  ⇒ [q2rec] HAS NO
+//     ROUTE-NORMAL POSITIVE CONTROL AND CANNOT HAVE ONE (LAW M+ EXCLUSION case).  What survives
+//     is (1) the SEAM proof -- all four symbols are won by merged_game.o on the /MAP, so if a
+//     body runs, THIS wrapper runs -- and (2) the [w12] ARMED banner.  A NON-ZERO count is a
+//     sound execution witness; a ZERO would have been only weakly readable.  On the drive it
+//     fired 75 times, so the point is moot for d1_pokerec_sweep -- but it must not be repeated.
+//   Read-only, default-off (RT_Q2REC), arm-symmetric (merged_game.cpp links into both arms).
+static inline bool rt_q2rec(){ static int v=std::getenv("RT_Q2REC")?1:0; return v; }
+static void w12_q2rec_line(uint8_t* base, const char* who, uint32_t self, long long i){
+  auto ok=[](uint32_t a){ return a>=0x1000u && a<0xFFFF0000u; };
+  const uint32_t st = ok(self)?PPC_LOAD_U32(self+2304u):0u;
+  if(!ok(st)){ std::fprintf(stderr,"[q2rec] %s #%lld this=0x%08X st=UNRESOLVED\n",who,i,self); return; }
+  std::fprintf(stderr,"[q2rec] %s #%lld this=0x%08X st=0x%08X | gates st[14176]=%u st[26472]=%u"
+    " | 0E30 arm st[472]=%u sub st[564]=%u ring st[1168]=%u R st[1172]=%u | g=0x%08X 66a0=%u\n",
+    who,i,self,st,
+    PPC_LOAD_U32(st+14176u),PPC_LOAD_U32(st+26472u),
+    PPC_LOAD_U32(st+472u),PPC_LOAD_U32(st+564u),PPC_LOAD_U32(st+1168u),PPC_LOAD_U32(st+1172u),
+    PPC_LOAD_U32(0x884D673Cu),PPC_LOAD_U32(0x884D66A0u));
+}
+#define W12_Q2REC(HEX)                                                                             \
+  extern "C" void __imp__sub_##HEX(PPCContext& __restrict, uint8_t*);                              \
+  PPC_FUNC(sub_##HEX){                                                                             \
+    if(rt_q2rec()){ static std::atomic<long long> n{0}; const long long i=n.fetch_add(1);          \
+      if(i<12 || (i%2000)==0) w12_q2rec_line(base, "0x" #HEX, ctx.r3.u32, i); }                          \
+    __imp__sub_##HEX(ctx,base);                                                                    \
+  }
+W12_Q2REC(880A0C48)
+W12_Q2REC(880A0A10)
+W12_Q2REC(880A0360)
+W12_Q2REC(880A0478)
+#undef W12_Q2REC
+
+namespace {
+  const struct W12Armed {
+    W12Armed(){
+      std::fprintf(stderr,"[w12] ARMED — r23-w12 driver batch linked (merged_game.cpp): "
+        "[f0state] (card-FSM state trajectory via a READ-ONLY replica of sub_880968B8's lookup) "
+        "and [q2rec] (the four callees of the two poke-exclusive queue2 drawers)  |  "
+        "RT_F0STATE=%s RT_Q2REC=%s  |  f0state's POSITIVE CONTROL is the four W9_ARMER bodies "
+        "reaching state 0x28 in the same drive; q2rec's is any of its four firing at all.\n",
+        std::getenv("RT_F0STATE")?"1":"unset", std::getenv("RT_Q2REC")?"1":"unset");
+      std::fflush(stderr);
+    }
+  } g_w12_armed;
 }
