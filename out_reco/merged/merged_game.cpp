@@ -777,6 +777,7 @@ PPC_FUNC(sub_880A3F98){
 //       state-root resolution.  If they ever disagree, THIS probe is wrong, not the gate.
 //   Read-only, default-off, arm-symmetric (merged_game.cpp links into both arms — LAWS G2).
 static inline bool rt_f1968(){ static int v=std::getenv("RT_F1968")?1:0; return v; }
+static inline bool rt_wgate();   // ★ r23-w10 batch, defined at the foot of this file ([st28] below uses it)
 extern "C" void __imp__sub_881F1968(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_881F1968){
   if(rt_cardfsm()){
@@ -822,6 +823,30 @@ PPC_FUNC(sub_880A4628){
     std::fprintf(stderr,"[cardfsm] ##### 880A4628 CARD-MANAGER-INSTALL #%d mode(887ad130+54)=%u csfsm=%u d76=%u out=%u\n",
       c.fetch_add(1), (g130>=0x1000u&&g130<0xFFFF0000u)?PPC_LOAD_U32(g130+0x54u):0xFFFFFFFFu,
       PPC_LOAD_U32(0x884EA3DCu),PPC_LOAD_U16(0x884D678Cu),PPC_LOAD_U32(0x884D66A8u));
+  }
+  // ★★★ [st28] r23-w10: THE C4 SEED, MEASURED AT ITS WRITER.  This body's own opening does
+  //   `r28 = *(0x887AD130) ; r6 = r28[84] ; r31 = *(this+2304) ; r31[28] = r6`, i.e. it seeds
+  //   st[28] — the gate's C4 operand — from scene[84], the mode-select row index.  Logging st
+  //   HERE and comparing it with the `st=` field of the [f1968] line in the SAME log is the
+  //   control that turns "880A4628 seeds C4" from a reading into a measurement: if the two
+  //   addresses differ, the two bodies are looking at DIFFERENT scene roots and the naming is
+  //   wrong.  Post-values are read after the call so the seeding itself is visible.
+  if(rt_wgate()){
+    const uint32_t g=PPC_LOAD_U32(0x887AD130u), own=ctx.r3.u32;
+    auto ok=[](uint32_t a){ return a>=0x1000u && a<0xFFFF0000u; };
+    const uint32_t s84=ok(g)?PPC_LOAD_U32(g+84u):0xEEEEEEEEu;
+    const uint32_t st =ok(own)?PPC_LOAD_U32(own+2304u):0u;
+    const uint32_t pre=ok(st)?PPC_LOAD_U32(st+28u):0xEEEEEEEEu;
+    __imp__sub_880A4628(ctx,base);
+    const uint32_t st2=ok(own)?PPC_LOAD_U32(own+2304u):0u;
+    const uint32_t post=ok(st2)?PPC_LOAD_U32(st2+28u):0xEEEEEEEEu;
+    std::fprintf(stderr,"[st28] 880A4628 INSTALL own=0x%08X st=0x%08X (post st=0x%08X) | "
+      "scene84(0x887AD130+84)=%u | st[28] %u -> %u | SEEDED=%s | cardmgr(0x887AD120)=0x%08X"
+      " | slot0+28=%u slot1+28=%u d76=%u\n",
+      own,st,st2,s84,pre,post,(post==s84)?"YES (post == scene84)":"NO",
+      PPC_LOAD_U32(0x887AD120u),PPC_LOAD_U32(0x884D6D04u),PPC_LOAD_U32(0x884D6DC8u),
+      (uint32_t)PPC_LOAD_U16(0x884D678Cu));
+    return;
   }
   __imp__sub_880A4628(ctx,base);
 }
@@ -1466,13 +1491,32 @@ PPC_FUNC(sub_88093950){
 // ---- RT_TRACESM: trace the scene/mode state-machine sub_88138F00's per-state callees to find
 // where the first tick stalls. Logs ENTER#n/EXIT#n for the first few calls of each; the fn whose
 // ENTER#k has no matching EXIT#k is the stall (works for the sub_8813A3C0 x33 loop too). ----
+// ★ r23-w10: SM_WRAP GAINS THE [wwrite] DIFFERENCING PAIR.  sub_88136460 and sub_88133B68 are
+//   both in the w10 candidate family for the writer of PlayerSlot[i]+28 (the gate's C2 cell) —
+//   88136460 writes eleven W-block fields and 88133B68 forms the record base as `addi r3,r31,-128`
+//   off W+1576 — but both were ALREADY wrapped here, and a second PPC_FUNC for the same symbol is
+//   a redefinition, not an addition (caught at compile time, which is the good case; LAW I4 is the
+//   bad one).  So the watch goes INSIDE this macro instead, gated on RT_WGATE.  Seven other
+//   0x8813xxxx menu-family bodies come along for free, and they are in exactly the right
+//   neighbourhood: the W block is theirs.  Read-only; when RT_WGATE is unset this is one
+//   predictable branch and the macro behaves exactly as it did before.
 #define SM_WRAP(FN) \
   extern "C" void __imp__##FN(PPCContext& __restrict, uint8_t*); \
   static std::atomic<int> g_sm_##FN{0}; \
   PPC_FUNC(FN){ \
     int n=g_sm_##FN.fetch_add(1); bool t=std::getenv("RT_TRACESM")&&(n<3); \
     if(t) std::fprintf(stderr,"[sm] " #FN " ENTER#%d\n",n); \
+    const bool wg=rt_wgate(); \
+    const uint32_t wa=wg?PPC_LOAD_U32(0x884D6D04u):0u, wb=wg?PPC_LOAD_U32(0x884D6DC8u):0u; \
     __imp__##FN(ctx,base); \
+    if(wg){ \
+      const uint32_t wa2=PPC_LOAD_U32(0x884D6D04u), wb2=PPC_LOAD_U32(0x884D6DC8u); \
+      if(wa!=wa2||wb!=wb2) \
+        std::fprintf(stderr,"[wwrite] *** " #FN " WROTE slot0+28 %u->%u  slot1+28 %u->%u" \
+          " (call #%d) d76=%u\n",wa,wa2,wb,wb2,n,(uint32_t)PPC_LOAD_U16(0x884D678Cu)); \
+      else if(n<2||(n%20000)==0) \
+        std::fprintf(stderr,"[wwrite] " #FN " tick #%d s0=%u s1=%u\n",n,wa2,wb2); \
+    } \
     if(t) std::fprintf(stderr,"[sm] " #FN " EXIT#%d\n",n); \
   }
 SM_WRAP(sub_881383A0)
@@ -4120,7 +4164,12 @@ static inline bool rt_w353(){ static int v=std::getenv("RT_W353")?1:0; return v;
 //    "[w353] heartbeat" lines prove the batch is linked and executing in the driven binary, which
 //    is what makes every OTHER zero in the batch falsifiable (LAW M+, r22ext staged-binary form).
 extern "C" void __imp__sub_88095950(PPCContext& __restrict, uint8_t*);
+// ★ r23-w10: the [wgate] change-watch rides this same per-frame walk, but is gated on RT_WGATE
+//   INDEPENDENTLY of RT_W353 (and runs before the early-return) so neither batch can mask the
+//   other — a w10 drive can arm [wgate] alone, or both, and the zeros stay readable either way.
+static void wgate_poll(uint8_t* base);
 PPC_FUNC(sub_88095950){
+  wgate_poll(base);
   if(!rt_w353()){ __imp__sub_88095950(ctx,base); return; }
   static std::atomic<long long> n{0};
   const long long i=n.fetch_add(1);
@@ -4240,4 +4289,177 @@ namespace {
       std::fflush(stderr);
     }
   } g_w9_armed;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ★★★ r23-w10 DRIVER-LANE INSTRUMENT BATCH — [wgate] / [wwrite] / [st28].
+//   MISSION: open (or prove unopenable) the four-condition gate in sub_881F1968 that w9 MEASURED
+//   two conditions short (bank/r23/w9/MISSION2_VERDICT_w9.txt §0).  w9 deliberately refused to NAME
+//   C2/C4 from their one consumer (LAW N1).  The w10 static lane named them from structure and
+//   from a writer; this batch is the runtime half, and it exists because the static half hit a
+//   wall that only a measurement can pass.  Everything below is read-only, default-off
+//   (RT_WGATE), arm-symmetric (merged_game.cpp links into both arms — LAWS G2).
+//
+// ── WHAT THE w10 STATIC LANE ESTABLISHED (bank/r23/w10/m1_*.txt, method LAW M1):
+//   1. C2 = 0x884D6D04 and C3 = 0x884D6DC8 are THE SAME FIELD OF TWO RECORDS, not two globals.
+//      The record base is 0x884D6CE8 (= W+1448) and the stride is 196 (0xC4):
+//        * ten bodies form both bases as `addi rX,rW,1448` then `addi rX,rX,196` / `,1644`
+//          (m1_Wrecord_anchors_w10.txt);
+//        * sub_881356C8 IS the getter, register-true and six instructions long:
+//              lis r10,-30643 ; mulli r11,r3,196 ; addi r10,r10,26432 ; addi r10,r10,1448
+//              add r3,r11,r10 ; blr          =>  PlayerSlot(i) = 0x884D6CE8 + i*196
+//        * twelve INDEPENDENT field pairs sit exactly 196 apart in the static EA census
+//          (1456/1652, 1457/1653, 1458/1654, 1460/1656, 1476/1672, 1504/1700, 1508/1704,
+//          1520/1716, 1524/1720, 1560/1756, 1576/1772, 1588/1784) — m1_Wblock_static_w10.txt;
+//        * Ghidra corroborates the SHAPE from a different direction: FUN_88135d98 and
+//          FUN_88104230 both walk `pbVar = &DAT_884d6ce8; ... pbVar + 0xc4` for exactly TWO
+//          iterations, testing `(*pbVar & 1)` and `*(int *)(pbVar + 0x8c)`
+//          (reco_normal_decomp_all.txt:123957, :93740);
+//        * and the CAMPAIGN OWN JULY INSTRUMENT already read it this way, with no prior
+//          arrangement: [confirm366] in this very file logs
+//              PPC_LOAD_U8(0x884D6CE8u + side*196u)   as   "slot%u active"
+//          — an independent prior witness to base 0x884D6CE8 and stride 196.
+//      => C2 = PlayerSlot[0] + 28 and C3 = PlayerSlot[1] + 28, and "the gate wants C2+C3 == 0"
+//        is "wants that field EMPTY ON BOTH SIDES".  The pair is NOT two unrelated globals.
+//   2. ★ CORRECTION TO THE w9 LEDGER LINE.  w9 wrote that C2 value 9 "sits AT sub_88137ED8's
+//      sum-and-clamp ceiling".  Register-true, the clamp in sub_88137ED8 writes a LOCAL byte
+//      (Ghidra local_4f) that is packed into a per-frame record; it NEVER writes back to
+//      0x884D6D04.  The 9 in C2 has a different origin and the coincidence of value must not be
+//      read as causation.  (LAW: a chain of correct readings is not a measurement.)
+//   3. ★ NO INSTRUCTION IN reco_normal WRITES PlayerSlot[i]+28.  Four independent sweeps, each
+//      with its own controls: constant-propagated EA census (1 lwz, 0 stw); displacement sweep
+//      at 1476/1672/1628/1824 over ANY base; x-form (indexed) sweep over the whole W block (4
+//      sites, none at +28); add/subf-form base sweep (4 sites, all in the getter and two
+//      callers); and an OVER-APPROXIMATING taint sweep that unions across branch arms (35 stores
+//      through an ever-record-tainted base, NONE at +28).  The field is also ZERO in
+//      reco_normal.img.bin (positive control: the sine LUT at 0x88062550 reads tbl[128]=4096),
+//      so the 9 that w9 measured is written AT RUN TIME, by something these sweeps structurally
+//      cannot see.
+//      => THAT is what [wwrite] below is for.  It is a differencing write-watch of exactly the
+//        w9 [armer] shape, on the candidate family that reaches the record.
+//   4. ★★★ C4 IS NAMED, FROM ITS WRITER, AND THE NAME IS A ROUTE LEVER.  sub_880A4628 (the
+//      card-manager installer the [cardfsm] probe has wrapped since July, class id 217 on the
+//      w9 [958a0] roster) opens with, register-true:
+//              lis r9,-30597 ; addi r7,r9,-11984      ; 0x887AD130
+//              lwz r28,-11984(r9)                     ; r28 = *(0x887AD130)   the scene object
+//              lwz r6,84(r28)                         ; ★ r6 = scene[84]
+//              stw r6,28(r31)                         ; r31 = *(this+2304) = st  =>  st[28] = scene[84]
+//      A module-wide sweep for stores of that exact loaded value (m1_scene84_copies_w10.txt)
+//      finds 34 sites, of which FIVE store it at +28 of their own `*(this+2304)`: 8817CA00,
+//      881856B8, 8809C9E0, 880A4628, 880B0860 — a family idiom, not a one-off.
+//      => C4 = st[28] IS A COPY OF scene[84], AND scene[84] IS THE MODE-SELECT ROW INDEX with a
+//        MEASURED value binding already in LAWS.md (r23-w4/w5): ==0 ordinary play, ==1 MANIAC,
+//        ==2 ULTRA.  THE GATE WANTS 2.  => THE ROUTE THAT SATISFIES C4 IS **ULTRA**.
+//      => AND THE MEASURED BOARD AGREES FROM THE OTHER SIDE: w9 d1/d2 were Original routes,
+//        where scene[84]==0, and [f1968] read C4 = 0.  Two instruments, two windows, no shared
+//        assumption.  That is the cross-check, and it is why C4 is reported as NAMED and C2 is not.
+//      ⚠ NOT ESTABLISHED, and the [st28] probe below is what would establish it: that the `st`
+//        sub_880A4628 seeds is the SAME OBJECT as the `st` sub_881F1968 reads.  Both resolve
+//        `*(this+2304)`, but from DIFFERENT `this` pointers.  Until one log line shows the two
+//        addresses equal, "880A4628 seeds C4" is a reading, not a measurement.
+//      ⚠ AND THE COUNTDOWN IS REAL: sub_880A1D30 does `r11 = st[28]; if(r11){ r11 -= 2;
+//        st[28] = r11; if(r11 <= 0) st[28] = 0; }` — st[28] is DECREMENTED BY 2 PER TICK toward
+//        zero.  sub_880A1D30 is the tick of a class-244 object and class 244 was NOT created on
+//        any w9 route, so on our routes nothing should decrement it — but if 244 ever IS created,
+//        C4 becomes a NARROW WINDOW rather than a steady state.  The poll below watches for that.
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+static inline bool rt_wgate(){ static int v=std::getenv("RT_WGATE")?1:0; return v; }
+
+// ── [wgate] THE CHANGE-WATCH.  Called from the sub_88095950 per-frame walk (the same body whose
+//    heartbeat is the w9 batch liveness control), gated INDEPENDENTLY of RT_W353 so the two
+//    batches cannot mask each other.  Prints ONLY on a transition, plus a throttled heartbeat.
+//
+//    ★ ITS DECLARED POSITIVE CONTROL (pre-registered, PREREG_w10.txt O-P2): PlayerSlot[0]+28 is
+//      ZERO in the module image and w9 MEASURED it at 9 at t~1800 s.  A transition therefore
+//      EXISTS on any route that reaches that depth.  If this watch prints no C2 transition while
+//      [f1968] reports C2=9 in the same log, THE WATCH IS BROKEN and every zero it prints is
+//      unreadable — the LAW M4 form, declared before the drive rather than after it.
+//    ⚠ DECLARED LIMIT (same as w9 §6): this is a POLL, not a hardware watchpoint.  A value that
+//      is written and restored between two polls is invisible.  [wwrite] is the other half.
+static void wgate_poll(uint8_t* base){
+  if(!rt_wgate()) return;
+  static std::atomic<long long> n{0};
+  const long long i=n.fetch_add(1);
+  auto ok=[](uint32_t a){ return a>=0x1000u && a<0xFFFF0000u; };
+  const uint32_t c2 =PPC_LOAD_U32(0x884D6D04u);          // PlayerSlot[0]+28
+  const uint32_t c3 =PPC_LOAD_U32(0x884D6DC8u);          // PlayerSlot[1]+28
+  const uint32_t a0 =PPC_LOAD_U8 (0x884D6CE8u);          // PlayerSlot[0]+0  (bit0 = active)
+  const uint32_t a1 =PPC_LOAD_U8 (0x884D6DACu);          // PlayerSlot[1]+0
+  const uint32_t g130=PPC_LOAD_U32(0x887AD130u);
+  const uint32_t s84 =ok(g130)?PPC_LOAD_U32(g130+84u):0xEEEEEEEEu;   // ★ the mode-select row index
+  const uint32_t cm  =PPC_LOAD_U32(0x887AD120u);         // the card-manager object (880A4628 parks it)
+  const uint32_t st  =ok(cm)?PPC_LOAD_U32(cm+2304u):0u;
+  const uint32_t c4  =ok(st)?PPC_LOAD_U32(st+28u   ):0xEEEEEEEEu;
+  const uint32_t c1  =ok(st)?PPC_LOAD_U32(st+10028u):0xEEEEEEEEu;
+  static uint32_t q1=0x5A5A5A5Au,q2=0x5A5A5A5Au,q3=0x5A5A5A5Au,q4=0x5A5A5A5Au,
+                  q84=0x5A5A5A5Au,qa0=0x5A5A5A5Au,qa1=0x5A5A5A5Au;
+  const bool ch=(c1!=q1)||(c2!=q2)||(c3!=q3)||(c4!=q4)||(s84!=q84)||(a0!=qa0)||(a1!=qa1);
+  if(ch){
+    std::fprintf(stderr,"[wgate] %s poll#%lld | C1 st[10028] %u->%u | C2 slot0+28 %u->%u"
+      " | C3 slot1+28 %u->%u | C4 st[28] %u->%u | scene84(mode) %u->%u | active[%u,%u]->[%u,%u]"
+      " | cardmgr=0x%08X st=0x%08X | GATE=%s | d76=%u csfsm=%u\n",
+      (i==0)?"INITIAL":"CHANGE",i,q1,c1,q2,c2,q3,c3,q4,c4,q84,s84,qa0,qa1,a0,a1,cm,st,
+      (c1==1u&&c2==0u&&c3==0u&&c4==2u)?"***** ALL FOUR TRUE":"not yet",
+      (uint32_t)PPC_LOAD_U16(0x884D678Cu),PPC_LOAD_U32(0x884EA3DCu));
+    q1=c1;q2=c2;q3=c3;q4=c4;q84=s84;qa0=a0;qa1=a1;
+  } else if((i%3600)==0){
+    std::fprintf(stderr,"[wgate] heartbeat #%lld C1=%u C2=%u C3=%u C4=%u scene84=%u active[%u,%u]"
+      " d76=%u\n",i,c1,c2,c3,c4,s84,a0,a1,(uint32_t)PPC_LOAD_U16(0x884D678Cu));
+  }
+}
+
+// ── [wwrite] THE DIFFERENCING WRITE-WATCH ON PlayerSlot[i]+28.  Identical in shape to the w9
+//    [armer] watch that paid owed (5): sample both cells immediately before and immediately after
+//    the wrapped body; a pre!=post pair NAMES the writer with certainty, because the store is
+//    inside that body.  The candidate set is the family the static lane proved REACHES the record
+//    (forms its base, or is called with it as an argument) — nothing else is wrapped, so a clean
+//    sweep of zeros here is a real EXCLUSION of that family, not an absence of instrument.
+//    ⚠ SEAM CHANGE (LAW I1): the eight bodies below are now HOOKED.  Any future decomp TU for
+//      sub_88135F38 / 88136E88 / 88136CD0 / 881378A0 / 88133BB8 / 8814DDC8 (and, through
+//      SM_WRAP, sub_88136460 / 88133B68 / 881383A0 / 880F1448 / 88138BA8 / 88138C30 /
+//      88138CE0 / 8813A3C0 / 8813AEC8, which that macro already hooked before w10)
+//      must ship PPC_FUNC_IMPL(__imp__sub_X) or this wrapper dies silently.
+//    ⚠ DECLARED LIMIT (w9 section 6, unchanged): differencing cannot see a write-then-restore that
+//      happens entirely inside ONE wrapped body.
+#define W10_W28(HEX)                                                                               \
+  extern "C" void __imp__sub_##HEX(PPCContext& __restrict, uint8_t*);                              \
+  PPC_FUNC(sub_##HEX){                                                                             \
+    if(!rt_wgate()){ __imp__sub_##HEX(ctx,base); return; }                                         \
+    static std::atomic<long long> n{0};                                                            \
+    const long long i=n.fetch_add(1);                                                              \
+    const uint32_t a=PPC_LOAD_U32(0x884D6D04u), b=PPC_LOAD_U32(0x884D6DC8u);                       \
+    __imp__sub_##HEX(ctx,base);                                                                    \
+    const uint32_t a2=PPC_LOAD_U32(0x884D6D04u), b2=PPC_LOAD_U32(0x884D6DC8u);                     \
+    if(a!=a2||b!=b2)                                                                               \
+      std::fprintf(stderr,"[wwrite] *** 0x" #HEX " WROTE slot0+28 %u->%u  slot1+28 %u->%u"         \
+        " (call #%lld) d76=%u\n",a,a2,b,b2,i,(uint32_t)PPC_LOAD_U16(0x884D678Cu));                 \
+    else if(i<2||(i%20000)==0)                                                                     \
+      std::fprintf(stderr,"[wwrite] 0x" #HEX " tick #%lld s0=%u s1=%u\n",i,a2,b2);                 \
+  }
+W10_W28(88135F38)
+W10_W28(88136E88)
+W10_W28(88136CD0)
+W10_W28(881378A0)
+W10_W28(88133BB8)
+W10_W28(8814DDC8)
+// sub_88136460 and sub_88133B68 are the OTHER two members of this candidate set; they were
+// already SM_WRAP-wrapped above, so their differencing pair lives inside SM_WRAP instead
+// (see the note there).  They are watched, just not from here -- and seven sibling
+// 0x8813xxxx bodies are watched with them, for free.
+#undef W10_W28
+
+// ── ★ THE w10 ARMED BANNER (LAW M+).  UNGATED, from a file-scope static at DLL load: its ABSENCE
+//    from a log means "wrong binary / TU not linked", never "nothing happened".
+namespace {
+  const struct W10Armed {
+    W10Armed(){
+      std::fprintf(stderr,"[w10] ARMED — r23-w10 driver batch linked (merged_game.cpp): "
+        "probes [wgate] (C1/C2/C3/C4 + scene84 change-watch) [wwrite]x8 (PlayerSlot[i]+28 "
+        "differencing) [st28] (880A4628 st-identity + scene84 seed)  |  RT_WGATE=%s  |  "
+        "C2/C3 = PlayerSlot[0/1]+28 off base 0x884D6CE8 stride 196; C4 = st[28] = a copy of "
+        "scene[84], the MODE-SELECT ROW INDEX (==2 is ULTRA)\n",
+        std::getenv("RT_WGATE")?"1":"unset");
+      std::fflush(stderr);
+    }
+  } g_w10_armed;
 }
