@@ -3377,6 +3377,16 @@ PPC_FUNC(sub_88080298){
     }
   }
 }
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ★ r23-w13 DRIVER LANE — [ringp] FORWARD DECLARATIONS ONLY.  The batch itself (ARMED banner,
+//   the full 0x880A0E30 call-site LR map, and the reason each tap sits where it does) is at the
+//   END of this file.  Only these two declarations live up here, because sub_881538C0 ALREADY
+//   has exactly one PPC_FUNC in this TU (the [vs] tap immediately below) and LAW I4 forbids a
+//   second strong definition anywhere in the link.  The w13 tap therefore EXTENDS the existing
+//   wrapper rather than adding one — the same reasoning that put w12's [q2rec] on callees.
+static bool rt_ringp();
+static void w13_ringp_38c0(uint8_t* base, long allocIdx, uint32_t lr, uint32_t id,
+                           uint32_t x, uint32_t y, uint32_t prio, uint32_t rec);
 // [vs] sub_881538C0 = THE 2D vertex-slot allocator (every quad writer allocs here then writes
 // color into the slot). Log lr (identifies the writer fn) + read back the PREVIOUS slot's
 // color words (+0, +48) — the caller has written them by then. Two 40-call windows post-boot.
@@ -3385,7 +3395,14 @@ std::atomic<long> g_spriteAllocs{0};  // LEG-39 [semit]: total 2D vertex-slot al
 PPC_FUNC(sub_881538C0){
   static std::atomic<long>& n=g_spriteAllocs; long i=n.fetch_add(1);
   uint32_t sz=ctx.r3.u32;
+  // ★ r23-w13 [ringp]: the CALLER's four arguments and its return address are read HERE, before
+  //   the callee runs — r3..r6 are volatile and ctx.lr is overwritten by the callee's own bl's.
+  //   (This is the same trap the [kick] tap above documents for r4/r6.)
+  const bool w13rp = rt_ringp();
+  uint32_t w13lr=0,w13id=0,w13x=0,w13y=0,w13prio=0;
+  if(w13rp){ w13lr=(uint32_t)ctx.lr; w13id=ctx.r3.u32; w13x=ctx.r4.u32; w13y=ctx.r5.u32; w13prio=ctx.r6.u32; }
   __imp__sub_881538C0(ctx,base);
+  if(w13rp) w13_ringp_38c0(base,i,w13lr,w13id,w13x,w13y,w13prio,ctx.r3.u32);
   if(std::getenv("RT_TRACERES")){
     bool win=(i>=500000&&i<500040)||(i>=1500000&&i<1500040);
     if(win){
@@ -4781,4 +4798,200 @@ namespace {
       std::fflush(stderr);
     }
   } g_w12_armed;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ★★★ [ringp] — r23-w13 DRIVER LANE.  **THE DRAWN QUESTION.**
+//
+//   w12 measured that the poke-bought queue2 drawer 0x880A0E30 RUNS, that its 8-way part
+//   selector resolves three real arms, and that its radial-ring STATE gate st[+1168] ramps
+//   0 -> 255 with the radius seed st[+1172] moving 64 -> 160.  It claimed NOTHING about drawing,
+//   and it said so: the ring half needs `params[+4] == 0 && st[+1168] != 0`, and **`params` is
+//   the queue entry's 80-byte blob, which the [q2rec] tap cannot see** (w12 D1 sec 4.3, P-10
+//   filed as a MISS in the half that could be measured).  This batch measures the other half,
+//   and then measures whether the emitters produce draw-stream records with live coordinates.
+//
+//   ⚠ WHY NOT A WRAPPER ON 0x880A0E30 ITSELF (LAW I4, the same wall w12 hit).  0x880A0E30 is
+//     already a PPC_FUNC in decomp/game/objaction_queue2.cpp (the converted TU that carries
+//     [objq2]); a second strong definition here would be dead code printing a confident zero.
+//     So both taps go on CALLEES, and the caller is recovered from **ctx.lr**, which in this
+//     recompiler is the return address the caller stores immediately before the `bl`.
+//
+//   THE CALL-SITE MAP.  Read off the converted C body itself (decomp/game/objaction_queue2.cpp,
+//   sub_880A0E30), every offset copied from its own `ctx.lr = entry + 0x...` line.  The body's
+//   extent is [0x880A0E30, 0x880A19B0) — the next function — so an lr in that half-open range
+//   is 0x880A0E30 and nothing else.
+//
+//     bl 0x880A51A0  (Q0E30_Emit, 7-arg: r3 id, r4 x, r5 y, r6 prio, r7 tintP, **r8 alphaP**)
+//        +0x13C   the marker widget   <== ★ UNGATED ON alphaP (guard is st[+564] == 0, measured 0
+//                                          on every w12 sample) — THIS IS THE PARAMS PROBE
+//        +0x1F0 +0x270 +0x2F4 +0x378 +0x3F4 +0x470 +0x65C(x2)   the 8-way arm emits
+//     bl 0x881538C0  (the universal sprite-draw API: r3 spriteId, r4 x.16, r5 y.16, r6 prio)
+//        +0x0A4   BAR pass    <== inside `if (alphaP == 0)`
+//        +0x4C8 +0x5F4   ARM  <== NOT gated on alphaP (the 8-way dispatch)
+//        +0x6F8 +0x744 +0x788   RING A  |  +0x868 +0x8BC +0x908   RING B
+//        +0xAB0 +0xAF4          RING C  <== all nine inside `if (alphaP == 0) { if (st[1168]) {`
+//
+//   ⇒ THE INSTRUMENT IS A THREE-WAY DISCRIMINATOR MADE OF CONTROL FLOW, not of a guessed field:
+//       RING_* lines present            ⇒ params[+4] == 0 AND st[+1168] != 0 ⇒ the rings RAN
+//       ARM/tail present, RING_* absent ⇒ params[+4] != 0 ⇒ the ring half is CLOSED
+//       nothing at all                  ⇒ read the in-body denominator, NOT this tap
+//     and the +0x13C params probe prints the alphaP/tintP WORDS THEMSELVES, so the control-flow
+//     reading has an independent, direct corroborator in the same drive.
+//
+//   CONTROLS (LAWS M+ / M4), fixed before the build:
+//     * ARMED BANNER, ungated: prints at DLL load whenever RT_RINGP=1 — a zero is distinguishable
+//       from an unlinked TU or the wrong binary.
+//     * ★ IN-BODY DENOMINATOR, and it is NOT this batch's own tap: w12's [q2rec] sits on
+//       0x880A0360 / 0x880A0478, which 0x880A0E30 calls at +0xB60 / +0xB74, i.e. AFTER every
+//       ring.  A [q2rec] line is proof the body ran past the rings, so a [ringp] RING zero
+//       beside a [q2rec] non-zero is a MEASUREMENT of the params gate and not a silent probe.
+//     * ★★ ROUTE-NORMAL CALIBRATION, in the same drive and the same units: 0x881538C0 has ~2012
+//       call sites in 405 functions, so [ringp] CTRL samples emitters that are DRAWING RIGHT NOW
+//       and prints their coordinates through the identical decode.  This is what makes
+//       "on-screen-plausible" a comparison rather than an assertion — and it is exactly the
+//       positive control [q2rec] could not have (all four of ITS targets were poke-exclusive).
+//     * TALLY lines carry the EXACT atomic counters, so the scored numbers never come from
+//       counting sampled lines (THE UNIT IS THE RECORD, NOT THE LINE).
+//   Read-only, default-off (RT_RINGP), arm-symmetric (merged_game.cpp links into both arms).
+//   ⚠ NOT CLAIMED BY CONSTRUCTION: nothing here says a pixel reached the screen.  A record with
+//     live coordinates is a record in the draw stream; the stream is cut, culled, sorted and
+//     flushed downstream (FUN_88091990 -> FUN_8808D320 -> FUN_8808E468).
+static bool rt_ringp(){ static int v=std::getenv("RT_RINGP")?1:0; return v!=0; }
+
+namespace {
+  constexpr uint32_t W13_E30_LO   = 0x880A0E30u;   // sub_880A0E30 entry
+  constexpr uint32_t W13_E30_HI   = 0x880A19B0u;   // the next function = one past its extent
+  constexpr uint32_t W13_SPRTAB   = 0x88290D68u;   // ROM sprite table, 10-byte records
+  constexpr uint32_t W13_SPRMAX   = 0xC1B4u;       // the guest's own bound check on spriteId
+
+  std::atomic<long long> g_rp_bar{0}, g_rp_arm{0}, g_rp_rA{0}, g_rp_rB{0}, g_rp_rC{0},
+                         g_rp_oth{0}, g_rp_null{0}, g_rp_par{0}, g_rp_ctrl{0};
+
+  // (id -> w,h) straight out of the ROM table the draw API itself indexes.  Returns false when
+  // the id is outside the guest's own bound, so a bad id is never silently printed as 0x0.
+  inline bool w13_sprwh(uint8_t* base, uint32_t id, uint32_t& w, uint32_t& h){
+    if(id > W13_SPRMAX) return false;
+    const uint32_t row = W13_SPRTAB + id*10u;
+    h = PPC_LOAD_U16(row + 4u); w = PPC_LOAD_U16(row + 6u); return true;
+  }
+  // x.16 -> whole pixels, sign-correct.  Printed BESIDE the raw word, never instead of it.
+  inline int32_t w13_px(uint32_t v){ return (int32_t)v >> 16; }
+
+  // ★ r23-w13 MISSION D3 ("only if a natural drive presents it") RIDES ON THIS LINE.
+  //   w12's drafter pre-registered two brand-new in-body gates and deliberately did NOT guess
+  //   their semantics: class 163 (0x88198850) forks on scene[224] == 46, class 63 (0x881315C8)
+  //   forks on scene[176] == 988.  A VALUE CENSUS is a gift to the lighting map and costs four
+  //   loads on a line that is already being printed — so no dedicated drive is spent on it.
+  //   ⚠ POINTER IDENTITY CHECKED, NOT ASSUMED (the r23-w10 law: offset coincidence is not
+  //   identity, and it bites pointers as happily as offsets).  Both gate bodies load their scene
+  //   root with `lis rM,-30597 ; lwz rN,-11984(rM)` = 0x887B0000 - 0x2ED0 = 0x887AD130, which is
+  //   character-for-character the SAME global objaction_queue2.cpp names Q0E30_G_SCENEPTR and
+  //   reads at +220 inside 0x880A0E30's own bar pass.  Verified from the codegen of
+  //   sub_88198850 and sub_881315C8 before this line was written.
+  //   ⚠ AND WHAT A VALUE CENSUS IS NOT: seeing 46 or 988 here says the gate WOULD pass at this
+  //   instant on this route.  It says nothing about the gated arm, whose body is dark.
+  inline void w13_tally(uint8_t* base, long allocIdx){
+    const uint32_t sc = PPC_LOAD_U32(0x887AD130u);
+    const bool scok = (sc>=0x1000u && sc<0xFFFF0000u);
+    uint32_t s88=0,s176=0,s220=0,s224=0;
+    if(scok){ s88=PPC_LOAD_U32(sc+88u); s176=PPC_LOAD_U32(sc+176u);
+              s220=PPC_LOAD_U32(sc+220u); s224=PPC_LOAD_U32(sc+224u); }
+    std::fprintf(stderr,"[ringp] TALLY allocs=%ld | 0E30: bar=%lld arm=%lld ringA=%lld ringB=%lld"
+      " ringC=%lld unmapped=%lld nullrec=%lld | params51A0=%lld ctrlsamples=%lld"
+      " | D3 scene=0x%08X%s [88]=%u [176]=%u(gate63 wants 988) [220]=%u [224]=%u(gate163 wants 46)\n",
+      allocIdx, g_rp_bar.load(), g_rp_arm.load(), g_rp_rA.load(), g_rp_rB.load(), g_rp_rC.load(),
+      g_rp_oth.load(), g_rp_null.load(), g_rp_par.load(), g_rp_ctrl.load(),
+      sc, scok?"":"(UNRESOLVED — the four values below are NOT a census)", s88, s176, s220, s224);
+    std::fflush(stderr);
+  }
+}
+
+// ---- TAP 1: the PARAMS probe.  sub_880A51A0 is NOT defined in any decomp TU (checked by name
+//      across decomp/game/*.cpp and this file before this was written), so this is its ONLY
+//      wrapper and the LAW I4 clone-bypass cannot apply to it.
+extern "C" void __imp__sub_880A51A0(PPCContext& __restrict, uint8_t*);
+PPC_FUNC(sub_880A51A0){
+  if(rt_ringp()){
+    const uint32_t lr = (uint32_t)ctx.lr;
+    if(lr >= W13_E30_LO && lr < W13_E30_HI){
+      const uint32_t site = lr - W13_E30_LO;
+      const uint32_t id=ctx.r3.u32, x=ctx.r4.u32, y=ctx.r5.u32, prio=ctx.r6.u32,
+                     tintP=ctx.r7.u32, alphaP=ctx.r8.u32;
+      const long long k = g_rp_par.fetch_add(1);
+      if(k<16 || (k%4000)==0){
+        uint32_t w=0,h=0; const bool okwh = w13_sprwh(base,id,w,h);
+        std::fprintf(stderr,"[ringp] PARAMS #%lld site=+0x%03X%s id=%u x=0x%08X(%d) y=0x%08X(%d)"
+          " prio=%u | params[+0]=tintP=0x%08X params[+4]=alphaP=0x%08X RINGGATE=%s |"
+          " spr %ux%u%s\n",
+          k, site, (site==0x13Cu?" MARKER-UNGATED-ON-ALPHAP":""), id,
+          x, w13_px(x), y, w13_px(y), prio, tintP, alphaP,
+          (alphaP==0u?"PARAMS-HALF-OPEN":"PARAMS-HALF-CLOSED"),
+          w, h, okwh?"":" (id OUT OF ROM BOUND)");
+        std::fflush(stderr);
+      }
+    }
+  }
+  __imp__sub_880A51A0(ctx,base);
+}
+
+// ---- TAP 2: the DRAW-RECORD probe.  Body of the forward-declared hook that this file's
+//      pre-existing sub_881538C0 wrapper calls; `rec` is that wrapper's post-call ctx.r3, i.e.
+//      the allocated 0x34 draw object, or 0 when the pool refused.
+static void w13_ringp_38c0(uint8_t* base, long allocIdx, uint32_t lr, uint32_t id,
+                           uint32_t x, uint32_t y, uint32_t prio, uint32_t rec){
+  if(lr < W13_E30_LO || lr >= W13_E30_HI){
+    // ---- ROUTE-NORMAL CALIBRATION (the plausibility band, measured not asserted) ------------
+    const long long c = g_rp_ctrl.fetch_add(1);
+    if(c<8 || (c%250000)==0){
+      uint32_t w=0,h=0; const bool okwh=w13_sprwh(base,id,w,h);
+      uint32_t o1=0,o2=0; if(rec>=0x1000u&&rec<0xFFFF0000u){ o1=PPC_LOAD_U32(rec+4u); o2=PPC_LOAD_U32(rec+8u); }
+      std::fprintf(stderr,"[ringp] CTRL #%lld lr=0x%08X id=%u x=0x%08X(%d) y=0x%08X(%d) prio=%u"
+        " -> rec=0x%08X obj[1]=0x%08X obj[2]=0x%08X | spr %ux%u%s\n",
+        c, lr, id, x, w13_px(x), y, w13_px(y), prio, rec, o1, o2, w, h, okwh?"":" (OUT OF BOUND)");
+      std::fflush(stderr);
+      // ★ one TALLY at the very first route-normal alloc, so a drive that never reaches
+      //   0x880A0E30 at all still banks a D3 scene census and a zeroed 0E30 board.
+      if(c==0 || (c%1000000)==0) w13_tally(base,allocIdx);
+    }
+    return;
+  }
+  const uint32_t site = lr - W13_E30_LO;
+  const char* which; std::atomic<long long>* ctr;
+  switch(site){
+    case 0x0A4u: which="BAR";    ctr=&g_rp_bar; break;
+    case 0x4C8u: case 0x5F4u: which="ARM";    ctr=&g_rp_arm; break;
+    case 0x6F8u: case 0x744u: case 0x788u: which="RING_A"; ctr=&g_rp_rA; break;
+    case 0x868u: case 0x8BCu: case 0x908u: which="RING_B"; ctr=&g_rp_rB; break;
+    case 0xAB0u: case 0xAF4u: which="RING_C"; ctr=&g_rp_rC; break;
+    default:     which="0E30_UNMAPPED"; ctr=&g_rp_oth; break;
+  }
+  if(rec==0u) g_rp_null.fetch_add(1);
+  const long long k = ctr->fetch_add(1);
+  if(k<12 || (k%5000)==0){
+    uint32_t w=0,h=0; const bool okwh=w13_sprwh(base,id,w,h);
+    uint32_t o1=0,o2=0; if(rec>=0x1000u&&rec<0xFFFF0000u){ o1=PPC_LOAD_U32(rec+4u); o2=PPC_LOAD_U32(rec+8u); }
+    std::fprintf(stderr,"[ringp] %s #%lld site=+0x%03X id=%u x=0x%08X(%d) y=0x%08X(%d) prio=%u"
+      " -> rec=0x%08X%s obj[1]=0x%08X obj[2]=0x%08X | spr %ux%u%s\n",
+      which, k, site, id, x, w13_px(x), y, w13_px(y), prio, rec,
+      (rec==0u?" NULL-NO-RECORD":""), o1, o2, w, h, okwh?"":" (OUT OF BOUND)");
+    std::fflush(stderr);
+  }
+  if((allocIdx%200000)==0) w13_tally(base,allocIdx);
+}
+
+namespace {
+  const struct W13Armed {
+    W13Armed(){
+      std::fprintf(stderr,"[w13] ARMED — r23-w13 driver batch linked (merged_game.cpp): [ringp] "
+        "(sub_880A51A0 = the PARAMS probe, r7/r8 = the queue blob's params[+0]/[+4]; and an "
+        "EXTENSION of this file's pre-existing sub_881538C0 wrapper = the DRAW-RECORD probe), "
+        "both attributed to sub_880A0E30 by ctx.lr in [0x880A0E30,0x880A19B0)  |  RT_RINGP=%s  |  "
+        "CONTROLS: in-body denominator = w12's [q2rec] on 0x880A0360/0x880A0478 (called at "
+        "+0xB60/+0xB74, i.e. AFTER the rings); plausibility calibration = the [ringp] CTRL "
+        "samples of route-normal 0x881538C0 callers through the identical decode.\n",
+        std::getenv("RT_RINGP")?"1":"unset");
+      std::fflush(stderr);
+    }
+  } g_w13_armed;
 }
