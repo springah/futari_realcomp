@@ -36,7 +36,9 @@ save_*/
 # out_reco/ and out_reco_abn/ are produced by the recompiler from config/*.toml.
 # The hand-written files inside them (harness.cpp, rt.cpp) ARE tracked; see .gitattributes
 # note in docs/ARCHITECTURE.md if this ever needs splitting properly.
-out_reco/ppc_recomp.*.cpp
+# r23-w16 2026-08-19: out_reco/ppc_recomp.*.cpp are now TRACKED -- they carry the 41
+# irreplaceable FIX 2026 hand patches (15 TUs) and are NEVER regenerated; git is their
+# only backup. out_reco_abn stays ignored (zero hand patches, regenerable).
 out_reco_abn/ppc_recomp.*.cpp
 
 # --- Editor / OS noise ---
