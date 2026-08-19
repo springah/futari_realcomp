@@ -2475,6 +2475,26 @@ static std::unordered_map<uint32_t, ResolveTex> g_resolveTex;  // guest dst addr
 // targets on every one of ~530 texture lookups per frame (measured ~50K map iterations/frame
 // inside the [perflog2] tex bucket at the training menu).
 static uint32_t g_resolveGen = 1;
+// ★★★ r23-w19 DRIVER — RVK_ONWASH: let the WASH PREDICATE arm the census instruments.
+//
+// WHY THIS AND NOT A NEW INSTRUMENT.  w18 closed the three missing-texture->white routes and
+// left the mechanism unnamed; the two instruments that COULD name it already exist and are
+// already trusted — the RT_NVKDBG per-draw batch census ([nvkdbg], vk_render.cpp:~11384) and
+// the nvk resolve-target PNG dumper (~12159).  What they lacked was a TRIGGER: both fire on a
+// fixed frame cadence, and the wash is a CONDITION, not a frame number.  RVK_ONWASH=<N> makes
+// a [washtrig] FIRE arm BOTH for the frames the fire already forces the filmstrip to dump, so
+// the census, the resolve PNGs and the composed PNG all describe THE SAME FRAME.
+//
+// ARM-SYMMETRY IS STRUCTURAL, not promised: RT_NVKDBGEVERY / RT_NVKRESEVERY keep firing the
+// SAME code on the periodic (clean) cadence, so every washed-frame line has a same-build,
+// same-code clean-frame twin to diff against.  A leg that produces only one population has
+// measured nothing about the other (LAWS §10 zero law), and the verdict script says so.
+//
+// ⚠ COST.  Each armed frame costs one full-frame readback per resolve target (fence-waited).
+// N is a HARD CAP on the number of armed windows for exactly that reason; [fps]/[perflog] were
+// already VOID on any RVK_WASHTRIG leg (C-16) and stay void here.
+static long g_rvkWashForce = 0;    // frames left in the current wash-armed instrument window
+static long g_rvkWashSets  = 0;    // armed windows so far, capped by RVK_ONWASH
 static inline void rvkResMarkRendered(ResolveTex& r, long f) {
   if (!r.everRendered) { r.everRendered = true; g_resolveGen++; }
   r.lastF = f;
@@ -11381,7 +11401,11 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
       auto shl = arenaAlloc(512); std::memcpy(shl.host, sc, 512);
       // RT_NVKDBG: full-frame batch census every 600th frame — compose-chain truth
       static bool nvkDbg = std::getenv("RT_NVKDBG") != nullptr;
-      if (nvkDbg && dbgTick()) {
+      // ★ r23-w19: RVK_ONWASH lets a [washtrig] FIRE arm this census on the frames the fire
+      //   already forces the filmstrip to dump (see the g_rvkWashForce comment at :2478).
+      //   dbgTick() keeps the periodic CLEAN-frame population alive through the same code.
+      static const bool onWashDbg = std::getenv("RVK_ONWASH") != nullptr;
+      if (nvkDbg && (dbgTick() || (onWashDbg && g_rvkWashForce > 0))) {
         uint32_t tb = d.tf[1] ? (((d.tf[1] >> 12) & 0xFFFFF) << 12) : 0u;
         uint32_t tp[4] = {0,0,0,0};
         if (tb && g_base) for (int p = 0; p < 4; ++p) tp[p] = be32(tb + 0x2000u * (uint32_t)p);
@@ -11992,6 +12016,89 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
           }
         }
       }
+      // ★★★ r23-w19 DRIVER — [dcen]: THE FULL PER-DRAW STATE CENSUS (RVK_DCEN=<every>, default off)
+      //
+      // WHY HERE and not at the [nvkdbg] site 700 lines up.  [nvkdbg] prints before the vertices
+      // are decoded, so it can only report the VIEWPORT — and a viewport does not say which draw
+      // covers the playfield.  THIS site sits immediately after the decode loop, where vbeg..nv
+      // hold this draw's own vertices, so the bbox is REAL (same acquisition [texskip] uses).
+      // Naming the playfield-covering draw is the whole job: w18 excluded all three
+      // missing-texture->white routes, so the surviving forks are (a) the playfield draw is
+      // ABSENT, (b) it samples a RESOLVE target whose contents are white, (c) it samples GUEST
+      // memory that is white, (d) source is fine and a RENDER STATE differs.  One census line
+      // per draw carries the evidence for all four.
+      //
+      // ⚠ WHAT EACH FIELD IS, so nothing is read as more than it is:
+      //   bbox   RAW post-decodeVert vertex space — screen pixels for the screen-space vs
+      //          classes, model space otherwise. vs/ps are printed beside it; the reader decides.
+      //   res    1 iff the texture base is a registered RESOLVE DESTINATION. That is the fork-(b)
+      //          flag: for res=1 the guest bytes are NOT the source and `guest[...]` says nothing.
+      //   guest  min/max/mean/frac-0xFF over up to 512 sampled dwords of the texture's guest
+      //          bytes. n= is the SELF-CHECK: n=0 means nothing was sampled and the stat is VOID
+      //          (a silent zero here would read as "the source is black", the exact inversion of
+      //          the finding). The span estimate assumes 2 B/texel and is capped at 1 MiB — it is
+      //          a CONTENT PROBE, not a decode.
+      //   v0     the six raw dwords of this draw's first vertex + the xyuv layout flag, because
+      //          the vertex COLOUR is dword 3 in the non-xyuv layout and SYNTHESISED 0xFFFFFFFF
+      //          in the xyuv one (the 2026-07-31 [shdump] lesson: printing "col" unconditionally
+      //          prints a hardcoded constant on half the draws).
+      // Default off => byte-identical. Fires on the periodic cadence AND on the RVK_ONWASH arm,
+      // through the SAME code, which is what makes the washed/clean diff a like-for-like diff.
+      { static const long dcenEvery = std::getenv("RVK_DCEN") ? std::strtol(std::getenv("RVK_DCEN"), nullptr, 10) : 0;
+        static const bool dcenOnWash = std::getenv("RVK_ONWASH") != nullptr;
+        static const long dcenCap = std::getenv("RVK_DCEN_CAP") ? std::strtol(std::getenv("RVK_DCEN_CAP"), nullptr, 10) : 120000;
+        static long dcenLines = 0, dcenIdx = -1; static long dcenFrame = -1;
+        if (dcenEvery > 0) {
+          bool now = ((nf->frame % dcenEvery) == 0) || (dcenOnWash && g_rvkWashForce > 0);
+          if (now && nv > vbeg && dcenLines < dcenCap) {
+            if (nf->frame != dcenFrame) { dcenFrame = nf->frame; dcenIdx = 0; } else ++dcenIdx;
+            float bx0 = 1e9f, by0 = 1e9f, bx1 = -1e9f, by1 = -1e9f;
+            for (uint32_t k = vbeg; k < nv; ++k) {
+              const float* fv = (const float*)(Vraw + (size_t)k * 6);
+              if (fv[0] < bx0) bx0 = fv[0];  if (fv[0] > bx1) bx1 = fv[0];
+              if (fv[1] < by0) by0 = fv[1];  if (fv[1] > by1) by1 = fv[1];
+            }
+            const uint32_t* v0 = (const uint32_t*)(Vraw + (size_t)vbeg * 6);
+            uint32_t tbD = d.tf[1] ? (((d.tf[1] >> 12) & 0xFFFFFu) << 12) : 0u;
+            int isRes = tbD ? (int)g_resolveTex.count(tbD) : 0;
+            int gN = 0; unsigned gMin = 255u, gMax = 0u; double gSum = 0.0; long gFF = 0;
+            if (tbD && g_base) {
+              uint64_t span = (uint64_t)tw * (uint64_t)th * 2ull;
+              if (span > 0x100000ull) span = 0x100000ull;
+              if (span < 4096ull) span = 4096ull;
+              uint32_t step = (uint32_t)(span / 512ull); if (step < 4u) step = 4u; step &= ~3u;
+              for (uint64_t off = 0; off + 4 <= span; off += step) {
+                uint64_t a = (uint64_t)tbD + off;
+                if (a + 4ull > 0x20000000ull) break;
+                uint32_t w32 = be32((uint32_t)a);
+                for (int sh = 24; sh >= 0; sh -= 8) {
+                  unsigned bv = (w32 >> sh) & 0xFFu;
+                  if (bv < gMin) gMin = bv;  if (bv > gMax) gMax = bv;
+                  gSum += (double)bv; ++gN; if (bv == 0xFFu) ++gFF;
+                }
+              }
+            }
+            float bcf[4]; for (int c = 0; c < 4; ++c) std::memcpy(&bcf[c], &d.blendConst[c], 4);
+            std::fprintf(stderr,
+              "[dcen] f%ld #%ld vs=%d ps=%d prim=%u n=%u st=%u vte=%X blend=%08X bc=(%.3f,%.3f,%.3f,%.3f) "
+              "cc=%08X ar=%08X tb=%08X %ux%u fmt=%u tex=%u res=%d rt=%s%08X bbox=(%.1f,%.1f)-(%.1f,%.1f) "
+              "xyuv=%d v0={%08X,%08X,%08X,%08X,%08X,%08X} c14=(%.3f,%.3f,%.3f,%.3f) c15=(%.3f,%.3f) "
+              "guest[n=%d min=%u max=%u mean=%.1f ff=%.3f]\n",
+              nf->frame, dcenIdx, vsIdx, psIdx, d.prim, d.count, (unsigned)d.strideB, (unsigned)d.vteCntl,
+              d.blendReg, bcf[0], bcf[1], bcf[2], bcf[3], d.colorCtl, d.alphaRef,
+              tbD, tw, th, d.tf[1] & 0x3Fu, texIdx, isRes,
+              curRT ? "OFFS:" : "DISP:", curRT ? curRT->surf : 0u,
+              bx0, by0, bx1, by1, (int)xyuv,
+              v0[0], v0[1], v0[2], v0[3], v0[4], v0[5],
+              g_psConstF[56], g_psConstF[57], g_psConstF[58], g_psConstF[59],
+              g_psConstF[60], g_psConstF[61],
+              gN, gN ? gMin : 0u, gMax, gN ? gSum / gN : 0.0, gN ? (double)gFF / gN : 0.0);
+            ++dcenLines;
+            if (dcenLines == dcenCap)
+              std::fprintf(stderr, "[dcen] LINE CAP %ld REACHED — census truncated (a cap, not a zero)\n", dcenCap);
+          }
+        }
+      }
       // Register-true blend constants (RB_BLEND_RED..ALPHA, dev+0x28E0..EC) — attract legal/fade
       // draws use CONSTANT_* factors (the 07-27 legal-panel wash class). RT_NVKNOBC=1 reverts to
       // the old hardcoded zeros. Clamp mirrors the PM4 path (see the RBatch.bc capture).
@@ -12152,15 +12259,30 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
     // A tight RT_NVKRESEVERY (the legal-band discriminator wants 7) otherwise readbacks the whole
     // boot, which both floods the bank and slows the render loop enough to SHIFT the wall-clock
     // nav drive relative to the attract phase being sampled. Unset = old behaviour.
+    static const long resMinW = std::getenv("RT_NVKRESMINW") ? std::atol(std::getenv("RT_NVKRESMINW")) : 0;   // ★ r23-w19
     static const char* resWinEnv = std::getenv("RT_NVKRESWIN");
     static long resWinFrom = resWinEnv ? std::atol(resWinEnv) : -1;
     static long resWinTo = (resWinEnv && std::strchr(resWinEnv, ':')) ? std::atol(std::strchr(resWinEnv, ':') + 1) : -1;
     bool resWinOk = (resWinFrom < 0) || (nf->frame >= resWinFrom && (resWinTo < 0 || nf->frame <= resWinTo));
-    if (nvkDbg2 && resWinOk && resEvery > 0 && (nf->frame % resEvery) == 0 && !g_resolveTex.empty()) {
+    // ★ r23-w19: same RVK_ONWASH arm as the [nvkdbg] census — a FIRE dumps the resolve targets
+    //   for the forced window, so the composed PNG, the draw census and the layer contents all
+    //   describe THE SAME FRAME. The periodic cadence is untouched and supplies the clean twin.
+    static const bool onWashRes = std::getenv("RVK_ONWASH") != nullptr;
+    bool resPeriodic = resWinOk && resEvery > 0 && (nf->frame % resEvery) == 0;
+    bool resOnWash = onWashRes && g_rvkWashForce > 0;
+    if (nvkDbg2 && (resPeriodic || resOnWash) && !g_resolveTex.empty()) {
       for (auto& kv : g_resolveTex) {
         ResolveTex& rt = kv.second;
         if (!rt.image || !rt.everRendered) continue;
         if (resOnly && kv.first != resOnlyBase) continue;   // RT_NVKRESONLY: one surface, no aliasing
+        // ★ r23-w19: RT_NVKRESMINW=<px> — skip targets narrower than <px>. A w18 leg registers 96
+        //   resolve targets, ~90 of them the 320x240 ring; dumping all of them on a CONDITION
+        //   trigger costs 90 fence-waited readbacks per armed frame and would change the thing
+        //   being measured. The field-layer candidates are the 640x512 self-composite and the
+        //   1280x720 pane, so a width floor selects them without naming an address that a
+        //   wall-clock allocator is free to move (the menu-flash "no address invariants" lesson).
+        //   Unset = 0 = every target, i.e. byte-identical to the old behaviour.
+        if (resMinW > 0 && (long)rt.w < resMinW) continue;
         segBatchFlush();
         rvkRingNext("nvkd"); VKC(vkResetCommandBuffer(g.cmd, 0), "reset(nvkd)");
         VkCommandBufferBeginInfo cbi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
@@ -12271,6 +12393,7 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
         char fp[64]; std::snprintf(fp, sizeof fp, "C:/tmp/nvk_f%ld.png", nf->frame);
         writePng(fp, (const uint8_t*)map, kW, kH);
         if (washForced > 0) --washForced;
+        if (g_rvkWashForce > 0) --g_rvkWashForce;   // ★ r23-w19: mirrors washForced exactly
       }
       if (wantWash && map && kW >= 880 && kH >= 680) {
         const uint8_t* px = (const uint8_t*)map;
@@ -12354,6 +12477,39 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
           washForced = washNAfter;                        // and the next N, unconditionally
           std::fprintf(stderr, "[washtrig] FIRE#%ld f%ld tilemax=%.4f -> %s + next %ld frames forced\n",
                        washFires, nf->frame, tilemax, wp, washNAfter);
+          // ★ r23-w19: arm the census instruments over EXACTLY the forced window (RVK_ONWASH=<cap>).
+          // ⚠ THE CALIBRATION-POPULATION LAW BITES THE *TRIGGER*, not just the predicate (leg d1a,
+          //   measured): the first four arms burned on f288/f312/f336/f408 — BOOT LOADING SCREENS,
+          //   which are legitimately flat white and fire tilemax=1.0000 every time. A cap spent on
+          //   boot is a cap not spent on the phenomenon. Two gates, both default-on when armed:
+          //     RVK_ONWASH_FIELD  require the guest gameplay-field flag (GA_FIELD_ACTIVE) — the
+          //                       ATTRACT never sets it (see :5264), so this excludes boot, menus,
+          //                       the attract loop and the post-game-over replay dialog in one bit.
+          //     RVK_ONWASH_FROM   a frame floor, for the case where the field flag is not enough.
+          //   RVK_ONWASH_ANY=1 disables the field gate (the honest escape hatch: a leg that wants
+          //   the boot-white population can still have it, and says so in its own env).
+          { static const long onWashMax = std::getenv("RVK_ONWASH")
+                ? std::strtol(std::getenv("RVK_ONWASH"), nullptr, 10) : 0;
+            static const bool onWashAny = std::getenv("RVK_ONWASH_ANY") && atoi(std::getenv("RVK_ONWASH_ANY")) != 0;
+            static const long onWashFrom = std::getenv("RVK_ONWASH_FROM") ? std::strtol(std::getenv("RVK_ONWASH_FROM"), nullptr, 10) : 0;
+            bool fieldOk = onWashAny || (g_base && be32(GA_FIELD_ACTIVE) != 0u);
+            bool fromOk = nf->frame >= onWashFrom;
+            if (onWashMax > 0 && !(fieldOk && fromOk)) {
+              static long gateN = 0;
+              if ((++gateN % 25) == 1)
+                std::fprintf(stderr, "[onwash] GATED x%ld at f%ld (field=%u from=%ld) — fire not censused\n",
+                             gateN, nf->frame, g_base ? be32(GA_FIELD_ACTIVE) : 0u, onWashFrom);
+            }
+            if (onWashMax > 0 && fieldOk && fromOk && g_rvkWashSets < onWashMax && g_rvkWashForce <= 0) {
+              ++g_rvkWashSets; g_rvkWashForce = washNAfter;
+              std::fprintf(stderr, "[onwash] ARM set#%ld/%ld at f%ld for %ld frames -> [nvkdbg]+[dcen] census + nvkres dumps\n",
+                           g_rvkWashSets, onWashMax, nf->frame, washNAfter);
+            } else if (onWashMax > 0 && g_rvkWashSets >= onWashMax) {
+              static bool capSaid = false;
+              if (!capSaid) { capSaid = true;
+                std::fprintf(stderr, "[onwash] CAP REACHED (%ld sets) — later fires are NOT censused (this is a cap, not a zero)\n", onWashMax); }
+            }
+          }
         }
       }
       vkUnmapMemory(g.dev, g.readbackMem);
