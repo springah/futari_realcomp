@@ -3246,6 +3246,40 @@ PPC_FUNC(sub_821BA4D8){
     PPC_STORE_U32(m+0x48,st0);
   }
 }
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ★★★ r23-w17 MISSION C1(d) — THE DARKBD JOIN INSTRUMENT   (RT_BDJOIN=1)
+//
+// THE QUESTION IT EXISTS TO ANSWER, pre-registered in bank/r23/w17/PREREG_w17.txt §6 BEFORE the
+// leg that reads it: when the stage-5 WASH predicate fires on a frame, does the 5998-show /
+// backdrop path EXECUTE IN THAT SAME FRAME?
+//   POSITIVE -> the wash is a NAMED QUAD.  sub_821C5998's backdrop-colour formula (below) is the
+//               only construct anybody has found in this tree that provably saturates to
+//               0xFFFFFFFF — opaque white — and it does so at cursor==4, which is the value every
+//               [modegate] line of every w17 D1 leg reports.  A white full-width quad under a
+//               correctly-drawn HUD and correctly-drawn sprites is exactly the film045 geometry.
+//   NEGATIVE -> the join dies cleanly and the menu-layer lead comes OFF the suspect list.  That is
+//               worth as much: it is the leading in-tree candidate, and leaving it un-eliminated
+//               taxes every later window.
+//
+// WHY THE DRAW AND NOT ONLY THE FORMULA.  Running the formula writes bd+8; it does not put a quad
+// on the screen.  The quad reaches the screen only if the engine's ACTIVE/drawer virtual
+// (vt+0x30 = sub_821BE500) runs for an object that owns that backdrop.  So the tap is planted in
+// BOTH places and the two are reported under DIFFERENT tags, never conflated:
+//     [bdjoin] = the formula fired (a WRITE, in sub_821C5998)
+//     [bddraw] = the drawer ran with a live backdrop (a DRAW, in sub_821BE500)
+//     [closer] = the hide path spawned the never-ticked fade closer (a SECOND documented
+//                white-quad producer — see RT_NOCLOSER's own comment further down this file)
+//
+// ⚠ THE CLONE-BYPASS LANDMINE APPLIES AND IS NOT WISHED AWAY.  These are PPC_FUNC wrappers, and a
+//   cloned call site can reach the callee body without passing through the wrapper, so
+//   "[bddraw] printed nothing" is NOT "the drawer did not run".  A NEGATIVE join is therefore only
+//   readable against this instrument's OWN positive control, which is present in every leg by
+//   construction: the boot dialogs drive BE500 (vt 0x82050200) dozens of times before any stage
+//   loads, so a leg in which [bddraw] never appears AT ALL is a silent instrument, not a negative.
+extern "C" long rvk_cur_frame(void) __attribute__((weak));   // defined in render/vk_render.cpp
+static inline long rt_bdj_frame(){ return rvk_cur_frame ? rvk_cur_frame() : -1; }
+static inline bool rt_bdjoin(){ static const bool on = std::getenv("RT_BDJOIN")!=nullptr; return on; }
+
 // ===== TRAINING CONFIG model heartbeat (sub-menu leg) =====
 // The training config panel (0x19c obj built by 821966D0 from DECIDE(2)) is vt 0x82050F00,
 // base ctor 821B6748 (family vt 0x820505B0) — NOT a menu_game_title sibling. Its state chain
@@ -3313,6 +3347,31 @@ PPC_FUNC(sub_821BE500){
           }
         }
       }
+    }
+  }
+  // ★ r23-w17 C1(d) [bddraw] — THE DRAW HALF OF THE JOIN.  Every ACTIVE-virtual tick that carries
+  //   a live backdrop object (obj+0xd8), with the colour actually sitting in bd+8 at that instant
+  //   and the renderer frame it happened on.  Change-triggered on (vt,bdcol) with a slow
+  //   heartbeat, so a stage-long run costs a handful of lines instead of one per frame per object.
+  if(rt_bdjoin() && m){
+    uint32_t bd=PPC_LOAD_U32(m+0xd8u);
+    // ★ r23-w17 leg c1a taught this: ten change-triggered records, ALL in the first 54 calls, and
+    //   nothing for the next ten minutes.  "No record" then means two different things that must
+    //   not be conflated -- BE500 stopped being called at all, or it is still called but with no
+    //   backdrop object.  So both denominators are counted and a periodic census prints them.
+    { static std::atomic<long> allN{0}, bdN{0};
+      long a=allN.fetch_add(1)+1; if(bd) bdN.fetch_add(1);
+      if(a%1800==1) std::fprintf(stderr,"[bdcensus] f%ld BE500 calls=%ld with-backdrop=%ld\n",
+                                 rt_bdj_frame(),a,bdN.load()); }
+    if(bd){
+      uint32_t col=PPC_LOAD_U32(bd+8u);
+      static std::atomic<uint64_t> lastk{~0ull};
+      static std::atomic<long> bn{0}; long b=bn.fetch_add(1)+1;
+      uint64_t k=((uint64_t)vt<<32)|col;
+      if(lastk.exchange(k)!=k || b%600==1)
+        std::fprintf(stderr,"[bddraw] f%ld BE500#%ld obj=0x%X vt=0x%X bd=0x%X bdcol=0x%08X cur=%u st48=0x%X shown8c=%u\n",
+          rt_bdj_frame(),i,m,vt,bd,col,PPC_LOAD_U32(m+0x138u),PPC_LOAD_U32(m+0x48u),
+          (unsigned)PPC_LOAD_U8(m+0x8cu));
     }
   }
   __imp__sub_821BE500(ctx,base);
@@ -3971,6 +4030,7 @@ PPC_FUNC(sub_821C6560){
 PPC_FUNC(sub_821C5998){
   static std::atomic<long> n{0}; long i=n.fetch_add(1)+1;
   uint32_t val=(uint32_t)ctx.r4.u32;
+  uint32_t bdjEng=ctx.r3.u32, bdjLr=(uint32_t)ctx.lr;   // captured BEFORE the body: r3/lr are scratch after it
   if(std::getenv("RT_DISPLOG")){
     if(i<=40||i%600==0||val==1) std::fprintf(stderr,"[disp] 821C5998#%ld engine=0x%X val=%u lr=0x%X\n",
       i,ctx.r3.u32,val,(uint32_t)ctx.lr);
@@ -3980,6 +4040,31 @@ PPC_FUNC(sub_821C5998){
   // branch is skipped (8c already 0), the rest of hide (timer clear) proceeds unchanged.
   if(val==0 && std::getenv("RT_NOCLOSER") && ctx.r3.u32) PPC_STORE_U8(ctx.r3.u32+0x8c,0);
   __imp__sub_821C5998(ctx,base);
+  // ★ r23-w17 C1(d) [bdjoin] — THE FORMULA HALF.  Read AFTER the real body, so bdcol is the value
+  //   the guest ACTUALLY WROTE rather than a re-derivation of its arithmetic here: re-deriving it
+  //   would put a second implementation of the thing under test inside the instrument, and the two
+  //   could agree while both being wrong about what reached memory.
+  if(rt_bdjoin() && bdjEng){
+    uint32_t bd=PPC_LOAD_U32(bdjEng+0xd8u);
+    std::fprintf(stderr,"[bdjoin] f%ld 5998#%ld val=%u cur=%u bd=0x%X bdcol=0x%08X st48=0x%X shown8c=%u closer=0x%X lr=0x%X\n",
+      rt_bdj_frame(),i,val,PPC_LOAD_U32(bdjEng+0x138u),bd,bd?PPC_LOAD_U32(bd+8u):0u,
+      PPC_LOAD_U32(bdjEng+0x48u),(unsigned)PPC_LOAD_U8(bdjEng+0x8cu),PPC_LOAD_U32(bdjEng+0x90u),bdjLr);
+  }
+}
+// ★ r23-w17 C1(d) [closer] — sub_821BE9D0 is the CLOSER FADE constructor that sub_821C5998's HIDE
+//   arm spawns whenever +0x8c was 1.  THIS FILE'S OWN RT_NOCLOSER COMMENT (a few lines up) names
+//   it as wedging "a fullscreen WHITE quad" because nothing in the port ticks it — i.e. it is a
+//   SECOND documented opaque-white producer inside the same subsystem, and no wash leg has ever
+//   asked whether it is live while a stage is on screen.  Free to arm alongside the backdrop tap;
+//   its zero is subject to the same clone-bypass caveat as [bddraw]'s.
+extern "C" void __imp__sub_821BE9D0(PPCContext& __restrict, uint8_t*);
+PPC_FUNC(sub_821BE9D0){
+  static std::atomic<long> n{0}; long i=n.fetch_add(1)+1;
+  uint32_t obj=ctx.r3.u32, owner=(uint32_t)ctx.r4.u32, lr=(uint32_t)ctx.lr;
+  __imp__sub_821BE9D0(ctx,base);
+  if(rt_bdjoin())
+    std::fprintf(stderr,"[closer] f%ld 821BE9D0#%ld obj=0x%X owner=0x%X lr=0x%X\n",
+      rt_bdj_frame(),i,obj,owner,lr);
 }
 PPC_FUNC(sub_8216B148){
   long n=g_b148.fetch_add(1)+1;

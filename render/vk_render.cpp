@@ -393,6 +393,24 @@ static bool segBatchOn(){ static bool on = !(std::getenv("RVK_SEGBATCH") && atoi
 
 std::mutex g_mtx;
 std::atomic<long> g_frame{0};
+// ★ r23-w17 mission C1(d): the shell-side DARKBD JOIN taps ([bdjoin]/[bddraw]/[closer] in
+//   out_reco/merged/merged_shell.cpp) must be able to say WHICH RENDERER FRAME they fired on.
+//   The join question is "does the backdrop path execute in the SAME FRAMES the wash predicate
+//   fires on?", and the predicate is scored on RT_NVKPNG dumps whose FILENAMES ARE FRAME NUMBERS.
+//   Without a shared clock the only common timebase is the `[nvk] f%ld draws=` heartbeat, which
+//   prints once per 300 frames — five seconds of slack on a defect that can last one frame.
+//   The consumer declares this __attribute__((weak)) (shell/gen/rt.cpp's rvk_present pattern), so
+//   the headless build_win.sh link, which omits this TU entirely, still resolves.
+// ⚠ g_frame IS THE WRONG CLOCK AT RT_NVK=2, and leg c1a proved it: every [bdjoin]/[bddraw]/
+//   [closer] record came back stamped `f0`.  g_frame is incremented by rvk_present /
+//   rvk_present_hooked; the nvk spine numbers its frames with nf->frame and never touches it.
+//   g_nvkFrame below is stamped by nvk_frame_submit itself, so the shell taps and the RT_NVKPNG
+//   filenames now share ONE counter -- which is the entire point of the join.
+std::atomic<long> g_nvkFrame{0};
+extern "C" long rvk_cur_frame(void) {
+  long n = g_nvkFrame.load(std::memory_order_relaxed);
+  return n ? n : g_frame.load(std::memory_order_relaxed);
+}
 // ★ CODE_REVIEW_0804 A5: swap guard — the module swap's memset/table-install/re-image used to
 // run CONCURRENTLY with an in-flight frame walk whenever the 400ms invalidation ack timed out
 // (it times out on effectively every swap: presents pause during the swap, so the worker can't
@@ -6649,8 +6667,14 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
           if (c14from >= 0 && frame >= c14from && g_curVsIdx == 48) {
             static float c14last[8] = {-1e9f, 0, 0, 0, 0, 0, 0, 0};
             static int c14n = 0;
+            // ★ r23-w17 C1: the 120-line budget was sized for the ATTRACT (a scripted sequence a
+            //   few thousand frames long).  A wash leg runs for tens of thousands of frames and
+            //   spends the whole budget in the boot menus before the stage even loads, so the
+            //   window that matters is silent for a reason that has nothing to do with the guest.
+            //   RVK_C14LOG_CAP raises it; default is unchanged so no existing reading moves.
+            static int c14cap = std::getenv("RVK_C14LOG_CAP") ? std::atoi(std::getenv("RVK_C14LOG_CAP")) : 120;
             const float* c14p = &g_psConstF[56];
-            if (c14n < 120 && std::memcmp(c14last, c14p, 32) != 0) {
+            if (c14n < c14cap && std::memcmp(c14last, c14p, 32) != 0) {
               std::memcpy(c14last, c14p, 32); ++c14n;
               // tf[3] bits 19-20/21-22 = fetch-constant mag/min filter (0=point 1=linear 3=fetchconst)
               std::fprintf(stderr, "[c14log] f%ld d%d ps=%d n=%u psc14=(%.4f,%.4f,%.4f,%.4f) psc15=(%.4f,%.4f,%.4f,%.4f) tf3=%08X mag=%u min=%u expadj=%d\n",
@@ -10743,6 +10767,7 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
   bool render = nf->nDraws > 0 || nf->hasClear;
   // body lambda: VKC's error path `return false`s out of a bool context (macro contract)
   auto renderBody = [&]() -> bool {
+    g_nvkFrame.store(nf->frame, std::memory_order_relaxed);   // ★ r23-w17 C1: the join's shared clock
     g.rArenaOffset = 0;   // nvk owns the arena at RT_NVK=2 (all submits below are fence-waited)
     // ★ TEXEL ALIGNMENT (s2B leg 9 class A) — levers shared by the resolve blit and the draw loop.
     // RT_NVKNOALIGN=1 reverts the WHOLE change (1:1 resolve copy + composite sampler snap);
@@ -11897,6 +11922,7 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
         continue;
       }
       uint32_t first = ni;
+      uint32_t vbeg = nv;      // ★ r23-w17 C1: first vertex this draw contributes (see [texskip] below)
       if (d.prim == 8) {   // RECTLIST: 3 verts/rect, 4th synthesized v3 = v1 + v2 - v0
         for (uint32_t r = 0; r + 3 <= n; r += 3) {
           uint32_t a0 = nv;
@@ -11924,6 +11950,46 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
         } else {                  // TRIANGLEFAN (prim 5) + fan fallback for unseen prims
           if (d.prim != 5 && (++oddPrimN % 500) == 1) std::fprintf(stderr, "[nvk] prim %u via fan fallback x%ld\n", d.prim, oddPrimN);
           for (uint32_t k = 1; k + 1 < n; ++k) { Iarr[ni++] = v0; Iarr[ni++] = v0 + k; Iarr[ni++] = v0 + k + 1; }
+        }
+      }
+      // ★★★ r23-w17 C1 — [texskip]: THE M1 CENSUS  (RVK_TEXSKIP=1, default off)
+      //
+      // `if (d.tf[1])` above guards the ONLY call to getTexIndexReal on the nvk spine.  When the
+      // stage-0 fetch shadow is empty the call is skipped and `texIdx` keeps its initialiser 0 —
+      // which is the 1x1 PURE WHITE bindless texture built at :10707.  RVK_TEXWHITE lives INSIDE
+      // getTexIndexReal, so it is STRUCTURALLY INCAPABLE of firing on this route: w16's and w17's
+      // texwhite zeros exclude the two arms they cover and say nothing whatever about this one.
+      // (w17 static lane, `bank/r23/w17/w17_wash_DESIGN.md` §2 M1.)
+      //
+      // ⚠ WHY A COUNT WOULD PROVE NOTHING, and what is printed instead.  tf[1]==0 is LEGITIMATE
+      //   for an untextured colour quad — white is the identity for a modulate — so the census is
+      //   dominated by correct draws and a count delta is uninterpretable.  The finding can only
+      //   ever be "the skipped draws' BBOXES TILE THE WASHED REGION", so the bbox is the payload
+      //   and the count is context.  Same trap LAWS §10 records for the ea_sweep controls.
+      // ⚠ THE BBOX IS RAW POST-decodeVert VERTEX SPACE, and this instrument does not pretend
+      //   otherwise: for the screen-space vs classes it is screen pixels, for a model-space class
+      //   it is not.  vs/ps are printed beside it so a reader can tell which, instead of a
+      //   "screen bbox" label that would quietly assert the thing being measured.
+      { static const bool tsOn = std::getenv("RVK_TEXSKIP") && atoi(std::getenv("RVK_TEXSKIP")) != 0;
+        if (tsOn && d.tf[1] == 0 && nv > vbeg) {
+          static long tsFrame = -1; static int tsThisFrame = 0; static long tsTotal = 0;
+          if (nf->frame != tsFrame) { tsFrame = nf->frame; tsThisFrame = 0; }
+          ++tsTotal;
+          if (tsThisFrame < 24) {
+            float bx0 = 1e9f, by0 = 1e9f, bx1 = -1e9f, by1 = -1e9f;
+            for (uint32_t k = vbeg; k < nv; ++k) {
+              const float* fv = (const float*)(Vraw + (size_t)k * 6);
+              if (fv[0] < bx0) bx0 = fv[0];  if (fv[0] > bx1) bx1 = fv[0];
+              if (fv[1] < by0) by0 = fv[1];  if (fv[1] > by1) by1 = fv[1];
+            }
+            ++tsThisFrame;
+            std::fprintf(stderr, "[texskip] f%ld #%ld vs=%d ps=%d prim=%u n=%u nvtx=%u blend=0x%08X vte=%X "
+                                 "bbox=(%.0f,%.0f)-(%.0f,%.0f) c14=(%.3f,%.3f,%.3f,%.3f) c15=(%.3f,%.3f)\n",
+              nf->frame, tsTotal, vsIdx, psIdx, d.prim, d.count, nv - vbeg, d.blendReg,
+              (unsigned)d.vteCntl, bx0, by0, bx1, by1,
+              g_psConstF[56], g_psConstF[57], g_psConstF[58], g_psConstF[59],
+              g_psConstF[60], g_psConstF[61]);
+          }
         }
       }
       // Register-true blend constants (RB_BLEND_RED..ALPHA, dev+0x28E0..EC) — attract legal/fade
@@ -12147,9 +12213,46 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
         vkUnmapMemory(g.dev, g.readbackMem);
       }
     }
+    // ★★★ r23-w17 C1 — RVK_WASHTRIG: THE CONDITION TRIGGER, evaluated on the COMPOSED IMAGE
+    //     BEFORE PRESENT.  (w17 static lane `w17_wash_DESIGN.md` §3.2/§3.3, driver re-derived.)
+    //
+    // WHY HERE.  This block already performs the exact acquisition a predicate needs —
+    // copyDisplayToReadback + submit + fence + map, giving kW*kH tightly-packed RGBA8 of the
+    // composed frame — and it sits immediately before rvkWindowPresent().  Reading HERE means a
+    // fire simultaneously proves the wash is UPSTREAM OF PRESENT, for free.  Gated on its OWN env,
+    // never on pngEvery, so the predicate's cadence and the filmstrip's cadence are independent.
+    //
+    // WHAT IS SCORED, and why it is not whiteness.  A raw white fraction CANNOT separate this
+    // defect: the snow stage (film007) legitimately outscores a real washed frame (film048) on
+    // both `w245Pf` and `whitePf`, so no threshold on either works in either direction.  The
+    // discriminator is FLATNESS — the wash is a FILL, snow is CONTENT.  Over the playfield minus
+    // its top-60 HUD band, 16x16 blocks sampled at stride 4: a block is FLAT-WHITE if >=90% of its
+    // samples are near-white (min channel >=210, chroma <=30) AND the block's total dynamic range
+    // is <=12.  `tilemax` is the max flat-white fraction over a 4x4 tiling — regional by
+    // construction, because the defect is regional.
+    //
+    // ⚠ EVERY EVALUATION PRINTS, not only the fires.  A threshold calibrated on 3 washed window
+    //   PNGs cannot be trusted on renderer readbacks; what transfers is the SHAPE of the statistic,
+    //   not the constant.  Emitting the full trace means the threshold can be re-cut offline from
+    //   the drive's own data without a rebuild, and a leg that never fires still returns the
+    //   calibration curve instead of a silent zero (LAWS §10: a zero that never prints is not
+    //   evidence).  w245 is printed alongside precisely BECAUSE it is refuted — carrying the dead
+    //   metric costs one float and lets the live data adjudicate rather than this comment.
+    //
+    // ⚠ ON A FIRE THE NEXT N FRAMES ARE DUMPED UNCONDITIONALLY.  Nobody has established that the
+    //   wash persists for more than one frame, and every trigger-then-capture scheme
+    //   (RenderDoc's TriggerMultiFrameCapture included) captures the frame AFTER the one the
+    //   predicate saw.  Dumping the CURRENT frame here plus the next N sidesteps the persistence
+    //   assumption entirely instead of betting on it.
+    // ⚠ THE FENCE WAIT SERIALISES THE FRAME.  [fps]/[perflog] from any RVK_WASHTRIG run are VOID.
+    static long washEvery = std::getenv("RVK_WASHTRIG") ? std::strtol(std::getenv("RVK_WASHTRIG"), nullptr, 10) : 0;
+    static long washNAfter = std::getenv("RVK_WASHTRIG_N") ? std::strtol(std::getenv("RVK_WASHTRIG_N"), nullptr, 10) : 6;
+    static double washT = std::getenv("RVK_WASHTRIG_T") ? std::atof(std::getenv("RVK_WASHTRIG_T")) : 0.20;
+    static long washForced = 0, washFires = 0;
+    bool wantWash = washEvery > 0 && (renderedFrames % washEvery) == 0;
     // PNG readback (display-independent): separate tiny cmd; g.image is TRANSFER_SRC after the last pass
-    bool dumpPng = pngEvery > 0 && (renderedFrames % pngEvery) == 0;
-    if (dumpPng) {
+    bool dumpPng = (pngEvery > 0 && (renderedFrames % pngEvery) == 0) || washForced > 0;
+    if (dumpPng || wantWash) {
       segBatchFlush();
       rvkRingNext("nvkp"); VKC(vkResetCommandBuffer(g.cmd, 0), "reset(nvkp)");
       VkCommandBufferBeginInfo cbi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
@@ -12163,9 +12266,96 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
       VKC(rvkWaitFences(g.dev, 1, &g.fence, VK_TRUE, 10000000000ull), "wait(nvkp)");
       void* map = nullptr;
       VKC(vkMapMemory(g.dev, g.readbackMem, 0, VK_WHOLE_SIZE, 0, &map), "map(nvkp)");
-      writePng("C:/tmp/nvk_last.png", (const uint8_t*)map, kW, kH);
-      char fp[64]; std::snprintf(fp, sizeof fp, "C:/tmp/nvk_f%ld.png", nf->frame);
-      writePng(fp, (const uint8_t*)map, kW, kH);
+      if (dumpPng) {
+        writePng("C:/tmp/nvk_last.png", (const uint8_t*)map, kW, kH);
+        char fp[64]; std::snprintf(fp, sizeof fp, "C:/tmp/nvk_f%ld.png", nf->frame);
+        writePng(fp, (const uint8_t*)map, kW, kH);
+        if (washForced > 0) --washForced;
+      }
+      if (wantWash && map && kW >= 880 && kH >= 680) {
+        const uint8_t* px = (const uint8_t*)map;
+        // playfield = 480x640 composed 1:1 and CENTRED in 1280x720 -> x[400,880) y[40,680).
+        // (1280-480)/2 = 400 and (720-640)/2 = 40: the arithmetic closes, which is the check that
+        // no window-to-client offset was smuggled in.  Top 60 rows are the HUD band and are
+        // EXCLUDED: they are bright by design and draw correctly during the wash, so they add
+        // only noise.  Play area = x[400,880) y[100,680) = 480x580.
+        const int PX0 = 400, PY0 = 100, PW = 480, PH = 580;
+        // ⚠⚠ NOT `RGB`.  <wingdi.h> defines RGB(r,g,b) as a COLORREF-packing MACRO, so a lambda
+        //   named RGB DECLARES fine (the name is not followed by `(` there) and then every CALL
+        //   SITE silently expands to the macro instead.  The result is a pure function of the
+        //   COORDINATES: the probe never touches the framebuffer and returns the same numbers
+        //   forever.  That is exactly what happened on leg c1a -- 2,998 evaluations, every one
+        //   reporting w245=0.9866 and flatwhite=0.0000, while the PNG written from the SAME
+        //   mapped pointer on the SAME frames varied correctly.  Sibling of the `near` collision
+        //   twenty lines up; <windows.h> owns more short uppercase identifiers than it should.
+        //   ★ The arm-time border self-check is what exposed it: borderLuma printed 86433.6 when
+        //     a luma cannot exceed 255, and 0.299*A + 0.587*(A+65536) + 0.114*(A+131072) with
+        //     A = x|(y<<8) reproduces 86065 -- the macro's arithmetic, to within rounding.
+        //     A probe with no self-check would have banked "the predicate never fired".
+        auto PXV = [&](int x, int y, int c) -> int { return px[((size_t)y * kW + x) * 4 + c]; };
+        // ---- arm-time SELF-CHECK, once: if the 4-px border just outside the rect is not the
+        //      side wallpaper, the rect is wrong and every number below is void.  Printed, not
+        //      assumed, because a silently-misplaced rect is indistinguishable from a clean run.
+        static bool washArmed = false;
+        if (!washArmed) {
+          washArmed = true;
+          double bl = 0; int bn = 0;
+          for (int y = PY0; y < PY0 + PH; y += 8)
+            for (int dx = 1; dx <= 4; ++dx) {
+              bl += 0.299 * PXV(PX0 - dx, y, 0) + 0.587 * PXV(PX0 - dx, y, 1) + 0.114 * PXV(PX0 - dx, y, 2);
+              bl += 0.299 * PXV(PX0 + PW + dx - 1, y, 0) + 0.587 * PXV(PX0 + PW + dx - 1, y, 1) + 0.114 * PXV(PX0 + PW + dx - 1, y, 2);
+              bn += 2;
+            }
+          std::fprintf(stderr, "[washtrig] ARM rect=(%d,%d)+%dx%d over %ux%u  every=%ld  T=%.3f  N=%ld"
+                               "  borderLuma=%.1f (self-check: this must be the side wallpaper, not playfield)\n",
+                       PX0, PY0, PW, PH, kW, kH, washEvery, washT, washNAfter, bl / (bn ? bn : 1));
+        }
+        int blkFlat = 0, blkTot = 0;
+        const int NBX = PW / 16, NBY = PH / 16;          // 30 x 36 blocks
+        static std::vector<uint8_t> flatBlk; flatBlk.assign((size_t)NBX * NBY, 0);
+        long w245 = 0, w245n = 0;
+        for (int by = 0; by < NBY; ++by) for (int bx = 0; bx < NBX; ++bx) {
+          // ⚠ NOT `near`: <windows.h> still #defines `near`/`far` as empty legacy segment
+          //   keywords, so `int near` is a parse error here and nowhere else in the codebase.
+          int nearN = 0, ns = 0, smax = 0, smin = 255;
+          for (int y = 0; y < 16; y += 4) for (int x = 0; x < 16; x += 4) {
+            int r = PXV(PX0 + bx * 16 + x, PY0 + by * 16 + y, 0);
+            int g2 = PXV(PX0 + bx * 16 + x, PY0 + by * 16 + y, 1);
+            int b = PXV(PX0 + bx * 16 + x, PY0 + by * 16 + y, 2);
+            int mx = r > g2 ? (r > b ? r : b) : (g2 > b ? g2 : b);
+            int mn = r < g2 ? (r < b ? r : b) : (g2 < b ? g2 : b);
+            if (mn >= 210 && (mx - mn) <= 30) ++nearN;
+            if (mx > smax) smax = mx;  if (mn < smin) smin = mn;
+            if (mn >= 245) ++w245;  ++w245n;  ++ns;
+          }
+          ++blkTot;
+          bool f = (nearN * 10 >= ns * 9) && (smax - smin) <= 12;
+          if (f) { ++blkFlat; flatBlk[(size_t)by * NBX + bx] = 1; }
+        }
+        double flatwhite = blkTot ? (double)blkFlat / blkTot : 0.0;
+        // tilemax over a 4x4 tiling of the block grid — the defect is REGIONAL, so a whole-field
+        // mean under-reports it by exactly the factor the region is small.
+        double tilemax = 0.0; int tbest = -1;
+        for (int ti = 0; ti < 4; ++ti) for (int tj = 0; tj < 4; ++tj) {
+          int y0 = ti * NBY / 4, y1 = (ti + 1) * NBY / 4, x0 = tj * NBX / 4, x1 = (tj + 1) * NBX / 4;
+          int c = 0, t = 0;
+          for (int by = y0; by < y1; ++by) for (int bx = x0; bx < x1; ++bx) { t++; c += flatBlk[(size_t)by * NBX + bx]; }
+          double v = t ? (double)c / t : 0.0;
+          if (v > tilemax) { tilemax = v; tbest = ti * 4 + tj; }
+        }
+        double w245f = w245n ? (double)w245 / w245n : 0.0;
+        bool fire = tilemax >= washT;
+        std::fprintf(stderr, "[washtrig] f%ld flatwhite=%.4f tilemax=%.4f tile=%d w245=%.4f blocks=%d/%d%s\n",
+                     nf->frame, flatwhite, tilemax, tbest, w245f, blkFlat, blkTot, fire ? "  ***FIRE***" : "");
+        if (fire) {
+          ++washFires;
+          char wp[80]; std::snprintf(wp, sizeof wp, "C:/tmp/nvkwash_f%ld.png", nf->frame);
+          writePng(wp, (const uint8_t*)map, kW, kH);      // THIS frame, not the next one
+          washForced = washNAfter;                        // and the next N, unconditionally
+          std::fprintf(stderr, "[washtrig] FIRE#%ld f%ld tilemax=%.4f -> %s + next %ld frames forced\n",
+                       washFires, nf->frame, tilemax, wp, washNAfter);
+        }
+      }
       vkUnmapMemory(g.dev, g.readbackMem);
     }
     static long sub = 0;
