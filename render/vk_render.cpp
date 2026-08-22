@@ -2393,6 +2393,7 @@ ArenaSlice arenaAlloc(VkDeviceSize sz) {
   return {(uint8_t*)g.rArenaMap + off, g.rArenaAddr + off};
 }
 
+static long g_texUpN = 0; static double g_texUpMB = 0.0;   // [texcensus] totals, also read by [bindcensus]
 // upload a linear RGBA8 buffer (already in g.stagingMap) to a bindless-registrable image
 bool uploadTexToBindless(uint32_t w, uint32_t h, RTex& out) {
   auto sfT0 = std::chrono::steady_clock::now();
@@ -2402,9 +2403,8 @@ bool uploadTexToBindless(uint32_t w, uint32_t h, RTex& out) {
   // Leak census (2026-07-20 late-stage soak: RSS +~75MB/attract-cycle, 371MB->1.98GB/26min):
   // count every bindless image created + cumulative MB — the registry is append-only (no
   // vkDestroy anywhere), so if this tracks the RSS staircase the textures are the leak.
-  { static long upN = 0; static double upMB = 0.0;
-    upMB += (double)w * h * 4.0 / (1024.0 * 1024.0);
-    if ((++upN % 100) == 0) std::fprintf(stderr, "[texcensus] uploads=%ld cumMB=%.1f\n", upN, upMB); }
+  { g_texUpMB += (double)w * h * 4.0 / (1024.0 * 1024.0);
+    if ((++g_texUpN % 100) == 0) std::fprintf(stderr, "[texcensus] uploads=%ld cumMB=%.1f\n", g_texUpN, g_texUpMB); }
   VkImageCreateInfo ii{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO}; ii.imageType = VK_IMAGE_TYPE_2D; ii.format = VK_FORMAT_R8G8B8A8_UNORM;
   ii.extent = {w, h, 1}; ii.mipLevels = 1; ii.arrayLayers = 1; ii.samples = VK_SAMPLE_COUNT_1_BIT; ii.tiling = VK_IMAGE_TILING_OPTIMAL;
   // TRANSFER_SRC added 2026-07-19: RVK_WALLBG=5 blits the guest's uploaded wallpaper compose
@@ -2453,6 +2453,9 @@ struct ResolveTex { VkImage image = VK_NULL_HANDLE; VkDeviceMemory mem = VK_NULL
   // ★ RVK_TFW (2026-08-03): sibling view with components.a = ONE for fetches whose tf3 dest-W
   // select is the constant 1 ({Z,Y,X,1}). Lazily created; idxA1 == 0 means "not yet".
   VkImageView viewA1 = VK_NULL_HANDLE; uint32_t idxA1 = 0;
+  // RVK_BINDFIX (r23-w30): the A=1 slot inherited from a retired same-dst surface (so the lazy
+  // sibling view does not burn a fresh index), and the device bytes this surface requested.
+  uint32_t idxA1Reserved = 0; VkDeviceSize bytes = 0;
   // s2B leg 10 item 1: the host format this target was created with. g_rtFmt for every legacy
   // target; A2B10G10R10_UNORM_PACK32 for the nvk ring slots (guest fetch fmt 54 = k_2_10_10_10).
   // Consumers that reinterpret the bytes (writePng) MUST check this — the readback of a packed
@@ -2558,6 +2561,110 @@ extern "C" void rvk_module_swap_invalidate(void) {
 // (rvkSwapDropNvkRT is forward-declared at file scope, above the anonymous namespace — g_nvkRT
 // lives ~7000 lines below and OUTSIDE that namespace, so the declaration has to match.)
 
+// ★ RVK_BINDFIX (2026-08-22, r23-w30 — the FNF-2 fix slate; bank/r23/w29/FNF2_STATIC_WORKUP.md).
+// Three defects in the bindless slot economy, every one env-revertible with RVK_BINDFIX=0:
+//  (1) getOrCreateResolveTex's REPLACE path (same dst, new w/h) overwrote the cache slot and
+//      leaked the old {image, mem, view, viewA1, fb} for the rest of the session, AND burnt a
+//      fresh bindless index per re-creation.  Now the old surface is RETIRED — destroyed at the
+//      next module-swap quiesce, where the renderer already vkDeviceWaitIdle's (this file never
+//      destroys a bindless resource mid-session; see uploadTexToBindless's leak-census note) —
+//      and its slot numbers are REUSED by the replacement (the reval3 precedent, line ~3700).
+//  (2) g.rNextTexIndex had no in-leg bound.  The allocator resets only on a module swap, and a
+//      long play leg never swaps; kMaxBindlessImages (1024, NOT kMaxTextures=256 — the w29 workup
+//      mis-cited the legacy descriptor-pool size) is the descriptor array's size, a write past it
+//      is undefined behaviour, and DEVICE_LOST at the next submit is its expected presentation.
+//      rvkBindlessAlloc() refuses at the cap — loud, rate-limited — and returns slot 0 (the fixed
+//      white), so a draw degrades to white instead of the device dying.
+//  (3) the resolve path's vkCreateImage / vkAllocateMemory / vkBindImageMemory were unchecked.
+// RVK_BINDCENSUS=<N> (default 0 = off): one stderr line every N frame-starts with the cursor,
+// the cache sizes and the cumulative upload/resolve MB — the instrument that measures whether the
+// cursor or the byte sum actually climbs toward a strike (the workup's own acceptance condition;
+// a prior verdict is a hypothesis about a build, re-measure it).
+static bool rvkBindFixOn() {
+  static const bool on = !(std::getenv("RVK_BINDFIX") && atoi(std::getenv("RVK_BINDFIX")) == 0);
+  return on;
+}
+// ★ RVK_BINDFIX part 2 — IN-LEG SLOT RECLAMATION (host v2, r23-w30).  The v1 slate refused at the
+// cap; then g1's own [bindcensus] showed the cursor at 841/1024 EIGHT MINUTES into a plain
+// Original drive (720 uploads, 650 records, 418 live keys) — refusing at the cap is a white-out
+// at ~10 min of play, not a fix, and ~10 min is exactly where the w21 strikes and the 4th-swap
+// "idx 931" log sit.  So: every slot getTexIndexReal hands out is registered here with its cache
+// key and a last-use stamp (touched on every cache hit).  When the cursor crosses kGcHighWater
+// and the free list is dry, the frame-start service quiesces the device (the swap path's own
+// vkDeviceWaitIdle, no pass recording, under g_mtx) and frees every registered slot that is
+// unreferenced by the index map or idle >= kGcIdleFrames; freed slots go to a free list the
+// allocator drains before touching the cursor.  Resolve targets / A=1 siblings are never
+// registered, never collected; slot 0 (white) and the transparent-black slot are pinned.
+// Records overwritten IN PLACE (reval3 / epoch re-decodes) park their old handles on g_texRetire
+// and die at the same quiesce — closing that leak too.  ⚠ g.rTexRecords is NOT slot-aligned
+// (resolve slots never push a record), so every destroy here finds-and-nulls the matching
+// rTexRecords entry BY HANDLE, and the swap destroy loop can never double-free.
+struct TexSlot { VkImage image = VK_NULL_HANDLE; VkDeviceMemory mem = VK_NULL_HANDLE; VkImageView view = VK_NULL_HANDLE;
+                 uint64_t key = 0; long lastUse = 0; bool live = false, pinned = false; };
+static std::vector<TexSlot> g_slots;         // indexed by bindless slot (sized kMaxBindlessImages lazily)
+static std::vector<uint32_t> g_slotFree;     // reclaimed slots, drained first by rvkBindlessAlloc
+static std::vector<RTex> g_texRetire;        // in-place-overwritten records, destroyed at the next quiesce
+static long g_frameStarts = 0, g_gcRuns = 0, g_gcFreed = 0, g_gcLast = -1000000;
+static constexpr uint32_t kGcHighWater = 768;
+static constexpr long kGcIdleFrames = 600, kGcCooldown = 600;
+static void rvkSlotRegister(uint32_t idx, const RTex& t, uint64_t key, bool pinned) {
+  if (g_slots.size() < kMaxBindlessImages) g_slots.resize(kMaxBindlessImages);
+  if (idx == 0 || idx >= g_slots.size()) return;
+  TexSlot& s = g_slots[idx];
+  if (s.live && s.image && s.image != t.image) g_texRetire.push_back({s.image, s.mem, s.view});
+  s.image = t.image; s.mem = t.mem; s.view = t.view; s.key = key; s.lastUse = g_frameStarts; s.live = true; s.pinned = pinned;
+}
+static inline void rvkSlotTouch(uint32_t idx) { if (idx < g_slots.size()) g_slots[idx].lastUse = g_frameStarts; }
+static void rvkSlotReset() { g_slots.clear(); g_slotFree.clear(); g_texRetire.clear(); }   // the swap destroy freed the handles
+static void rvkSlotGC(const char* why);   // defined after the reval/epoch maps it erases from
+static long g_bindExhausted = 0;
+static uint32_t rvkBindlessAlloc(const char* who) {
+  if (rvkBindFixOn() && !g_slotFree.empty()) { uint32_t i = g_slotFree.back(); g_slotFree.pop_back(); return i; }
+  if (rvkBindFixOn() && g.rNextTexIndex >= kMaxBindlessImages) {
+    long i = ++g_bindExhausted;
+    if (i <= 8 || (i % 1000) == 0)
+      std::fprintf(stderr, "[rvk][bindless] EXHAUSTED: %s wants a slot, cursor=%u cap=%u (hit #%ld) -> slot 0 (white)\n",
+                   who, g.rNextTexIndex, kMaxBindlessImages, i);
+    return 0;
+  }
+  return g.rNextTexIndex++;
+}
+struct ResolveRetire { VkImage image; VkDeviceMemory mem; VkImageView view, viewA1; VkFramebuffer fb; VkDeviceSize bytes; };
+static std::vector<ResolveRetire> g_resolveRetire;   // drained at the swap quiesce only
+static long g_resolveReplaceN = 0;
+static double g_resolveAllocMB = 0.0;                 // cumulative device MB requested for resolve targets
+static void rvkResolveRetireDrain(bool destroy) {     // destroy == the caller has the device idle
+  if (g_resolveRetire.empty()) return;
+  double mb = 0.0;
+  for (auto& r : g_resolveRetire) {
+    mb += (double)r.bytes / (1024.0 * 1024.0);
+    if (!destroy) continue;
+    if (r.fb)     vkDestroyFramebuffer(g.dev, r.fb, nullptr);
+    if (r.viewA1) vkDestroyImageView(g.dev, r.viewA1, nullptr);
+    if (r.view)   vkDestroyImageView(g.dev, r.view, nullptr);
+    if (r.image)  vkDestroyImage(g.dev, r.image, nullptr);
+    if (r.mem)    vkFreeMemory(g.dev, r.mem, nullptr);
+  }
+  std::fprintf(stderr, "[rvk][resolve] retire list: %zu surfaces / %.1f MB %s\n", g_resolveRetire.size(), mb,
+               destroy ? "DESTROYED at the swap quiesce" : "dropped (legacy leak)");
+  g_resolveRetire.clear();
+}
+static bool rvkResolveCheck(VkResult r, const char* what) {   // VKC's semantics for a non-bool function
+  if (r == VK_SUCCESS) return true;
+  std::fprintf(stderr, "[rvk] FAIL %s = %d\n", what, (int)r); g.failed = true;
+  if (g.ok && !rvkDiehardOn()) rvkVkFatal(what, (int)r);
+  return false;
+}
+static void rvkBindCensus() {   // frame-start, under g_mtx (called from rvkServiceInvalidations)
+  static const int every = std::getenv("RVK_BINDCENSUS") ? atoi(std::getenv("RVK_BINDCENSUS")) : 0;
+  static long n = 0;
+  if (every <= 0 || (++n % every) != 0) return;
+  std::fprintf(stderr, "[bindcensus] fs=%ld cursor=%u/%u free=%zu gc=%ld/%ld texCache=%zu rTexIndex=%zu rTexRecords=%zu resolve=%zu retire=%zu/%zu replaces=%ld exhausted=%ld uploads=%ld upMB=%.1f resMB=%.1f fix=%d\n",
+               n, g.rNextTexIndex, kMaxBindlessImages, g_slotFree.size(), g_gcRuns, g_gcFreed, g.texCache.size(), g.rTexIndex.size(), g.rTexRecords.size(),
+               g_resolveTex.size(), g_resolveRetire.size(), g_texRetire.size(), g_resolveReplaceN, g_bindExhausted, g_texUpN, g_texUpMB,
+               g_resolveAllocMB, rvkBindFixOn() ? 1 : 0);
+}
+
 // `want` (s2B leg 10 item 1): host format for this resolve target. VK_FORMAT_UNDEFINED = g_rtFmt =
 // every historical caller, unchanged. The nvk resolve site passes the format implied by the guest's
 // own texture fetch so the ring's 10-bit reinterpretation is honoured end to end.
@@ -2566,15 +2673,26 @@ ResolveTex& getOrCreateResolveTex(uint32_t dst, uint32_t w, uint32_t h, VkFormat
   if (it != g_resolveTex.end() && it->second.w == w && it->second.h == h) return it->second;
   VkFormat useFmt = (want == VK_FORMAT_UNDEFINED) ? g_rtFmt : want;
   ResolveTex t{}; t.w = w; t.h = h; t.fmt = useFmt;
+  if (it != g_resolveTex.end() && rvkBindFixOn()) {
+    // RVK_BINDFIX (1): a size change retires the old surface and hands its slots to the new one.
+    ResolveTex& o = it->second;
+    g_resolveRetire.push_back({o.image, o.mem, o.view, o.viewA1, o.fb, o.bytes});
+    t.idx = o.idx; t.idxA1Reserved = o.idxA1 ? o.idxA1 : o.idxA1Reserved;
+    ++g_resolveReplaceN;
+    std::fprintf(stderr, "[rvk][resolve] REPLACE dst=0x%X %ux%u -> %ux%u: old surface retired, slot %u reused (#%ld)\n",
+                 dst, o.w, o.h, w, h, o.idx, g_resolveReplaceN);
+  }
   VkImageCreateInfo ii{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO}; ii.imageType = VK_IMAGE_TYPE_2D; ii.format = useFmt;
   ii.extent = {w, h, 1}; ii.mipLevels = 1; ii.arrayLayers = 1; ii.samples = VK_SAMPLE_COUNT_1_BIT; ii.tiling = VK_IMAGE_TILING_OPTIMAL;
   // LEG-40 Fix B: resolve texs are RENDER TARGETS (layer segments render directly into them at
   // their native w×h) as well as sampled by the composite. + TRANSFER_SRC for front-buffer readback.
   ii.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; ii.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  vkCreateImage(g.dev, &ii, nullptr, &t.image);
+  rvkResolveCheck(vkCreateImage(g.dev, &ii, nullptr, &t.image), "vkCreateImage(resolve)");
   VkMemoryRequirements mr{}; vkGetImageMemoryRequirements(g.dev, t.image, &mr);
   VkMemoryAllocateInfo ai{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO}; ai.allocationSize = mr.size; ai.memoryTypeIndex = findMem(mr.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-  vkAllocateMemory(g.dev, &ai, nullptr, &t.mem); vkBindImageMemory(g.dev, t.image, t.mem, 0);
+  rvkResolveCheck(vkAllocateMemory(g.dev, &ai, nullptr, &t.mem), "vkAllocateMemory(resolve)");
+  rvkResolveCheck(vkBindImageMemory(g.dev, t.image, t.mem, 0), "vkBindImageMemory(resolve)");
+  t.bytes = mr.size; g_resolveAllocMB += (double)mr.size / (1024.0 * 1024.0);
   // clear to opaque black + move to SHADER_READ so a pre-first-resolve sample is clean
   segBatchFlush();   // RVK_SEGBATCH: order deferred seg ops before reusing g.cmd
   // CODE_REVIEW_0804 A3: this site (and getNvkRT) were the only two submitters that skipped the
@@ -2604,7 +2722,7 @@ ResolveTex& getOrCreateResolveTex(uint32_t dst, uint32_t w, uint32_t h, VkFormat
       VkFramebufferCreateInfo fbi{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO}; fbi.renderPass = pp.clear; fbi.attachmentCount = 1; fbi.pAttachments = &t.view; fbi.width = w; fbi.height = h; fbi.layers = 1;
       vkCreateFramebuffer(g.dev, &fbi, nullptr, &t.fb);
     } }
-  t.idx = g.rNextTexIndex++;
+  if (!t.idx) t.idx = rvkBindlessAlloc("resolve");   // RVK_BINDFIX: a replacement keeps its slot
   VkDescriptorImageInfo dii{VK_NULL_HANDLE, t.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
   VkWriteDescriptorSet wr{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET}; wr.dstSet = g.rSets[0]; wr.dstBinding = 0; wr.dstArrayElement = t.idx; wr.descriptorCount = 1; wr.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE; wr.pImageInfo = &dii;
   vkUpdateDescriptorSets(g.dev, 1, &wr, 0, nullptr);
@@ -2635,7 +2753,9 @@ uint32_t resolveIdxA1(ResolveTex& t) {
                    VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_ONE};
   iv.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
   if (vkCreateImageView(g.dev, &iv, nullptr, &t.viewA1) != VK_SUCCESS) { t.viewA1 = VK_NULL_HANDLE; return t.idx; }
-  t.idxA1 = g.rNextTexIndex++;
+  t.idxA1 = t.idxA1Reserved ? t.idxA1Reserved : rvkBindlessAlloc("resolveA1");
+  if (!t.idxA1) {   // RVK_BINDFIX: array full -- alias the base view (loses the A=1 swizzle, never the device)
+    vkDestroyImageView(g.dev, t.viewA1, nullptr); t.viewA1 = VK_NULL_HANDLE; t.idxA1 = t.idx; return t.idx; }
   VkDescriptorImageInfo dii{VK_NULL_HANDLE, t.viewA1, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
   VkWriteDescriptorSet wr{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
   wr.dstSet = g.rSets[0]; wr.dstBinding = 0; wr.dstArrayElement = t.idxA1; wr.descriptorCount = 1;
@@ -2717,6 +2837,12 @@ static uint32_t g_swapDestroyGen = 0;   // bumped ONLY by the swap destroy+alloc
 // reset the slot allocator, and rebuild the fixed white texture at index 0 in place.
 // RVK_SWAPDESTROY=0 reverts to the historical leak-and-climb drop (minus the mid-frame clear).
 static void rvkServiceInvalidations() {
+  ++g_frameStarts;
+  rvkBindCensus();   // RVK_BINDCENSUS (r23-w30): the bindless-economy census, frame-start cadence
+  // RVK_BINDFIX part 2: reclaim slots at the high-water mark (cooldown so an all-hot set cannot
+  // quiesce every frame; an all-hot set past the cap still degrades to white via the allocator).
+  if (rvkBindFixOn() && g.ok && !g.failed && g_slotFree.size() < 16 && g.rNextTexIndex >= kGcHighWater &&
+      g_frameStarts - g_gcLast >= kGcCooldown) { g_gcLast = g_frameStarts; rvkSlotGC("highwater"); }
   // [hbinv] handback drop (FNF-11) — index maps only, images stay registered (append-only).
   { static bool hbInvOff = std::getenv("RVK_NOHBINV") && atoi(std::getenv("RVK_NOHBINV")) != 0;
     static uint32_t hbSeen = 0;
@@ -2753,6 +2879,7 @@ static void rvkServiceInvalidations() {
             if (t.view)   vkDestroyImageView(g.dev, t.view, nullptr);
             if (t.image)  vkDestroyImage(g.dev, t.image, nullptr);
             if (t.mem)    vkFreeMemory(g.dev, t.mem, nullptr); }
+        rvkResolveRetireDrain(true);   // RVK_BINDFIX: the retired same-dst surfaces die here, device idle
         nN = rvkSwapDestroyNvkRT();
         for (auto& t : g.rTexRecords) {   // includes the white at [0] — rebuilt just below
           if (t.view)  vkDestroyImageView(g.dev, t.view, nullptr);
@@ -2760,6 +2887,7 @@ static void rvkServiceInvalidations() {
           if (t.mem)   vkFreeMemory(g.dev, t.mem, nullptr); }
         g.rTexRecords.clear();
         g.rNextTexIndex = 1;
+        rvkSlotReset();   // RVK_BINDFIX part 2: the handles above are gone; drop the slot table + free list
         g_swapDestroyGen++;
         // rebuild the fixed white texture (index 0) immediately so no caller ever sees an empty
         // registry mid-session; the lazy boot-time guards stay for first init only.
@@ -2782,11 +2910,11 @@ static void rvkServiceInvalidations() {
             VkWriteDescriptorSet wr{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
             wr.dstSet = g.rSets[0]; wr.dstBinding = 0; wr.descriptorCount = 1;
             wr.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-            if (t.view) { t.idx = g.rNextTexIndex++;
+            if (t.view) { t.idx = rvkBindlessAlloc("swapkeep");
               VkDescriptorImageInfo di{VK_NULL_HANDLE, t.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
               wr.dstArrayElement = t.idx; wr.pImageInfo = &di;
               vkUpdateDescriptorSets(g.dev, 1, &wr, 0, nullptr); ++rr; }
-            if (t.viewA1) { t.idxA1 = g.rNextTexIndex++;
+            if (t.viewA1) { t.idxA1 = rvkBindlessAlloc("swapkeepA1");
               VkDescriptorImageInfo di{VK_NULL_HANDLE, t.viewA1, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
               wr.dstArrayElement = t.idxA1; wr.pImageInfo = &di;
               vkUpdateDescriptorSets(g.dev, 1, &wr, 0, nullptr); }
@@ -2794,6 +2922,7 @@ static void rvkServiceInvalidations() {
           std::fprintf(stderr, "[swapinv] KEEPRES: %zu resolve pages kept + re-registered\n", rr);
         }
       } else {
+        rvkResolveRetireDrain(false);
         nN = rvkSwapDropNvkRT();
       }
       g.texCache.clear();
@@ -2811,6 +2940,40 @@ static void rvkServiceInvalidations() {
 // is untouched: key -> allocation epoch of the guest bytes at the moment we decoded them.
 extern "C" uint32_t rt_mem_epoch(uint32_t addr, uint32_t bytes);
 static std::unordered_map<uint64_t, uint32_t> g_texEpoch;
+// RVK_BINDFIX part 2 — the collector (declared with the slot table above; defined here, after the
+// reval/epoch maps it has to erase from).  Caller: rvkServiceInvalidations at a frame start.
+static void rvkSlotGC(const char* why) {
+  if (g_slots.empty() || !g.dev) return;
+  { std::lock_guard<std::mutex> ql(g_qMtx); vkDeviceWaitIdle(g.dev); }
+  for (int s = 0; s < 6; ++s) g.ringPending[s] = false;   // all fences signaled after idle
+  std::vector<uint8_t> refd(g_slots.size(), 0);
+  for (auto& kv : g.rTexIndex) if (kv.second < refd.size()) refd[kv.second] = 1;
+  auto nullRec = [](VkImage im) { if (!im) return;
+    for (auto& r : g.rTexRecords) if (r.image == im) { r.image = VK_NULL_HANDLE; r.mem = VK_NULL_HANDLE; r.view = VK_NULL_HANDLE; } };
+  auto destroy = [&](VkImage im, VkDeviceMemory mem, VkImageView view) { nullRec(im);
+    if (view) vkDestroyImageView(g.dev, view, nullptr);
+    if (im)   vkDestroyImage(g.dev, im, nullptr);
+    if (mem)  vkFreeMemory(g.dev, mem, nullptr); };
+  size_t retired = g_texRetire.size();
+  for (auto& r : g_texRetire) destroy(r.image, r.mem, r.view);
+  g_texRetire.clear();
+  long freed = 0, hot = 0, unref = 0;
+  for (uint32_t i = 1; i < g_slots.size() && i < g.rNextTexIndex; ++i) {
+    TexSlot& s = g_slots[i];
+    if (!s.live || s.pinned) continue;
+    const bool ref = refd[i] != 0, idle = (g_frameStarts - s.lastUse) >= kGcIdleFrames;
+    if (ref && !idle) { ++hot; continue; }
+    if (ref) { g.rTexIndex.erase(s.key); g_texEpoch.erase(s.key); revalSig.erase(s.key); reval3Sig.erase(s.key);
+               reval3HitCount.erase(s.key); reval3FireCount.erase(s.key); } else ++unref;
+    destroy(s.image, s.mem, s.view);
+    s = TexSlot{}; g_slotFree.push_back(i); ++freed;
+  }
+  rvkResolveRetireDrain(true);   // same quiesce pays for the retired resolve surfaces
+  ++g_gcRuns; g_gcFreed += freed;
+  std::fprintf(stderr, "[rvk][gc] #%ld (%s) fs=%ld cursor=%u/%u freed=%ld (unreferenced %ld, idle %ld) hot=%ld retired=%zu free=%zu rTexIndex=%zu\n",
+               g_gcRuns, why, g_frameStarts, g.rNextTexIndex, kMaxBindlessImages, freed, unref, freed - unref, hot, retired,
+               g_slotFree.size(), g.rTexIndex.size());
+}
 static bool rvkIdLog(){ static bool v = std::getenv("RVK_IDLOG") && std::atoi(std::getenv("RVK_IDLOG")) != 0; return v; }
 
 uint32_t getTexIndexReal(uint32_t base, uint32_t w, uint32_t h, uint32_t fmt, uint32_t tf0 = 0,
@@ -3061,9 +3224,15 @@ uint32_t getTexIndexReal(uint32_t base, uint32_t w, uint32_t h, uint32_t fmt, ui
       if (blackIdx < 0) {
         ((uint32_t*)g.stagingMap)[0] = 0x00000000u;
         RTex bt{};
-        if (uploadTexToBindless(1, 1, bt)) {
-          blackIdx = (int)g.rNextTexIndex++;
+        uint32_t bslot = 0;
+        if (uploadTexToBindless(1, 1, bt) && (bslot = rvkBindlessAlloc("black")) == 0) {
+          // RVK_BINDFIX: array full -- drop the upload (fence-waited, unreferenced), fall back to the white
+          vkDestroyImageView(g.dev, bt.view, nullptr); vkDestroyImage(g.dev, bt.image, nullptr); vkFreeMemory(g.dev, bt.mem, nullptr);
+          blackIdx = 0;
+        } else if (bslot != 0) {
+          blackIdx = (int)bslot;
           g.rTexRecords.push_back(bt);
+          rvkSlotRegister(bslot, bt, 0, true);   // pinned: a function-static holds this slot
           VkDescriptorImageInfo dii{VK_NULL_HANDLE, bt.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
           VkWriteDescriptorSet wr{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
           wr.dstSet = g.rSets[0]; wr.dstBinding = 0; wr.dstArrayElement = (uint32_t)blackIdx; wr.descriptorCount = 1;
@@ -3220,7 +3389,7 @@ uint32_t getTexIndexReal(uint32_t base, uint32_t w, uint32_t h, uint32_t fmt, ui
     if (texReval2 && (fmt == 3 || fmt == 4 || fmt == 6) && w >= 32 && h >= 32 && base && g_base) {
       uint32_t sig = revalHash();
       auto sit = revalSig.find(key);
-      if (sit != revalSig.end() && sit->second == sig) return it->second;   // content stable -> reuse
+      if (sit != revalSig.end() && sit->second == sig) { rvkSlotTouch(it->second); return it->second; }   // content stable -> reuse
       static std::unordered_map<uint32_t, int> revalLogged;
       if (revalLogged.size() < 24 && !revalLogged.count(base)) { revalLogged[base] = 1;
         std::fprintf(stderr, "[texreval2] base=0x%X %ux%u fmt=%u content changed since decode -- re-decoding\n", base, w, h, fmt); }
@@ -3253,8 +3422,8 @@ uint32_t getTexIndexReal(uint32_t base, uint32_t w, uint32_t h, uint32_t fmt, ui
         uint32_t& fires = reval3FireCount[key];
         uint32_t sig3 = reval3Hash(fires >= 2 ? 1024 : 64);
         auto s3 = reval3Sig.find(key);
-        if (s3 == reval3Sig.end()) { reval3Sig[key] = sig3; return it->second; }  // first hit: just baseline
-        if (s3->second == sig3) return it->second;                                // unchanged -> reuse
+        if (s3 == reval3Sig.end()) { reval3Sig[key] = sig3; rvkSlotTouch(it->second); return it->second; }  // first hit: just baseline
+        if (s3->second == sig3) { rvkSlotTouch(it->second); return it->second; }                            // unchanged -> reuse
         s3->second = sig3;
         if (fires < 2 && ++fires == 2)
           s3->second = reval3Hash(1024);   // re-baseline at the density all later compares use
@@ -3264,9 +3433,9 @@ uint32_t getTexIndexReal(uint32_t base, uint32_t w, uint32_t h, uint32_t fmt, ui
         if (reval3Fires <= 40 || (reval3Fires % 600) == 0) {
           std::fprintf(stderr, "[texreval3] base=0x%X fmt=%u re-decoded (#%ld)\n", base, fmt, reval3Fires); }
         // fall through to re-decode/upload below, reusing reval3ReuseIdx.
-      } else return it->second;
+      } else { rvkSlotTouch(it->second); return it->second; }
       }
-    } else return it->second;
+    } else { rvkSlotTouch(it->second); return it->second; }
   }
 
   uint8_t* dst = (uint8_t*)g.stagingMap;
@@ -3705,7 +3874,14 @@ uint32_t getTexIndexReal(uint32_t base, uint32_t w, uint32_t h, uint32_t fmt, ui
     idx = (uint32_t)reval3ReuseIdx;
     g.rTexRecords[idx] = t;
   } else {
-    idx = g.rNextTexIndex++;
+    idx = rvkBindlessAlloc("tex");
+    if (idx == 0) {
+      // RVK_BINDFIX: the array is full -- drop this upload (fence-waited, nothing references it) and
+      // cache the miss, so the draw samples the white at slot 0 instead of re-uploading every frame
+      vkDestroyImageView(g.dev, t.view, nullptr); vkDestroyImage(g.dev, t.image, nullptr); vkFreeMemory(g.dev, t.mem, nullptr);
+      g.rTexIndex[key] = 0;
+      return 0;
+    }
     g.rTexRecords.push_back(t);
   }
   VkDescriptorImageInfo dii{VK_NULL_HANDLE, t.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
@@ -3713,6 +3889,7 @@ uint32_t getTexIndexReal(uint32_t base, uint32_t w, uint32_t h, uint32_t fmt, ui
   wr.dstSet = g.rSets[0]; wr.dstBinding = 0; wr.dstArrayElement = idx; wr.descriptorCount = 1;
   wr.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE; wr.pImageInfo = &dii;
   vkUpdateDescriptorSets(g.dev, 1, &wr, 0, nullptr);
+  rvkSlotRegister(idx, t, key, false);   // RVK_BINDFIX part 2: collectable from here on
   g.rTexIndex[key] = idx;
   if (base) g_texEpoch[key] = rt_mem_epoch(base, w * h * 4u);   // decode-time identity — always
   // recorded (one map write per upload) so the epoch invalidator above has a baseline; was

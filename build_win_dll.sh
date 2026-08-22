@@ -250,11 +250,24 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
       # bodies.  ★ FOUR basenames, four independent rollback units — a promotion that moves three
       # of the four TUs and forgets the fourth is the exact failure shape §5.4 warns about.
       #
+      # fam11_tick joined 2026-08-22 (r23 window 30, the four-leg gate): sub_88117AE8 / FamK2_Tick,
+      # THE FACTORED TU (STANDARD s5.5).  Embeds 24 distinct reco_normal data addresses across
+      # NINE pages -- 0x88060000 (.rdata, the 0x88062550 sine LUT), 0x88280000 (the kind tables
+      # 0x88288F88/FA4, the T3 table 0x88288EE8, the sound source 0x8828C470), 0x88310000 (the
+      # RNG seed), 0x88350000 (the A2+ emit block, FOUR words), 0x884D0000 (scroll freeze, blink
+      # flags, three sound words), 0x884E0000 (the audio queue lock/base/cursor), 0x88500000 (lane
+      # scroll-x, the deferred-destroy queue), 0x88560000 (destroy count, the family guard) and
+      # 0x887A0000 (the scene POINTER 0x887AD130, the danmaku arena root 0x887AC97C).  WRITES as
+      # well as reads.  Inventory = the TU's own G_* constant table (lis/addi-derived, LAWS T1),
+      # proven complete by the s3 diff-audit: LOADS + STORES streams identical to the generated
+      # body on 18 trials (decomp/game/converted/audit_88117AE8/audit_PASS.log).  Its abn arm runs
+      # the GENERATED body.  (decomp/game/drafts/ABN_EXCLUSION_fam11_w30.txt.)
+      #
       # ⚠ THIS CASE LIST MATCHES ON TU BASENAME ($n = basename $f .cpp).  A TU renamed on
       # promotion — which the CONVERTED tier does BY DESIGN — must have its new basename added
       # here in the same change, or the exclusion silently does nothing: no build error, and the
       # abn arm links the TU and reads the wrong +0x60-shifted globals.
-      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms) continue;; esac
+      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick) continue;; esac
     fi
     cc "decomp_$n" "$f" $GI -I . $RT $MAP
   done
