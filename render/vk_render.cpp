@@ -12644,11 +12644,97 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
           if (v > tilemax) { tilemax = v; tbest = ti * 4 + tj; }
         }
         double w245f = w245n ? (double)w245 / w245n : 0.0;
-        bool fire = tilemax >= washT;
-        std::fprintf(stderr, "[washtrig] f%ld flatwhite=%.4f tilemax=%.4f tile=%d w245=%.4f blocks=%d/%d%s\n",
-                     nf->frame, flatwhite, tilemax, tbest, w245f, blkFlat, blkTot, fire ? "  ***FIRE***" : "");
+        // ★★★ r23-w37 MISSION A — THE PRE-REGISTERED STATISTICS, COMPUTED IN-ENGINE.
+        //     (INSTRUMENTATION ONLY. Every env below defaults to off/0; nothing about rendering
+        //      changes and no constant reaches the ship path.)
+        //
+        // WHY.  w17's `tilemax` is a good REGIONAL flat-white detector, but every wash number the
+        // campaign has banked since w19 — and the ENTIRE w21/w35/w36 pre-registration — is written
+        // in two DIFFERENT statistics, computed by bank/r23/w19/drive_d1_structure_meter_w19.py
+        // over this same rect: `whiteFrac` (per-PIXEL near-white fraction) and `p95span` (the
+        // 5th..95th percentile luma span inside the near-white REGION only). w36 spent 1,744 s
+        // trying to catch a frame meeting `whiteFrac >= 0.25 && p95span == 0.00` by sampling plates
+        // from OUTSIDE the process; the predicate that decides it can just be evaluated HERE, on
+        // the composed image, every frame, for the cost of one pass over 480x580 pixels.
+        //
+        // ⚠ THE DEFINITIONS ARE TRANSCRIBED FROM THE BANKED METER, NOT RE-DESIGNED — including
+        //   numpy.percentile's LINEAR interpolation, because `p95span == 0.00` is a boundary test
+        //   and an off-by-one order statistic would move it. The cross-instrument control (w37
+        //   PREREG §3 PC-2) scores this C++ against that python ON THE SAME DUMPED PNG, because a
+        //   re-implementation is exactly where this file has been burned before (the <wingdi.h>
+        //   `RGB` macro collision twenty lines up: 2,998 evaluations of a probe that never touched
+        //   the framebuffer). n == 0 prints VOID, never 0.
+        double wfPx = 0.0, p95span = 0.0; long qBlk = 0;
+        {
+          static std::vector<uint8_t> nwm;  nwm.assign((size_t)PW * PH, 0);
+          static std::vector<float>   lumv; lumv.assign((size_t)PW * PH, 0.0f);
+          long nwN = 0;
+          for (int y = 0; y < PH; ++y) for (int x = 0; x < PW; ++x) {
+            int r = PXV(PX0 + x, PY0 + y, 0), g2 = PXV(PX0 + x, PY0 + y, 1), b = PXV(PX0 + x, PY0 + y, 2);
+            int mx = r > g2 ? (r > b ? r : b) : (g2 > b ? g2 : b);
+            int mn = r < g2 ? (r < b ? r : b) : (g2 < b ? g2 : b);
+            size_t o = (size_t)y * PW + x;
+            lumv[o] = 0.299f * (float)r + 0.587f * (float)g2 + 0.114f * (float)b;
+            if (mn >= 210 && (mx - mn) <= 30) { nwm[o] = 1; ++nwN; }
+          }
+          wfPx = (double)nwN / ((double)PW * (double)PH);
+          static std::vector<float> vals; vals.clear();
+          const int B8 = 8, nby = PH / B8, nbx = PW / B8;      // 72 x 60 blocks
+          for (int by = 0; by < nby; ++by) for (int bx = 0; bx < nbx; ++bx) {
+            int c = 0;
+            for (int yy = 0; yy < B8; ++yy) for (int xx = 0; xx < B8; ++xx)
+              c += nwm[(size_t)(by * B8 + yy) * PW + (size_t)(bx * B8 + xx)];
+            if (c * 100 < B8 * B8 * 90) continue;              // meter: block.mean() < 0.90 -> excluded
+            ++qBlk;
+            for (int yy = 0; yy < B8; ++yy) for (int xx = 0; xx < B8; ++xx)
+              vals.push_back(lumv[(size_t)(by * B8 + yy) * PW + (size_t)(bx * B8 + xx)]);
+          }
+          if (qBlk > 0) {
+            auto pctl = [](std::vector<float>& v, double q) -> double {
+              double idx = q * (double)(v.size() - 1);
+              size_t lo = (size_t)idx; double fr = idx - (double)lo;
+              std::nth_element(v.begin(), v.begin() + (ptrdiff_t)lo, v.end());
+              double a = (double)v[lo];
+              if (fr <= 0.0 || lo + 1 >= v.size()) return a;
+              double b2 = (double)*std::min_element(v.begin() + (ptrdiff_t)lo + 1, v.end());
+              return a + fr * (b2 - a);
+            };
+            double p05 = pctl(vals, 0.05), p95 = pctl(vals, 0.95);
+            p95span = p95 - p05;
+          }
+        }
+        // RVK_WASHPRE=1 switches the FIRE predicate to the w21/w35/w36 pre-registered one. DEFAULT
+        // OFF, so `tilemax >= T` remains the default and every banked w17/w19/w20 fire count stays
+        // directly comparable with this build's.
+        static const bool   usePre = std::getenv("RVK_WASHPRE") && atoi(std::getenv("RVK_WASHPRE")) != 0;
+        static const double preWF  = std::getenv("RVK_WASHPRE_WF") ? std::atof(std::getenv("RVK_WASHPRE_WF")) : 0.25;
+        static const double preSP  = std::getenv("RVK_WASHPRE_SP") ? std::atof(std::getenv("RVK_WASHPRE_SP")) : 0.0;
+        bool firePre = (qBlk > 0) && (wfPx >= preWF) && (p95span <= preSP);
+        bool fire = usePre ? firePre : (tilemax >= washT);
+        char p95buf[24];
+        if (qBlk > 0) std::snprintf(p95buf, sizeof p95buf, "%.2f", p95span);
+        else          std::snprintf(p95buf, sizeof p95buf, "VOID");
+        std::fprintf(stderr, "[washtrig] f%ld flatwhite=%.4f tilemax=%.4f tile=%d w245=%.4f blocks=%d/%d"
+                             " whiteFrac=%.4f p95span=%s n=%ld%s\n",
+                     nf->frame, flatwhite, tilemax, tbest, w245f, blkFlat, blkTot,
+                     wfPx, p95buf, qBlk, fire ? "  ***FIRE***" : "");
         if (fire) {
           ++washFires;
+          // ★ r23-w37 C-2 — ARM THE PER-DRAW CENSUS FROM THE PREDICATE ITSELF (RVK_WASHQC=<K>).
+          // This is the whole of w36's ask. `qcArmed` is the RVK_QUADCENSUS counter declared at the
+          // top of this same lambda (vk_render.cpp:11298) at the SAME brace depth, so the arm is one
+          // assignment — and because the predicate runs at the END of the frame it saw, the census
+          // lands on the K frames AFTER it, which is precisely the "did the background draw survive
+          // into the washed region" question. Replaces the /tmp/rvk_quad_now signal file, which
+          // arrives from outside the process and therefore can never be phase-locked to a rare frame
+          // (w36 §5). Default 0 = unchanged behaviour.
+          { static const int washQcK = std::getenv("RVK_WASHQC") ? atoi(std::getenv("RVK_WASHQC")) : 0;
+            if (washQcK > 0) {
+              qcArmed = washQcK;
+              std::fprintf(stderr, "[washtrig] QCARM %d frame(s) at f%ld (census lands f%ld..f%ld) "
+                                   "whiteFrac=%.4f p95span=%s\n",
+                           washQcK, nf->frame, nf->frame + 1, nf->frame + washQcK, wfPx, p95buf);
+            } }
           char wp[80]; std::snprintf(wp, sizeof wp, "C:/tmp/nvkwash_f%ld.png", nf->frame);
           writePng(wp, (const uint8_t*)map, kW, kH);      // THIS frame, not the next one
           washForced = washNAfter;                        // and the next N, unconditionally
