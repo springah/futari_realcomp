@@ -263,11 +263,29 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
       # body on 18 trials (decomp/game/converted/audit_88117AE8/audit_PASS.log).  Its abn arm runs
       # the GENERATED body.  (decomp/game/drafts/ABN_EXCLUSION_fam11_w30.txt.)
       #
+      # paperdoll2_draw joined 2026-08-24 (r23 window 33, the four-leg gate): sub_881AE5D8, the
+      # +0x44 per-frame paper-doll DRAW, THE SECOND FACTORED TU (STANDARD s5.5 as precedent).
+      # Embeds THREE distinct reco_normal data addresses on THREE pages -- 0x88060000 (the 512-word
+      # sine LUT 0x88062550, base of 20 lwzx), 0x88280000 (the placement page 0x88285428 and its
+      # four sub-tables at +0/+24/+48/+60, base of 10 lbzx) and 0x887B0000 (the global sprite-emit
+      # counter 0x887AD164 -- READ 4 sites / WRITTEN 22 sites).  Inventory = the TU's own G_*
+      # constant table (lis/addi-derived, LAWS T1), proven complete by the s3 diff-audit: LOADS +
+      # STORES streams identical to the generated body on every trial
+      # (decomp/game/converted/audit_881AE5D8/audit_PASS.log), and RUN not asserted -- the union of
+      # every 0x88...... effective address in the audit's own 16-trial dumps is 61 addresses, ALL
+      # inside exactly those three pages, zero outside.
+      # ⚠ THE NARROWEST EXCLUSION SINCE THE ARMS WAVE -- AND UNLIKE THAT WAVE, THIS ONE WRITES.
+      # 0x887AD164 shares its lis with two live words 4 bytes away: 0x887AD130 (THE scene pointer,
+      # read by 42 of the 43 class installers) and 0x887AD168 (the arcade-slowdown accumulator).
+      # A +0x60 shift lands this body's 22 counter writes in that neighbourhood, so a missing
+      # exclusion here is CORRUPTION, not merely a wrong read.  Its abn arm runs the GENERATED
+      # body.  (decomp/game/drafts/ABN_EXCLUSION_881AE5D8_w31.txt.)
+      #
       # ⚠ THIS CASE LIST MATCHES ON TU BASENAME ($n = basename $f .cpp).  A TU renamed on
       # promotion — which the CONVERTED tier does BY DESIGN — must have its new basename added
       # here in the same change, or the exclusion silently does nothing: no build error, and the
       # abn arm links the TU and reads the wrong +0x60-shifted globals.
-      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick) continue;; esac
+      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw) continue;; esac
     fi
     cc "decomp_$n" "$f" $GI -I . $RT $MAP
   done
