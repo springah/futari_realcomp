@@ -296,11 +296,37 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
       # (decomp/game/converted/audit_88111790/audit_PASS.log).  Its abn arm runs the GENERATED
       # body.  (decomp/game/drafts/ABN_EXCLUSION_88111790_w32.txt.)
       #
+      # actor3pose_draw joined 2026-08-24 (r23 window 35, the four-leg gate, promoted SERIALLY
+      # after class233_236_draw -- never two promotions in flight): sub_881A1428, the +0x44
+      # per-frame THREE-POSE camera-relative paper-doll DRAW, THE FOURTH FACTORED TU
+      # (STANDARD s5.5 as precedent).  Embeds THREE distinct reco_normal data addresses on TWO
+      # 64K pages:
+      #   0x88280000 : 0x88283440, the index/pair byte-table cursor (lis r9,-30680 + 13376),
+      #                base of most of the 57 lbzx; ten sub-tables at -160..+0.
+      #   0x887A0000 : 0x887ACFD0, the block-C {dx,dy} table cursor (lis r8,-30597 - 12336), and
+      #                0x887AD164, the global sprite-emit counter G_EMITS (same lis, -11932).
+      # ★★ WRITES: G_EMITS is written at ELEVEN of the 38 emit sites (1 seed+1, 9 cache+1, 1
+      # scratch).  A +0x60 shift lands those writes at 0x887AD1C4, in the live neighbourhood of
+      # the scene pointer 0x887AD130 and the slowdown accumulator 0x887AD168 -- so a missing
+      # exclusion here is CORRUPTION, not a wrong read.  It is the FIRST factored TU since
+      # paperdoll2_draw whose abn footprint WRITES.
+      # Inventory = the TU's own T_*/G_EMITS constant table (lis/addi-derived, LAWS T1), proven
+      # complete by the s3 diff-audit: LOADS+STORES streams identical to the generated body on
+      # all 19 trials, and the union of every guest EA in the 0x88 space over those trials is
+      # 175 distinct addresses, ALL inside these two pages, ZERO outside, with exactly ONE write
+      # target (0x887AD164).  Measured spans: 0x882832A6..0x882834F9 and 0x887ACEC2..0x887AD164.
+      # (The spans run BELOW the cursor bases because the per-limb index byte is SIGN-EXTENDED
+      # and a negative k indexes backwards -- real behaviour, same page.)
+      # Its abn arm runs the GENERATED body.  RE-CERTIFIED from the promoted path at promotion
+      # (STANDARD w34 amendment 5): audit PASS/PASS + negctl 7/7, both byte-identical to the
+      # banked w34 verdicts (futari_decomp/bank/r23/w35/gate_A_recert_*_w35.log).
+      # (decomp/game/drafts/ABN_EXCLUSION_881A1428_w34.txt.)
+      #
       # ⚠ THIS CASE LIST MATCHES ON TU BASENAME ($n = basename $f .cpp).  A TU renamed on
       # promotion — which the CONVERTED tier does BY DESIGN — must have its new basename added
       # here in the same change, or the exclusion silently does nothing: no build error, and the
       # abn arm links the TU and reads the wrong +0x60-shifted globals.
-      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw|class233_236_draw) continue;; esac
+      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw|class233_236_draw|actor3pose_draw) continue;; esac
     fi
     cc "decomp_$n" "$f" $GI -I . $RT $MAP
   done
