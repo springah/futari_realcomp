@@ -281,11 +281,26 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
       # exclusion here is CORRUPTION, not merely a wrong read.  Its abn arm runs the GENERATED
       # body.  (decomp/game/drafts/ABN_EXCLUSION_881AE5D8_w31.txt.)
       #
+      # class233_236_draw joined 2026-08-24 (r23 window 33, the four-leg gate, promoted SERIALLY
+      # after paperdoll2_draw -- never two promotions in flight): sub_88111790, the +0x44 per-frame
+      # DRAW callback of the class 233-236 family, THE THIRD FACTORED TU (STANDARD s5.5 as
+      # precedent).  Embeds EIGHT distinct reco_normal table bases on ONE page -- 0x88350000, union
+      # span 0x883513D4..0x88351637 (612 bytes), one halfword-pair table per counted loop.
+      # ★ READ-ONLY: this TU writes NO module global (its 16 stw target the record returned by
+      # Sprite_Emit), which makes it the first factored TU with a read-only abn footprint -- the
+      # exclusion is still MANDATORY, because a +0x60 shift would MISREAD all eight tables and a
+      # misread geometry table is a silent behaviour change, not a crash.  Inventory = the TU's own
+      # kTbl* constant table (lis/addi-derived, LAWS T1, plus the derived trip counts), proven
+      # complete by the s3 diff-audit: LOADS+STORES streams identical to the generated body on
+      # every trial, with the union of every guest EA in the audit dumps inside the span above
+      # (decomp/game/converted/audit_88111790/audit_PASS.log).  Its abn arm runs the GENERATED
+      # body.  (decomp/game/drafts/ABN_EXCLUSION_88111790_w32.txt.)
+      #
       # ⚠ THIS CASE LIST MATCHES ON TU BASENAME ($n = basename $f .cpp).  A TU renamed on
       # promotion — which the CONVERTED tier does BY DESIGN — must have its new basename added
       # here in the same change, or the exclusion silently does nothing: no build error, and the
       # abn arm links the TU and reads the wrong +0x60-shifted globals.
-      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw) continue;; esac
+      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw|class233_236_draw) continue;; esac
     fi
     cc "decomp_$n" "$f" $GI -I . $RT $MAP
   done
