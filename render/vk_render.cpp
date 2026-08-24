@@ -6222,6 +6222,24 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
           // on g_resolveTex.count(base) && ps==49; the bg is ps=2) at 2x vp and blends it ADDITIVELY ->
           // washes the field white. Route that specific bg sample to the 8x8 BLACK target: if the white
           // recedes and terrain shows clean, the vs=5 additive bg is the wash source. Default off.
+          //
+          // ⚠⚠ STALE PREMISE — DO NOT INHERIT THE SENTENCE ABOVE WITHOUT RE-MEASURING (r23-w36/w37).
+          //   The 2026-07-14 reading names a **vs=5** field-BG draw. On the CURRENT ship path
+          //   (RT_NVK=2, RVK_HDR=0) w36's executor-true per-draw census found **ZERO vs=5 draws in
+          //   745 censused frames**, and mapped the draw that actually paints the field background
+          //   to a single, invariant one — 744/745 frames, bomb detonations included:
+          //       vs=47 ps=46  tex=0x4180000 640x512  rt=off  <RESOLVE  blend=00010001
+          //   i.e. a full-field quad sampling a RESOLVED accumulation target, not an additive
+          //   sample of the present buffer. A fix inheriting the vs=5 premise would aim at a draw
+          //   that does not occur on the path being shipped.
+          //   ★ BOUND, stated because this correction is itself a claim: w37 did NOT reproduce the
+          //     field measurement. Its own census (bank/r23/w37/r2_quadcensus.txt) armed only on
+          //     boot/loading frames and carries 0 vs=5 draws over 315 frames — consistent with w36,
+          //     but NOT an independent field observation. So this is a WARNING with a citation, not
+          //     a retraction: the vs=5 lever and its code are left intact, and the next lane that
+          //     wants to use RVK_BGKILL must first census the field and show a vs=5 draw exists.
+          //   Evidence: bank/r23/w36/f1_structure_w36.txt, f1_SCORE_w36.md §3(b);
+          //             bank/r23/w37/drive_A_SCORE_w37.md.
           static uint32_t bgKill = [](){ const char* e = std::getenv("RVK_BGKILL"); return e ? (uint32_t)std::strtoul(e, nullptr, 0) : 0u; }();
           if (bgKill && g_curVsIdx == 5 && base == bgKill) {
             texIdx = getOrCreateResolveTex(0xEB000008u, 8, 8).idx;
