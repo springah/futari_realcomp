@@ -12721,21 +12721,48 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
             p95span = p95 - p05;
           }
         }
+        // ★★★ r23-w38 MISSION ② — hudInk, THE POSITION DISCRIMINATOR THE PREDICATE WAS MISSING.
+        // w37 leg r1 was aborted because the pre-registered predicate FIRES ON THE PAUSE MENU:
+        // whiteFrac 0.4896 / p95span 0.00 — BETTER numbers than the banked port-wash plate — and
+        // only the picture caught it (LAWS §11 class, fourth arrival). The separator is the HUD
+        // BAND, which the washtrig rect deliberately EXCLUDES: during the real wash the HUD draws
+        // correctly (hudInk 0.1737) while the pause panel COVERS it (0.0000). w38's survival route
+        // parks under that menu ON PURPOSE (pauseonhit), so filtering offline is not enough — an
+        // unguarded fire would burn the capped RVK_ONWASH sets and the census arms on a dialog.
+        // Definition TRANSCRIBED from the banked meter (bank/r23/w17/drive_c_meter_w17.py:79),
+        // not re-designed: game-rel y[0,56), pixels both SATURATED and BRIGHT ((mx-mn)>=70 &&
+        // mx>=140). Screen coords close exactly: PY0-60 = 40 = the composed playfield's top edge.
+        // ⚠ NECESSARY, NOT SUFFICIENT (w37 §6c.3): hudInk does NOT separate title/attract from
+        //   field (0.137 / 0.461 on the two title plates). It kills the MENU confound only — the
+        //   field witness is a separate gate (RVK_ONWASH_FIELD, and the harness position check).
+        // INSTRUMENTATION ONLY: RVK_WASHPRE_HUD defaults to 0.0 = w37 behaviour bit for bit.
+        double hudInk = 0.0;
+        { const int HY0 = PY0 - 60, HY1 = PY0 - 4;
+          long ink = 0, hn = 0;
+          for (int y = HY0; y < HY1; ++y) for (int x = 0; x < PW; ++x) {
+            int r = PXV(PX0 + x, y, 0), g2 = PXV(PX0 + x, y, 1), b = PXV(PX0 + x, y, 2);
+            int mx = r > g2 ? (r > b ? r : b) : (g2 > b ? g2 : b);
+            int mn = r < g2 ? (r < b ? r : b) : (g2 < b ? g2 : b);
+            if ((mx - mn) >= 70 && mx >= 140) ++ink;
+            ++hn;
+          }
+          hudInk = hn ? (double)ink / (double)hn : 0.0; }
         // RVK_WASHPRE=1 switches the FIRE predicate to the w21/w35/w36 pre-registered one. DEFAULT
         // OFF, so `tilemax >= T` remains the default and every banked w17/w19/w20 fire count stays
         // directly comparable with this build's.
         static const bool   usePre = std::getenv("RVK_WASHPRE") && atoi(std::getenv("RVK_WASHPRE")) != 0;
         static const double preWF  = std::getenv("RVK_WASHPRE_WF") ? std::atof(std::getenv("RVK_WASHPRE_WF")) : 0.25;
         static const double preSP  = std::getenv("RVK_WASHPRE_SP") ? std::atof(std::getenv("RVK_WASHPRE_SP")) : 0.0;
-        bool firePre = (qBlk > 0) && (wfPx >= preWF) && (p95span <= preSP);
+        static const double preHud = std::getenv("RVK_WASHPRE_HUD") ? std::atof(std::getenv("RVK_WASHPRE_HUD")) : 0.0;
+        bool firePre = (qBlk > 0) && (wfPx >= preWF) && (p95span <= preSP) && (hudInk >= preHud);
         bool fire = usePre ? firePre : (tilemax >= washT);
         char p95buf[24];
         if (qBlk > 0) std::snprintf(p95buf, sizeof p95buf, "%.2f", p95span);
         else          std::snprintf(p95buf, sizeof p95buf, "VOID");
         std::fprintf(stderr, "[washtrig] f%ld flatwhite=%.4f tilemax=%.4f tile=%d w245=%.4f blocks=%d/%d"
-                             " whiteFrac=%.4f p95span=%s n=%ld%s\n",
+                             " whiteFrac=%.4f p95span=%s n=%ld hudInk=%.4f%s\n",
                      nf->frame, flatwhite, tilemax, tbest, w245f, blkFlat, blkTot,
-                     wfPx, p95buf, qBlk, fire ? "  ***FIRE***" : "");
+                     wfPx, p95buf, qBlk, hudInk, fire ? "  ***FIRE***" : "");
         if (fire) {
           ++washFires;
           // ★ r23-w37 C-2 — ARM THE PER-DRAW CENSUS FROM THE PREDICATE ITSELF (RVK_WASHQC=<K>).
