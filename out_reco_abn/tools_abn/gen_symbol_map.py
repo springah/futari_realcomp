@@ -61,8 +61,20 @@ SCAN = ['out_reco/merged/merged_game.cpp'] + \
 SCAN = [f if os.path.isabs(f) else os.path.join(REPO, f) for f in SCAN]
 
 SYM = re.compile(r'\b(?:__imp__)?(sub_88[0-9A-Fa-f]{6})\b')
-# nvk_game_hooks.cpp builds names by pasting a bare hex tail: NVK_HOOK(8807ECA0, ...)
-PASTE = re.compile(r'\bNVK_HOOK\(\s*(88[0-9A-Fa-f]{6})\b')
+# ⚠ r23-w38 (THE ABN LINK BLOCKER): host TUs build symbol names by PASTING a bare hex tail
+# (`sub_##HEX`), so the name never appears as text and SYM is blind to it.  This used to be a
+# hard-coded one-macro table (`NVK_HOOK`) — a CORPUS BOUND, and the miss looks exactly like
+# absence (LAWS §17).  By w37 that table was not merely incomplete but DEAD: NVK_HOOK had been
+# renamed NVK_GHOOK, and four further paste macros had been minted since (W10_W28, W9_ARMER,
+# W12_Q2REC, W12_CARDFSM_WRAP).  Five W10_W28 bodies therefore got no rename, kept emitting the
+# UNSHIFTED name, and the abn DLL had not linked since ~w30.
+# Fix: match ANY macro-shaped call whose FIRST argument is a bare 88-hex tail.  Over-matching is
+# safe — every candidate is then existence-checked against out_reco_abn/ppc_recomp_shared.h and
+# a non-function-start simply never reaches the rename set.  Under-matching is what cost a month.
+PASTE = re.compile(r'\b[A-Za-z_][A-Za-z0-9_]*\s*\(\s*(88[0-9A-Fa-f]{6})\s*[,)]')
+# TRIPWIRE (blocker doc §5.2): any BARE hex tail (not `0x`-prefixed, so not a data address) that
+# names a real reco_normal function start but was caught by NEITHER regex = a sixth paste form.
+BARE = re.compile(r'(?<![0-9A-Fa-fxX_])(88[0-9A-Fa-f]{6})(?![0-9A-Fa-fu_])')
 
 
 def code_only(t):
@@ -113,11 +125,13 @@ def main():
     # ---- demand side: which guest function symbols do the host TUs actually name? ----
     refs = {}   # addr -> set(files)
     commentary = set()
+    bare = set()
     for f in SCAN:
         raw = open(f, encoding='utf-8', errors='replace').read()
         code = code_only(raw)
         names = set(SYM.findall(code)) | set('sub_' + h.upper() for h in PASTE.findall(code))
         commentary |= (set(SYM.findall(raw)) - names)
+        bare |= set(int(h, 16) for h in BARE.findall(code))
         for n in names:
             refs.setdefault(int(n[4:], 16), set()).add(os.path.relpath(f, REPO).replace('\\', '/'))
     if not refs:
@@ -133,6 +147,23 @@ def main():
     # ---- existence side: real out_reco_abn symbols ----
     shared = open(os.path.join(ABN, 'ppc_recomp_shared.h'), encoding='utf-8').read()
     abn_syms = set(re.findall(r'PPC_EXTERN_FUNC\((sub_[0-9A-Fa-f]{8})\)', shared))
+
+    # ---- TRIPWIRE (r23-w38): a bare hex tail that IS a reco_normal function start and was seen
+    # by neither regex means a paste form this scanner does not know.  Abort loudly here rather
+    # than let lld report undefined __imp__ twins two stages later (the w37 failure mode was
+    # SILENCE).  Only addresses at/above the shift line matter — below it no rename is emitted.
+    nshared = open(os.path.join(REPO, 'out_reco', 'ppc_recomp_shared.h'), encoding='utf-8').read()
+    normal_syms = set(re.findall(r'PPC_EXTERN_FUNC\((sub_[0-9A-Fa-f]{8})\)', nshared))
+    unseen = sorted(a for a in bare - set(refs)
+                    if a >= SPLIT_SHIFT_LO
+                    and 'sub_%08X' % a in normal_syms
+                    and 'sub_%08X' % (a + DELTA) in abn_syms)
+    if unseen:
+        die('UNCAUGHT PASTE FORM: %s appear as BARE hex tails in the scanned TUs, are real '
+            'reco_normal function starts with +8 abn twins, and matched neither SYM nor PASTE. '
+            'A macro pastes their name in a shape this scanner does not recognise — widen PASTE '
+            '(do NOT hand-add the #defines: abn_symbol_map.h is GENERATED).'
+            % ', '.join('0x%08X' % a for a in unseen))
 
     same, shifted, in_edit, novel = [], [], [], []
     for a in sorted(refs):

@@ -27,10 +27,10 @@
 // twin executes.  Deliberate: boot-gate log parsers stay identical across the two builds.
 #pragma once
 
-// 171 shifted symbols renamed (342 #defines); 194 referenced symbols are below the split and
+// 221 shifted symbols renamed (442 #defines); 210 referenced symbols are below the split and
 // need no rename; 0 referenced symbols land inside the edited function sub_880DEF88.
-// 84 not inventoried by the census - resolved by the +8 rule and existence-checked
-// against out_reco_abn/ppc_recomp_shared.h: 0x880E27E8 0x880E32D0 0x880F25B8 0x880F34B0 0x880F52C8 0x880F5438 0x880F5570 0x88105770 0x881093A0 0x8810BDE8 0x8810BFD8 0x8810D8F8 0x8810D938 0x881100F0 0x88111CE0 0x88112B48 0x88115928 0x8811C108 0x881214E8 0x88122C38 0x881244F0 0x8812F8B0 0x88130CC0 0x8813AFC8 0x8813BD68 0x8813CD10 0x8813DAD8 0x8813E958 0x8813FAD8 0x881408A0 0x88141708 0x88142B10 0x88144A40 0x88145B40 0x88146BB0 0x881534C8 0x881607F8 0x88171D58 0x881768C0 0x881772C8 0x8817B5F0 0x8817D198 0x88185CD0 0x88186510 0x881871D0 0x88189CD8 0x8818B3B0 0x88193228 0x88193D98 0x88194068 0x88198AC0 0x88199508 0x8819DEE8 0x8819E050 0x8819F988 0x881A0198 0x881A1388 0x881A3A98 0x881A7B58 0x881A99D0 0x881ADB10 0x881B1288 0x881B2388 0x881B3348 0x881B5188 0x881BDCE0 0x881BF098 0x881C2128 0x881C6250 0x881C76B0 0x881C88D0 0x881C9160 0x881CBE38 0x881CCE48 0x881CDCC0 0x881CEC38 0x881D00A8 0x881D1EB0 0x881D48C8 0x881DC1A8 0x881E0200 0x881E1078 0x881E2598 0x881E40F0
+// 128 not inventoried by the census - resolved by the +8 rule and existence-checked
+// against out_reco_abn/ppc_recomp_shared.h: 0x880E27E8 0x880E32D0 0x880F25B8 0x880F34B0 0x880F52C8 0x880F5438 0x880F5570 0x880F8798 0x88105770 0x881093A0 0x8810BDE8 0x8810BFD8 0x8810D8F8 0x8810D938 0x881100F0 0x88111790 0x88111CE0 0x88112B48 0x88115928 0x88117AE8 0x8811C108 0x881214E8 0x88122C38 0x881244F0 0x8812F8B0 0x88130CC0 0x881315C8 0x88135F38 0x88136CD0 0x88136D60 0x8813AFC8 0x8813BD68 0x8813CD10 0x8813DAD8 0x8813E958 0x8813FAD8 0x881408A0 0x88141708 0x88142B10 0x88144A40 0x88145B40 0x88146BB0 0x88153010 0x881534C8 0x881556A0 0x8815C860 0x8815C948 0x8815D040 0x8815D688 0x881607F8 0x88169750 0x88171D58 0x881768C0 0x881772C8 0x8817B5F0 0x8817D198 0x88185CD0 0x88186510 0x881871D0 0x88189CD8 0x8818B3B0 0x88193228 0x88193D98 0x88194068 0x88198850 0x88198AC0 0x88199508 0x8819DEE8 0x8819E050 0x8819EE70 0x8819F458 0x8819F6E8 0x8819F988 0x881A0198 0x881A1388 0x881A1428 0x881A3A98 0x881A3B38 0x881A4050 0x881A42D0 0x881A4548 0x881A56E0 0x881A5760 0x881A57C0 0x881A5820 0x881A5930 0x881A5A38 0x881A5B38 0x881A5D28 0x881A60D8 0x881A65B0 0x881A7B58 0x881A99D0 0x881ADB10 0x881AE5D8 0x881B1288 0x881B2388 0x881B3348 0x881B36B8 0x881B4758 0x881B4A80 0x881B5188 0x881BCD18 0x881BCE68 0x881BCF98 0x881BDCE0 0x881BF098 0x881C2128 0x881C6250 0x881C76B0 0x881C88D0 0x881C9160 0x881CBE38 0x881CCE48 0x881CDCC0 0x881CEC38 0x881D00A8 0x881D1EB0 0x881D48C8 0x881DC1A8 0x881E0200 0x881E1078 0x881E2598 0x881E40F0 0x881F6000 0x881F95E8 0x881FD3E8 0x882023E8
 
 #define sub_880E27E8         sub_880E27F0
 #define __imp__sub_880E27E8  __imp__sub_880E27F0
@@ -38,6 +38,8 @@
 #define __imp__sub_880E3128  __imp__sub_880E3130
 #define sub_880E31B0         sub_880E31B8
 #define __imp__sub_880E31B0  __imp__sub_880E31B8
+#define sub_880E3240         sub_880E3248
+#define __imp__sub_880E3240  __imp__sub_880E3248
 #define sub_880E32D0         sub_880E32D8
 #define __imp__sub_880E32D0  __imp__sub_880E32D8
 #define sub_880E3888         sub_880E3890
@@ -62,6 +64,8 @@
 #define __imp__sub_880F5438  __imp__sub_880F5440
 #define sub_880F5570         sub_880F5578
 #define __imp__sub_880F5570  __imp__sub_880F5578
+#define sub_880F8798         sub_880F87A0
+#define __imp__sub_880F8798  __imp__sub_880F87A0
 #define sub_880FA720         sub_880FA728
 #define __imp__sub_880FA720  __imp__sub_880FA728
 #define sub_880FBB08         sub_880FBB10
@@ -74,6 +78,8 @@
 #define __imp__sub_88100588  __imp__sub_88100590
 #define sub_881025D0         sub_881025D8
 #define __imp__sub_881025D0  __imp__sub_881025D8
+#define sub_88102A78         sub_88102A80
+#define __imp__sub_88102A78  __imp__sub_88102A80
 #define sub_88103048         sub_88103050
 #define __imp__sub_88103048  __imp__sub_88103050
 #define sub_88104230         sub_88104238
@@ -92,12 +98,16 @@
 #define __imp__sub_8810D938  __imp__sub_8810D940
 #define sub_881100F0         sub_881100F8
 #define __imp__sub_881100F0  __imp__sub_881100F8
+#define sub_88111790         sub_88111798
+#define __imp__sub_88111790  __imp__sub_88111798
 #define sub_88111CE0         sub_88111CE8
 #define __imp__sub_88111CE0  __imp__sub_88111CE8
 #define sub_88112B48         sub_88112B50
 #define __imp__sub_88112B48  __imp__sub_88112B50
 #define sub_88115928         sub_88115930
 #define __imp__sub_88115928  __imp__sub_88115930
+#define sub_88117AE8         sub_88117AF0
+#define __imp__sub_88117AE8  __imp__sub_88117AF0
 #define sub_8811C108         sub_8811C110
 #define __imp__sub_8811C108  __imp__sub_8811C110
 #define sub_881214E8         sub_881214F0
@@ -110,6 +120,8 @@
 #define __imp__sub_8812F8B0  __imp__sub_8812F8B8
 #define sub_88130CC0         sub_88130CC8
 #define __imp__sub_88130CC0  __imp__sub_88130CC8
+#define sub_881315C8         sub_881315D0
+#define __imp__sub_881315C8  __imp__sub_881315D0
 #define sub_88131C30         sub_88131C38
 #define __imp__sub_88131C30  __imp__sub_88131C38
 #define sub_881325C8         sub_881325D0
@@ -120,6 +132,8 @@
 #define __imp__sub_881339C8  __imp__sub_881339D0
 #define sub_88133B68         sub_88133B70
 #define __imp__sub_88133B68  __imp__sub_88133B70
+#define sub_88133BB8         sub_88133BC0
+#define __imp__sub_88133BB8  __imp__sub_88133BC0
 #define sub_88133DB0         sub_88133DB8
 #define __imp__sub_88133DB0  __imp__sub_88133DB8
 #define sub_88133E30         sub_88133E38
@@ -132,6 +146,8 @@
 #define __imp__sub_88135D20  __imp__sub_88135D28
 #define sub_88135D98         sub_88135DA0
 #define __imp__sub_88135D98  __imp__sub_88135DA0
+#define sub_88135F38         sub_88135F40
+#define __imp__sub_88135F38  __imp__sub_88135F40
 #define sub_88136460         sub_88136468
 #define __imp__sub_88136460  __imp__sub_88136468
 #define sub_88136660         sub_88136668
@@ -142,6 +158,12 @@
 #define __imp__sub_88136A58  __imp__sub_88136A60
 #define sub_88136BC8         sub_88136BD0
 #define __imp__sub_88136BC8  __imp__sub_88136BD0
+#define sub_88136CD0         sub_88136CD8
+#define __imp__sub_88136CD0  __imp__sub_88136CD8
+#define sub_88136D60         sub_88136D68
+#define __imp__sub_88136D60  __imp__sub_88136D68
+#define sub_88136E88         sub_88136E90
+#define __imp__sub_88136E88  __imp__sub_88136E90
 #define sub_88136FF0         sub_88136FF8
 #define __imp__sub_88136FF0  __imp__sub_88136FF8
 #define sub_88137320         sub_88137328
@@ -150,6 +172,8 @@
 #define __imp__sub_88137498  __imp__sub_881374A0
 #define sub_88137708         sub_88137710
 #define __imp__sub_88137708  __imp__sub_88137710
+#define sub_881378A0         sub_881378A8
+#define __imp__sub_881378A0  __imp__sub_881378A8
 #define sub_88137C28         sub_88137C30
 #define __imp__sub_88137C28  __imp__sub_88137C30
 #define sub_88137ED8         sub_88137EE0
@@ -222,6 +246,8 @@
 #define __imp__sub_8814BF10  __imp__sub_8814BF18
 #define sub_8814D400         sub_8814D408
 #define __imp__sub_8814D400  __imp__sub_8814D408
+#define sub_8814DDC8         sub_8814DDD0
+#define __imp__sub_8814DDC8  __imp__sub_8814DDD0
 #define sub_8814F558         sub_8814F560
 #define __imp__sub_8814F558  __imp__sub_8814F560
 #define sub_8814FDF8         sub_8814FE00
@@ -240,6 +266,8 @@
 #define __imp__sub_88152C60  __imp__sub_88152C68
 #define sub_88152CF0         sub_88152CF8
 #define __imp__sub_88152CF0  __imp__sub_88152CF8
+#define sub_88153010         sub_88153018
+#define __imp__sub_88153010  __imp__sub_88153018
 #define sub_881534C8         sub_881534D0
 #define __imp__sub_881534C8  __imp__sub_881534D0
 #define sub_881538C0         sub_881538C8
@@ -250,6 +278,16 @@
 #define __imp__sub_88153D18  __imp__sub_88153D20
 #define sub_88153DF8         sub_88153E00
 #define __imp__sub_88153DF8  __imp__sub_88153E00
+#define sub_881556A0         sub_881556A8
+#define __imp__sub_881556A0  __imp__sub_881556A8
+#define sub_8815C860         sub_8815C868
+#define __imp__sub_8815C860  __imp__sub_8815C868
+#define sub_8815C948         sub_8815C950
+#define __imp__sub_8815C948  __imp__sub_8815C950
+#define sub_8815D040         sub_8815D048
+#define __imp__sub_8815D040  __imp__sub_8815D048
+#define sub_8815D688         sub_8815D690
+#define __imp__sub_8815D688  __imp__sub_8815D690
 #define sub_881602F0         sub_881602F8
 #define __imp__sub_881602F0  __imp__sub_881602F8
 #define sub_881607F8         sub_88160800
@@ -262,6 +300,8 @@
 #define __imp__sub_88168D48  __imp__sub_88168D50
 #define sub_88168F98         sub_88168FA0
 #define __imp__sub_88168F98  __imp__sub_88168FA0
+#define sub_88169750         sub_88169758
+#define __imp__sub_88169750  __imp__sub_88169758
 #define sub_88171D58         sub_88171D60
 #define __imp__sub_88171D58  __imp__sub_88171D60
 #define sub_881768C0         sub_881768C8
@@ -288,6 +328,8 @@
 #define __imp__sub_88193D98  __imp__sub_88193DA0
 #define sub_88194068         sub_88194070
 #define __imp__sub_88194068  __imp__sub_88194070
+#define sub_88198850         sub_88198858
+#define __imp__sub_88198850  __imp__sub_88198858
 #define sub_88198AC0         sub_88198AC8
 #define __imp__sub_88198AC0  __imp__sub_88198AC8
 #define sub_88199508         sub_88199510
@@ -296,28 +338,78 @@
 #define __imp__sub_8819DEE8  __imp__sub_8819DEF0
 #define sub_8819E050         sub_8819E058
 #define __imp__sub_8819E050  __imp__sub_8819E058
+#define sub_8819EE70         sub_8819EE78
+#define __imp__sub_8819EE70  __imp__sub_8819EE78
+#define sub_8819F458         sub_8819F460
+#define __imp__sub_8819F458  __imp__sub_8819F460
+#define sub_8819F6E8         sub_8819F6F0
+#define __imp__sub_8819F6E8  __imp__sub_8819F6F0
 #define sub_8819F988         sub_8819F990
 #define __imp__sub_8819F988  __imp__sub_8819F990
 #define sub_881A0198         sub_881A01A0
 #define __imp__sub_881A0198  __imp__sub_881A01A0
 #define sub_881A1388         sub_881A1390
 #define __imp__sub_881A1388  __imp__sub_881A1390
+#define sub_881A1428         sub_881A1430
+#define __imp__sub_881A1428  __imp__sub_881A1430
 #define sub_881A3A98         sub_881A3AA0
 #define __imp__sub_881A3A98  __imp__sub_881A3AA0
+#define sub_881A3B38         sub_881A3B40
+#define __imp__sub_881A3B38  __imp__sub_881A3B40
+#define sub_881A4050         sub_881A4058
+#define __imp__sub_881A4050  __imp__sub_881A4058
+#define sub_881A42D0         sub_881A42D8
+#define __imp__sub_881A42D0  __imp__sub_881A42D8
+#define sub_881A4548         sub_881A4550
+#define __imp__sub_881A4548  __imp__sub_881A4550
+#define sub_881A56E0         sub_881A56E8
+#define __imp__sub_881A56E0  __imp__sub_881A56E8
+#define sub_881A5760         sub_881A5768
+#define __imp__sub_881A5760  __imp__sub_881A5768
+#define sub_881A57C0         sub_881A57C8
+#define __imp__sub_881A57C0  __imp__sub_881A57C8
+#define sub_881A5820         sub_881A5828
+#define __imp__sub_881A5820  __imp__sub_881A5828
+#define sub_881A5930         sub_881A5938
+#define __imp__sub_881A5930  __imp__sub_881A5938
+#define sub_881A5A38         sub_881A5A40
+#define __imp__sub_881A5A38  __imp__sub_881A5A40
+#define sub_881A5B38         sub_881A5B40
+#define __imp__sub_881A5B38  __imp__sub_881A5B40
+#define sub_881A5D28         sub_881A5D30
+#define __imp__sub_881A5D28  __imp__sub_881A5D30
+#define sub_881A60D8         sub_881A60E0
+#define __imp__sub_881A60D8  __imp__sub_881A60E0
+#define sub_881A65B0         sub_881A65B8
+#define __imp__sub_881A65B0  __imp__sub_881A65B8
 #define sub_881A7B58         sub_881A7B60
 #define __imp__sub_881A7B58  __imp__sub_881A7B60
 #define sub_881A99D0         sub_881A99D8
 #define __imp__sub_881A99D0  __imp__sub_881A99D8
 #define sub_881ADB10         sub_881ADB18
 #define __imp__sub_881ADB10  __imp__sub_881ADB18
+#define sub_881AE5D8         sub_881AE5E0
+#define __imp__sub_881AE5D8  __imp__sub_881AE5E0
 #define sub_881B1288         sub_881B1290
 #define __imp__sub_881B1288  __imp__sub_881B1290
 #define sub_881B2388         sub_881B2390
 #define __imp__sub_881B2388  __imp__sub_881B2390
 #define sub_881B3348         sub_881B3350
 #define __imp__sub_881B3348  __imp__sub_881B3350
+#define sub_881B36B8         sub_881B36C0
+#define __imp__sub_881B36B8  __imp__sub_881B36C0
+#define sub_881B4758         sub_881B4760
+#define __imp__sub_881B4758  __imp__sub_881B4760
+#define sub_881B4A80         sub_881B4A88
+#define __imp__sub_881B4A80  __imp__sub_881B4A88
 #define sub_881B5188         sub_881B5190
 #define __imp__sub_881B5188  __imp__sub_881B5190
+#define sub_881BCD18         sub_881BCD20
+#define __imp__sub_881BCD18  __imp__sub_881BCD20
+#define sub_881BCE68         sub_881BCE70
+#define __imp__sub_881BCE68  __imp__sub_881BCE70
+#define sub_881BCF98         sub_881BCFA0
+#define __imp__sub_881BCF98  __imp__sub_881BCFA0
 #define sub_881BDCE0         sub_881BDCE8
 #define __imp__sub_881BDCE0  __imp__sub_881BDCE8
 #define sub_881BF098         sub_881BF0A0
@@ -364,6 +456,14 @@
 #define __imp__sub_881F0BC8  __imp__sub_881F0BD0
 #define sub_881F1968         sub_881F1970
 #define __imp__sub_881F1968  __imp__sub_881F1970
+#define sub_881F6000         sub_881F6008
+#define __imp__sub_881F6000  __imp__sub_881F6008
+#define sub_881F95E8         sub_881F95F0
+#define __imp__sub_881F95E8  __imp__sub_881F95F0
+#define sub_881FD3E8         sub_881FD3F0
+#define __imp__sub_881FD3E8  __imp__sub_881FD3F0
+#define sub_882023E8         sub_882023F0
+#define __imp__sub_882023E8  __imp__sub_882023F0
 #define sub_88226EB0         sub_88226EB8
 #define __imp__sub_88226EB0  __imp__sub_88226EB8
 #define sub_88227220         sub_88227228

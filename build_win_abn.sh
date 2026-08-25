@@ -90,7 +90,10 @@ python "$OUT/postregen_abn.py" || exit 1
 python "$OUT/tools_abn/gen_symbol_map.py" || exit 1
 
 mkdir -p "$OBJ"
-rm -f "$OBJ"/*.o "$OBJ"/*.err "$EXE"
+rm -f "$OBJ"/*.o "$OBJ"/*.err
+# r23-w38 (same guard as build_win_dll.sh): retire, do not delete — a failed link must not
+# destroy the last good artifact.  $EXE absent still means "this run produced nothing".
+[ -f "$EXE" ] && mv -f "$EXE" "$EXE.lastgood"
 
 i=0
 sem(){ i=$((i+1)); if [ $((i%12)) -eq 0 ]; then wait; fi; }

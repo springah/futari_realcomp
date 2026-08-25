@@ -183,7 +183,12 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
   local NAME="$1" TREE="$2" MIDX="$3" OUT="$4"; shift 4
   banner "2. MODULE DLL $OUT  ($NAME, modeIdx $MIDX, tree $TREE)"
   OBJ="build/obj_dll_$NAME"
-  mkdir -p "$OBJ"; rm -f "$OBJ"/*.o "$OBJ"/*.err "$OUT"
+  mkdir -p "$OBJ"; rm -f "$OBJ"/*.o "$OBJ"/*.err
+  # r23-w38: the pre-clean used to `rm -f "$OUT"`, so a FAILING link DESTROYED the last good
+  # module DLL (w37: the only build/futari_game_abn.dll on the machine, three days old, gone —
+  # and every gate leg with it).  Staleness must still be impossible under $OUT, so RETIRE the
+  # artifact instead of deleting it: a failed link now leaves $OUT absent and $OUT.lastgood intact.
+  [ -f "$OUT" ] && mv -f "$OUT" "$OUT.lastgood"
   STD="$BASE -DFUTARI_MODULE=$MIDX -DFUTARI_IN_MODULE_DLL=1"
   GI="-I $TREE -I $DERISK/XenonUtils -I $DERISK/thirdparty/simde"
   RT="-include $TREE/rt_indirect.h"
