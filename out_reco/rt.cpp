@@ -497,6 +497,94 @@ void ic_dump(long long dispatches){
                fp ? "" : "   ** NOT WRITTEN (fopen failed — Windows-style path required, e.g. C:/tmp/...)");
   std::fflush(stderr);
 }
+
+// ── RT_A3EMIT state (see the probe in rt_indirect_call for the full rationale) ───────────────
+// Two spellings of ONE body (arcade 0x881A1428 / abn twin 0x881A1430) x four watched cells.
+// Counters are per (spelling, cell) so the verdict cannot be assembled by hand from a log tail:
+// the file below IS the verdict, and it is rewritten in place because drives end in
+// Stop-Process -Force and an atexit dump would never fire (ic_dump's own lesson, w40).
+struct A3EmitCell { const char* name; uint32_t addr; };
+constexpr A3EmitCell A3E_CELLS[4] = {
+  { "G_EMITS_ARC 0x887AD164", 0x887AD164u },   // the UNSHIFTED cell
+  { "G_EMITS_ABN 0x887AD1C4", 0x887AD1C4u },   // the +0x60-SHIFTED cell
+  { "SCENEPTR_ARC 0x887AD130", 0x887AD130u },  // sentinel: the exclusion doc's blast radius
+  { "SCENEPTR_ABN 0x887AD190", 0x887AD190u },  // sentinel, abn spelling
+};
+inline bool a3e_on(){ static const bool on = std::getenv("RT_A3EMIT") != nullptr; return on; }
+struct A3EmitStats {
+  std::atomic<long long> dispatches{0};
+  std::atomic<long long> changed[4]{};     // # dispatches on which this cell changed
+  std::atomic<long long> delta[4]{};       // summed (post-pre) as signed
+  std::atomic<uint32_t>  last[4]{};
+};
+inline A3EmitStats* a3e_stats(){ static A3EmitStats* s = new A3EmitStats[2](); return s; }  // [0]=arc [1]=abn
+void a3e_dump(){
+  auto* st = a3e_stats();
+  const char* p = std::getenv("RT_A3EMIT_OUT");
+  std::string path = p ? p : "C:/tmp/a3emit.txt";
+  FILE* fp = std::fopen(path.c_str(), "w");
+  if(fp){
+    std::fprintf(fp, "# RT_A3EMIT r23-w43 -- the +0x60-shift falsifier probe (packet g1)\n");
+    std::fprintf(fp, "# spelling  dispatches | per cell: changed_count  summed_delta  last_value\n");
+    for(int s=0;s<2;s++){
+      const char* sp = s? "ABN_0x881A1430" : "ARC_0x881A1428";
+      std::fprintf(fp, "%s dispatches=%lld\n", sp, st[s].dispatches.load(std::memory_order_relaxed));
+      for(int c=0;c<4;c++)
+        std::fprintf(fp, "  %-24s changed=%lld delta=%lld last=0x%08X\n", A3E_CELLS[c].name,
+                     st[s].changed[c].load(std::memory_order_relaxed),
+                     st[s].delta[c].load(std::memory_order_relaxed),
+                     st[s].last[c].load(std::memory_order_relaxed));
+    }
+    // The scoring lines, spelled so a grep cannot mis-read them.
+    std::fprintf(fp, "A3EMIT_ARC disp=%lld nARC=%lld nABN=%lld nSCN_ARC=%lld nSCN_ABN=%lld\n",
+      st[0].dispatches.load(), st[0].changed[0].load(), st[0].changed[1].load(),
+      st[0].changed[2].load(), st[0].changed[3].load());
+    std::fprintf(fp, "A3EMIT_ABN disp=%lld nARC=%lld nABN=%lld nSCN_ARC=%lld nSCN_ABN=%lld\n",
+      st[1].dispatches.load(), st[1].changed[0].load(), st[1].changed[1].load(),
+      st[1].changed[2].load(), st[1].changed[3].load());
+    std::fclose(fp);
+  }
+  std::fprintf(stderr, "[a3emit] arc disp=%lld nARC=%lld nABN=%lld | abn disp=%lld nARC=%lld nABN=%lld -> %s%s\n",
+    st[0].dispatches.load(), st[0].changed[0].load(), st[0].changed[1].load(),
+    st[1].dispatches.load(), st[1].changed[0].load(), st[1].changed[1].load(),
+    path.c_str(), fp ? "" : "   ** NOT WRITTEN (fopen failed -- Windows-style path required)");
+  std::fflush(stderr);
+}
+void a3e_note(uint32_t target, uint32_t A0,uint32_t A1, uint32_t B0,uint32_t B1,
+              uint32_t C0,uint32_t C1, uint32_t D0,uint32_t D1){
+  const int s = (target==0x881A1430u) ? 1 : 0;
+  auto* st = a3e_stats();
+  const long long n = st[s].dispatches.fetch_add(1, std::memory_order_relaxed) + 1;
+  const uint32_t pre[4]={A0,B0,C0,D0}, post[4]={A1,B1,C1,D1};
+  bool any=false;
+  for(int c=0;c<4;c++){
+    st[s].last[c].store(post[c], std::memory_order_relaxed);
+    if(pre[c]!=post[c]){
+      any=true;
+      st[s].changed[c].fetch_add(1, std::memory_order_relaxed);
+      st[s].delta[c].fetch_add((long long)(int32_t)(post[c]-pre[c]), std::memory_order_relaxed);
+    }
+  }
+  // First 5 dispatches per spelling verbatim, then every 500th: a rare arm cannot be crowded
+  // out by a common one (the w35 per-pose-counter lesson, applied to spellings).
+  // A SENTINEL change (cells 2/3 = the scene pointer) is ALWAYS printed -- it is the corruption
+  // signature and must never be sampled away.
+  const bool sentinel = (C0!=C1) || (D0!=D1);
+  if(n<=5 || (n%500)==0 || sentinel){
+    std::fprintf(stderr,
+      "[a3emit] #%lld tgt=0x%08X(%s) ARC 0x%08X->0x%08X%s  ABN 0x%08X->0x%08X%s"
+      "  SCN_ARC 0x%08X->0x%08X%s  SCN_ABN 0x%08X->0x%08X%s%s\n",
+      n, target, s? "ABN-twin":"ARC",
+      A0,A1, (A0!=A1)?" *CHANGED*":"", B0,B1, (B0!=B1)?" *CHANGED*":"",
+      C0,C1, (C0!=C1)?" **SENTINEL**":"", D0,D1, (D0!=D1)?" **SENTINEL**":"",
+      any?"":"  (no watched cell moved)");
+    std::fflush(stderr);
+  }
+  // ⚠ DUMP ON THE FIRST FEW TOO, not only every 200th.  A leg on which the family dispatches
+  // only a handful of times is exactly the interesting one, and an every-200th dump would
+  // leave it with NO FILE — the failure mode ic_dump's own comment warns about, one level up.
+  if(n<=5 || (n%200)==0 || sentinel) a3e_dump();
+}
 }  // namespace
 
 // Checked indirect call (see rt_indirect.h): log + skip unmapped targets, r3=0.
@@ -573,6 +661,46 @@ extern "C" void rt_indirect_call(PPCContext& ctx, uint8_t* base, uint32_t target
       uint32_t pre=ctx.r26.u32; f(ctx,base);
       std::fprintf(stderr,"[clob] indirect@15012 target=0x%08X r26 0x%X -> 0x%X%s\n",
         target,pre,ctx.r26.u32,(pre==0x88168D48u&&ctx.r26.u32!=pre)?"  <<< CLOBBER":"");
+      return;
+    }
+    // ── RT_A3EMIT (default OFF): THE A3POSE +0x60-SHIFT FALSIFIER PROBE ───────────────────────
+    // r23-w43.  Aims packet falsifier g1, open since w35 and UNEXERCISED in w39/w40/w41:
+    //   "the abn arm reads the +0x60-shifted tables correctly."
+    // Actor3Pose_Draw (0x881A1428) WRITES the module global G_EMITS at 11 of its 38 emit sites.
+    // On reco_normal that cell is 0x887AD164; under reco_abnormal every module datum shifts
+    // +0x60, so the body running there must write 0x887AD1C4 instead.  0x887AD1C4 is inside the
+    // live 0x887A neighbourhood (scene ptr 0x887AD130, slowdown accumulator 0x887AD168), so a
+    // wrong shift is CORRUPTION, not a wrong read (ABN_EXCLUSION_881A1428_w34.txt).
+    //
+    // ★ WHY THE PROBE IS HERE AND NOT IN THE TU.  decomp/game/actor3pose_draw.cpp is EXCLUDED
+    //   from the abn DLL (build_win_dll.sh:334), so its [a3pose] tap is silent on the abn arm BY
+    //   CONSTRUCTION and cannot observe this at all.  rt.cpp is HOST-EXE code that both module
+    //   DLLs import, and w42 established statically that this family has ZERO direct bl/b sites
+    //   (addrsite_scan, 5 built-in controls + region-local non-vacuity) — so EVERY invocation on
+    //   EITHER arm passes through here.  One code path, both arms, no arm-specific branch.
+    //   It also touches no decomp TU, so no STANDARD §5.5 re-certification is engaged.
+    //
+    // ★ TWIN SPELLINGS.  out_reco_abn/abn_symbol_map.h renames +8 (the abn image is 8 bytes
+    //   longer), so the SAME body is guest 0x881A1428 on arcade and 0x881A1430 on abn.  w40 and
+    //   w41 both grepped only the arcade spelling in an abn census and read the resulting zero
+    //   as a two-window negative; w42 withdrew it.  BOTH spellings are matched here, and BOTH
+    //   candidate data cells are sampled on BOTH arms, so the reading cannot depend on knowing
+    //   which arm is live.
+    //
+    // THE OBSERVABLE is WHICH CELL CHANGES across one dispatch — not the sign or size of the
+    // delta.  G_EMITS is seeded-and-stored, not read-modify-written per site, so a delta may
+    // legitimately be 0 when nothing emitted.  Values and deltas are logged too, so the record
+    // survives a wrong guess about the arithmetic.
+    //   n_ARC > 0 on an abn arm  => the UNSHIFTED write => falsifier FAILS (a real defect).
+    //   n_ABN > 0 with n_ARC == 0 on an abn arm => shifted correctly => falsifier DISCHARGED.
+    //   scene-pointer sentinels changing across this body at all => corruption, reported loudly.
+    // Cost when off: one relaxed load of a function-local static, on the dispatch path only.
+    if(a3e_on() && (target==0x881A1428u || target==0x881A1430u)){
+      auto rd=[&](uint32_t a){ return __builtin_bswap32(*(uint32_t*)(base+a)); };
+      const uint32_t A0=rd(0x887AD164u), B0=rd(0x887AD1C4u), C0=rd(0x887AD130u), D0=rd(0x887AD190u);
+      f(ctx,base);
+      const uint32_t A1=rd(0x887AD164u), B1=rd(0x887AD1C4u), C1=rd(0x887AD130u), D1=rd(0x887AD190u);
+      a3e_note(target, A0,A1, B0,B1, C0,C1, D0,D1);
       return;
     }
     // RT_WATCHS: software watchpoint on the CB248 singleton (S=*(0x821F857C)) fields S+0
