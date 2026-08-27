@@ -104,14 +104,30 @@ cc(){ # name  src  flags...
 }
 
 echo "== DECOMP tree (decomp/*/*.cpp — campaign C1+; __imp__ overrides, linked FIRST) =="
-echo "   +8 symbol map applied; game_entry_msgs + the 4 asset-pipeline TUs EXCLUDED (bodies"
-echo "   carry reco_normal .data literals that move +0x60 — see the script header)."
+echo "   +8 symbol map applied; the abn exclusion list is IN SYNC WITH build_win_dll.sh:334"
+echo "   (bodies carry reco_normal .data literals that move +0x60 — see the script header)."
 for f in "$DECOMP_DIR"/game/*.cpp "$DECOMP_DIR"/shell/*.cpp; do
   [ -f "$f" ] || continue
   n=$(basename "$f" .cpp)
-  # abn-excluded: reco_normal .data literals move +0x60 (see build_win_dll.sh; the asset TUs
-  # joined game_entry_msgs 2026-08-13 after the differential caught the abn pump dead).
-  case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake) continue;; esac
+  # abn-excluded: reco_normal .data literals move +0x60 (LAWS I3; the asset TUs joined
+  # game_entry_msgs 2026-08-13 after the differential caught the abn pump dead).
+  #
+  # ★ r23-w43: SYNCED WITH build_win_dll.sh:334 (+13 TUs).  This list had drifted 13 TUs behind
+  #   the DLL path — every factored TU promoted since w22 (objaction*, the fam* families,
+  #   paperdoll2_draw, class233_236_draw, actor3pose_draw) was excluded there and NOT here, while
+  #   this script still force-includes abn_symbol_map.h.  So the per-mode abn exe compiled those
+  #   TUs, the +8 map renamed them onto their abn twins, and they RAN — reading and, for
+  #   actor3pose_draw, WRITING un-shifted .data literals.  The +8 map renames FUNCTION symbols
+  #   only; embedded DATA addresses are never translated.
+  #   w39 ruled the drift STALE-BUT-IMMATERIAL on the premise that no leg runs these bodies in
+  #   reco_abnormal.  ⚠ THAT PREMISE IS REFUTED: r23-w43 leg a3y43 measured 800 dispatches of
+  #   sub_881A1430 on a live reco_abnormal arm (bank/r23/w43/a3y43_a3emit.txt).  The DLL path was
+  #   always correct so nothing ever shipped broken, but the exe's immateriality argument is gone.
+  #   ⚠ MATCHES ON TU BASENAME ($n = basename $f .cpp) — a TU renamed on promotion must have its
+  #   new basename added HERE in the SAME change, or the exclusion silently does nothing.
+  case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake\
+|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms\
+|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw|class233_236_draw|actor3pose_draw) continue;; esac
   # -I . : decomp TUs reference host/render headers realcomp-root-relative (repo split).
   cc "decomp_$n" "$f" $GAME_INC -I . $RT $MAP
 done
