@@ -78,7 +78,7 @@ nav_360_land_to_modeselect(){
   fi
   nav_say "landing probe: TITLE (no cursor) — entering hub"
   nav_base; nav_press 10 0.3 2.5                              # START -> hub
-  nav_wait_new '\[p0build\]\|\[mcur\]\|\[decide\]' 10 "hub reachable" || return 1
+  nav_wait_new '\[p0build\]\|\[mcur\]\|\[decide\]\|\[mstate\].*vt=0x820503B0' 10 "hub reachable" || return 1
   nav_base; nav_press 2 0.15 1.0                              # DOWN -> NORMAL PLAY
   nav_wait_new 'mcur\].*0->1' 5 "hub cursor at NORMAL PLAY" || return 1
   nav_press 1000 0.2 2.0                                      # A
@@ -94,7 +94,7 @@ nav_arcade_land_to_hub(){
   local _r _pref=$NAV_FAILS
   for _r in 1 2 3 4; do
     nav_base; nav_press 10 0.3 2.5                            # START -> hub (or dropped)
-    if nav_wait_new '\[p0build\]\|\[mcur\]\|\[decide\]' 10 "arcade hub open (try $_r)"; then
+    if nav_wait_new '\[p0build\]\|\[mcur\]\|\[decide\]\|\[mstate\].*vt=0x820503B0' 10 "arcade hub open (try $_r)"; then
       NAV_FAILS=$_pref; break                                 # retried probes are not failures
     fi
     [ "$_r" = "4" ] && return 1
@@ -152,7 +152,7 @@ nav_module_title_to_topmenu(){
   local _r _pref=$NAV_FAILS
   for _r in 1 2 3 4; do
     nav_base; nav_press 10 0.3 2.5                            # START -> hub (or nothing)
-    if nav_wait_new '\[p0build\]\|\[mcur\]\|\[decide\]' 10 "hub open (try $_r)"; then
+    if nav_wait_new '\[p0build\]\|\[mcur\]\|\[decide\]\|\[mstate\].*vt=0x820503B0' 10 "hub open (try $_r)"; then
       NAV_FAILS=$_pref; break                                 # retried probes are not failures
     fi
     [ "$_r" = "4" ] && return 1
@@ -197,7 +197,7 @@ nav_gameover_np_to_topmenu(){
   sleep 4                                                     # title fade-in
   for _r in 1 2 3 4; do
     nav_base; nav_press 10 0.3 2.5                            # START -> hub (probe-verified)
-    if nav_wait_new 'msg=11\|\[p0build\]' 8 "title -> hub (try $_r)"; then NAV_FAILS=$_pref; break; fi
+    if nav_wait_new 'msg=11\|\[p0build\]\|\[mstate\].*vt=0x820503B0' 8 "title -> hub (try $_r)"; then NAV_FAILS=$_pref; break; fi
     [ "$_r" = "4" ] && return 1
   done
   nav_base; nav_press 2000 0.25 2.0                           # B on hub -> confirm
