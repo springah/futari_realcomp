@@ -53,6 +53,7 @@ start_merged() {
   RT_VK=1 RVK_GPFIELD=1 RVK_C255=0.00625:0.00390625:-1:0 RVK_RENDER_FROM=1 RVK_NOHALVE=1 RVK_FIXVP=1 RVK_REALALPHA=1 RVK_BLEND=1 \
   RVK_COMPSEG=1 RVK_RESALIAS=1 RVK_RESFRESH=1 \
   RT_PAD=1 RT_PAD_HOST=1 RT_PAD_STARTONCE=1 RT_PAD_NAV=1 \
+# RT_NOPAUSE=1 below is HARNESS-ONLY, NEVER SHIP (w50 adjudication D7: ship default is env-unset = the authentic pause, w45-measured; np1 exists because an unattended leg cannot press RESUME and the orphaned post-run pause -- w47, never rare -- would wedge every leg)
   RT_SNDQFREE=1 RT_NOPAUSE=1 RT_RESCACHE=1 RT_HEAPLOCK=1 RT_S5=1 RT_TRACERES=1 \
   RT_NATPLAY=1 RT_NATPLAY_ONESHOT=1 RT_STAY5=1 RT_PJOIN=2 \
   RT_SAMPLES=100000 \

@@ -29,6 +29,7 @@ export RVK_PNGEVERY="${RVK_PNGEVERY:-12}"   # rate-limit PNG -> ~23fps -> real-t
 # Ax4@1500 (2026-07-13): PARKS on the settled TOP MENU — the old Ax10@1000 kept confirming
 # past it (version card -> Now Loading), so the run's final candidates were post-menu frames.
 export RT_PAD=1 RT_PAD_HOST=1 RT_NAV_SEQ="${2:-0:STARTx26@500,24000:Ax4@1500}"
+# RT_NOPAUSE=1 below is HARNESS-ONLY, NEVER SHIP (w50 adjudication D7: ship default is env-unset = the authentic pause, w45-measured; np1 exists because an unattended leg cannot press RESUME and the orphaned post-run pause -- w47, never rare -- would wedge every leg)
 export RT_SNDQFREE=1 RT_NOPAUSE=1 RT_RESCACHE=1 RT_HEAPLOCK=1
 export RT_SAMPLES=100000
 DUR="${1:-60}"
