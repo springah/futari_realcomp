@@ -4116,6 +4116,11 @@ PPC_FUNC(sub_8824E698){
   uint32_t m=ctx.r3.u32;
   long n = (m<24)? cnt[m].fetch_add(1)+1 : -1;
   if(n>0 && (n<=3 || n%600==0)) std::fprintf(stderr,"[gemsg] GameEntry(msg=%u, r4=0x%X) call#%ld\n",m,ctx.r4.u32,n);
+  // HARNESS-ONLY, NEVER SHIP -- r23-w53 M1: the one-printf [gemsg] payload probe. Reads msg[0]
+  // (*(u32*)r4) the same way the msg-10 dispatch arm at 0x8824E960 does (lwz r10,0(r3) after the
+  // dispatcher's own r3<-r4 swap), BEFORE __imp__sub_8824E698 runs the dispatch, so the value is
+  // the sender's payload, not anything the arm itself wrote. Default-off (bank/r23/w52/read_train_mechanism_w52.md).
+  if(m==10 && ctx.r4.u32 && std::getenv("RT_MSG10PAY")) std::fprintf(stderr,"[gemsg] msg=10 payload[0]=0x%X r4=0x%X\n",(unsigned)PPC_LOAD_U32(ctx.r4.u32),ctx.r4.u32);
   const bool verbose = std::getenv("RT_MSGLOG")!=nullptr;
   // The rare, credited-flow-relevant messages: arm/config setters + the msg-14 credited trigger.
   bool crit = (m==9||m==10||m==11||m==12||m==13||m==14||m==15||m==16||m==17||m==18||m==19||m==20);
