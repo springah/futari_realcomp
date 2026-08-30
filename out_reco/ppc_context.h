@@ -242,6 +242,55 @@ static inline void rt_witness_arm_hit(uint32_t guest_lr, uint32_t this_ptr, uint
   } while (0)
 #endif
 
+// ══ r23-w65 DRIVER: RT_WITNESS2 — runtime witnesses for the held-negative roster named in
+// bank/r23/w64/RULINGS_DOCKET_w64.md item 3 + read_SCORE_w64.md/read_refusal_w64.md:
+// 0x8808ECC0's unresolved table byte/dword reads (TBLBASE+0x9E44C, TBLBASE+72) and 0x881500D0's
+// §24-declined PageTransition defaults-record caller. HARNESS-ONLY, NEVER SHIP. Pre-registered
+// in bank/r23/w65/PREREG_w65.txt before any scoring drive. Same ENTRY/MID-BODY-TAP shape as
+// RT_WITNESS (LAWS I2 checked, not assumed: both symbols grepped across out_reco/ and shell/
+// gen/ before writing this tap — each defined in exactly one PPC_FUNC_IMPL, in exactly one TU,
+// zero hits in shell/gen/; a tap inside the sole body is immune to the clone-bypass by
+// construction). Neither tap edits an existing line, touches a store macro, or changes any
+// guest-visible value/width/order/control-flow (LAWS T2/T8 preserved) — both are read-only
+// observations inserted after the loads/address-computation they witness. RT_-env-gated
+// (getenv, cached once per TU); shared ARMED banner across both tap functions per LAWS M+.
+#ifndef RT_WITNESS2_ON
+static inline bool rt_witness2_enabled(){
+  static int v = std::getenv("RT_WITNESS2") ? 1 : 0;
+  return v != 0;
+}
+#define RT_WITNESS2_ON() (__builtin_expect(rt_witness2_enabled(), 0))
+static inline void rt_witness2_armed_once(){
+  static std::atomic<bool> armed{false};
+  if(!armed.exchange(true)) std::fprintf(stderr, "[witness2] ARMED\n");
+}
+// 0x8808ECC0 — the unresolved table: effective address (TBLBASE+0x9E44C), the byte loaded from
+// it, the dword loaded from TBLBASE+72, and the caller.
+static inline void rt_witness2_tblread_hit(uint32_t guest_lr, uint32_t ea, uint32_t byteval, uint32_t dwordval){
+  rt_witness2_armed_once();
+  static std::atomic<long long> n{0};
+  long long i = n.fetch_add(1) + 1;
+  std::fprintf(stderr, "[w2tbl] #%lld lr=0x%X ea=0x%X byte=0x%X dword=0x%X\n", i, guest_lr, ea, byteval, dwordval);
+  std::fflush(stderr);
+}
+#define RT_WITNESS2_TBLREAD(ea, byteval, dwordval) do { \
+    if (RT_WITNESS2_ON()) rt_witness2_tblread_hit((uint32_t)ctx.lr, (uint32_t)(ea), (uint32_t)(byteval), (uint32_t)(dwordval)); \
+  } while (0)
+// 0x881500D0 — the §24-declined PageTransition defaults record: the resolved base address
+// (DSTBASE2) and the caller — the field VALUES are already fully known compile-time literals
+// (LAWS T7), the missing fact is only who invokes this defaults writer and when.
+static inline void rt_witness2_fldwrite_hit(uint32_t guest_lr, uint32_t base_addr){
+  rt_witness2_armed_once();
+  static std::atomic<long long> n{0};
+  long long i = n.fetch_add(1) + 1;
+  std::fprintf(stderr, "[w2fld] #%lld lr=0x%X base=0x%X\n", i, guest_lr, base_addr);
+  std::fflush(stderr);
+}
+#define RT_WITNESS2_FLDWRITE(base_addr) do { \
+    if (RT_WITNESS2_ON()) rt_witness2_fldwrite_hit((uint32_t)ctx.lr, (uint32_t)(base_addr)); \
+  } while (0)
+#endif
+
 #ifndef PPC_STORE_U8
 #define PPC_STORE_U8(x, y) do { \
     uint32_t _ft_e = (uint32_t)(x); uint8_t _ft_v = (uint8_t)(y); \

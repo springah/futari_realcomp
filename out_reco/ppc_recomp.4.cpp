@@ -12153,6 +12153,10 @@ PPC_FUNC_IMPL(__imp__sub_8808ECC0) {
 	ctx.r10.s64 = 0;
 	// lbzx r5,r8,r7
 	ctx.r5.u64 = PPC_LOAD_U8(ctx.r8.u32 + ctx.r7.u32);
+	// r23-w65 RT_WITNESS2 [w2tbl]: witness the unresolved table EA (r8+r7), the byte just loaded
+	// (r5) and the dword loaded earlier from TBLBASE+72 (r4), plus the caller. Read-only, placed
+	// after both loads and before r8/r7 are clobbered by the following li's. LAWS T2/T8 preserved.
+	RT_WITNESS2_TBLREAD(ctx.r8.u32 + ctx.r7.u32, ctx.r5.u32, ctx.r4.u32);
 	// li r9,0
 	ctx.r9.s64 = 0;
 	// li r8,0

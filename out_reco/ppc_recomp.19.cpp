@@ -32878,6 +32878,11 @@ PPC_FUNC_IMPL(__imp__sub_881500D0) {
 	ctx.r9.s64 = 16;
 	// addi r5,r10,-24056
 	ctx.r5.s64 = ctx.r10.s64 + -24056;
+	// r23-w65 RT_WITNESS2 [w2fld]: witness the resolved PageTransition-defaults base address (r5,
+	// DSTBASE2) and the caller. The record's field VALUES are already fully known compile-time
+	// literals (LAWS T7); the missing fact is only who invokes this writer. Read-only, placed
+	// right after the base address is computed and before any store. LAWS T2/T8 preserved.
+	RT_WITNESS2_FLDWRITE(ctx.r5.u32);
 	// li r8,128
 	ctx.r8.s64 = 128;
 	// li r7,160
