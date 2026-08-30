@@ -14548,6 +14548,7 @@ PPC_FUNC_IMPL(__imp__sub_8808FB8C) {
 __attribute__((alias("__imp__sub_8808FB90"))) PPC_WEAK_FUNC(sub_8808FB90);
 PPC_FUNC_IMPL(__imp__sub_8808FB90) {
 	PPC_FUNC_PROLOGUE();
+	RT_TRIOTAP_HIT("sub_8808FB90");  // r23-w58 DRIVER POSITIVE CONTROL, HARNESS-ONLY, NEVER SHIP
 	PPCRegister temp{};
 	uint32_t ea{};
 	// mflr r12

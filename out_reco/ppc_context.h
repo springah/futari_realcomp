@@ -118,6 +118,53 @@ static inline void rt_flagtap_hit(uint32_t ea, uint32_t width, uint32_t val, con
 #define RT_FLAGTAP_HIT(e, sz) ((e) < RT_FLAGTAP_HI && (uint32_t)((e) + (sz)) > RT_FLAGTAP_LO)
 #endif
 
+// ══ r23-w58 DRIVER: RT_TRIOTAP — in-edge (caller) census for the stuck 0x880B9320 /
+// 0x880B7A60 / 0x880B7CD8 trio (400 insns; static root-hunt exhausted r23-w56/w57 across three
+// independent methods -- pairtbl membership, data-dword single-ref [failed its own negative
+// control], vtable-slot/T1++; see bank/r23/w57/RULINGS_DOCKET_w57.md item 1 and
+// bank/r23/w57/read_SCORE_w57.md Mission 3). HARNESS-ONLY, NEVER SHIP.
+// Mission: bank/r23/w58/PREREG_w58.txt (written before any drive).
+// This is an ENTRY tap on the body itself (inserted as the first executable line after each of
+// the three PPC_FUNC_IMPL's own PPC_FUNC_PROLOGUE()), NOT a call-site wrapper -- so the PPC_FUNC
+// WRAPPER CLONE BYPASS (LAWS I2, "printed nothing => not taken" is UNSAFE) does not apply here:
+// PREREG_w58.txt §1 records that all three symbols were grepped across BOTH out_reco/ and
+// shell/gen/ before writing this tap and each is defined in exactly ONE PPC_FUNC_IMPL, in
+// exactly one TU, with no other definition anywhere -- there is no clone to bypass, and an entry
+// tap inside the sole body fires on every invocation whether the caller reached it by a direct
+// `sub_X(ctx,base)` call or by PPC_CALL_INDIRECT_FUNC through the shared PPCFuncMappings table
+// (out_reco/ppc_func_mapping.cpp), because both paths call the identical host function.
+// Reports ctx.lr -- the guest return address the CALLER set immediately before its `bl`, read
+// BEFORE anything in the callee's own body can overwrite it (this macro's call site is the very
+// first statement in each tapped PPC_FUNC_IMPL) -- which pinpoints the exact call-site
+// instruction, strictly stronger evidence than a bare function name. __builtin_return_address(0)
+// is also captured (the host caller frame) as a cross-reference field, the same role RT_FLAGTAP's
+// `ra=` played. RT_-env-gated (getenv, cached once per TU, identical pattern to RT_FLAGTAP);
+// ARMED banner (LAWS M+) fires once so a genuine zero is distinguishable from a dead/unlinked tap.
+// A fourth tap site (sub_8808FB90, out_reco/ppc_recomp.4.cpp) is the POSITIVE CONTROL named in
+// PREREG_w58.txt §2 -- it has exactly one static caller in the whole tree, so its expected value
+// (lr=0x88093428) is known before flying.
+#ifndef RT_TRIOTAP_ON
+static inline bool rt_triotap_enabled(){
+  static int v = std::getenv("RT_TRIOTAP") ? 1 : 0;
+  return v != 0;
+}
+#define RT_TRIOTAP_ON() (__builtin_expect(rt_triotap_enabled(), 0))
+static inline void rt_triotap_hit(const char* callee, uint32_t guest_lr, const void* host_ra,
+                                   uint32_t r3, uint32_t r4, uint32_t r5){
+  static std::atomic<bool> armed{false};
+  if(!armed.exchange(true)) std::fprintf(stderr, "[triotap] ARMED\n");
+  static std::atomic<long long> n{0};
+  long long i = n.fetch_add(1) + 1;
+  std::fprintf(stderr, "[triotap] #%lld callee=%s lr=0x%X ra=%p r3=0x%X r4=0x%X r5=0x%X\n",
+               i, callee, guest_lr, host_ra, r3, r4, r5);
+  std::fflush(stderr);
+}
+#define RT_TRIOTAP_HIT(callee) do { \
+    if (RT_TRIOTAP_ON()) rt_triotap_hit((callee), (uint32_t)ctx.lr, __builtin_return_address(0), \
+                                         ctx.r3.u32, ctx.r4.u32, ctx.r5.u32); \
+  } while (0)
+#endif
+
 #ifndef PPC_STORE_U8
 #define PPC_STORE_U8(x, y) do { \
     uint32_t _ft_e = (uint32_t)(x); uint8_t _ft_v = (uint8_t)(y); \

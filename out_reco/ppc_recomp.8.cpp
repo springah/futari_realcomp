@@ -24514,6 +24514,7 @@ PPC_FUNC_IMPL(__imp__sub_880B7A5C) {
 __attribute__((alias("__imp__sub_880B7A60"))) PPC_WEAK_FUNC(sub_880B7A60);
 PPC_FUNC_IMPL(__imp__sub_880B7A60) {
 	PPC_FUNC_PROLOGUE();
+	RT_TRIOTAP_HIT("sub_880B7A60");  // r23-w58 DRIVER, HARNESS-ONLY, NEVER SHIP
 	PPCRegister temp{};
 	uint32_t ea{};
 	// mflr r12
@@ -24866,6 +24867,7 @@ loc_880B7CB0:
 __attribute__((alias("__imp__sub_880B7CD8"))) PPC_WEAK_FUNC(sub_880B7CD8);
 PPC_FUNC_IMPL(__imp__sub_880B7CD8) {
 	PPC_FUNC_PROLOGUE();
+	RT_TRIOTAP_HIT("sub_880B7CD8");  // r23-w58 DRIVER, HARNESS-ONLY, NEVER SHIP
 	uint32_t ea{};
 	// mflr r12
 	ctx.r12.u64 = ctx.lr;
@@ -28310,6 +28312,7 @@ PPC_FUNC_IMPL(__imp__sub_880B931C) {
 __attribute__((alias("__imp__sub_880B9320"))) PPC_WEAK_FUNC(sub_880B9320);
 PPC_FUNC_IMPL(__imp__sub_880B9320) {
 	PPC_FUNC_PROLOGUE();
+	RT_TRIOTAP_HIT("sub_880B9320");  // r23-w58 DRIVER, HARNESS-ONLY, NEVER SHIP
 	uint32_t ea{};
 	// mflr r12
 	ctx.r12.u64 = ctx.lr;
