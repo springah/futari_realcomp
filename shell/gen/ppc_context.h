@@ -14,6 +14,8 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <cstdio>
+#include <atomic>
 
 #include <x86/avx.h>
 #include <x86/sse.h>
@@ -70,20 +72,61 @@
 #define PPC_MM_LOAD_U64(x) PPC_LOAD_U64(x)
 #endif
 
+// ══ r23-w56 F1 DRIVER: RT_FLAGTAP — watchpoint census, SHELL-TREE COPY. See out_reco/ppc_context.h
+// for the full rationale; this is the identical patch applied to the shell guest tree's own copy
+// of this header so the watchpoint has NO BLIND SPOT at the shell/game boundary (LAWS M5: an
+// instrument's silence is only evidence for what it can structurally see — the game-only copy of
+// this patch left shell/gen/*.cpp's own PPC_STORE_* invisible to the tap, a real coverage gap
+// found and closed same-window before trusting the game-only leg's negative). HARNESS-ONLY, NEVER
+// SHIP. Default-off (RT_FLAGTAP getenv, cached once per TU, campaign-standard cost).
+#ifndef RT_FLAGTAP_LO
+#define RT_FLAGTAP_LO 0x887AD528u
+#define RT_FLAGTAP_HI 0x887AD540u
+static inline bool rt_flagtap_enabled(){
+  static int v = std::getenv("RT_FLAGTAP") ? 1 : 0;
+  return v != 0;
+}
+static inline void rt_flagtap_hit(uint32_t ea, uint32_t width, uint32_t val, const char* fn, const void* ra){
+  static std::atomic<bool> armed{false};
+  if(!armed.exchange(true)) std::fprintf(stderr, "[flagtap] ARMED\n");
+  static std::atomic<long long> n{0};
+  long long i = n.fetch_add(1) + 1;
+  std::fprintf(stderr, "[flagtap] #%lld ea=0x%X w=%u val=0x%X fn=%s ra=%p\n", i, ea, width, val, fn, ra);
+  std::fflush(stderr);
+}
+#define RT_FLAGTAP_HIT(e, sz) ((e) < RT_FLAGTAP_HI && (uint32_t)((e) + (sz)) > RT_FLAGTAP_LO)
+#endif
+
 #ifndef PPC_STORE_U8
-#define PPC_STORE_U8(x, y) *(volatile uint8_t*)(base + (x)) = (y)
+#define PPC_STORE_U8(x, y) do { \
+    uint32_t _ft_e = (uint32_t)(x); uint8_t _ft_v = (uint8_t)(y); \
+    if (__builtin_expect(rt_flagtap_enabled() && RT_FLAGTAP_HIT(_ft_e, 1u), 0)) \
+      rt_flagtap_hit(_ft_e, 1u, (uint32_t)_ft_v, __func__, __builtin_return_address(0)); \
+    *(volatile uint8_t*)(base + _ft_e) = _ft_v; } while (0)
 #endif
 
 #ifndef PPC_STORE_U16
-#define PPC_STORE_U16(x, y) *(volatile uint16_t*)(base + (x)) = __builtin_bswap16(y)
+#define PPC_STORE_U16(x, y) do { \
+    uint32_t _ft_e = (uint32_t)(x); uint16_t _ft_v = (uint16_t)(y); \
+    if (__builtin_expect(rt_flagtap_enabled() && RT_FLAGTAP_HIT(_ft_e, 2u), 0)) \
+      rt_flagtap_hit(_ft_e, 2u, (uint32_t)_ft_v, __func__, __builtin_return_address(0)); \
+    *(volatile uint16_t*)(base + _ft_e) = __builtin_bswap16(_ft_v); } while (0)
 #endif
 
 #ifndef PPC_STORE_U32
-#define PPC_STORE_U32(x, y) *(volatile uint32_t*)(base + (x)) = __builtin_bswap32(y)
+#define PPC_STORE_U32(x, y) do { \
+    uint32_t _ft_e = (uint32_t)(x); uint32_t _ft_v = (uint32_t)(y); \
+    if (__builtin_expect(rt_flagtap_enabled() && RT_FLAGTAP_HIT(_ft_e, 4u), 0)) \
+      rt_flagtap_hit(_ft_e, 4u, _ft_v, __func__, __builtin_return_address(0)); \
+    *(volatile uint32_t*)(base + _ft_e) = __builtin_bswap32(_ft_v); } while (0)
 #endif
 
 #ifndef PPC_STORE_U64
-#define PPC_STORE_U64(x, y) *(volatile uint64_t*)(base + (x)) = __builtin_bswap64(y)
+#define PPC_STORE_U64(x, y) do { \
+    uint32_t _ft_e = (uint32_t)(x); uint64_t _ft_v = (uint64_t)(y); \
+    if (__builtin_expect(rt_flagtap_enabled() && RT_FLAGTAP_HIT(_ft_e, 8u), 0)) \
+      rt_flagtap_hit(_ft_e, 8u, (uint32_t)(_ft_v >> 32), __func__, __builtin_return_address(0)); \
+    *(volatile uint64_t*)(base + _ft_e) = __builtin_bswap64(_ft_v); } while (0)
 #endif
 
 // MMIO Store handling is completely reliant on being preeceded by eieio.

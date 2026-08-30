@@ -14,6 +14,8 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <cstdio>
+#include <atomic>
 
 #include <x86/avx.h>
 #include <x86/sse.h>
@@ -70,20 +72,82 @@
 #define PPC_MM_LOAD_U64(x) PPC_LOAD_U64(x)
 #endif
 
+// ══ r23-w56 F1 DRIVER: RT_FLAGTAP — watchpoint census of every guest store touching the
+// 0x887AD500-0x887AD560 neighbourhood (pauseFlag 0x887AD534 / pauseLatch 0x887AD538 / the
+// present-fnptr pair at 0x887AD524/28, with margin). HARNESS-ONLY, NEVER SHIP.
+// Mission: bank/r23/w55/f1_drive_PLAN_w55.md (the second-writer watchpoint plan); pre-registered
+// in bank/r23/w56/PREREG_w56.txt before any drive. Default-off — RT_FLAGTAP_ON() below is a
+// getenv check cached once per translation unit (the same pattern as every other RT_ tap in this
+// tree, e.g. merged_game.cpp's RT_NOPAUSE/RT_FB90 static-local caches); with the env unset this
+// costs one already-cached branch per store, campaign-standard overhead. Purely additive: no
+// guest-visible value/width/order changes (the tap observes `x`/`y` and prints, then the original
+// store executes exactly as before — LAWS T2/T8 preserved).
+// Identification uses __func__ (the compile-time name of the enclosing PPC_FUNC — exact, no
+// symbol table needed, correct at every one of this macro's expansion sites including host-side
+// helpers that never see `ctx`, e.g. merged_shell.cpp's rt_stf32) for WHO PERFORMS THE STORE, plus
+// __builtin_return_address(0) (the host address inside whichever function CALLED the storing
+// function) for cross-reference against the already-banked ctx.lr evidence
+// (f1_secondwriter_read_w55.md §1). ARMED banner (LAWS M+) fires once, the same gate as any hit,
+// so a leg with zero extra hits is distinguishable from a dead/unlinked tap.
+// ⚠ CALIBRATED, THIS WINDOW (r23-w56 leg m1arc_w56): the plan's original 96-byte margin
+// (0x887AD500-0x887AD560) swept in two hot, UNRELATED per-frame fields — 0x887AD518 (a
+// monotonic counter inside sub_88090480, ~200K hits in one partial arcade leg) and 0x887AD540
+// (a per-frame toggle inside sub_8808FB90, ~53K hits) — neither in the pauseFlag/pauseLatch
+// neighbourhood the mission cares about. Narrowed to the plan's own core range with a small
+// margin (0x887AD528-0x887AD53C inclusive => half-open to 0x887AD540), which still covers the
+// present-fnptr pair (524/528 — note 524 itself is JUST outside; widen back if a future leg
+// needs it) and both mission words (534/538). This ALSO still captures the ALREADY-KNOWN,
+// expected per-frame self-clear of pauseLatch (538=0) inside sub_8808FB90 on every normal-running
+// frame (read_train_mechanism_w52.md §4's own consumer code) — that is harmless, high-volume, and
+// declared here so it is not mistaken for a novel finding when it recurs.
+#ifndef RT_FLAGTAP_LO
+#define RT_FLAGTAP_LO 0x887AD528u
+#define RT_FLAGTAP_HI 0x887AD540u
+static inline bool rt_flagtap_enabled(){
+  static int v = std::getenv("RT_FLAGTAP") ? 1 : 0;
+  return v != 0;
+}
+static inline void rt_flagtap_hit(uint32_t ea, uint32_t width, uint32_t val, const char* fn, const void* ra){
+  static std::atomic<bool> armed{false};
+  if(!armed.exchange(true)) std::fprintf(stderr, "[flagtap] ARMED\n");
+  static std::atomic<long long> n{0};
+  long long i = n.fetch_add(1) + 1;
+  std::fprintf(stderr, "[flagtap] #%lld ea=0x%X w=%u val=0x%X fn=%s ra=%p\n", i, ea, width, val, fn, ra);
+  std::fflush(stderr);
+}
+#define RT_FLAGTAP_HIT(e, sz) ((e) < RT_FLAGTAP_HI && (uint32_t)((e) + (sz)) > RT_FLAGTAP_LO)
+#endif
+
 #ifndef PPC_STORE_U8
-#define PPC_STORE_U8(x, y) *(volatile uint8_t*)(base + (x)) = (y)
+#define PPC_STORE_U8(x, y) do { \
+    uint32_t _ft_e = (uint32_t)(x); uint8_t _ft_v = (uint8_t)(y); \
+    if (__builtin_expect(rt_flagtap_enabled() && RT_FLAGTAP_HIT(_ft_e, 1u), 0)) \
+      rt_flagtap_hit(_ft_e, 1u, (uint32_t)_ft_v, __func__, __builtin_return_address(0)); \
+    *(volatile uint8_t*)(base + _ft_e) = _ft_v; } while (0)
 #endif
 
 #ifndef PPC_STORE_U16
-#define PPC_STORE_U16(x, y) *(volatile uint16_t*)(base + (x)) = __builtin_bswap16(y)
+#define PPC_STORE_U16(x, y) do { \
+    uint32_t _ft_e = (uint32_t)(x); uint16_t _ft_v = (uint16_t)(y); \
+    if (__builtin_expect(rt_flagtap_enabled() && RT_FLAGTAP_HIT(_ft_e, 2u), 0)) \
+      rt_flagtap_hit(_ft_e, 2u, (uint32_t)_ft_v, __func__, __builtin_return_address(0)); \
+    *(volatile uint16_t*)(base + _ft_e) = __builtin_bswap16(_ft_v); } while (0)
 #endif
 
 #ifndef PPC_STORE_U32
-#define PPC_STORE_U32(x, y) *(volatile uint32_t*)(base + (x)) = __builtin_bswap32(y)
+#define PPC_STORE_U32(x, y) do { \
+    uint32_t _ft_e = (uint32_t)(x); uint32_t _ft_v = (uint32_t)(y); \
+    if (__builtin_expect(rt_flagtap_enabled() && RT_FLAGTAP_HIT(_ft_e, 4u), 0)) \
+      rt_flagtap_hit(_ft_e, 4u, _ft_v, __func__, __builtin_return_address(0)); \
+    *(volatile uint32_t*)(base + _ft_e) = __builtin_bswap32(_ft_v); } while (0)
 #endif
 
 #ifndef PPC_STORE_U64
-#define PPC_STORE_U64(x, y) *(volatile uint64_t*)(base + (x)) = __builtin_bswap64(y)
+#define PPC_STORE_U64(x, y) do { \
+    uint32_t _ft_e = (uint32_t)(x); uint64_t _ft_v = (uint64_t)(y); \
+    if (__builtin_expect(rt_flagtap_enabled() && RT_FLAGTAP_HIT(_ft_e, 8u), 0)) \
+      rt_flagtap_hit(_ft_e, 8u, (uint32_t)(_ft_v >> 32), __func__, __builtin_return_address(0)); \
+    *(volatile uint64_t*)(base + _ft_e) = __builtin_bswap64(_ft_v); } while (0)
 #endif
 
 // MMIO Store handling is completely reliant on being preeceded by eieio.
