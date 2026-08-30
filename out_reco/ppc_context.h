@@ -165,6 +165,83 @@ static inline void rt_triotap_hit(const char* callee, uint32_t guest_lr, const v
   } while (0)
 #endif
 
+// ══ r23-w62 DRIVER: RT_WITNESS — the runtime-witness leg for three R4/R5 static-exhaustion
+// holds named in bank/r23/w61/RULINGS_DOCKET_w61.md item 2 and read_SCORE_w61.md/w60.md:
+// 0x880917C0's this[0] cull-dispatch type field, 0x88094970's paired (-40,280)/(240) window-test
+// operands, and 0x88091600's 9-arm Defect-7 dispatch selector (arm map already fully derived
+// statically, bank/r23/w60/read_SCORE_w60.md — this tap witnesses WHICH value actually arrives
+// at runtime, it does not re-derive the map). HARNESS-ONLY, NEVER SHIP. Pre-registered in
+// bank/r23/w62/PREREG_w62.txt before any scoring drive.
+// Same ENTRY/MID-BODY-TAP shape as RT_TRIOTAP (LAWS I2 checked, not assumed: all three symbols
+// grepped across out_reco/ and shell/gen/ before writing this tap — each defined in exactly one
+// PPC_FUNC_IMPL, in exactly one TU, no other definition anywhere; a tap inside the sole body is
+// immune to the clone-bypass by construction). The three 0x88094970 mid-body taps are placed
+// immediately AFTER each cmpw/cmpwi's compare<>() call sets ctx.cr6 and BEFORE the following
+// branch — they only READ the already-computed flags/operands and print; no existing line is
+// edited, no store macro touched, no guest-visible value/width/order/control-flow changes
+// (LAWS T2/T8 preserved). RT_-env-gated (getenv, cached once per TU); shared ARMED banner across
+// all four tap functions per LAWS M+ (one instrument, one banner, four tagged hit lines).
+#ifndef RT_WITNESS_ON
+static inline bool rt_witness_enabled(){
+  static int v = std::getenv("RT_WITNESS") ? 1 : 0;
+  return v != 0;
+}
+#define RT_WITNESS_ON() (__builtin_expect(rt_witness_enabled(), 0))
+static inline void rt_witness_armed_once(){
+  static std::atomic<bool> armed{false};
+  if(!armed.exchange(true)) std::fprintf(stderr, "[witness] ARMED\n");
+}
+// 0x880917C0 — this[0] cull-dispatch type field + caller.
+static inline void rt_witness_typefield_hit(uint32_t guest_lr, uint32_t this_ptr, uint32_t type0){
+  rt_witness_armed_once();
+  static std::atomic<long long> n{0};
+  long long i = n.fetch_add(1) + 1;
+  std::fprintf(stderr, "[wtype] #%lld lr=0x%X this=0x%X type0=0x%X\n", i, guest_lr, this_ptr, type0);
+  std::fflush(stderr);
+}
+#define RT_WITNESS_TYPEFIELD(this_ptr, type0) do { \
+    if (RT_WITNESS_ON()) rt_witness_typefield_hit((uint32_t)ctx.lr, (uint32_t)(this_ptr), (uint32_t)(type0)); \
+  } while (0)
+// 0x88094970 — entry args (r3-r8) + caller, before any transformation.
+static inline void rt_witness_entry_hit(uint32_t guest_lr, uint32_t r3v, uint32_t r4v, uint32_t r5v,
+                                         uint32_t r6v, uint32_t r7v, uint32_t r8v){
+  rt_witness_armed_once();
+  static std::atomic<long long> n{0};
+  long long i = n.fetch_add(1) + 1;
+  std::fprintf(stderr, "[wentry] #%lld lr=0x%X r3=0x%X r4=0x%X r5=0x%X r6=0x%X r7=0x%X r8=0x%X\n",
+               i, guest_lr, r3v, r4v, r5v, r6v, r7v, r8v);
+  std::fflush(stderr);
+}
+#define RT_WITNESS_ENTRY(r3v, r4v, r5v, r6v, r7v, r8v) do { \
+    if (RT_WITNESS_ON()) rt_witness_entry_hit((uint32_t)ctx.lr, (uint32_t)(r3v), (uint32_t)(r4v), \
+                                               (uint32_t)(r5v), (uint32_t)(r6v), (uint32_t)(r7v), (uint32_t)(r8v)); \
+  } while (0)
+// 0x88094970 — the paired (-40,280)/(240) window-test operands, tagged per decision point.
+// 'taken' is the already-computed cr6 flag for that compare (read-only, not a new branch).
+static inline void rt_witness_window_hit(const char* tag, uint32_t guest_lr, uint32_t a, uint32_t b, int taken){
+  rt_witness_armed_once();
+  static std::atomic<long long> n{0};
+  long long i = n.fetch_add(1) + 1;
+  std::fprintf(stderr, "[wwin] #%lld tag=%s lr=0x%X a=0x%X(%.4f) b=0x%X(%.4f) taken=%d\n",
+               i, tag, guest_lr, a, (double)(int32_t)a / 65536.0, b, (double)(int32_t)b / 65536.0, taken);
+  std::fflush(stderr);
+}
+#define RT_WITNESS_WINDOW(tag, a, b, taken) do { \
+    if (RT_WITNESS_ON()) rt_witness_window_hit((tag), (uint32_t)ctx.lr, (uint32_t)(a), (uint32_t)(b), (taken) ? 1 : 0); \
+  } while (0)
+// 0x88091600 — the 9-arm Defect-7 dispatch selector (arm map already derived, bank/r23/w60).
+static inline void rt_witness_arm_hit(uint32_t guest_lr, uint32_t this_ptr, uint32_t sel){
+  rt_witness_armed_once();
+  static std::atomic<long long> n{0};
+  long long i = n.fetch_add(1) + 1;
+  std::fprintf(stderr, "[warm] #%lld lr=0x%X this=0x%X sel=%u\n", i, guest_lr, this_ptr, sel);
+  std::fflush(stderr);
+}
+#define RT_WITNESS_ARM(this_ptr, sel) do { \
+    if (RT_WITNESS_ON()) rt_witness_arm_hit((uint32_t)ctx.lr, (uint32_t)(this_ptr), (uint32_t)(sel)); \
+  } while (0)
+#endif
+
 #ifndef PPC_STORE_U8
 #define PPC_STORE_U8(x, y) do { \
     uint32_t _ft_e = (uint32_t)(x); uint8_t _ft_v = (uint8_t)(y); \

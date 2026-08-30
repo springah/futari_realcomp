@@ -1196,6 +1196,7 @@ PPC_FUNC_IMPL(__imp__sub_88094960) {
 __attribute__((alias("__imp__sub_88094970"))) PPC_WEAK_FUNC(sub_88094970);
 PPC_FUNC_IMPL(__imp__sub_88094970) {
 	PPC_FUNC_PROLOGUE();
+	RT_WITNESS_ENTRY(ctx.r3.u32, ctx.r4.u32, ctx.r5.u32, ctx.r6.u32, ctx.r7.u32, ctx.r8.u32); // r23-w62 RT_WITNESS: entry args before any transform
 	// lwz r11,100(r3)
 	ctx.r11.u64 = PPC_LOAD_U32(ctx.r3.u32 + 100);
 	// add. r10,r5,r7
@@ -1219,6 +1220,7 @@ PPC_FUNC_IMPL(__imp__sub_88094970) {
 	ctx.r5.s64 = ctx.r10.s64 - ctx.r9.s64;
 	// cmpw cr6,r5,r7
 	ctx.cr6.compare<int32_t>(ctx.r5.s32, ctx.r7.s32, ctx.xer);
+	RT_WITNESS_WINDOW("gate320", ctx.r5.u32, ctx.r7.u32, ctx.cr6.lt); // r23-w62 RT_WITNESS: common arm-independent gate
 	// bge cr6,0x880949e4
 	if (!ctx.cr6.lt) goto loc_880949E4;
 	// cmpwi cr6,r8,0
@@ -1243,6 +1245,7 @@ PPC_FUNC_IMPL(__imp__sub_88094970) {
 	ctx.r11.u64 = ctx.r11.u64 + ctx.r6.u64;
 	// cmpw cr6,r11,r8
 	ctx.cr6.compare<int32_t>(ctx.r11.s32, ctx.r8.s32, ctx.xer);
+	RT_WITNESS_WINDOW("lo40", ctx.r11.u32, ctx.r8.u32, ctx.cr6.gt); // r23-w62 RT_WITNESS: r8!=0 arm, lower bound -40.0
 	// ble cr6,0x880949e4
 	if (!ctx.cr6.gt) goto loc_880949E4;
 	// rlwinm r10,r6,1,0,30
@@ -1253,6 +1256,7 @@ PPC_FUNC_IMPL(__imp__sub_88094970) {
 	ctx.r8.s64 = ctx.r11.s64 - ctx.r10.s64;
 	// cmpw cr6,r8,r9
 	ctx.cr6.compare<int32_t>(ctx.r8.s32, ctx.r9.s32, ctx.xer);
+	RT_WITNESS_WINDOW("hi280", ctx.r8.u32, ctx.r9.u32, ctx.cr6.lt); // r23-w62 RT_WITNESS: r8!=0 arm, upper bound 280.0 (success branch)
 	// blt cr6,0x88094a0c
 	if (ctx.cr6.lt) goto loc_88094A0C;
 loc_880949E4:
@@ -1276,6 +1280,7 @@ loc_880949EC:
 	ctx.r3.s64 = 0;
 	// cmpw cr6,r8,r9
 	ctx.cr6.compare<int32_t>(ctx.r8.s32, ctx.r9.s32, ctx.xer);
+	RT_WITNESS_WINDOW("lo240", ctx.r8.u32, ctx.r9.u32, ctx.cr6.lt); // r23-w62 RT_WITNESS: r8==0 arm, single threshold 240.0 (success branch)
 	// bgelr cr6
 	if (!ctx.cr6.lt) return;
 loc_88094A0C:

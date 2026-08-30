@@ -3572,6 +3572,7 @@ PPC_FUNC_IMPL(__imp__sub_88091600) {
 	ctx.cr6.compare<uint32_t>(ctx.r4.u32, 8, ctx.xer);
 	// bgtlr cr6
 	if (ctx.cr6.gt) return;
+	RT_WITNESS_ARM(ctx.r3.u32, ctx.r4.u32); // r23-w62 RT_WITNESS: 9-arm dispatch selector, unconditional (both guards passed; arm map = bank/r23/w60)
 	// mtctr r4
 	ctx.ctr.u64 = ctx.r4.u64;
 	// cmpwi cr6,r4,0
@@ -3836,6 +3837,7 @@ PPC_FUNC_IMPL(__imp__sub_880917C0) {
 	ctx.r7.s64 = -2005204992;
 	// lwz r6,0(r3)
 	ctx.r6.u64 = PPC_LOAD_U32(ctx.r3.u32 + 0);
+	RT_WITNESS_TYPEFIELD(ctx.r3.u32, ctx.r6.u32); // r23-w62 RT_WITNESS: this[0] cull-dispatch type field
 	// rlwinm r9,r4,16,0,15
 	ctx.r9.u64 = __builtin_rotateleft64(ctx.r4.u32 | (ctx.r4.u64 << 32), 16) & 0xFFFF0000;
 	// lwz r11,-11892(r7)
