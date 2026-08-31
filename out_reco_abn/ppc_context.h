@@ -14,6 +14,8 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <cstdio>
+#include <atomic>
 
 #include <x86/avx.h>
 #include <x86/sse.h>
@@ -68,6 +70,208 @@
 
 #ifndef PPC_MM_LOAD_U64
 #define PPC_MM_LOAD_U64(x) PPC_LOAD_U64(x)
+#endif
+
+// ══ r23-w68 DRIVER: THE ABN INSTRUMENT PORT — RT_TRIOTAP + RT_WITNESS + RT_WITNESS2 ported
+// VERBATIM (byte-identical macro/function bodies, ARM-SYMMETRIC with out_reco/ppc_context.h
+// lines 121-292) from the reco_normal tree into reco_abnormal, closing the w67-found
+// instrumentation gap (bank/r23/w67/drive_w67_SCORE.md SS1.2, RULINGS_DOCKET_w67.md item 3):
+// futari_game_abn.dll carried 0/6 witness tags and 0 triotap strings — not even the shared
+// positive control — so the 360-card route class was structurally unobservable. HARNESS-ONLY,
+// NEVER SHIP; env-gated exactly like the originals (RT_TRIOTAP/RT_WITNESS/RT_WITNESS2 getenv
+// checks unchanged). Mission: bank/r23/w68/PREREG_w68.txt (written before any scoring drive).
+//
+// ⚠ ONE TAP SITE NEEDED AN ADDRESS REMAP, NOT A COPY: sub_881500D0 (the RT_WITNESS2 [w2fld]
+// PageTransition-defaults tap) DOES NOT EXIST in out_reco_abn under that name — verified absent
+// by grep (`grep -rn sub_881500D0 out_reco_abn/` = 0 hits) before any porting began, per this
+// window's mission instruction. Its abn twin is sub_881500D8 (out_reco_abn/ppc_recomp.19.cpp) —
+// confirmed the SAME body by a byte-for-byte structural diff against reco_normal's sub_881500D0
+// (identical instruction stream; the ONLY difference is the DSTBASE2 .data literal, -24056 in
+// reco_normal vs -23960 in reco_abnormal, a delta of exactly 96 = 0x60, matching LAWS I3's
+// documented +0x60 abn .data-literal shift precisely). The other eight tapped addresses
+// (0x8808ECC0, 0x8808FB90, 0x88091600, 0x880917C0, 0x88094970, 0x880B7A60, 0x880B7CD8,
+// 0x880B9320) exist in out_reco_abn at the IDENTICAL numeric address with an IDENTICAL
+// instruction stream (data literals, where present, differing by the same +0x60 — verified
+// per-site, not assumed, before writing each tap call). All nine insertion points preserve
+// LAWS T2/T8 exactly as the originals do: read-only observations of already-computed
+// values/flags, no existing line edited, no store macro touched, no guest-visible
+// value/width/order/control-flow change.
+//
+// The macro/function definitions below are UNMODIFIED from out_reco/ppc_context.h (same tag
+// strings, same env vars, same ARMED-banner mechanism per LAWS M+) — arm-symmetry requires the
+// SAME instrument in both trees, not a recolour.
+
+// ══ r23-w58 DRIVER: RT_TRIOTAP — in-edge (caller) census for the stuck 0x880B9320 /
+// 0x880B7A60 / 0x880B7CD8 trio (400 insns; static root-hunt exhausted r23-w56/w57 across three
+// independent methods -- pairtbl membership, data-dword single-ref [failed its own negative
+// control], vtable-slot/T1++; see bank/r23/w57/RULINGS_DOCKET_w57.md item 1 and
+// bank/r23/w57/read_SCORE_w57.md Mission 3). HARNESS-ONLY, NEVER SHIP.
+// Mission: bank/r23/w58/PREREG_w58.txt (written before any drive).
+// This is an ENTRY tap on the body itself (inserted as the first executable line after each of
+// the three PPC_FUNC_IMPL's own PPC_FUNC_PROLOGUE()), NOT a call-site wrapper -- so the PPC_FUNC
+// WRAPPER CLONE BYPASS (LAWS I2, "printed nothing => not taken" is UNSAFE) does not apply here:
+// PREREG_w58.txt §1 records that all three symbols were grepped across BOTH out_reco/ and
+// shell/gen/ before writing this tap and each is defined in exactly ONE PPC_FUNC_IMPL, in
+// exactly one TU, with no other definition anywhere -- there is no clone to bypass, and an entry
+// tap inside the sole body fires on every invocation whether the caller reached it by a direct
+// `sub_X(ctx,base)` call or by PPC_CALL_INDIRECT_FUNC through the shared PPCFuncMappings table
+// (out_reco/ppc_func_mapping.cpp), because both paths call the identical host function.
+// Reports ctx.lr -- the guest return address the CALLER set immediately before its `bl`, read
+// BEFORE anything in the callee's own body can overwrite it (this macro's call site is the very
+// first statement in each tapped PPC_FUNC_IMPL) -- which pinpoints the exact call-site
+// instruction, strictly stronger evidence than a bare function name. __builtin_return_address(0)
+// is also captured (the host caller frame) as a cross-reference field, the same role RT_FLAGTAP's
+// `ra=` played. RT_-env-gated (getenv, cached once per TU, identical pattern to RT_FLAGTAP);
+// ARMED banner (LAWS M+) fires once so a genuine zero is distinguishable from a dead/unlinked tap.
+// A fourth tap site (sub_8808FB90, out_reco/ppc_recomp.4.cpp) is the POSITIVE CONTROL named in
+// PREREG_w58.txt §2 -- it has exactly one static caller in the whole tree, so its expected value
+// (lr=0x88093428) is known before flying.
+#ifndef RT_TRIOTAP_ON
+static inline bool rt_triotap_enabled(){
+  static int v = std::getenv("RT_TRIOTAP") ? 1 : 0;
+  return v != 0;
+}
+#define RT_TRIOTAP_ON() (__builtin_expect(rt_triotap_enabled(), 0))
+static inline void rt_triotap_hit(const char* callee, uint32_t guest_lr, const void* host_ra,
+                                   uint32_t r3, uint32_t r4, uint32_t r5){
+  static std::atomic<bool> armed{false};
+  if(!armed.exchange(true)) std::fprintf(stderr, "[triotap] ARMED\n");
+  static std::atomic<long long> n{0};
+  long long i = n.fetch_add(1) + 1;
+  std::fprintf(stderr, "[triotap] #%lld callee=%s lr=0x%X ra=%p r3=0x%X r4=0x%X r5=0x%X\n",
+               i, callee, guest_lr, host_ra, r3, r4, r5);
+  std::fflush(stderr);
+}
+#define RT_TRIOTAP_HIT(callee) do { \
+    if (RT_TRIOTAP_ON()) rt_triotap_hit((callee), (uint32_t)ctx.lr, __builtin_return_address(0), \
+                                         ctx.r3.u32, ctx.r4.u32, ctx.r5.u32); \
+  } while (0)
+#endif
+
+// ══ r23-w62 DRIVER: RT_WITNESS — the runtime-witness leg for three R4/R5 static-exhaustion
+// holds named in bank/r23/w61/RULINGS_DOCKET_w61.md item 2 and read_SCORE_w61.md/w60.md:
+// 0x880917C0's this[0] cull-dispatch type field, 0x88094970's paired (-40,280)/(240) window-test
+// operands, and 0x88091600's 9-arm Defect-7 dispatch selector (arm map already fully derived
+// statically, bank/r23/w60/read_SCORE_w60.md — this tap witnesses WHICH value actually arrives
+// at runtime, it does not re-derive the map). HARNESS-ONLY, NEVER SHIP. Pre-registered in
+// bank/r23/w62/PREREG_w62.txt before any scoring drive.
+// Same ENTRY/MID-BODY-TAP shape as RT_TRIOTAP (LAWS I2 checked, not assumed: all three symbols
+// grepped across out_reco/ and shell/gen/ before writing this tap — each defined in exactly one
+// PPC_FUNC_IMPL, in exactly one TU, no other definition anywhere; a tap inside the sole body is
+// immune to the clone-bypass by construction). The three 0x88094970 mid-body taps are placed
+// immediately AFTER each cmpw/cmpwi's compare<>() call sets ctx.cr6 and BEFORE the following
+// branch — they only READ the already-computed flags/operands and print; no existing line is
+// edited, no store macro touched, no guest-visible value/width/order/control-flow changes
+// (LAWS T2/T8 preserved). RT_-env-gated (getenv, cached once per TU); shared ARMED banner across
+// all four tap functions per LAWS M+ (one instrument, one banner, four tagged hit lines).
+#ifndef RT_WITNESS_ON
+static inline bool rt_witness_enabled(){
+  static int v = std::getenv("RT_WITNESS") ? 1 : 0;
+  return v != 0;
+}
+#define RT_WITNESS_ON() (__builtin_expect(rt_witness_enabled(), 0))
+static inline void rt_witness_armed_once(){
+  static std::atomic<bool> armed{false};
+  if(!armed.exchange(true)) std::fprintf(stderr, "[witness] ARMED\n");
+}
+// 0x880917C0 — this[0] cull-dispatch type field + caller.
+static inline void rt_witness_typefield_hit(uint32_t guest_lr, uint32_t this_ptr, uint32_t type0){
+  rt_witness_armed_once();
+  static std::atomic<long long> n{0};
+  long long i = n.fetch_add(1) + 1;
+  std::fprintf(stderr, "[wtype] #%lld lr=0x%X this=0x%X type0=0x%X\n", i, guest_lr, this_ptr, type0);
+  std::fflush(stderr);
+}
+#define RT_WITNESS_TYPEFIELD(this_ptr, type0) do { \
+    if (RT_WITNESS_ON()) rt_witness_typefield_hit((uint32_t)ctx.lr, (uint32_t)(this_ptr), (uint32_t)(type0)); \
+  } while (0)
+// 0x88094970 — entry args (r3-r8) + caller, before any transformation.
+static inline void rt_witness_entry_hit(uint32_t guest_lr, uint32_t r3v, uint32_t r4v, uint32_t r5v,
+                                         uint32_t r6v, uint32_t r7v, uint32_t r8v){
+  rt_witness_armed_once();
+  static std::atomic<long long> n{0};
+  long long i = n.fetch_add(1) + 1;
+  std::fprintf(stderr, "[wentry] #%lld lr=0x%X r3=0x%X r4=0x%X r5=0x%X r6=0x%X r7=0x%X r8=0x%X\n",
+               i, guest_lr, r3v, r4v, r5v, r6v, r7v, r8v);
+  std::fflush(stderr);
+}
+#define RT_WITNESS_ENTRY(r3v, r4v, r5v, r6v, r7v, r8v) do { \
+    if (RT_WITNESS_ON()) rt_witness_entry_hit((uint32_t)ctx.lr, (uint32_t)(r3v), (uint32_t)(r4v), \
+                                               (uint32_t)(r5v), (uint32_t)(r6v), (uint32_t)(r7v), (uint32_t)(r8v)); \
+  } while (0)
+// 0x88094970 — the paired (-40,280)/(240) window-test operands, tagged per decision point.
+// 'taken' is the already-computed cr6 flag for that compare (read-only, not a new branch).
+static inline void rt_witness_window_hit(const char* tag, uint32_t guest_lr, uint32_t a, uint32_t b, int taken){
+  rt_witness_armed_once();
+  static std::atomic<long long> n{0};
+  long long i = n.fetch_add(1) + 1;
+  std::fprintf(stderr, "[wwin] #%lld tag=%s lr=0x%X a=0x%X(%.4f) b=0x%X(%.4f) taken=%d\n",
+               i, tag, guest_lr, a, (double)(int32_t)a / 65536.0, b, (double)(int32_t)b / 65536.0, taken);
+  std::fflush(stderr);
+}
+#define RT_WITNESS_WINDOW(tag, a, b, taken) do { \
+    if (RT_WITNESS_ON()) rt_witness_window_hit((tag), (uint32_t)ctx.lr, (uint32_t)(a), (uint32_t)(b), (taken) ? 1 : 0); \
+  } while (0)
+// 0x88091600 — the 9-arm Defect-7 dispatch selector (arm map already derived, bank/r23/w60).
+static inline void rt_witness_arm_hit(uint32_t guest_lr, uint32_t this_ptr, uint32_t sel){
+  rt_witness_armed_once();
+  static std::atomic<long long> n{0};
+  long long i = n.fetch_add(1) + 1;
+  std::fprintf(stderr, "[warm] #%lld lr=0x%X this=0x%X sel=%u\n", i, guest_lr, this_ptr, sel);
+  std::fflush(stderr);
+}
+#define RT_WITNESS_ARM(this_ptr, sel) do { \
+    if (RT_WITNESS_ON()) rt_witness_arm_hit((uint32_t)ctx.lr, (uint32_t)(this_ptr), (uint32_t)(sel)); \
+  } while (0)
+#endif
+
+// ══ r23-w65 DRIVER: RT_WITNESS2 — runtime witnesses for the held-negative roster named in
+// bank/r23/w64/RULINGS_DOCKET_w64.md item 3 + read_SCORE_w64.md/read_refusal_w64.md:
+// 0x8808ECC0's unresolved table byte/dword reads (TBLBASE+0x9E44C, TBLBASE+72) and 0x881500D0's
+// §24-declined PageTransition defaults-record caller. HARNESS-ONLY, NEVER SHIP. Pre-registered
+// in bank/r23/w65/PREREG_w65.txt before any scoring drive. Same ENTRY/MID-BODY-TAP shape as
+// RT_WITNESS (LAWS I2 checked, not assumed: both symbols grepped across out_reco/ and shell/
+// gen/ before writing this tap — each defined in exactly one PPC_FUNC_IMPL, in exactly one TU,
+// zero hits in shell/gen/; a tap inside the sole body is immune to the clone-bypass by
+// construction). Neither tap edits an existing line, touches a store macro, or changes any
+// guest-visible value/width/order/control-flow (LAWS T2/T8 preserved) — both are read-only
+// observations inserted after the loads/address-computation they witness. RT_-env-gated
+// (getenv, cached once per TU); shared ARMED banner across both tap functions per LAWS M+.
+#ifndef RT_WITNESS2_ON
+static inline bool rt_witness2_enabled(){
+  static int v = std::getenv("RT_WITNESS2") ? 1 : 0;
+  return v != 0;
+}
+#define RT_WITNESS2_ON() (__builtin_expect(rt_witness2_enabled(), 0))
+static inline void rt_witness2_armed_once(){
+  static std::atomic<bool> armed{false};
+  if(!armed.exchange(true)) std::fprintf(stderr, "[witness2] ARMED\n");
+}
+// 0x8808ECC0 — the unresolved table: effective address (TBLBASE+0x9E44C), the byte loaded from
+// it, the dword loaded from TBLBASE+72, and the caller.
+static inline void rt_witness2_tblread_hit(uint32_t guest_lr, uint32_t ea, uint32_t byteval, uint32_t dwordval){
+  rt_witness2_armed_once();
+  static std::atomic<long long> n{0};
+  long long i = n.fetch_add(1) + 1;
+  std::fprintf(stderr, "[w2tbl] #%lld lr=0x%X ea=0x%X byte=0x%X dword=0x%X\n", i, guest_lr, ea, byteval, dwordval);
+  std::fflush(stderr);
+}
+#define RT_WITNESS2_TBLREAD(ea, byteval, dwordval) do { \
+    if (RT_WITNESS2_ON()) rt_witness2_tblread_hit((uint32_t)ctx.lr, (uint32_t)(ea), (uint32_t)(byteval), (uint32_t)(dwordval)); \
+  } while (0)
+// 0x881500D0 — the §24-declined PageTransition defaults record: the resolved base address
+// (DSTBASE2) and the caller — the field VALUES are already fully known compile-time literals
+// (LAWS T7), the missing fact is only who invokes this defaults writer and when.
+static inline void rt_witness2_fldwrite_hit(uint32_t guest_lr, uint32_t base_addr){
+  rt_witness2_armed_once();
+  static std::atomic<long long> n{0};
+  long long i = n.fetch_add(1) + 1;
+  std::fprintf(stderr, "[w2fld] #%lld lr=0x%X base=0x%X\n", i, guest_lr, base_addr);
+  std::fflush(stderr);
+}
+#define RT_WITNESS2_FLDWRITE(base_addr) do { \
+    if (RT_WITNESS2_ON()) rt_witness2_fldwrite_hit((uint32_t)ctx.lr, (uint32_t)(base_addr)); \
+  } while (0)
 #endif
 
 #ifndef PPC_STORE_U8

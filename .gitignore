@@ -38,8 +38,17 @@ save_*/
 # note in docs/ARCHITECTURE.md if this ever needs splitting properly.
 # r23-w16 2026-08-19: out_reco/ppc_recomp.*.cpp are now TRACKED -- they carry the 41
 # irreplaceable FIX 2026 hand patches (15 TUs) and are NEVER regenerated; git is their
-# only backup. out_reco_abn stays ignored (zero hand patches, regenerable).
+# only backup. out_reco_abn stays ignored (zero hand patches, regenerable) -- EXCEPT the five
+# TUs below: r23-w68 DRIVER ported the RT_WITNESS2/RT_WITNESS/RT_TRIOTAP harness taps into them
+# (grep "r23-w68 DRIVER" for the audit trail), so they now carry irreplaceable hand patches of
+# their own and must be tracked exactly like out_reco's FIX-2026 TUs, or a regen silently drops
+# the instrumentation. HARNESS-ONLY, NEVER SHIP.
 out_reco_abn/ppc_recomp.*.cpp
+!out_reco_abn/ppc_recomp.4.cpp
+!out_reco_abn/ppc_recomp.5.cpp
+!out_reco_abn/ppc_recomp.6.cpp
+!out_reco_abn/ppc_recomp.8.cpp
+!out_reco_abn/ppc_recomp.19.cpp
 
 # --- Editor / OS noise ---
 .vs/
