@@ -12966,6 +12966,7 @@ loc_821C5F54:
 __attribute__((alias("__imp__sub_821C5F70"))) PPC_WEAK_FUNC(sub_821C5F70);
 PPC_FUNC_IMPL(__imp__sub_821C5F70) {
 	PPC_FUNC_PROLOGUE();
+	RT_INSTALLWATCH_HIT(0x820500F0, 0x821C5F70);
 	uint32_t ea{};
 	// mflr r12
 	ctx.r12.u64 = ctx.lr;

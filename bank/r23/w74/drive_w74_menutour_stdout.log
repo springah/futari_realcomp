@@ -1,0 +1,115 @@
+[r23w74] tag=w74_menutour
+[r23w74] exe md5 48eba5dee4d9
+[r23w74] normal dll md5 c06cdc71d5d3
+[r23w74] abn dll md5    9f95632ecc78
+[r23w74] pid=54688 log=C:/Users/shant/Desktop/projects/futari_decomp/bank/r23/w74/w74_menutour.log
+scripts/futari_nav.sh: line 14: 54688 Segmentation fault         "$BIN" 8208A2B8 0 shell/default.xex 2> "$LOG" < /dev/null > /dev/null
+[nav t49] FAIL: top menu (BA4D8/1D50) (timeout 20s waiting 'BA4D8(ACTIVE)')
+  [log]   [import] KeTlsGetValue
+  [log]   [import] ExTerminateThread
+  [log]   [thread] TERMINATE entry=0x821361F8 ctx=0x36A080 exitcode=0x0 (thread-exit)
+  [log] [svc] 88438 poll h=0x50000010 arg=1 -> r3=0x102
+  [log] [svc] 88438 poll h=0x50000010 arg=1 -> r3=0x102
+[r23w74] FAIL: boot -> top menu
+t+45   s boot -> top menu               triotap-ctrl=0
+0    instwatch=0
+0    tabread=0
+0   
+[nav t60] FAIL: card panel open (timeout 10s waiting '92E8 bind')
+  [log]   [import] KeTlsGetValue
+  [log]   [import] ExTerminateThread
+  [log]   [thread] TERMINATE entry=0x821361F8 ctx=0x36A080 exitcode=0x0 (thread-exit)
+  [log] [svc] 88438 poll h=0x50000010 arg=1 -> r3=0x102
+  [log] [svc] 88438 poll h=0x50000010 arg=1 -> r3=0x102
+[r23w74] FAIL: card decide arcade
+t+56   s card decide arcade             triotap-ctrl=0
+0    instwatch=0
+0    tabread=0
+0   
+[nav t114] FAIL: arcade hub open (try 1) (timeout 10s waiting '\[p0build\]\|\[mcur\]\|\[decide\]\|\[mstate\].*vt=0x820503B0')
+  [log]   [import] KeTlsGetValue
+  [log]   [import] ExTerminateThread
+  [log]   [thread] TERMINATE entry=0x821361F8 ctx=0x36A080 exitcode=0x0 (thread-exit)
+  [log] [svc] 88438 poll h=0x50000010 arg=1 -> r3=0x102
+  [log] [svc] 88438 poll h=0x50000010 arg=1 -> r3=0x102
+[nav t114] arcade hub not up — attract still running (throttled?); retrying START
+[nav t128] FAIL: arcade hub open (try 2) (timeout 10s waiting '\[p0build\]\|\[mcur\]\|\[decide\]\|\[mstate\].*vt=0x820503B0')
+  [log]   [import] KeTlsGetValue
+  [log]   [import] ExTerminateThread
+  [log]   [thread] TERMINATE entry=0x821361F8 ctx=0x36A080 exitcode=0x0 (thread-exit)
+  [log] [svc] 88438 poll h=0x50000010 arg=1 -> r3=0x102
+  [log] [svc] 88438 poll h=0x50000010 arg=1 -> r3=0x102
+[nav t128] arcade hub not up — attract still running (throttled?); retrying START
+[nav t142] FAIL: arcade hub open (try 3) (timeout 10s waiting '\[p0build\]\|\[mcur\]\|\[decide\]\|\[mstate\].*vt=0x820503B0')
+  [log]   [import] KeTlsGetValue
+  [log]   [import] ExTerminateThread
+  [log]   [thread] TERMINATE entry=0x821361F8 ctx=0x36A080 exitcode=0x0 (thread-exit)
+  [log] [svc] 88438 poll h=0x50000010 arg=1 -> r3=0x102
+  [log] [svc] 88438 poll h=0x50000010 arg=1 -> r3=0x102
+[nav t142] arcade hub not up — attract still running (throttled?); retrying START
+[nav t155] FAIL: arcade hub open (try 4) (timeout 10s waiting '\[p0build\]\|\[mcur\]\|\[decide\]\|\[mstate\].*vt=0x820503B0')
+  [log]   [import] KeTlsGetValue
+  [log]   [import] ExTerminateThread
+  [log]   [thread] TERMINATE entry=0x821361F8 ctx=0x36A080 exitcode=0x0 (thread-exit)
+  [log] [svc] 88438 poll h=0x50000010 arg=1 -> r3=0x102
+  [log] [svc] 88438 poll h=0x50000010 arg=1 -> r3=0x102
+[r23w74] FAIL: arcade hub (lands on NORMAL PLAY submenu)
+t+151  s arcade attract -> hub -> NORMAL PLAY submenu triotap-ctrl=0
+0    instwatch=0
+0    tabread=0
+0   
+t+157  s backed out to hub root         triotap-ctrl=0
+0    instwatch=0
+0    tabread=0
+0   
+t+166  s REPLAY DATA panel opened       triotap-ctrl=0
+0    instwatch=0
+0    tabread=0
+0   
+NOWINDOW
+t+170  s REPLAY DATA closed             triotap-ctrl=0
+0    instwatch=0
+0    tabread=0
+0   
+t+175  s OPTION panel opened            triotap-ctrl=0
+0    instwatch=0
+0    tabread=0
+0   
+NOWINDOW
+t+178  s OPTION closed                  triotap-ctrl=0
+0    instwatch=0
+0    tabread=0
+0   
+t+181  s return-to-top confirm dialog open triotap-ctrl=0
+0    instwatch=0
+0    tabread=0
+0   
+NOWINDOW
+t+184  s confirm dialog cancelled, still in hub triotap-ctrl=0
+0    instwatch=0
+0    tabread=0
+0   
+[nav t225] FAIL: stage activity (timeout 15s waiting 'epochinval\|nvk\] f\|\[emit\]')
+  [log]   [import] KeTlsGetValue
+  [log]   [import] ExTerminateThread
+  [log]   [thread] TERMINATE entry=0x821361F8 ctx=0x36A080 exitcode=0x0 (thread-exit)
+  [log] [svc] 88438 poll h=0x50000010 arg=1 -> r3=0x102
+  [log] [svc] 88438 poll h=0x50000010 arg=1 -> r3=0x102
+[r23w74] FAIL: selects -> stage
+t+221  s entered stage (arcade route, RT_TABREAD live) triotap-ctrl=0
+0    instwatch=0
+0    tabread=0
+0   
+NOWINDOW
+t+266  s 45s into stage (dwell for tabread + install-watch corroboration) triotap-ctrl=0
+0    instwatch=0
+0    tabread=0
+0   
+[r23w74] stopping
+=== VERDICT ===
+triotap ctrl(exact)=0
+0 instwatch=0
+0 tabread=0
+0 fails=4 died=no
+[instwatch] lines:
+[tabread] lines:

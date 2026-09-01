@@ -97,6 +97,46 @@ static inline void rt_flagtap_hit(uint32_t ea, uint32_t width, uint32_t val, con
 #define RT_FLAGTAP_HIT(e, sz) ((e) < RT_FLAGTAP_HI && (uint32_t)((e) + (sz)) > RT_FLAGTAP_LO)
 #endif
 
+// ══ r23-w74 DRIVER: RT_INSTALLWATCH — the menu-list vtable install-watch. Targets the 6
+// vtables NAMER r31/r32 exhausted the static caller-context lever on without a class-noun mint
+// (`name_shell_r32_w73.md` section 1; 0x82050088 excluded, architecturally closed same window as
+// MenuNodeBase's own base vtable, no distinct class): 0x82050150, 0x820501A8, 0x82050268,
+// 0x82050610, 0x82050678, 0x820500F0 (0x8204FDB8, the ReplayPanel-branch sibling that shares
+// rowless slots with 0x820500F0, has no separately-identified installer function in the r32
+// static work and is NOT tapped here — see PREREG_w74.txt for this scoping note). HARNESS-ONLY,
+// NEVER SHIP. Pre-registered bank/r23/w74/PREREG_w74.txt before any scoring drive.
+// Placement: an ENTRY tap (RT_WITNESS_ENTRY precedent) at the top of each installer's own
+// PPC_FUNC_IMPL body, not a mid-body store tap — every one of these 13 functions IS a vtable
+// installer by the roster's own definition (name_shell_r32_w73.md section 1.2's caller-context
+// table), so tapping entry (this=ctx.r3, caller=ctx.lr) records "this vtable was installed, by
+// whom, when" without needing to re-locate each body's own lis/addi/stw materialisation site --
+// lower-risk (no existing line touched, no store macro edited, LAWS T2/T8 untouched) and
+// equivalent evidence. Read-only; no guest-visible value/width/order/control-flow change.
+// RT_-env-gated (getenv, cached once per TU); ARMED banner per LAWS M+.
+#ifndef RT_INSTALLWATCH_ON
+static inline bool rt_installwatch_enabled(){
+  static int v = std::getenv("RT_INSTALLWATCH") ? 1 : 0;
+  return v != 0;
+}
+#define RT_INSTALLWATCH_ON() (__builtin_expect(rt_installwatch_enabled(), 0))
+static inline void rt_installwatch_armed_once(){
+  static std::atomic<bool> armed{false};
+  if(!armed.exchange(true)) std::fprintf(stderr, "[instwatch] ARMED\n");
+}
+static inline void rt_installwatch_hit(uint32_t vt, uint32_t installer, uint32_t this_ptr, uint32_t guest_lr){
+  rt_installwatch_armed_once();
+  static std::atomic<long long> n{0};
+  long long i = n.fetch_add(1) + 1;
+  std::fprintf(stderr, "[instwatch] #%lld vt=0x%X installer=sub_%X this=0x%X lr=0x%X\n",
+               i, vt, installer, this_ptr, guest_lr);
+  std::fflush(stderr);
+}
+#define RT_INSTALLWATCH_HIT(vt, installer) do { \
+    if (RT_INSTALLWATCH_ON()) rt_installwatch_hit((uint32_t)(vt), (uint32_t)(installer), \
+                                                    (uint32_t)ctx.r3.u32, (uint32_t)ctx.lr); \
+  } while (0)
+#endif
+
 #ifndef PPC_STORE_U8
 #define PPC_STORE_U8(x, y) do { \
     uint32_t _ft_e = (uint32_t)(x); uint8_t _ft_v = (uint8_t)(y); \

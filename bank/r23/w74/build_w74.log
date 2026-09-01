@@ -1,0 +1,171 @@
+
+=============== 0. generate host ABI + module shims ===============
+[gen_host_abi] build/obj_win: 38 DLL-group objects, 124 unsatisfied
+[gen_host_abi]   kernel imports 59   helpers 19   globals 4   crt/os 42
+[gen_host_abi] wrote host/futari_host_abi.h  host/host_abi_fill.inc  moduleshim/module_shim_reco_normal.cpp   (abi_hash=0x7579CC55D4CEFDD3)
+[gen_host_abi] build/obj_win_abn: 38 DLL-group objects, 123 unsatisfied
+[gen_host_abi]   kernel imports 59   helpers 19   globals 4   crt/os 42
+[gen_host_abi] NOTE: ABI members declared but not (yet) referenced by the built objects — expected while a source move is in flight: rt_mftb
+[gen_host_abi] wrote host/futari_host_abi.h  host/host_abi_fill.inc  moduleshim/module_shim_reco_abnormal.cpp   (abi_hash=0x7579CC55D4CEFDD3)
+wrote C:\Users\shant\Desktop\projects\futari_realcomp\out_reco_abn\abn_symbol_map.h
+  renamed (shifted +8) : 221 symbols -> 442 #defines
+  same-address (no-op) : 210
+  inside edit fn       : 0 []
+  census-verified      : 93   novel-by-rule: 128
+  dead below split     : 0 []
+  chain collisions     : 0 (asserted)
+  comment-only mentions (NOT renamed): 98
+
+=============== 1. HOST EXE (build/futari_combined.exe) ===============
+-- decomp (shell only; decomp/game* rides into the DLLs)
+FAILED: decomp_options_extend
+FAILED: decomp_options_panel_base
+FAILED: decomp_options_maniac_hub
+FAILED: decomp_logo_indicator
+FAILED: decomp_options_game
+FAILED: decomp_options_picture_layout
+FAILED: decomp_options_decide_builders
+FAILED: decomp_menu_base_states
+-- game-tree KERNEL (rt/stubs/harness only â€” the generated tree has left the exe)
+-- module registry (load / bind / activate / swap)
+-- merged host halves (bridge + shell; merged_game.cpp is DLL-side)
+FAILED: decomp_options_screen
+FAILED: decomp_psb_consumers
+FAILED: decomp_psb_core
+FAILED: decomp_training_config
+FAILED: merged_bridge
+-- shell guest tree
+FAILED: merged_shell
+-- shell kernel + audio
+-- renderer
+--- build/obj_dll_host/decomp_logo_indicator.err ---
+../futari_decomp/decomp/shell/logo_indicator.cpp:106:18: error: use of undeclared identifier 'ctx'
+  106 |     uint32_t u = PPC_LOAD_U32(ea); float f; __builtin_memcpy(&f, &u, 4); return f; }
+      |                  ^~~~~~~~~~~~~~~~
+--
+1 error generated.
+--- build/obj_dll_host/decomp_menu_base_states.err ---
+../futari_decomp/decomp/shell/menu_base_states.cpp:396:18: error: use of undeclared identifier 'ctx'
+  396 |     uint32_t u = PPC_LOAD_U32(ea); float f; __builtin_memcpy(&f, &u, 4); return f; }
+      |                  ^~~~~~~~~~~~~~~~
+--
+../futari_decomp/decomp/shell/menu_base_states.cpp:404:26: error: use of undeclared identifier 'ctx'
+  404 |     const uint32_t mgr = PPC_LOAD_U32(services + SVC_INPUTMGR);
+      |                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--
+../futari_decomp/decomp/shell/menu_base_states.cpp:405:26: error: use of undeclared identifier 'ctx'
+  405 |     const uint32_t arr = PPC_LOAD_U32(mgr + INP_PADARRAY);
+      |                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--
+--- build/obj_dll_host/decomp_options_decide_builders.err ---
+../futari_decomp/decomp/shell/options_decide_builders.cpp:284:24: error: use of undeclared identifier 'ctx'
+  284 |     const uint32_t f = PPC_LOAD_U32(flagWord);       // lwz r11,-NNNNN(rXX)
+      |                        ^~~~~~~~~~~~~~~~~~~~~~
+--
+../futari_decomp/decomp/shell/options_decide_builders.cpp:336:26: error: use of undeclared identifier 'ctx'
+  336 |     const uint32_t out = PPC_LOAD_U32(self + SELF_RESULT_OUT);
+      |                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--
+../futari_decomp/decomp/shell/options_decide_builders.cpp:343:27: error: use of undeclared identifier 'ctx'
+  343 |     const uint32_t tail = PPC_LOAD_U32(self + SELF_TASKEND);
+      |                           ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--
+--- build/obj_dll_host/decomp_options_extend.err ---
+../futari_decomp/decomp/shell/options_extend.cpp:367:18: error: use of undeclared identifier 'ctx'
+  367 |     uint32_t u = PPC_LOAD_U32(ea); float f; __builtin_memcpy(&f, &u, 4); return f; }
+      |                  ^~~~~~~~~~~~~~~~
+--
+1 error generated.
+--- build/obj_dll_host/decomp_options_game.err ---
+../futari_decomp/decomp/shell/options_game.cpp:202:18: error: use of undeclared identifier 'ctx'
+  202 |     uint32_t u = PPC_LOAD_U32(ea); float f; __builtin_memcpy(&f, &u, 4); return f; }
+      |                  ^~~~~~~~~~~~~~~~
+--
+1 error generated.
+--- build/obj_dll_host/decomp_options_maniac_hub.err ---
+../futari_decomp/decomp/shell/options_maniac_hub.cpp:301:18: error: use of undeclared identifier 'ctx'
+  301 |     uint32_t u = PPC_LOAD_U32(ea); float f; __builtin_memcpy(&f, &u, 4); return f; }
+      |                  ^~~~~~~~~~~~~~~~
+--
+1 error generated.
+--- build/obj_dll_host/decomp_options_panel_base.err ---
+../futari_decomp/decomp/shell/options_panel_base.cpp:224:18: error: use of undeclared identifier 'ctx'
+  224 |     uint32_t u = PPC_LOAD_U32(ea); float f; __builtin_memcpy(&f, &u, 4); return f; }
+      |                  ^~~~~~~~~~~~~~~~
+--
+../futari_decomp/decomp/shell/options_panel_base.cpp:232:26: error: use of undeclared identifier 'ctx'
+  232 |     const uint32_t mgr = PPC_LOAD_U32(services + SVC_INPUTMGR);    // lwz r10,76(r5)
+      |                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--
+../futari_decomp/decomp/shell/options_panel_base.cpp:233:26: error: use of undeclared identifier 'ctx'
+  233 |     const uint32_t arr = PPC_LOAD_U32(mgr + INP_PADARRAY);         // lwz r10,80(r10)
+      |                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--
+--- build/obj_dll_host/decomp_options_picture_layout.err ---
+../futari_decomp/decomp/shell/options_picture_layout.cpp:397:18: error: use of undeclared identifier 'ctx'
+  397 |     uint32_t u = PPC_LOAD_U32(ea); float f; __builtin_memcpy(&f, &u, 4); return f; }
+      |                  ^~~~~~~~~~~~~~~~
+--
+../futari_decomp/decomp/shell/options_picture_layout.cpp:913:18: error: use of undeclared identifier 'ctx'
+  913 |     uint32_t u = PPC_LOAD_U32(ea); float f; __builtin_memcpy(&f, &u, 4); return f; }
+      |                  ^~~~~~~~~~~~~~~~
+--
+2 errors generated.
+--- build/obj_dll_host/decomp_options_screen.err ---
+../futari_decomp/decomp/shell/options_screen.cpp:208:18: error: use of undeclared identifier 'ctx'
+  208 |     uint32_t u = PPC_LOAD_U32(ea); float f; __builtin_memcpy(&f, &u, 4); return f; }
+      |                  ^~~~~~~~~~~~~~~~
+--
+1 error generated.
+--- build/obj_dll_host/decomp_psb_consumers.err ---
+../futari_decomp/decomp/shell/psb_consumers.cpp:279:18: error: use of undeclared identifier 'ctx'
+  279 |     uint32_t u = PPC_LOAD_U32(ea); float f; __builtin_memcpy(&f, &u, 4); return f; }
+      |                  ^~~~~~~~~~~~~~~~
+--
+1 error generated.
+--- build/obj_dll_host/decomp_psb_core.err ---
+../futari_decomp/decomp/shell/psb_core.cpp:262:18: error: use of undeclared identifier 'ctx'
+  262 |     uint32_t u = PPC_LOAD_U32(ea); float f; __builtin_memcpy(&f, &u, 4); return f; }
+      |                  ^~~~~~~~~~~~~~~~
+--
+../futari_decomp/decomp/shell/psb_core.cpp:264:18: error: use of undeclared identifier 'ctx'
+  264 |     uint64_t u = PPC_LOAD_U64(ea); double d; __builtin_memcpy(&d, &u, 8); return d; }
+      |                  ^~~~~~~~~~~~~~~~
+--
+../futari_decomp/decomp/shell/psb_core.cpp:270:54: error: use of undeclared identifier 'ctx'
+  270 |     for (uint32_t k = n; k >= 1; --k) v = (v << 8) | PPC_LOAD_U8(p + k);
+      |                                                      ^~~~~~~~~~~~~~~~~~
+--
+--- build/obj_dll_host/decomp_training_config.err ---
+../futari_decomp/decomp/shell/training_config.cpp:472:18: error: use of undeclared identifier 'ctx'
+  472 |     uint32_t u = PPC_LOAD_U32(ea); float f; __builtin_memcpy(&f, &u, 4); return f; }
+      |                  ^~~~~~~~~~~~~~~~
+--
+1 error generated.
+--- build/obj_dll_host/merged_bridge.err ---
+out_reco/merged\merged_common.h:101:14: error: use of undeclared identifier 'ctx'
+  101 |         tag, PPC_LOAD_U32(0x887AD65C), PPC_LOAD_U32(0x887AD5D4), PPC_LOAD_U32(0x821F85A0));
+      |              ^~~~~~~~~~~~~~~~~~~~~~~~
+--
+out_reco/merged\merged_common.h:101:40: error: use of undeclared identifier 'ctx'
+  101 |         tag, PPC_LOAD_U32(0x887AD65C), PPC_LOAD_U32(0x887AD5D4), PPC_LOAD_U32(0x821F85A0));
+      |                                        ^~~~~~~~~~~~~~~~~~~~~~~~
+--
+out_reco/merged\merged_common.h:101:66: error: use of undeclared identifier 'ctx'
+  101 |         tag, PPC_LOAD_U32(0x887AD65C), PPC_LOAD_U32(0x887AD5D4), PPC_LOAD_U32(0x821F85A0));
+      |                                                                  ^~~~~~~~~~~~~~~~~~~~~~~~
+--
+--- build/obj_dll_host/merged_shell.err ---
+out_reco/merged\merged_common.h:101:14: error: use of undeclared identifier 'ctx'
+  101 |         tag, PPC_LOAD_U32(0x887AD65C), PPC_LOAD_U32(0x887AD5D4), PPC_LOAD_U32(0x821F85A0));
+      |              ^~~~~~~~~~~~~~~~~~~~~~~~
+--
+out_reco/merged\merged_common.h:101:40: error: use of undeclared identifier 'ctx'
+  101 |         tag, PPC_LOAD_U32(0x887AD65C), PPC_LOAD_U32(0x887AD5D4), PPC_LOAD_U32(0x821F85A0));
+      |                                        ^~~~~~~~~~~~~~~~~~~~~~~~
+--
+out_reco/merged\merged_common.h:101:66: error: use of undeclared identifier 'ctx'
+  101 |         tag, PPC_LOAD_U32(0x887AD65C), PPC_LOAD_U32(0x887AD5D4), PPC_LOAD_U32(0x821F85A0));
+      |                                                                  ^~~~~~~~~~~~~~~~~~~~~~~~
+--
+HOST COMPILE_INCOMPLETE

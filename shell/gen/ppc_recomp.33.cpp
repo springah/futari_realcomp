@@ -12974,6 +12974,7 @@ PPC_FUNC_IMPL(__imp__sub_821BBC8C) {
 __attribute__((alias("__imp__sub_821BBC90"))) PPC_WEAK_FUNC(sub_821BBC90);
 PPC_FUNC_IMPL(__imp__sub_821BBC90) {
 	PPC_FUNC_PROLOGUE();
+	RT_INSTALLWATCH_HIT(0x82050268, 0x821BBC90);
 	uint32_t ea{};
 	// mflr r12
 	ctx.r12.u64 = ctx.lr;
@@ -15540,6 +15541,7 @@ PPC_FUNC_IMPL(__imp__sub_821BCDEC) {
 __attribute__((alias("__imp__sub_821BCDF0"))) PPC_WEAK_FUNC(sub_821BCDF0);
 PPC_FUNC_IMPL(__imp__sub_821BCDF0) {
 	PPC_FUNC_PROLOGUE();
+	RT_INSTALLWATCH_HIT(0x82050268, 0x821BCDF0);
 	uint32_t ea{};
 	// mflr r12
 	ctx.r12.u64 = ctx.lr;
@@ -19937,6 +19939,7 @@ PPC_FUNC_IMPL(__imp__sub_821BE9D0) {
 __attribute__((alias("__imp__sub_821BEA68"))) PPC_WEAK_FUNC(sub_821BEA68);
 PPC_FUNC_IMPL(__imp__sub_821BEA68) {
 	PPC_FUNC_PROLOGUE();
+	RT_INSTALLWATCH_HIT(0x820501A8, 0x821BEA68);
 	// lis r11,-32251
 	ctx.r11.s64 = -2113601536;
 	// addi r10,r11,424
@@ -19951,6 +19954,7 @@ PPC_FUNC_IMPL(__imp__sub_821BEA68) {
 __attribute__((alias("__imp__sub_821BEA78"))) PPC_WEAK_FUNC(sub_821BEA78);
 PPC_FUNC_IMPL(__imp__sub_821BEA78) {
 	PPC_FUNC_PROLOGUE();
+	RT_INSTALLWATCH_HIT(0x82050150, 0x821BEA78);
 	uint32_t ea{};
 	// mflr r12
 	ctx.r12.u64 = ctx.lr;
@@ -20018,6 +20022,7 @@ loc_821BEAB4:
 __attribute__((alias("__imp__sub_821BEAE8"))) PPC_WEAK_FUNC(sub_821BEAE8);
 PPC_FUNC_IMPL(__imp__sub_821BEAE8) {
 	PPC_FUNC_PROLOGUE();
+	RT_INSTALLWATCH_HIT(0x820500F0, 0x821BEAE8);
 	// lis r11,-32251
 	ctx.r11.s64 = -2113601536;
 	// addi r10,r11,240
@@ -20032,6 +20037,7 @@ PPC_FUNC_IMPL(__imp__sub_821BEAE8) {
 __attribute__((alias("__imp__sub_821BEAF8"))) PPC_WEAK_FUNC(sub_821BEAF8);
 PPC_FUNC_IMPL(__imp__sub_821BEAF8) {
 	PPC_FUNC_PROLOGUE();
+	RT_INSTALLWATCH_HIT(0x820500F0, 0x821BEAF8);
 	PPCRegister temp{};
 	uint32_t ea{};
 	// mflr r12
@@ -20488,6 +20494,7 @@ loc_821BEDC8:
 __attribute__((alias("__imp__sub_821BEDE0"))) PPC_WEAK_FUNC(sub_821BEDE0);
 PPC_FUNC_IMPL(__imp__sub_821BEDE0) {
 	PPC_FUNC_PROLOGUE();
+	RT_INSTALLWATCH_HIT(0x82050150, 0x821BEDE0);
 	PPCRegister temp{};
 	uint32_t ea{};
 	// mflr r12
@@ -21984,6 +21991,7 @@ PPC_FUNC_IMPL(__imp__sub_821BF760) {
 __attribute__((alias("__imp__sub_821BF7A0"))) PPC_WEAK_FUNC(sub_821BF7A0);
 PPC_FUNC_IMPL(__imp__sub_821BF7A0) {
 	PPC_FUNC_PROLOGUE();
+	RT_INSTALLWATCH_HIT(0x820501A8, 0x821BF7A0);
 	PPCRegister temp{};
 	uint32_t ea{};
 	// mflr r12

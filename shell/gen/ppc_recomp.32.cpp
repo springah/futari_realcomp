@@ -32128,6 +32128,7 @@ loc_821ABF50:
 __attribute__((alias("__imp__sub_821ABF58"))) PPC_WEAK_FUNC(sub_821ABF58);
 PPC_FUNC_IMPL(__imp__sub_821ABF58) {
 	PPC_FUNC_PROLOGUE();
+	RT_INSTALLWATCH_HIT(0x0, 0x821ABF58); // MULTI: ReplayList's own 3rd installer, spans 3 sub-vtable installers transitively (name_shell_r32_w73.md 1.2) -- context tap only, vt=0 sentinel
 	PPCRegister temp{};
 	uint32_t ea{};
 	// mflr r12
@@ -45941,6 +45942,7 @@ PPC_FUNC_IMPL(__imp__sub_821B1C2C) {
 __attribute__((alias("__imp__sub_821B1C30"))) PPC_WEAK_FUNC(sub_821B1C30);
 PPC_FUNC_IMPL(__imp__sub_821B1C30) {
 	PPC_FUNC_PROLOGUE();
+	RT_INSTALLWATCH_HIT(0x82050678, 0x821B1C30);
 	uint32_t ea{};
 	// mflr r12
 	ctx.r12.u64 = ctx.lr;
@@ -46139,6 +46141,7 @@ PPC_FUNC_IMPL(__imp__sub_821B1D68) {
 __attribute__((alias("__imp__sub_821B1D78"))) PPC_WEAK_FUNC(sub_821B1D78);
 PPC_FUNC_IMPL(__imp__sub_821B1D78) {
 	PPC_FUNC_PROLOGUE();
+	RT_INSTALLWATCH_HIT(0x82050678, 0x821B1D78);
 	uint32_t ea{};
 	// mflr r12
 	ctx.r12.u64 = ctx.lr;
@@ -53002,6 +53005,7 @@ loc_821B4B28:
 __attribute__((alias("__imp__sub_821B4B30"))) PPC_WEAK_FUNC(sub_821B4B30);
 PPC_FUNC_IMPL(__imp__sub_821B4B30) {
 	PPC_FUNC_PROLOGUE();
+	RT_INSTALLWATCH_HIT(0x82050610, 0x821B4B30);
 	uint32_t ea{};
 	// mflr r12
 	ctx.r12.u64 = ctx.lr;
@@ -53291,6 +53295,7 @@ PPC_FUNC_IMPL(__imp__sub_821B4D0C) {
 __attribute__((alias("__imp__sub_821B4D10"))) PPC_WEAK_FUNC(sub_821B4D10);
 PPC_FUNC_IMPL(__imp__sub_821B4D10) {
 	PPC_FUNC_PROLOGUE();
+	RT_INSTALLWATCH_HIT(0x82050610, 0x821B4D10);
 	PPCRegister temp{};
 	uint32_t ea{};
 	// mflr r12
