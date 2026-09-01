@@ -240,6 +240,104 @@ static inline void rt_witness4_ladder_hit(uint32_t guest_lr, uint32_t this_ptr, 
   } while (0)
 #endif
 
+// ══ r23-w81 DRIVER: RT_VALTAP — the value-tap chain on the frame-977 Class127 instance
+// (bank/r23/w81/PREREG_w81.txt). Extends w79's RT_WITNESS4 registration point (Class127_Ctor,
+// 0x881286D0, loc_881288DC — SAME line, SAME two already-computed registers, RT_WITNESS4 itself
+// left byte-for-byte untouched) with an independent identity table mapping each constructed
+// instance's `this` pointer to the timeline frame that produced it. Four independent runtime taps
+// land inside Class127_Ctor_Act (0x88126298, out_reco/ppc_recomp.16.cpp), each an unconditional
+// read of an already-computed value at its own existing compare/load site — LAWS T2/T8: no
+// existing store, width or order changed anywhere. Reported for EVERY Act call of EVERY
+// registered instance (arm-symmetric — LAWS G2/M5, never filtered to 977 in the tap itself, so
+// the instrument cannot be silently blind to the other five arms and the 977 reading can be
+// checked against a live population rather than reasoned from a single starved sample). The
+// suppress tap is the instrument's OWN positive control (LAWS M4/M5): it is UNCONDITIONAL, so it
+// MUST fire on every Act call if Act ticks at all (already independently proven by RT_INDCENSUS,
+// w78/w80) — a leg where it prints zero total hits means the tap itself is dead/misplaced, not
+// that Class127 is quiet. Identity note (source-verified this window, not inherited): ctx.r30 is
+// REASSIGNED mid-body in Class127_Ctor_Act (`add r30,r11,r24`) well before the tail conditions,
+// so it is UNSAFE as a runtime-tap identity register; ctx.r31 (the state_block pointer) is
+// assigned exactly once, at entry, and never reassigned anywhere in the body (verified by
+// exhaustive grep of the function's own line range) — the stable identity source used by every
+// runtime tap is a single extra RT_VALTAP-gated load of `state_block[0]`, which the Ctor itself
+// already writes as `this` (`stw r30,0(r31)`, read_class127_w79.md sec 1.1/1.3) — same numeric
+// identity space as the Ctor-side registration, recovered without touching ctx.r30 at all.
+// HARNESS-ONLY, NEVER SHIP.
+#ifndef RT_VALTAP_ON
+static inline bool rt_valtap_enabled(){
+  static int v = std::getenv("RT_VALTAP") ? 1 : 0;
+  return v != 0;
+}
+#define RT_VALTAP_ON() (__builtin_expect(rt_valtap_enabled(), 0))
+
+struct RtValtapSlot { std::atomic<uint32_t> this_ptr{0}; const char* frame = "?"; };
+static inline RtValtapSlot* rt_valtap_table(){
+  static RtValtapSlot table[16]; // 2x headroom over the 8 possible Class127 spawns (read_classid_id127_w79.log)
+  return table;
+}
+static inline const char* rt_valtap_frame_of_arm(uint32_t arm){
+  return (arm == 632) ? "592" : (arm == 692) ? "644" : (arm == 800) ? "719" :
+         (arm == 850) ? "776" : (arm == 966) ? "899" : (arm == 1032) ? "977" : "?";
+}
+static inline const char* rt_valtap_lookup(uint32_t this_ptr){
+  RtValtapSlot* t = rt_valtap_table();
+  for (int i = 0; i < 16; i++) {
+    if (t[i].this_ptr.load(std::memory_order_relaxed) == this_ptr) return t[i].frame;
+  }
+  return "UNREG";
+}
+static inline void rt_valtap_register(uint32_t this_ptr, uint32_t arm){
+  const char* frame = rt_valtap_frame_of_arm(arm);
+  RtValtapSlot* t = rt_valtap_table();
+  for (int i = 0; i < 16; i++) {
+    uint32_t expect = 0;
+    if (t[i].this_ptr.compare_exchange_strong(expect, this_ptr, std::memory_order_relaxed)) {
+      t[i].frame = frame;
+      std::fprintf(stderr, "[valtap-register] slot=%d this=0x%X frame=%s\n", i, this_ptr, frame);
+      std::fflush(stderr);
+      return;
+    }
+    if (expect == this_ptr) return; // already registered -- record once
+  }
+  std::fprintf(stderr, "[valtap-register] TABLE FULL this=0x%X frame=%s -- NOT RECORDED\n", this_ptr, frame);
+  std::fflush(stderr);
+}
+#define RT_VALTAP_REGISTER(this_ptr, arm) do { \
+    if (RT_VALTAP_ON()) rt_valtap_register((uint32_t)(this_ptr), (uint32_t)(arm)); \
+  } while (0)
+
+static inline void rt_valtap_hit(const char* tag, uint32_t this_ptr, int64_t v1, int64_t v2){
+  static std::atomic<bool> armed{false};
+  if(!armed.exchange(true)) std::fprintf(stderr, "[valtap] ARMED\n");
+  static std::atomic<long long> n{0};
+  long long i = n.fetch_add(1) + 1;
+  const char* frame = rt_valtap_lookup(this_ptr);
+  std::fprintf(stderr, "[valtap] #%lld tag=%s this=0x%X frame=%s v1=%lld v2=%lld\n",
+               i, tag, this_ptr, frame, (long long)v1, (long long)v2);
+  std::fflush(stderr);
+}
+// (a) this[0]&0x400, unconditional -- THE POSITIVE CONTROL.
+#define RT_VALTAP_SUPPRESS(this_ptr, bit) do { \
+    if (RT_VALTAP_ON()) rt_valtap_hit("suppress", (uint32_t)(this_ptr), (int64_t)(bit), 0); \
+  } while (0)
+// (b) state_block[112] entry value (v1) and post-decrement value (v2) -- condition (3)'s program point.
+#define RT_VALTAP_COUNTDOWN(this_ptr, entryv, postv) do { \
+    if (RT_VALTAP_ON()) rt_valtap_hit("countdown", (uint32_t)(this_ptr), (int64_t)(entryv), (int64_t)(postv)); \
+  } while (0)
+// (c) state_block[168] -- condition (5)'s own compare site.
+#define RT_VALTAP_GATE168(this_ptr, v168) do { \
+    if (RT_VALTAP_ON()) rt_valtap_hit("gate168", (uint32_t)(this_ptr), (int64_t)(v168), 0); \
+  } while (0)
+// (d) scene[1460] (v1) / scene[1656] (v2, sentinel -1 = "not reached this call") -- conditions (6)/(7).
+#define RT_VALTAP_SCENE(this_ptr, s1460, s1656) do { \
+    if (RT_VALTAP_ON()) rt_valtap_hit("scene", (uint32_t)(this_ptr), (int64_t)(s1460), (int64_t)(s1656)); \
+  } while (0)
+// (e) reaching the existing, untouched sub_880FE1A0 kind=3 call -- condition (8), the mission target.
+#define RT_VALTAP_ALLOC(this_ptr) do { \
+    if (RT_VALTAP_ON()) rt_valtap_hit("ALLOC_FIRED", (uint32_t)(this_ptr), 0, 0); \
+  } while (0)
+#endif
+
 #ifndef PPC_LOAD_U8
 #define PPC_LOAD_U8(x) *(volatile uint8_t*)(base + (x))
 #endif

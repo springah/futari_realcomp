@@ -36051,6 +36051,7 @@ __attribute__((alias("__imp__sub_88126298"))) PPC_WEAK_FUNC(sub_88126298);
 PPC_FUNC_IMPL(__imp__sub_88126298) {
 	PPC_FUNC_PROLOGUE();
 	uint32_t ea{};
+	uint32_t rt_valtap_this{}; // r23-w81 DRIVER: RT_VALTAP identity (see ppc_context.h); declared here, before any goto label
 	// mflr r12
 	ctx.r12.u64 = ctx.lr;
 	// bl 0x8807113c
@@ -36066,8 +36067,10 @@ PPC_FUNC_IMPL(__imp__sub_88126298) {
 	ctx.r30.u64 = ctx.r3.u64;
 	// lwz r31,2304(r5)
 	ctx.r31.u64 = PPC_LOAD_U32(ctx.r5.u32 + 2304);
+	if (RT_VALTAP_ON()) rt_valtap_this = PPC_LOAD_U32(ctx.r31.u32 + 0); // r23-w81 DRIVER: identity = state_block[0] = this (Ctor's own write; see ppc_context.h) -- extra read only, gated off by default
 	// rlwinm r10,r11,0,21,21
 	ctx.r10.u64 = __builtin_rotateleft64(ctx.r11.u32 | (ctx.r11.u64 << 32), 0) & 0x400;
+	RT_VALTAP_SUPPRESS(rt_valtap_this, ctx.r10.u32); // r23-w81 DRIVER: condition (1) value tap, unconditional -- positive control (see ppc_context.h)
 	// cmpwi cr6,r10,0
 	ctx.cr6.compare<int32_t>(ctx.r10.s32, 0, ctx.xer);
 	// bne cr6,0x88126564
@@ -36085,6 +36088,7 @@ PPC_FUNC_IMPL(__imp__sub_88126298) {
 	ctx.cr0.compare<int32_t>(ctx.r9.s32, 0, ctx.xer);
 	// stw r9,112(r31)
 	PPC_STORE_U32(ctx.r31.u32 + 112, ctx.r9.u32);
+	RT_VALTAP_COUNTDOWN(rt_valtap_this, ctx.r11.u32, ctx.r9.u32); // r23-w81 DRIVER: condition (3) value tap, entry+post (see ppc_context.h)
 	// bgt 0x88126564
 	if (ctx.cr0.gt) goto loc_88126564;
 	// lwz r11,0(r31)
@@ -36391,6 +36395,7 @@ loc_88126504:
 	PPC_STORE_U32(ctx.r11.u32 + 8, ctx.r25.u32);
 	// lwz r10,168(r31)
 	ctx.r10.u64 = PPC_LOAD_U32(ctx.r31.u32 + 168);
+	RT_VALTAP_GATE168(rt_valtap_this, ctx.r10.u32); // r23-w81 DRIVER: condition (5) value tap (see ppc_context.h)
 	// cmpwi cr6,r10,0
 	ctx.cr6.compare<int32_t>(ctx.r10.s32, 0, ctx.xer);
 	// beq cr6,0x88126550
@@ -36401,12 +36406,14 @@ loc_88126504:
 	ctx.r11.u64 = PPC_LOAD_U32(ctx.r11.u32 + -11984);
 	// lwz r10,1460(r11)
 	ctx.r10.u64 = PPC_LOAD_U32(ctx.r11.u32 + 1460);
+	RT_VALTAP_SCENE(rt_valtap_this, ctx.r10.u32, -1); // r23-w81 DRIVER: condition (6) value tap, 1656 not yet known (see ppc_context.h)
 	// cmpwi cr6,r10,0
 	ctx.cr6.compare<int32_t>(ctx.r10.s32, 0, ctx.xer);
 	// bne cr6,0x88126550
 	if (!ctx.cr6.eq) goto loc_88126550;
 	// lwz r11,1656(r11)
 	ctx.r11.u64 = PPC_LOAD_U32(ctx.r11.u32 + 1656);
+	RT_VALTAP_SCENE(rt_valtap_this, ctx.r10.u32, ctx.r11.u32); // r23-w81 DRIVER: condition (7) value tap, both known now (see ppc_context.h)
 	// cmpwi cr6,r11,0
 	ctx.cr6.compare<int32_t>(ctx.r11.s32, 0, ctx.xer);
 	// bne cr6,0x88126550
@@ -36421,6 +36428,7 @@ loc_88126504:
 	ctx.r5.u64 = ctx.r11.u64 + ctx.r24.u64;
 	// addis r4,r10,56
 	ctx.r4.s64 = ctx.r10.s64 + 3670016;
+	RT_VALTAP_ALLOC(rt_valtap_this); // r23-w81 DRIVER: condition (8) -- reaching the kind=3 alloc call (see ppc_context.h)
 	// bl 0x880fe1a0
 	ctx.lr = 0x88126550;
 	sub_880FE1A0(ctx, base);
@@ -41559,6 +41567,7 @@ loc_881288DC:
 	// stw r11,156(r31)
 	PPC_STORE_U32(ctx.r31.u32 + 156, ctx.r11.u32);
 	RT_WITNESS4_LADDER(ctx.r30.u32, ctx.r11.u32); // r23-w79 DRIVER M1: which ladder arm fired (see ppc_context.h)
+	RT_VALTAP_REGISTER(ctx.r30.u32, ctx.r11.u32); // r23-w81 DRIVER: identity registration, same two values (see ppc_context.h)
 loc_881288E0:
 	// lis r11,-30702
 	ctx.r11.s64 = -2012086272;
