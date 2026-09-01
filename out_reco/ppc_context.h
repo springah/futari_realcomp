@@ -88,6 +88,17 @@ static inline bool rt_tabread_enabled(){
 #ifndef RT_TABREAD_FULL
 #define RT_TABREAD_FULL 0
 #endif
+// r23-w82 DRIVER: a cluster-I addition here (0x88352950, hold #10) was DESIGNED, BUILT, and
+// MEASURED this window, then REVERTED before any drive — bisected (git-stash isolation, two
+// controlled rebuilds) to a +16,492,544 B / +35.05% futari_game_normal.dll cost from ONE more
+// unconditional OR-term alone (merged_game.cpp's own RT_S6 wrappers, tested separately, cost
+// near-zero — see drive_w82_SCORE.md sec 3). PPC_LOAD_U32 inlines RT_TABREAD_HIT at every one of
+// 71,042 call sites tree-wide (out_reco); this file's own r23-w77 CONSOLIDATION comment above
+// already named this exact mechanism as the size driver behind clusters A-D/F/G, and this window
+// reproduced it from a SINGLE new 4-byte-window term, disproportionately larger than cluster E's
+// own already-priced-in cost. DECLINED per the standing w79/w77 precedent (LAWS G6-adjacent:
+// re-rank rather than ship a disproportionate instrument) — hold #10 stays on the static dead-end
+// disposition; PREREG_w82.txt sec 3 amendment records the measurement.
 #define RT_TABREAD_HIT(e) ( \
     (RT_TABREAD_FULL && ( \
     ((e) >= 0x883889DCu && (e) <  0x883889E8u) || \
@@ -306,6 +317,19 @@ static inline void rt_valtap_register(uint32_t this_ptr, uint32_t arm){
     if (RT_VALTAP_ON()) rt_valtap_register((uint32_t)(this_ptr), (uint32_t)(arm)); \
   } while (0)
 
+// ── r23-w82 DRIVER: CONSOLIDATION — w81's own SCORE (drive_w81_SCORE.md sec 1.5) closed all
+// eight program-order conditions definitively ("THE FULL GATE CHAIN CLOSES... ending in the
+// kind=3 PoolE1A0_AllocRecord call itself actually firing"); the five runtime-hit taps below have
+// answered their own question. Per the mission brief's own OWED w82 item ④ ("weigh RT_VALTAP
+// consolidation before any new instrument"), their BODIES are compiled out by default this window
+// — zero runtime env-check branch, zero string-literal cost, zero call overhead in the shipped
+// binary — leaving only a one-line flip to restore them verbatim if a future window needs this
+// exact chain again on a different route. RT_VALTAP_REGISTER (the identity table) is UNCHANGED
+// and stays live — it is a no-cost mechanism a future window may still want. PREREG_w82.txt sec 3.
+#ifndef RT_VALTAP_KEEP_W81_TAPS
+#define RT_VALTAP_KEEP_W81_TAPS 0
+#endif
+#if RT_VALTAP_KEEP_W81_TAPS
 static inline void rt_valtap_hit(const char* tag, uint32_t this_ptr, int64_t v1, int64_t v2){
   static std::atomic<bool> armed{false};
   if(!armed.exchange(true)) std::fprintf(stderr, "[valtap] ARMED\n");
@@ -336,6 +360,13 @@ static inline void rt_valtap_hit(const char* tag, uint32_t this_ptr, int64_t v1,
 #define RT_VALTAP_ALLOC(this_ptr) do { \
     if (RT_VALTAP_ON()) rt_valtap_hit("ALLOC_FIRED", (uint32_t)(this_ptr), 0, 0); \
   } while (0)
+#else
+#define RT_VALTAP_SUPPRESS(this_ptr, bit) do {} while (0)
+#define RT_VALTAP_COUNTDOWN(this_ptr, entryv, postv) do {} while (0)
+#define RT_VALTAP_GATE168(this_ptr, v168) do {} while (0)
+#define RT_VALTAP_SCENE(this_ptr, s1460, s1656) do {} while (0)
+#define RT_VALTAP_ALLOC(this_ptr) do {} while (0)
+#endif
 #endif
 
 #ifndef PPC_LOAD_U8

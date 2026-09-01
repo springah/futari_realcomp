@@ -2571,6 +2571,38 @@ PPC_FUNC(sub_881339C8){
   }
   __imp__sub_881339C8(ctx,base);
 }
+// [s6] r23-w82 DRIVER, MISSION 1 (per read_pathto100_w82.md holds #3/#8): a NARROW joint
+// entry/exit wrapper on sub_880E3728 (hold #3, 0x880E3728 -- missing fact: "what triggers this
+// body itself") and its own sole internal helper sub_88093680 (hold #8, 0x88093680 -- missing
+// fact: what the 3 lazily-cleared fields represent / sibling get-slot convention). This is
+// DELIBERATELY NOT the w79-declined RT_TABREAD2_FULL cluster-wide F/G re-arm (+35.8% DLL,
+// unrelated table-read clusters on a DIFFERENT body, sub_880E4860) -- it is two new, minimal,
+// per-function ENTER/EXIT wrappers (LAWS I1 shape, same as E8_WRAP/[cd] above), gated by a NEW
+// env var so it costs nothing when unset and nothing extra when RT_S5 is armed without it.
+// sub_880E3728(r3=slot/cue ptr, r4=threshold) two-phase search over sub_88093680's own 8 slots;
+// sub_88093680(r3=index 0..7) lazy-clear-and-return-slot lookup. Read-only, rate-limited
+// (first 20 + every 200th), additive only -- LAWS T2/T8.
+static inline bool rt_s6(){ static int v=std::getenv("RT_S6")?1:0; return v!=0; }
+extern "C" void __imp__sub_880E3728(PPCContext& __restrict, uint8_t*);
+static std::atomic<long long> g_s6_3728{0};
+PPC_FUNC(sub_880E3728){
+  bool f=false; long long i=0;
+  if(rt_s6()){ i=g_s6_3728.fetch_add(1)+1; f=(i<=20)||((i%200)==0); }
+  uint32_t p3=ctx.r3.u32, p4=ctx.r4.u32, lr=(uint32_t)ctx.lr;
+  if(f) std::fprintf(stderr,"[s6] sub_880E3728 #%lld ENTER r3=0x%X r4=0x%X lr=0x%X\n",i,p3,p4,lr);
+  __imp__sub_880E3728(ctx,base);
+  if(f){ std::fprintf(stderr,"[s6] sub_880E3728 #%lld EXIT r3=0x%X\n",i,ctx.r3.u32); std::fflush(stderr); }
+}
+extern "C" void __imp__sub_88093680(PPCContext& __restrict, uint8_t*);
+static std::atomic<long long> g_s6_93680{0};
+PPC_FUNC(sub_88093680){
+  bool f=false; long long i=0;
+  if(rt_s6()){ i=g_s6_93680.fetch_add(1)+1; f=(i<=20)||((i%200)==0); }
+  uint32_t p3=ctx.r3.u32, lr=(uint32_t)ctx.lr;
+  if(f) std::fprintf(stderr,"[s6] sub_88093680 #%lld ENTER idx=0x%X lr=0x%X\n",i,p3,lr);
+  __imp__sub_88093680(ctx,base);
+  if(f){ std::fprintf(stderr,"[s6] sub_88093680 #%lld EXIT r3=0x%X\n",i,ctx.r3.u32); std::fflush(stderr); }
+}
 // LEG-14: breadcrumb sub_88137498 (called first inside sub_88137708 post-+312) to split the hang:
 // if ENTER prints but not EXIT under RT_MENUADV=2, the hang is inside 88137498's 6 sub-calls;
 // if both print, the hang is AFTER it (the id-46 sub_881526C0 request path).
