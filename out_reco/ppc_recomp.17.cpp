@@ -5236,6 +5236,7 @@ loc_88133A80:
 	// sth r10,4(r11)
 	PPC_STORE_U16(ctx.r11.u32 + 4, ctx.r10.u16);
 loc_88133A9C:
+	RT_WITNESS3_GATE(ctx.r11.u32, (uint32_t)ctx.r9.s32);  // r23-w76 DRIVER, HARNESS-ONLY, NEVER SHIP
 	// cmpwi cr6,r9,9
 	ctx.cr6.compare<int32_t>(ctx.r9.s32, 9, ctx.xer);
 	// ble cr6,0x88133ab8

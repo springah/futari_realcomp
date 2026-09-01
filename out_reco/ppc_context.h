@@ -101,6 +101,80 @@ static inline void rt_tabread_hit(uint32_t ea, uint32_t val, const char* fn, con
 }
 #endif
 
+// ══ r23-w76 DRIVER: RT_TABREAD2 — a SECOND, independently env-gated cluster set riding the SAME
+// PPC_LOAD_U32 hook w75's RT_TABREAD already shipped (LAWS I4: one macro definition per symbol,
+// so a NEW PPC_LOAD_U32 redefinition is not possible — this extends the existing body instead,
+// additively, with zero edits to RT_TABREAD's own clusters A-E or its counter). Targets 0x880E4860's
+// two fixed tables + gating flag (bank/r23/w76/PREREG_w76.txt sec 0.1(b) — re-derived directly from
+// out_reco/ppc_recomp.12.cpp:2149-2277, corrects read_refusal_w75's own prose base which pointed at
+// an unrelated address). HARNESS-ONLY, NEVER SHIP. Pre-registered before any build/drive.
+#ifndef RT_TABREAD2_ON
+static inline bool rt_tabread2_enabled(){
+  static int v = std::getenv("RT_TABREAD2") ? 1 : 0;
+  return v != 0;
+}
+// cluster F: 0x885C5C54..0x885C5CFC, stride 8, the 8-iter loop's first (nonzero-check) table read.
+// cluster G: 0x885C1A24..0x885C1A78, stride 4, the second (==64 check) table read.
+// cluster H: 0x885AD50C, the -10996(r27) flag gating the conditional call to sub_880901B8.
+#define RT_TABREAD2_HIT(e) ( \
+    ((e) >= 0x885C5C50u && (e) <  0x885C5D00u) || \
+    ((e) >= 0x885C1A20u && (e) <  0x885C1A80u) || \
+    ((e) >= 0x885AD50Cu && (e) <  0x885AD510u) )
+static inline const char* rt_tabread2_cluster(uint32_t ea){
+  if (ea >= 0x885C5C50u && ea < 0x885C5D00u) return "F";
+  if (ea >= 0x885C1A20u && ea < 0x885C1A80u) return "G";
+  if (ea >= 0x885AD50Cu && ea < 0x885AD510u) return "H";
+  return "?";
+}
+static inline void rt_tabread2_hit(uint32_t ea, uint32_t val, const char* fn, const void* ra){
+  static std::atomic<bool> armed{false};
+  if(!armed.exchange(true)) std::fprintf(stderr, "[tabread2] ARMED\n");
+  static std::atomic<long long> n{0};
+  long long i = n.fetch_add(1) + 1;
+  if (i > 2000) return; // hard cap, same defense as RT_TABREAD
+  std::fprintf(stderr, "[tabread2] #%lld cluster=%s ea=0x%X val=0x%X fn=%s ra=%p\n",
+               i, rt_tabread2_cluster(ea), ea, val, fn, ra);
+  std::fflush(stderr);
+}
+#endif
+
+// ══ r23-w76 DRIVER: RT_WITNESS3 — two ENTRY/MID-BODY register taps (RT_WITNESS_ENTRY's own proven
+// shape: ctx.lr + __builtin_return_address(0) + explicit args, no address guard needed since the
+// targets are per-object/register values, not fixed memory — PREREG_w76.txt sec 0.1(c)/(d)). Call
+// sites are ONE LINE each, inserted at their own function's top/merge point in out_reco/
+// ppc_recomp.19.cpp (sub_881526C0 entry) and ppc_recomp.17.cpp (sub_88133A60 loc_88133A9C) — pure
+// read-only observation of already-computed values, zero altered guest state (LAWS T2/T8).
+// HARNESS-ONLY, NEVER SHIP.
+#ifndef RT_WITNESS3_ON
+static inline bool rt_witness3_enabled(){
+  static int v = std::getenv("RT_WITNESS3") ? 1 : 0;
+  return v != 0;
+}
+#define RT_WITNESS3_ON() (__builtin_expect(rt_witness3_enabled(), 0))
+static inline void rt_witness3_taskq_hit(uint32_t guest_lr, uint32_t fn, uint32_t id, uint32_t arg,
+                                          const void* host_ra){
+  static std::atomic<bool> armed{false};
+  if(!armed.exchange(true)) std::fprintf(stderr, "[witness3] TASKQ ARMED\n");
+  std::fprintf(stderr, "[witness3-taskq] lr=0x%X fn=0x%X id=%u arg=0x%X ra=%p\n",
+               guest_lr, fn, id, arg, host_ra);
+  std::fflush(stderr);
+}
+#define RT_WITNESS3_TASKQ(fn, id, arg) do { \
+    if (RT_WITNESS3_ON()) rt_witness3_taskq_hit((uint32_t)ctx.lr, (uint32_t)(fn), (uint32_t)(id), \
+                                                 (uint32_t)(arg), __builtin_return_address(0)); \
+  } while (0)
+static inline void rt_witness3_gate_hit(uint32_t guest_lr, uint32_t this_ptr, uint32_t count,
+                                         const void* host_ra){
+  std::fprintf(stderr, "[witness3-gate] lr=0x%X this=0x%X count=%u ra=%p\n",
+               guest_lr, this_ptr, count, host_ra);
+  std::fflush(stderr);
+}
+#define RT_WITNESS3_GATE(this_ptr, count) do { \
+    if (RT_WITNESS3_ON()) rt_witness3_gate_hit((uint32_t)ctx.lr, (uint32_t)(this_ptr), \
+                                                (uint32_t)(count), __builtin_return_address(0)); \
+  } while (0)
+#endif
+
 #ifndef PPC_LOAD_U8
 #define PPC_LOAD_U8(x) *(volatile uint8_t*)(base + (x))
 #endif
@@ -115,6 +189,8 @@ static inline void rt_tabread_hit(uint32_t ea, uint32_t val, const char* fn, con
     uint32_t _tr_v = __builtin_bswap32(*(volatile uint32_t*)(base + _tr_e)); \
     if (__builtin_expect(rt_tabread_enabled() && RT_TABREAD_HIT(_tr_e), 0)) \
       rt_tabread_hit(_tr_e, _tr_v, __func__, __builtin_return_address(0)); \
+    if (__builtin_expect(rt_tabread2_enabled() && RT_TABREAD2_HIT(_tr_e), 0)) \
+      rt_tabread2_hit(_tr_e, _tr_v, __func__, __builtin_return_address(0)); \
     _tr_v; })
 #endif
 

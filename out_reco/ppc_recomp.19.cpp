@@ -38306,6 +38306,7 @@ PPC_FUNC_IMPL(__imp__sub_881526BC) {
 __attribute__((alias("__imp__sub_881526C0"))) PPC_WEAK_FUNC(sub_881526C0);
 PPC_FUNC_IMPL(__imp__sub_881526C0) {
 	PPC_FUNC_PROLOGUE();
+	RT_WITNESS3_TASKQ(ctx.r3.u32, ctx.r4.u32, ctx.r5.u32);  // r23-w76 DRIVER, HARNESS-ONLY, NEVER SHIP
 	// std r31,-8(r1)
 	PPC_STORE_U64(ctx.r1.u32 + -8, ctx.r31.u64);
 	// lis r11,-30651

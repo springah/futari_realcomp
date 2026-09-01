@@ -1,0 +1,3 @@
+8ebbcca85f80907a4b980eddbe65eddb *build/futari_combined.exe
+1657498d928de916b458779229018fa0 *build/futari_game_normal.dll
+1ab2349060ebeb9b958f891092746b65 *build/futari_game_abn.dll
