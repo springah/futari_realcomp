@@ -2603,6 +2603,68 @@ PPC_FUNC(sub_88093680){
   __imp__sub_88093680(ctx,base);
   if(f){ std::fprintf(stderr,"[s6] sub_88093680 #%lld EXIT r3=0x%X\n",i,ctx.r3.u32); std::fflush(stderr); }
 }
+// [cv1] r23-w83 DRIVER, MISSION 1 (per read_pathto100_w82.md hold #5, PREREG_w83.txt sec 1-2):
+// THE CUTSCENE-ROUTE VALUE TAP on sub_880A9878 (0x880A9878, hold #5, 37 insns -- out_reco/
+// ppc_recomp.7.cpp:25852-25936). The body conditionally calls sub_88093BE8 (already NAMED
+// Slot20_AllocTicketedRecord, generic role text) and caches the result at offset +296 of an
+// object pointer loaded from *(this+2304), guarded by a lazy-init check (cmplwi cr6,r30,0 where
+// r30 was pre-loaded from the SAME +296 field). Three callers, all re-verified this window from
+// source: sub_881EF798 ("Cutscene_DirectorF798", bl @0x881EFA60), sub_881F0BC8
+// ("Cutscene_Director0BC8", bl @0x881F0EA8), sub_880AC660
+// ("Class216_217_255_ModeScript_..._ActC660", bl @0x880ACA18) -- all pass their OWN function-entry
+// `this` as r3, never a fixed global, so *(this+2304) is NOT provably a singleton by static read
+// alone (PREREG_w83.txt sec 1: the field's true writer was not located this window -- offset 2304
+// is written by two OTHER, unrelated functions elsewhere in the tree, a confirmed "same
+// displacement, different struct" case, LAWS M8-adjacent, NOT this caller family's own writer).
+// IDENTITY DECISION (per the launching brief: "identity registration only if the instance isn't
+// singleton"): no RT_VALTAP-style registration table is built -- there is no known, separate
+// construction site to register identity at (unlike Class127's Ctor), so this tap instead logs
+// the RAW identity pointer *(this+2304) on every hit; singleton-vs-per-instance is then read
+// directly off the log (same value every hit = singleton; varying = per-instance), a cheaper,
+// equally decisive substitute. LAWS I1: sub_880A9878 carries NO prior wrapper anywhere in
+// merged_game.cpp/merged_shell.cpp (grepped fresh this window) -- genuinely new instrument
+// territory, same class as [s6] last window. abn_symbol_map.h check (the w82 lesson, PREREG_w83
+// sec 7): 0x880A9878 < 0x880DEF88 (the abn +8-rule split point), so per abn_symbol_map.h's own
+// documented LAW ("addr < 0x880DEF88 -> same address, no #define emitted") this address needs NO
+// entry there -- checked, not assumed; confirmed by direct grep finding zero existing references
+// to 0x880A9878/0x880A9880/0x880A9874 in that file.
+// TWO taps per call (RT_VALTAP's own SUPPRESS+ALLOC pair shape): (a) ENTRY -- UNCONDITIONAL rate
+// limit (first 20 + every 200th, the [s6] cadence), the positive control, logs identity pointer,
+// the PRE-existing +296 value (a duplicate read, same technique as [cd]'s own pre-read), the
+// caller's own `this` (ctx.r3 at entry) and ctx.lr (identifies which of the 3 named callers).
+// (b) ALLOC -- fires only when a post-call re-read of +296 shows fresh nonzero where the pre-read
+// was zero (the lazy-allocate branch fired), uncapped (construction-rate events are rare by the
+// body's own guard, same no-cap reasoning as RT_WITNESS4). Read-only, additive -- the original
+// body executes unmodified via __imp__; no existing PPC_STORE/branch/order touched (LAWS T2/T8).
+static inline bool rt_cv1(){ static int v=std::getenv("RT_CV1")?1:0; return v!=0; }
+extern "C" void __imp__sub_880A9878(PPCContext& __restrict, uint8_t*);
+static std::atomic<long long> g_cv1_entry{0};
+static std::atomic<long long> g_cv1_alloc{0};
+PPC_FUNC(sub_880A9878){
+  bool f=false; long long i=0;
+  uint32_t ident=0, pre296=0, callerthis=0, lr=0;
+  bool on = rt_cv1();
+  if(on){
+    i=g_cv1_entry.fetch_add(1)+1; f=(i<=20)||((i%200)==0);
+    callerthis = ctx.r3.u32;
+    lr = (uint32_t)ctx.lr;
+    ident = PPC_LOAD_U32(callerthis + 2304u);
+    pre296 = ident ? PPC_LOAD_U32(ident + 296u) : 0xDEADBEEFu;
+    if(f) std::fprintf(stderr,
+      "[cv1] sub_880A9878 #%lld ENTER ident2304=0x%X pre296=0x%X caller_this=0x%X lr=0x%X\n",
+      i, ident, pre296, callerthis, lr);
+  }
+  __imp__sub_880A9878(ctx,base);
+  if(on){
+    uint32_t post296 = ident ? PPC_LOAD_U32(ident + 296u) : 0xDEADBEEFu;
+    if(pre296==0 && post296!=0 && ident!=0){
+      long long j=g_cv1_alloc.fetch_add(1)+1;
+      std::fprintf(stderr,"[cv1] sub_880A9878 #%lld ALLOC ident2304=0x%X new296=0x%X lr=0x%X\n",
+        j, ident, post296, lr);
+    }
+    if(f){ std::fprintf(stderr,"[cv1] sub_880A9878 #%lld EXIT post296=0x%X\n",i,post296); std::fflush(stderr); }
+  }
+}
 // LEG-14: breadcrumb sub_88137498 (called first inside sub_88137708 post-+312) to split the hang:
 // if ENTER prints but not EXIT under RT_MENUADV=2, the hang is inside 88137498's 6 sub-calls;
 // if both print, the hang is AFTER it (the id-46 sub_881526C0 request path).
