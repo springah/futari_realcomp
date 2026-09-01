@@ -36,6 +36,71 @@
 
 #define PPC_FUNC_PROLOGUE() __builtin_assume(((size_t)base & 0x1F) == 0)
 
+// ══ r23-w75 DRIVER: RT_TABREAD (retry) — narrower mechanism than w74's crashing global 4-width
+// load-watch (bank/r23/w74/drive_w74_SCORE.md sec 3: PPC_LOAD_U8/U16/U32/U64 all hooked, one wide
+// lo/hi span across three disjoint address clusters, built clean but SEGFAULTED the host twice,
+// reproducibly, before any target address could plausibly be touched — differentially isolated to
+// this header's PPC_LOAD_* edit specifically, REVERTED not shipped). HARNESS-ONLY, NEVER SHIP.
+// Pre-registered in bank/r23/w75/PREREG_w75.txt before any build or drive.
+// THIS retry narrows on BOTH axes at once (mission preference (a)+(b)):
+//   (a) SINGLE WIDTH — only PPC_LOAD_U32 below is touched. All 10 mission target fields are
+//       4-byte-aligned dwords at 4-byte stride (w72's read, read_SCORE_w72.md, documents the
+//       writer 0x8815CAF0 storing small integer literals into them — an stw/lwz shape). PPC_LOAD_U8/
+//       U16/U64 are UNCHANGED, unedited, below — zero risk from those call sites, and roughly a
+//       4x cut in edited call-site count vs w74's all-four-widths shape (a plausible driver of
+//       w74's own 23.4MB->~38MB size blowup, out_reco/ppc_recomp's own per-TU code growth).
+//   (b) FIVE NARROW RANGES, not one wide span — RT_FLAGTAP's own proven store-side tightness
+//       (24-byte window, stable ~20 windows) applied here: four mission clusters (max 16 bytes
+//       each) plus a fifth POSITIVE-CONTROL cluster (pauseLatch 0x887AD538, THIS header's own
+//       RT_FLAGTAP comment above already documents it as read+self-cleared every normal-running
+//       frame — see PREREG_w75.txt sec 2 for why w74's own control, 0x883E009C, was invalid).
+// Implementation is a GNU statement-expression (`({ ... })`, already an established extension in
+// this tree via __builtin_expect/__builtin_bswap32/__builtin_assume elsewhere in this same file):
+// the EA is computed once, the volatile load happens exactly once, the 5-cluster guard is checked
+// behind __builtin_expect(...,0) (cheap, false on every unwatched load), and only on a rare hit is
+// a logging helper called with __func__ + __builtin_return_address(0) captured AT THE MACRO'S
+// INLINE EXPANSION SITE — RT_FLAGTAP's own already-proven __func__/return-address shape (the fix
+// w74 sec 3.2 found after ctx.lr broke the build at call sites with no `ctx` in scope), not
+// repeated here as a mistake. Purely additive: the returned value/type/width/order of the load is
+// completely unchanged — the log is a side observation taken after the value is already computed
+// (LAWS T2/T8 preserved). A hard per-run hit cap (2000) forecloses a runaway-stderr-I/O crash
+// vector even if a cluster is hotter than expected — pure defense, does not affect data quality
+// (a handful of hits per address already answers the consumer question).
+#ifndef RT_TABREAD_ON
+static inline bool rt_tabread_enabled(){
+  static int v = std::getenv("RT_TABREAD") ? 1 : 0;
+  return v != 0;
+}
+// cluster A: 0x883889DC/E4 (0x8815CAF0 dest). cluster B: 0x8838A930 (0x8815CAF0 dest).
+// cluster C: 0x883E0098/9C/A0/A4 (0x8815CAF0 dest, the 4-field set). cluster D: 0x884D7688/8C/90
+// (0x88132858 dest, struct base 0x884D7674 + 0x14/0x18/0x1C). cluster E: 0x887AD538 (pauseLatch,
+// POSITIVE CONTROL ONLY — not a mission target, see header comment above).
+#define RT_TABREAD_HIT(e) ( \
+    ((e) >= 0x883889DCu && (e) <  0x883889E8u) || \
+    ((e) >= 0x8838A930u && (e) <  0x8838A934u) || \
+    ((e) >= 0x883E0098u && (e) <  0x883E00A8u) || \
+    ((e) >= 0x884D7688u && (e) <  0x884D7694u) || \
+    ((e) >= 0x887AD538u && (e) <  0x887AD53Cu) )
+static inline const char* rt_tabread_cluster(uint32_t ea){
+  if (ea >= 0x883889DCu && ea < 0x883889E8u) return "A";
+  if (ea >= 0x8838A930u && ea < 0x8838A934u) return "B";
+  if (ea >= 0x883E0098u && ea < 0x883E00A8u) return "C";
+  if (ea >= 0x884D7688u && ea < 0x884D7694u) return "D";
+  if (ea >= 0x887AD538u && ea < 0x887AD53Cu) return "E-ctrl";
+  return "?";
+}
+static inline void rt_tabread_hit(uint32_t ea, uint32_t val, const char* fn, const void* ra){
+  static std::atomic<bool> armed{false};
+  if(!armed.exchange(true)) std::fprintf(stderr, "[tabread] ARMED\n");
+  static std::atomic<long long> n{0};
+  long long i = n.fetch_add(1) + 1;
+  if (i > 2000) return; // hard cap, see header comment (runaway-I/O defense)
+  std::fprintf(stderr, "[tabread] #%lld cluster=%s ea=0x%X val=0x%X fn=%s ra=%p\n",
+               i, rt_tabread_cluster(ea), ea, val, fn, ra);
+  std::fflush(stderr);
+}
+#endif
+
 #ifndef PPC_LOAD_U8
 #define PPC_LOAD_U8(x) *(volatile uint8_t*)(base + (x))
 #endif
@@ -45,7 +110,12 @@
 #endif
 
 #ifndef PPC_LOAD_U32
-#define PPC_LOAD_U32(x) __builtin_bswap32(*(volatile uint32_t*)(base + (x)))
+#define PPC_LOAD_U32(x) ({ \
+    uint32_t _tr_e = (uint32_t)(x); \
+    uint32_t _tr_v = __builtin_bswap32(*(volatile uint32_t*)(base + _tr_e)); \
+    if (__builtin_expect(rt_tabread_enabled() && RT_TABREAD_HIT(_tr_e), 0)) \
+      rt_tabread_hit(_tr_e, _tr_v, __func__, __builtin_return_address(0)); \
+    _tr_v; })
 #endif
 
 #ifndef PPC_LOAD_U64
