@@ -123,12 +123,18 @@ static inline void rt_tabread_hit(uint32_t ea, uint32_t val, const char* fn, con
   // reader (sub_8808FB90, ppc_recomp.4.cpp) would then be SILENTLY DROPPED. Split the counters: E-ctrl
   // has its own small cap (enough to prove the hook is live), A-D keep the full 2000. Additive,
   // log-only (LAWS T2/T8); the ARMED banner and the E positive control are unchanged in kind.
-  static std::atomic<long long> n{0};
-  static std::atomic<long long> nE{0};
+  // FIX 2026-09-02 #2 (smoke1, bank/r23/w85/PREREG_w85.txt A1): A+B+C alone saturate the shared
+  // 2000 cap within ~100 s of gameplay (416/416/1168). Cluster D -- THE attended-session target --
+  // gets its OWN counter so the 0x8815CAF0-family readers can never starve it.
+  static std::atomic<long long> n{0};    // A/B/C shared
+  static std::atomic<long long> nD{0};   // D own
+  static std::atomic<long long> nE{0};   // E-ctrl own
   const bool isE = (ea >= 0x887AD538u && ea < 0x887AD53Cu);
+  const bool isD = (ea >= 0x884D7688u && ea < 0x884D7694u);
   long long i;
-  if (isE) { i = nE.fetch_add(1) + 1; if (i > 200) return; }   // E-ctrl: own cap
-  else     { i = n.fetch_add(1) + 1;  if (i > 2000) return; }  // A-D: full cap, see header comment
+  if (isE)      { i = nE.fetch_add(1) + 1; if (i > 200) return; }   // E-ctrl: own cap
+  else if (isD) { i = nD.fetch_add(1) + 1; if (i > 2000) return; }  // D: own cap
+  else          { i = n.fetch_add(1) + 1;  if (i > 2000) return; }  // A/B/C: shared cap
   std::fprintf(stderr, "[tabread] #%lld cluster=%s ea=0x%X val=0x%X fn=%s ra=%p\n",
                i, rt_tabread_cluster(ea), ea, val, fn, ra);
   std::fflush(stderr);
