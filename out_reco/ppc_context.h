@@ -202,6 +202,44 @@ static inline void rt_witness3_gate_hit(uint32_t guest_lr, uint32_t this_ptr, ui
   } while (0)
 #endif
 
+// ══ r23-w79 DRIVER: RT_WITNESS4 — ONE mid-body tap in Class127_Ctor (0x881286D0,
+// out_reco/ppc_recomp.16.cpp, loc_881288DC) reporting the frame-arm literal (632/692/800/850/
+// 966/1032) the compare-ladder just assigned into state_block[156] — the SAME read already
+// computed by the existing, untouched `stw r11,156(r31)` (LAWS T2/T8: tap AFTER, never before or
+// instead). Answers bank/r23/w79/read_class127_w79.md sec 4 recommendation (a) directly: arm
+// literal 1032 corresponds EXACTLY to the this[116]==977 compare (loc_881288CC) that also sets
+// state_block[168]=1 (the ONE gate condition that makes a kind=3 AllocRecord call reachable at
+// all, per the READ lane's own full-body read) — so a leg that sees arms 632/692/800/850/966 but
+// NEVER 1032 directly falsifies (or narrows) the join's "continues reset the stage clock, never
+// reaching frame 977" hypothesis without needing the countdown-rate unknown resolved at all.
+// Read-only, zero altered guest state (LAWS T2/T8) — the object pointer (this=r30 at Ctor entry,
+// still live in r31's caller-frame companion r30 at this program point) and the assigned arm
+// literal are reported per hit with no cap needed (construction is rare — at most 8 possible
+// Class127 spawns exist in the WHOLE stage-0 timeline per read_classid_id127_w79.log, so this can
+// never be a hot loop). HARNESS-ONLY, NEVER SHIP.
+#ifndef RT_WITNESS4_ON
+static inline bool rt_witness4_enabled(){
+  static int v = std::getenv("RT_WITNESS4") ? 1 : 0;
+  return v != 0;
+}
+#define RT_WITNESS4_ON() (__builtin_expect(rt_witness4_enabled(), 0))
+static inline void rt_witness4_ladder_hit(uint32_t guest_lr, uint32_t this_ptr, uint32_t arm,
+                                           const void* host_ra){
+  static std::atomic<bool> armed{false};
+  if(!armed.exchange(true)) std::fprintf(stderr, "[witness4] ARMED\n");
+  const char* frame =
+    (arm == 632) ? "592" : (arm == 692) ? "644" : (arm == 800) ? "719" :
+    (arm == 850) ? "776" : (arm == 966) ? "899" : (arm == 1032) ? "977(THE ONE)" : "?";
+  std::fprintf(stderr, "[witness4-ladder] lr=0x%X this=0x%X arm=%u frame=%s ra=%p\n",
+               guest_lr, this_ptr, arm, frame, host_ra);
+  std::fflush(stderr);
+}
+#define RT_WITNESS4_LADDER(this_ptr, arm) do { \
+    if (RT_WITNESS4_ON()) rt_witness4_ladder_hit((uint32_t)ctx.lr, (uint32_t)(this_ptr), \
+                                                  (uint32_t)(arm), __builtin_return_address(0)); \
+  } while (0)
+#endif
+
 #ifndef PPC_LOAD_U8
 #define PPC_LOAD_U8(x) *(volatile uint8_t*)(base + (x))
 #endif

@@ -41558,6 +41558,7 @@ loc_881288CC:
 loc_881288DC:
 	// stw r11,156(r31)
 	PPC_STORE_U32(ctx.r31.u32 + 156, ctx.r11.u32);
+	RT_WITNESS4_LADDER(ctx.r30.u32, ctx.r11.u32); // r23-w79 DRIVER M1: which ladder arm fired (see ppc_context.h)
 loc_881288E0:
 	// lis r11,-30702
 	ctx.r11.s64 = -2012086272;
