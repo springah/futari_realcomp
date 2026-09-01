@@ -75,11 +75,25 @@ static inline bool rt_tabread_enabled(){
 // cluster C: 0x883E0098/9C/A0/A4 (0x8815CAF0 dest, the 4-field set). cluster D: 0x884D7688/8C/90
 // (0x88132858 dest, struct base 0x884D7674 + 0x14/0x18/0x1C). cluster E: 0x887AD538 (pauseLatch,
 // POSITIVE CONTROL ONLY — not a mission target, see header comment above).
+//
+// ══ r23-w77 DRIVER CONSOLIDATION (bank/r23/w77/CONSOLIDATION_w77.md): clusters A-D are ANSWERED
+// (0x8815CAF0 MINTED w76 off A/B/C's own runtime evidence; 0x88132858 re-derived+re-confirmed
+// held w76, no further live watch owed this window) — compiled OUT of the per-call-site OR chain
+// via RT_TABREAD_FULL below, since PPC_LOAD_U32 inlines this chain at EVERY load site tree-wide
+// (the w75/w76 SCORE docs' own flagged size driver — w76 sec 4's working hypothesis). Cluster E
+// is the sole POSITIVE CONTROL for the shared hook (still required this window to trust
+// RT_TABREAD2's cluster H, the w77 ride-along) and stays unconditional. Bounds are byte-for-byte
+// UNEDITED — only the #if gate is new (LAWS T2/T8: measurement-config only, zero guest-visible
+// change). Build with -DRT_TABREAD_FULL=1 to restore A-D for a future re-verification pass.
+#ifndef RT_TABREAD_FULL
+#define RT_TABREAD_FULL 0
+#endif
 #define RT_TABREAD_HIT(e) ( \
+    (RT_TABREAD_FULL && ( \
     ((e) >= 0x883889DCu && (e) <  0x883889E8u) || \
     ((e) >= 0x8838A930u && (e) <  0x8838A934u) || \
     ((e) >= 0x883E0098u && (e) <  0x883E00A8u) || \
-    ((e) >= 0x884D7688u && (e) <  0x884D7694u) || \
+    ((e) >= 0x884D7688u && (e) <  0x884D7694u) )) || \
     ((e) >= 0x887AD538u && (e) <  0x887AD53Cu) )
 static inline const char* rt_tabread_cluster(uint32_t ea){
   if (ea >= 0x883889DCu && ea < 0x883889E8u) return "A";
@@ -116,9 +130,22 @@ static inline bool rt_tabread2_enabled(){
 // cluster F: 0x885C5C54..0x885C5CFC, stride 8, the 8-iter loop's first (nonzero-check) table read.
 // cluster G: 0x885C1A24..0x885C1A78, stride 4, the second (==64 check) table read.
 // cluster H: 0x885AD50C, the -10996(r27) flag gating the conditional call to sub_880901B8.
+//
+// ══ r23-w77 DRIVER CONSOLIDATION (bank/r23/w77/CONSOLIDATION_w77.md): clusters F/G are ANSWERED
+// (w76's own consumer census — dominant reader sub_88090480 + Outer_Fsm direct reads — routed to
+// READ/NAMER as new evidence, not a live question this window) — compiled OUT via RT_TABREAD2_FULL
+// below. Cluster H (the release-gating flag) stayed SILENT both w76 legs with no independent
+// combat content on either route — THIS window re-arms it under the SAME combat leg as
+// RT_WITNESS3_GATE (0x88133A60), since both are "may be combat-gated" hypotheses sharing one
+// dwell (mission step 3 ride-along) — stays unconditional. Bounds byte-for-byte UNEDITED.
+// Build with -DRT_TABREAD2_FULL=1 to restore F/G.
+#ifndef RT_TABREAD2_FULL
+#define RT_TABREAD2_FULL 0
+#endif
 #define RT_TABREAD2_HIT(e) ( \
+    (RT_TABREAD2_FULL && ( \
     ((e) >= 0x885C5C50u && (e) <  0x885C5D00u) || \
-    ((e) >= 0x885C1A20u && (e) <  0x885C1A80u) || \
+    ((e) >= 0x885C1A20u && (e) <  0x885C1A80u) )) || \
     ((e) >= 0x885AD50Cu && (e) <  0x885AD510u) )
 static inline const char* rt_tabread2_cluster(uint32_t ea){
   if (ea >= 0x885C5C50u && ea < 0x885C5D00u) return "F";
