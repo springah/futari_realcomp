@@ -117,9 +117,18 @@ static inline const char* rt_tabread_cluster(uint32_t ea){
 static inline void rt_tabread_hit(uint32_t ea, uint32_t val, const char* fn, const void* ra){
   static std::atomic<bool> armed{false};
   if(!armed.exchange(true)) std::fprintf(stderr, "[tabread] ARMED\n");
+  // FIX 2026-09-02 (r23-w85 attended-session recomp arm): cluster E (the positive control) fired
+  // 2000/2000 in EVERY banked leg (w75 final, w76 arcade1/2pjoin1, w77, w84 leg1), consuming the
+  // whole per-TU cap by itself -- any cluster A-D reader compiled into the same TU as the pause-latch
+  // reader (sub_8808FB90, ppc_recomp.4.cpp) would then be SILENTLY DROPPED. Split the counters: E-ctrl
+  // has its own small cap (enough to prove the hook is live), A-D keep the full 2000. Additive,
+  // log-only (LAWS T2/T8); the ARMED banner and the E positive control are unchanged in kind.
   static std::atomic<long long> n{0};
-  long long i = n.fetch_add(1) + 1;
-  if (i > 2000) return; // hard cap, see header comment (runaway-I/O defense)
+  static std::atomic<long long> nE{0};
+  const bool isE = (ea >= 0x887AD538u && ea < 0x887AD53Cu);
+  long long i;
+  if (isE) { i = nE.fetch_add(1) + 1; if (i > 200) return; }   // E-ctrl: own cap
+  else     { i = n.fetch_add(1) + 1;  if (i > 2000) return; }  // A-D: full cap, see header comment
   std::fprintf(stderr, "[tabread] #%lld cluster=%s ea=0x%X val=0x%X fn=%s ra=%p\n",
                i, rt_tabread_cluster(ea), ea, val, fn, ra);
   std::fflush(stderr);
