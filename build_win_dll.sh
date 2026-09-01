@@ -46,7 +46,11 @@ VKSDK=$(ls -d /c/VulkanSDK/*/ 2>/dev/null | sort -V | tail -1)
 # i.e. the SHIP build could not name itself (the exact wrong-attribution class the 08-01
 # settings audit documented). Stamp here too so the combined [env] banner names the sha.
 BUILD_ID="$(git rev-parse --short HEAD 2>/dev/null || echo nogit)$(git diff --quiet 2>/dev/null || echo -dirty)"
-BASE="--target=x86_64-pc-windows-msvc -std=c++20 -O2 -D_CRT_SECURE_NO_WARNINGS -Wno-macro-redefined -DFUTARI_BUILD_ID=\"$BUILD_ID\""
+# EXTRA_CXX (r23-w85): optional env passthrough for ONE-OFF instrument compile flags, e.g.
+#   EXTRA_CXX="-DRT_TABREAD_FULL=1" bash build_win_dll.sh   (re-arm a compiled-out RT_* cluster)
+# Empty by default => byte-identical to the unmodified build. HARNESS-ONLY, NEVER SHIP with it set.
+EXTRA_CXX="${EXTRA_CXX:-}"
+BASE="--target=x86_64-pc-windows-msvc -std=c++20 -O2 -D_CRT_SECURE_NO_WARNINGS -Wno-macro-redefined -DFUTARI_BUILD_ID=\"$BUILD_ID\" $EXTRA_CXX"
 XS="-D_xstart=_xstart_shell -D__imp___xstart=__imp___xstart_shell"
 # DECOMP_DIR: readable-decomp tree, now the sibling repo projects/futari_decomp (2026-08-14
 # split). Exported so gen_symbol_map.py/gen_stubs.py see the same override. Defined BEFORE
