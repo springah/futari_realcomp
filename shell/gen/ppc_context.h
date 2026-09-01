@@ -135,6 +135,47 @@ static inline void rt_installwatch_hit(uint32_t vt, uint32_t installer, uint32_t
     if (RT_INSTALLWATCH_ON()) rt_installwatch_hit((uint32_t)(vt), (uint32_t)(installer), \
                                                     (uint32_t)ctx.r3.u32, (uint32_t)ctx.lr); \
   } while (0)
+
+// ══ r23-w78 DRIVER: RT_INSTALLWATCH2 — dedicated ORDER probe for 0x821C5F70's own two-store
+// construction-vtable sequence (NAMER r36, name_shell_r36_w77.md sec 4 / "0x821C5F70 mapped,
+// soft-reset REFUTED"). Fresh hand-read of ppc_recomp.34.cpp:12967-13071 shows the body writes
+// 0x8204FDB8 into [this+0] once, early (right after the prologue, before any other guest store),
+// then writes 0x820500F0 into the SAME object's [this+0] again, late (just before the tail call
+// to sub_821BE788). The existing w74 RT_INSTALLWATCH_HIT entry tap on this function only records
+// that it was CALLED once, with a hardcoded vt=0x820500F0 argument that is not actually read off
+// either store — it cannot distinguish the two internal writes or their order (w74 deliberately
+// scoped 0x8204FDB8 OUT: "no separately-identified installer function", PREREG_w74.txt). This is
+// that installer, found this window. Two NEW taps are placed immediately AFTER each existing
+// PPC_STORE_U32 (never before, never touching the store line itself — LAWS T2/T8: no reorder, no
+// store width/order change), reporting the ACTUAL stored vt value read back from the same
+// register the store just used, the object pointer, and a monotonic per-process sequence number
+// — so the log alone can pair each call's early/late writes back into one ordered event.
+// Independently RT_-env-gated from RT_INSTALLWATCH so this window's probe cannot perturb or be
+// perturbed by the w74 13-vtable roster's own counters. Read-only; zero guest-visible change.
+// Pre-registered bank/r23/w78/PREREG_w78.txt (Mission 2) before any scoring drive.
+#ifndef RT_INSTALLWATCH2_ON
+static inline bool rt_installwatch2_enabled(){
+  static int v = std::getenv("RT_INSTALLWATCH2") ? 1 : 0;
+  return v != 0;
+}
+#define RT_INSTALLWATCH2_ON() (__builtin_expect(rt_installwatch2_enabled(), 0))
+static inline void rt_installwatch2_armed_once(){
+  static std::atomic<bool> armed{false};
+  if(!armed.exchange(true)) std::fprintf(stderr, "[instwatch2] ARMED\n");
+}
+static inline void rt_installwatch2_hit(const char* slot, uint32_t vt, uint32_t this_ptr, uint32_t guest_lr){
+  rt_installwatch2_armed_once();
+  static std::atomic<long long> n{0};
+  long long i = n.fetch_add(1) + 1;
+  std::fprintf(stderr, "[instwatch2] #%lld slot=%s vt=0x%X this=0x%X lr=0x%X\n",
+               i, slot, vt, this_ptr, guest_lr);
+  std::fflush(stderr);
+}
+#define RT_INSTALLWATCH2_HIT(slot, vt, this_ptr) do { \
+    if (RT_INSTALLWATCH2_ON()) rt_installwatch2_hit((slot), (uint32_t)(vt), (uint32_t)(this_ptr), \
+                                                      (uint32_t)ctx.lr); \
+  } while (0)
+#endif
 #endif
 
 #ifndef PPC_STORE_U8

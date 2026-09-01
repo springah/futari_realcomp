@@ -12987,6 +12987,7 @@ PPC_FUNC_IMPL(__imp__sub_821C5F70) {
 	ctx.r30.s64 = ctx.r3.s64 + 316;
 	// stw r10,0(r3)
 	PPC_STORE_U32(ctx.r3.u32 + 0, ctx.r10.u32);
+	RT_INSTALLWATCH2_HIT("early", ctx.r10.u32, ctx.r3.u32);   // r23-w78: the 0x8204FDB8 construction-phase write
 	// lwz r3,328(r3)
 	ctx.r3.u64 = PPC_LOAD_U32(ctx.r3.u32 + 328);
 	// cmplwi cr6,r3,0
@@ -13060,6 +13061,7 @@ loc_821C5FF8:
 	PPC_STORE_U8(ctx.r29.u32 + 4, ctx.r31.u8);
 	// stw r10,0(r28)
 	PPC_STORE_U32(ctx.r28.u32 + 0, ctx.r10.u32);
+	RT_INSTALLWATCH2_HIT("late", ctx.r10.u32, ctx.r28.u32);   // r23-w78: the 0x820500F0 final-vtable write
 	// bl 0x821be788
 	ctx.lr = 0x821C6018;
 	sub_821BE788(ctx, base);
