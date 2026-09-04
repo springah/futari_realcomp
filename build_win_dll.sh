@@ -347,7 +347,14 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
       # promotion — which the CONVERTED tier does BY DESIGN — must have its new basename added
       # here in the same change, or the exclusion silently does nothing: no build error, and the
       # abn arm links the TU and reads the wrong +0x60-shifted globals.
-      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw|class233_236_draw|actor3pose_draw) continue;; esac
+      # r23-w86 DRIVER (PREREG_w86.txt S3): objnode_park's own header block says this TU MUST be
+      # added here before it may be built; it was authored 2026-08-16 (decomp 6d732df) with the
+      # entry deferred to an integration leg that never ran, so every abn build since has linked
+      # it unexcluded. Measured this window (I3, decimal asm-comment scan): `addi r11,r11,576`
+      # (0x883E0240 cursor) = 124/0 normal-vs-abn, `addi r11,r11,672` = 0/124 -- total, exact
+      # +0x60 drift, the corruption class this case list exists to prevent. Repair = revert to
+      # the GENERATED body on the abn arm (what it ran before 2026-08-16); risk reduction only.
+      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw|class233_236_draw|actor3pose_draw|objnode_park) continue;; esac
     fi
     cc "decomp_$n" "$f" $GI -I . $RT $MAP
   done
