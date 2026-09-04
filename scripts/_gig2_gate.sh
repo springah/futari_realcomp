@@ -27,7 +27,7 @@ cd "$(dirname "$0")/.." || exit 1
 export MSYS_NO_PATHCONV=1
 ROOT="$(pwd -W 2>/dev/null || pwd)"
 export RT_GAME_ROOT="${RT_GAME_ROOT:-$ROOT/assets}"
-export RT_SAVE="${RT_SAVE:-save_d1gate}"
+export RT_SAVE="${RT_SAVE:-_local/saves/save_d1gate}"   # 09-04 hygiene: RT_SAVE dirs live under _local/saves/
 export LOG="${LOG:-_local/logs/d1_gate.log}"
 export FIFO="${FIFO:-/c/tmp/futari_pad_d1}"
 mkdir -p _local/logs /c/tmp

@@ -45,7 +45,7 @@ export RVK_WINDOW=1
 export RT_PAD=1 RT_PAD_HOST=1 RT_PAD_WAIT=9999999
 
 # real save subsystem (existing save silent-loads straight to TOP MENU)
-export RT_SAVE="${RT_SAVE:-save}"
+export RT_SAVE="${RT_SAVE:-_local/saves/save}"   # 09-04 hygiene: RT_SAVE dirs live under _local/saves/ (templates save_freshcard / save_r17_boss / save_eyeball stay at root)
 
 # PNG pipeline throttled way down — the window is the display now
 export RVK_PNGEVERY=600

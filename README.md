@@ -33,7 +33,7 @@ temporary scaffolding, not solutions.
 | `docs/` | Design notes, specs, and the campaign ledger. |
 | `reference/` | Reference material: Ghidra databases, audio references, reference screenshots. |
 | `build/` | **Gitignored.** Every build product: object dirs, executables, module DLLs. Delete it freely; it regenerates. |
-| `_local/` | **Gitignored.** Captures, logs, test saves, build output, banked evidence, and archived scratch. Nothing here is needed to build or run. |
+| `_local/` | **Gitignored.** Captures, logs, drive save directories (`_local/saves/`), build output, banked evidence, and archived scratch. Nothing here is needed to build or run. |
 
 ## Building (Windows)
 
@@ -46,12 +46,17 @@ bash build_win_dll.sh    # combined executable + the two module DLLs
 ```
 
 All build products — objects, executables, DLLs — land in `build/`, which is gitignored.
-The repository root stays clean: a README and three build scripts.
+The repository root holds the README, `STATUS.md` (a pointer to the live campaign state), the
+three build scripts, and exactly three save-directory templates that the drive scripts copy
+from (`save_freshcard`, `save_r17_boss`, `save_eyeball`). Every other save directory a drive
+creates goes under `_local/saves/` — set `RT_SAVE=_local/saves/save_<tag>` (convention since
+2026-09-04; the runtime uses the value verbatim, relative to the repo root).
 
 ## Documentation
 
-- `docs/BACKLOG.md` — ranked open work
-- `docs/NOTE_campaign_decomp.md` — the campaign ledger; newest entries at the top
+- `STATUS.md` — where the live state is (one paragraph; points at the decomp repo's ledger)
+- `docs/BACKLOG.md` — ranked open work (last re-ranked 2026-08-03; the ledger's owed list is fresher)
+- `../futari_decomp/docs/NOTE_campaign_decomp.md` — the campaign ledger; newest entries at the top
 - `tools/matchlab/README.md` — the matching toolchain, its rules, and its landmines
 
 ## Layout conventions

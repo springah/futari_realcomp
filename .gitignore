@@ -31,6 +31,9 @@ obj_*/
 save/
 save_*/
 !save_freshcard/          # template the drive scripts copy from — keep
+# 09-04 hygiene: drive save dirs live under _local/saves/ (RT_SAVE=_local/saves/save_<tag>).
+# save_r17_boss/ and save_eyeball/ stay at the root as untracked copy-from templates (banked
+# drive scripts reference them by that path); everything else at the root is a stray.
 
 # --- Generated recompiler output ---
 # out_reco/ and out_reco_abn/ are produced by the recompiler from config/*.toml.
