@@ -50,6 +50,15 @@ BUILD_ID="$(git rev-parse --short HEAD 2>/dev/null || echo nogit)$(git diff --qu
 #   EXTRA_CXX="-DRT_TABREAD_FULL=1" bash build_win_dll.sh   (re-arm a compiled-out RT_* cluster)
 # Empty by default => byte-identical to the unmodified build. HARNESS-ONLY, NEVER SHIP with it set.
 EXTRA_CXX="${EXTRA_CXX:-}"
+# DECOMP_SKIP (r23-w86 DRIVER): the A/B CONTROL-ARM SWITCH.  Space-separated list of decomp TU
+# BASENAMES to leave OUT of the compile loops, e.g.
+#   DECOMP_SKIP="objnode_park" bash build_win_dll.sh   (control arm: those guest bodies fall back
+#                                                       to the GENERATED ppc_recomp bodies)
+# This invents no new seam: it is the SAME mechanism the MIDX=1 abn exclusion case list already
+# uses (skip the .o => /FORCE:MULTIPLE first-def-wins hands the address to gen_ppc_recomp.NN.o).
+# Empty by default => byte-identical to the unmodified build.  HARNESS-ONLY, NEVER SHIP with it set.
+DECOMP_SKIP="${DECOMP_SKIP:-}"
+decomp_skipped(){ local n="$1" k; for k in $DECOMP_SKIP; do [ "$n" = "$k" ] && return 0; done; return 1; }
 BASE="--target=x86_64-pc-windows-msvc -std=c++20 -O2 -D_CRT_SECURE_NO_WARNINGS -Wno-macro-redefined -DFUTARI_BUILD_ID=\"$BUILD_ID\" $EXTRA_CXX"
 XS="-D_xstart=_xstart_shell -D__imp___xstart=__imp___xstart_shell"
 # DECOMP_DIR: readable-decomp tree, now the sibling repo projects/futari_decomp (2026-08-14
@@ -95,7 +104,7 @@ cc(){ local n="$1" s="$2"; shift 2
 
 echo "-- decomp (shell only; decomp/game* rides into the DLLs)"
 # -I . : decomp TUs reference host/render headers realcomp-root-relative (repo split).
-for f in "$DECOMP_DIR"/shell/*.cpp; do n=$(basename "$f" .cpp); cc "decomp_$n" "$f" $GI -I . $RT; done
+for f in "$DECOMP_DIR"/shell/*.cpp; do n=$(basename "$f" .cpp); decomp_skipped "$n" && { echo "   [DECOMP_SKIP] shell/$n"; continue; }; cc "decomp_$n" "$f" $GI -I . $RT; done
 
 echo "-- game-tree KERNEL (rt/stubs/harness only — the generated tree has left the exe)"
 # ORDER IS LOAD-BEARING (plan §4.3): 66 __imp__X are defined in BOTH out_reco/{rt,stubs}.cpp and
@@ -206,6 +215,9 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
   echo "-- decomp game TUs"
   for f in "$DECOMP_DIR"/game/*.cpp; do
     n=$(basename "$f" .cpp)
+    # r23-w86 DRIVER control-arm switch (declared at the top) -- checked BEFORE the abn case list
+    # so a control arm is identical on both module arms.
+    decomp_skipped "$n" && { echo "   [DECOMP_SKIP] game/$n"; continue; }
     # ABN-EXCLUDED TUs: bodies that carry reco_normal .data literals, which move +0x60 in the
     # abn image. The +8 symbol map renames FUNCTION symbols only — embedded data addresses are
     # not translated, so these TUs read/write the wrong abn globals. game_entry_msgs was the
@@ -340,7 +352,7 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
     cc "decomp_$n" "$f" $GI -I . $RT $MAP
   done
   if [ "$MIDX" = "1" ]; then
-    for f in "$DECOMP_DIR"/game_abn/*.cpp; do n=$(basename "$f" .cpp); cc "decomp_$n" "$f" $GI -I . $RT; done
+    for f in "$DECOMP_DIR"/game_abn/*.cpp; do n=$(basename "$f" .cpp); decomp_skipped "$n" && { echo "   [DECOMP_SKIP] game_abn/$n"; continue; }; cc "decomp_$n" "$f" $GI -I . $RT; done
   fi
   echo "-- host-facing shim (moduleshim/, NEVER a glob-swept dir)"
   cc "module_shim" "moduleshim/module_shim_$NAME.cpp" $GI $RT
