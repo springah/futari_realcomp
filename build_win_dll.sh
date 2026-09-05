@@ -368,8 +368,16 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
       # Damage/Teardown reference the same G_SCENE_PTR 0x887AD130 / G_DEAD_LATCH 0x88568BDx
       # +0x60-drifting .data globals objnode_park.inl already documents) -- carried forward
       # conservatively, NOT independently re-derived bit-for-bit against out_reco_abn/ this
-      # window (see decomp/game/famk1.cpp header ABN note). famk1census (if/when created) must
-      # join too, same rule as objnode_parkcensus above -- not added yet, file does not exist.
+      # window (see decomp/game/famk1.cpp header ABN note).
+      # r23-w92 DRIVER MISSION 2: famk1census.cpp now exists (RT_FAMK1CENSUS, own-state
+      # instrument on the sub_880940D8 seam) -- decided NOT to add it here. Unlike
+      # objnode_parkcensus.cpp it does not #include objnode_park.inl and references no
+      # reco_normal .data globals at all (G_SCENE_PTR/G_DEAD_LATCH/G_DONEFLAG family); it only
+      # dereferences owner/state pointers recovered from registers at the hook's call site, plus
+      # one CODE address (FN_TICK, famk1.cpp's own guest entry address) which the abn image's "+8
+      # symbol map" (function-symbol renaming, not a .data drift) would apply to differently --
+      # untested this window since every w92 drive is a normal-image (MIDX=0) build. Re-derive
+      # before ever driving famk1census on the abn arm; not attempted here.
       case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw|class233_236_draw|actor3pose_draw|objnode_park|objnode_parkcensus|famk1) continue;; esac
     fi
     cc "decomp_$n" "$f" $GI -I . $RT $MAP
