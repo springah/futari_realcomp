@@ -354,7 +354,17 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
       # (0x883E0240 cursor) = 124/0 normal-vs-abn, `addi r11,r11,672` = 0/124 -- total, exact
       # +0x60 drift, the corruption class this case list exists to prevent. Repair = revert to
       # the GENERATED body on the abn arm (what it ran before 2026-08-16); risk reduction only.
-      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw|class233_236_draw|actor3pose_draw|objnode_park) continue;; esac
+      # r23-w90 DRIVER (STEP 0 arm-symmetry fix): RT_PARKCENSUS was split out of objnode_park.cpp
+      # into its own always-compiled TU, decomp/game/objnode_parkcensus.cpp, so that
+      # DECOMP_SKIP=objnode_park (the PILOT/CONTROL switch, checked earlier in this same loop)
+      # does not drop the instrument along with the 89 park bodies. That new TU still
+      # `#include`s objnode_park.inl for the G_PARK_ARRAY/G_PARK_COUNT constants -- the SAME
+      # +0x60 abn-drift exposure objnode_park.inl's own header warns about -- so it joins this
+      # case list too, per that header's own rule. This does not touch the DECOMP_SKIP check
+      # above (unconditional on both module arms) and the gate this window scores is a
+      # normal-image (MIDX=0) comparison, so this line has no effect on that gate; it is added
+      # for abn-arm correctness/precedent only.
+      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw|class233_236_draw|actor3pose_draw|objnode_park|objnode_parkcensus) continue;; esac
     fi
     cc "decomp_$n" "$f" $GI -I . $RT $MAP
   done
