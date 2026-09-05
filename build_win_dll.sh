@@ -364,7 +364,13 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
       # above (unconditional on both module arms) and the gate this window scores is a
       # normal-image (MIDX=0) comparison, so this line has no effect on that gate; it is added
       # for abn-arm correctness/precedent only.
-      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw|class233_236_draw|actor3pose_draw|objnode_park|objnode_parkcensus) continue;; esac
+      # r23-w92 DRIVER: famk1 joins this list per its own header's stated rule (FamK1_Install/
+      # Damage/Teardown reference the same G_SCENE_PTR 0x887AD130 / G_DEAD_LATCH 0x88568BDx
+      # +0x60-drifting .data globals objnode_park.inl already documents) -- carried forward
+      # conservatively, NOT independently re-derived bit-for-bit against out_reco_abn/ this
+      # window (see decomp/game/famk1.cpp header ABN note). famk1census (if/when created) must
+      # join too, same rule as objnode_parkcensus above -- not added yet, file does not exist.
+      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw|class233_236_draw|actor3pose_draw|objnode_park|objnode_parkcensus|famk1) continue;; esac
     fi
     cc "decomp_$n" "$f" $GI -I . $RT $MAP
   done
