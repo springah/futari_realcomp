@@ -131,6 +131,14 @@ consecutive ship-nothing legs ⇒ back here for re-ranking, not another leg.
    resumed. Optional next: device-recreate instead of exit (bigger, attended).
 
 ## FIDELITY DEBTS (post-gate, cheap-ish, attended)
+- **[09-06 USER RE-REPORT] BOSS 1 HEAD L/R TEXTURE SWAP — STILL PRESENT.** "boss 1 head still also has the
+  defect, left texture on the right and the right texture on the left." First banked r23-w35 (08-24): captures in
+  futari_decomp/bank/r23/w35 (not clean plates); first hypothesis class = the mirrored-pair sprite machinery
+  (cf. 0x8819DF88 mirrored sprite emitters, w4). Still OPEN; no fix ever shipped. Measure-first plan when a
+  realcomp lane is next ruled: RenderDoc capture of the boss-1 head draw (port) vs the SDK/Xenia oracle frame at
+  the same phase; compare per-quad UV rects + the mirror flag path (Q+0x08 overlay mode / u-flip) for the two
+  head halves. Decomp angle (cheap, in-scope): the boss-1 head draw body's mirror/flip operand handling in the
+  readable C — a decomp read may name the bug without a drive. Ruling 09-06: NOTED, not laned (decomp first).
 
 6. **D3 wall-dim exact factor at composite** (0.875 vs 0.90 = 1/16 quantization) — demoted
    07-27 (reload cost fixed); compose-path surgery, do attended with texel gates.
