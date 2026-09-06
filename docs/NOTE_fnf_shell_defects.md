@@ -5,6 +5,16 @@ friends & family and collect their logs. This note is the running defect ledger 
 Method per doctrine: ship-path first, oracle in hand before theorizing, instruments presumed
 lying until positive-controlled, texel-diff acceptance.
 
+## 2026-09-06 — FNF-14 (USER OBS, unattributed): "I miss the loading screens"
+- User note during r23-w93: the NOW LOADING screens are missed in current builds — either absent or too brief
+  to register. No ledger entry records a deliberate removal; the element is a PERMANENT shell task (FNF-12 work).
+- FIRST STEP = MEASURE, not fix: (a) RT_INDCENSUS witness of the NOW LOADING task's tick/draw on a boot + a
+  stage-transition route; (b) PrintWindow burst at boot and at the first stage handoff (display ON); (c) the same
+  route on the 360 oracle (Xenia scripted drive) for frame counts. Then classify: not drawn (defect) vs drawn but
+  short because the port loads faster (a FEEL decision for the user — an artificial hold is never a silent fix;
+  360 pacing is authentic per epozzobon).
+- Needs user eyes to confirm "missing" vs "too brief" → attended-session checklist item.
+
 ## 2026-07-31 — ★★★★★ RANKING SQUARE: THE DROP-SHADOW RING IS **EXONERATED**; the square lives
 ## INSIDE THE ROM'S OWN RENDER TARGET (all four handed hypotheses falsified)
 
