@@ -13,7 +13,16 @@ lying until positive-controlled, texel-diff acceptance.
   route on the 360 oracle (Xenia scripted drive) for frame counts. Then classify: not drawn (defect) vs drawn but
   short because the port loads faster (a FEEL decision for the user — an artificial hold is never a silent fix;
   360 pacing is authentic per epozzobon).
-- Needs user eyes to confirm "missing" vs "too brief" → attended-session checklist item.
+- **USER CLARIFIED 09-06: NOT "too brief" — "any of the now loading — they seem to not appear even when loading,
+  instead it's black screen."** So the load phase still takes visible time and the screen is BLACK during it: the
+  NOW LOADING element is not drawn, or is drawn but not presented/composed, during load phases. Reclassified as a
+  DEFECT (was: feel question). Attended item stays (which loads: boot, stage handoff, stage→stage, replay?).
+- Suspect classes (from the FNF-12 history, unverified): (1) the layer-seg compose never covering loading-phase
+  pixels (the 07-28 "stale persisted loading-phase pixels" note points at the compose treating the load phase as
+  empty); (2) the loading task's draw gated on a flag the port never sets during its (faster) load; (3) a
+  fade-to-black that starts before the load draw and is never released until the next scene's first frame.
+  Measure (a)/(b)/(c) above discriminates these: if the task ticks AND draws but the frame is black → compose/
+  present; if it ticks but does not draw → gate flag; if it never ticks → scheduling.
 
 ## 2026-07-31 — ★★★★★ RANKING SQUARE: THE DROP-SHADOW RING IS **EXONERATED**; the square lives
 ## INSIDE THE ROM'S OWN RENDER TARGET (all four handed hypotheses falsified)
