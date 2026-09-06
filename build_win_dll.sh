@@ -378,7 +378,15 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
       # symbol map" (function-symbol renaming, not a .data drift) would apply to differently --
       # untested this window since every w92 drive is a normal-image (MIDX=0) build. Re-derive
       # before ever driving famk1census on the abn arm; not attempted here.
-      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw|class233_236_draw|actor3pose_draw|objnode_park|objnode_parkcensus|famk1) continue;; esac
+      # r23-w94 DRIVER MISSION B: famk9 joins this list per its own header's stated rule (FamK9_
+      # Install/Draw/Tick/Damage/ArmORIG/ArmMANIAC/ArmULTRA reference the SAME G_SCENE_PTR
+      # 0x887AD130 / G_MODE/G_HALT 0x88568Bxx / park-array 0x883E0xxx +0x60-drifting .data global
+      # families famk1.cpp and objnode_park.inl already document) -- carried forward
+      # conservatively, NOT independently re-derived bit-for-bit against out_reco_abn/ this window
+      # (see decomp/game/famk9.cpp header ABN note). famk1census.cpp is unaffected by this line
+      # (same reasoning as the famk1 case above -- its w94 FamK9 branch reads only owner/state
+      # pointers recovered at the call site, no reco_normal .data globals).
+      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw|class233_236_draw|actor3pose_draw|objnode_park|objnode_parkcensus|famk1|famk9) continue;; esac
     fi
     cc "decomp_$n" "$f" $GI -I . $RT $MAP
   done
