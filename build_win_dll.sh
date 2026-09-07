@@ -386,7 +386,16 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
       # (see decomp/game/famk9.cpp header ABN note). famk1census.cpp is unaffected by this line
       # (same reasoning as the famk1 case above -- its w94 FamK9 branch reads only owner/state
       # pointers recovered at the call site, no reco_normal .data globals).
-      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw|class233_236_draw|actor3pose_draw|objnode_park|objnode_parkcensus|famk1|famk9) continue;; esac
+      # r23-w97 DRIVER MISSION 1: pagescene joins this list -- all four bodies write G_EMITS
+      # (0x887AD164) in their shared common-tail white-flash routine, and 0x887AD164 is
+      # independently documented as a +0x60 abn-drifting .data literal (docs/NOTE_campaign_
+      # decomp.md: "A3Pose +0x60 abn write path (writes 0x887AD164 at 11/38 sites)"); carried
+      # forward conservatively, NOT independently re-derived bit-for-bit against out_reco_abn/
+      # this window (see decomp/game/pagescene.cpp header ABN note). famk1census.cpp's PageScene
+      # branch (added this window, hooking sub_880968B8) is unaffected -- same reasoning as the
+      # famk1/famk9 cases above, it dereferences only the returned fsm-block pointer, no
+      # reco_normal .data globals of its own.
+      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw|class233_236_draw|actor3pose_draw|objnode_park|objnode_parkcensus|famk1|famk9|pagescene) continue;; esac
     fi
     cc "decomp_$n" "$f" $GI -I . $RT $MAP
   done
