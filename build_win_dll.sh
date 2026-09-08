@@ -395,7 +395,15 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
       # branch (added this window, hooking sub_880968B8) is unaffected -- same reasoning as the
       # famk1/famk9 cases above, it dereferences only the returned fsm-block pointer, no
       # reco_normal .data globals of its own.
-      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw|class233_236_draw|actor3pose_draw|objnode_park|objnode_parkcensus|famk1|famk9|pagescene) continue;; esac
+      # r23-w105 DRIVER MISSION 3: famk2 joins this list. Two independent reasons, both named
+      # in decomp/game/famk2.cpp's own header and both re-derived there against
+      # out_reco/ppc_recomp.16.cpp: (a) FamK2_Teardown writes 0x88568BD4 unconditionally
+      # (`lis r8,-30633` + `stw r11,-29740(r8)`), one of the three EXACT-2160-clone writers of the
+      # drifting +0x60 scene-guard global family objnode_park.inl/famk1.cpp already document;
+      # (b) FamK2_Install reads G_SCENE_PTR 0x887AD130 for its scene[84] four-way, the same
+      # abn-drifting .data global famk1.cpp's own entry documents. Without this line the abn arm
+      # links famk2 unexcluded and reads the +0x60-shifted globals.
+      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw|class233_236_draw|actor3pose_draw|objnode_park|objnode_parkcensus|famk1|famk9|pagescene|famk2) continue;; esac
     fi
     cc "decomp_$n" "$f" $GI -I . $RT $MAP
   done
