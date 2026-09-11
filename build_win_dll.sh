@@ -403,7 +403,16 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
       # (b) FamK2_Install reads G_SCENE_PTR 0x887AD130 for its scene[84] four-way, the same
       # abn-drifting .data global famk1.cpp's own entry documents. Without this line the abn arm
       # links famk2 unexcluded and reads the +0x60-shifted globals.
-      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw|class233_236_draw|actor3pose_draw|objnode_park|objnode_parkcensus|famk1|famk9|pagescene|famk2|famk11) continue;; esac
+      # r23-w112 DRIVER MISSION 3: famk12 joins this list. Its own header (decomp/game/famk12.cpp
+      # "ABN (MIDX=1): REQUIRED") names EIGHT +0x60-drifting .data literals across its ten bodies:
+      # 0x887AD130 (G_SCENE_PTR), 0x884D7FB0/0x884D7F00 (spawn tables), 0x88287D60 (Draw's
+      # direction-offset byte tables), 0x887AD164 (the stale sprite-emit counter, LAWS T3),
+      # 0x883E0240/0x883E01D8 (nodepark push tail + count, Teardown), 0x88311068 (inlined LCG
+      # seed, Install), 0x88568BAC/0x88568BD4 (the mode-arm guard globals). famk12census.cpp is
+      # NOT added here (its own header: it reads only owner/state pointers recovered at the
+      # sub_88153010 hook site, no reco_normal .data globals of its own -- same reasoning as the
+      # famk1/famk9/famk11 census cases above).
+      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw|class233_236_draw|actor3pose_draw|objnode_park|objnode_parkcensus|famk1|famk9|pagescene|famk2|famk11|famk12) continue;; esac
     fi
     cc "decomp_$n" "$f" $GI -I . $RT $MAP
   done
