@@ -1691,6 +1691,10 @@ extern "C" void nvk_on_clear(unsigned colorARGB);
 extern "C" void nvk_on_blob_submit(uint8_t* base, unsigned dev);
 extern "C" void nvk_on_present_frame(uint8_t* base);
 #define NVK_TAP(name) nvk_ev(name, ctx.r3.u64, ctx.r4.u64, ctx.r5.u64, ctx.r6.u64, ctx.r7.u64, ctx.r8.u64, ctx.r9.u64)
+// r23-w111 SHELL GATE #2: decomp/shell/xnotifycensus.cpp's counting hook. Purely additive; reads
+// ctx.lr/ctx.r3/ctx.r4 before __imp__XNotifyGetNext's own logic touches them and returns
+// immediately when RT_XNOTIFYCENSUS is unset. See draft_HANDOFF_xnotify_w111.md Step 0.
+extern "C" void xnc_sample(PPCContext& __restrict ctx, uint8_t* base);   // <<w111
 struct RtListener { uint32_t handle; uint64_t areas; std::deque<std::pair<uint32_t,uint32_t>> q; };
 static std::mutex g_lstm; static std::vector<RtListener*> g_lst; static uint32_t g_lnext=0xF0000001u;
 PPC_FUNC_IMPL(__imp__XamNotifyCreateListener){ LOGN("XamNotifyCreateListener");
@@ -1713,6 +1717,7 @@ extern "C" void rt_notify_broadcast(uint32_t id, uint32_t param){
   std::fprintf(stderr,"  [notify] broadcast id=0x%X param=0x%X -> %zu listeners\n",id,param,n);
 }
 PPC_FUNC_IMPL(__imp__XNotifyGetNext){ LOGN("XNotifyGetNext");
+  xnc_sample(ctx, base);                                                 // <<w111
   uint32_t handle=ctx.r3.u32, match=ctx.r4.u32, idp=ctx.r5.u32, parp=ctx.r6.u32;
   if(parp) PPC_STORE_U32(parp,0);
   if(!idp){ ctx.r3.u32=0; (void)base; return; }
