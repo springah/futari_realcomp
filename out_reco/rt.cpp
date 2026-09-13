@@ -498,6 +498,233 @@ void ic_dump(long long dispatches){
   std::fflush(stderr);
 }
 
+// ── RT_VSLOTCENSUS (default OFF): THE TARGET-KEYED VTABLE-SLOT DISPATCH CENSUS ────────────────
+// r23-w114 DRAFTER-SHELL, candidate (b) of bank/r23/w113/draft_seamless_family_w113.md, designed
+// in bank/r23/w114/draft_vslotcensus_design_w114.md.  AUTHORISED PER SEAM BY THE BANKER, APPLIED
+// BY THE DRIVER — a DRAFTER never edits this file.
+//
+// WHY A HOST HOOK AND NOT A DECOMP TU.  bank/r23/w114/draft_vslot_writers_w114.md (MISSION S1)
+// settled how MenuNodeBase_StateInteractive's three members are reached:
+//     vtable slot 3 (MenuNodeBase_Tick) -> `lwz r11,72(r3); bctr`
+//       -> one of 23 static FORWARDER THUNKS (`lwz r12,0(r3); lwz r11,<slot*4>(r12); bctr`)
+//         -> the object's own vtable SLOT -> the member.
+// Every hop after slot 3 is a tail jump, and the members are ALSO reachable from 48 (slot 13) /
+// 23 (slot 20) ordinary `bctrl` sites whose slot index is shared with 53 / 29 unrelated bodies.
+// So neither the CALL SITE nor any `ctx.lr` literal identifies the member: only the DISPATCH
+// TARGET does.  rt_indirect_call is the one place in the process where the target is available
+// as data before the body runs, for every one of those paths at once.
+//
+// ARM-SYMMETRY: by construction.  rt.cpp is host EXE code compiled once and imported by both
+// module DLLs; no DECOMP_SKIP names it, so PILOT and CONTROL run the byte-identical hook.
+//
+// INVARIANTS, per sample, at allow-listed targets only (they need no roster and no seam):
+//   I1 this_null_breach : ctx.r3 == 0 at dispatch.  `this` must be non-null.
+//   I2 vtable_breach    : [ [ctx.r3+0] + slot*4 ] != target, i.e. the object's OWN vtable does
+//                         not carry this body at the slot MISSION S1(i) measured
+//                         (0x82061A58 -> slot 20 in 28 vtables; 0x821BD348 -> slot 13 of
+//                         0x82050200; 0x821BF1D0 -> slot 13 of 0x820501A8).  I2 is also what
+//                         PROVES ctx.r3 is really the callee's `this` at every path into the
+//                         member — a violation says the reading is wrong, which is the point.
+// A target whose allow-list entry omits `:slot` is counted but not invariant-checked.
+//
+// POSITIVE CONTROL, STRUCTURAL: `dispatch_total` counts EVERY indirect dispatch while armed.
+// dispatch_total == 0 with RT_VSLOTCENSUS set means the hook did not run (broken arm), never
+// "the members did not run".  `other` = dispatch_total - matched.
+//
+// NOFILE != ZERO: the dump is rewritten in place on TWO cadences — every
+// RT_VSLOTCENSUS_EVERY matched samples (default 300) AND every RT_VSLOTCENSUS_EVERY_DISPATCH
+// indirect dispatches (default 500000) — so a leg on which NO target ever fires still leaves a
+// file carrying dispatch_total.  A FLUSH AT END is also attempted from a static destructor;
+// drives that end in Stop-Process -Force will not run it, which is exactly why the cadences,
+// not the destructor, are load-bearing (ic_dump's own w40 lesson, one level up).
+//
+// COST WHEN OFF: one relaxed load of a function-local static bool on the dispatch path.
+// ENV:  RT_VSLOTCENSUS               set (any value) to arm.  Unset = off, nothing is counted.
+//       RT_VSLOTCENSUS_TARGETS       comma list of HEX addresses, each optionally `:<slot>`.
+//                                    Default "82061A58:20,821BD348:13,821BF1D0:13".
+//       RT_VSLOTCENSUS_OUT           dump path, WINDOWS-style (C:/tmp/...).  Default
+//                                    C:/tmp/vslotcensus.txt.
+//       RT_VSLOTCENSUS_EVERY         matched-sample dump cadence.  Default 300.
+//       RT_VSLOTCENSUS_EVERY_DISPATCH  dispatch dump cadence.  Default 500000.
+constexpr int VSC_MAX = 8;
+constexpr uint32_t VSC_NOSLOT = 0xFFFFFFFFu;
+struct VscEntry {
+  std::atomic<uint32_t> addr{0};
+  std::atomic<uint32_t> slot{VSC_NOSLOT};
+  std::atomic<long>     calls{0};
+  std::atomic<long>     null_this{0};
+  std::atomic<long>     vt_breach{0};
+  std::atomic<uint32_t> first_lr{0};
+  std::atomic<uint32_t> last_lr{0};
+  std::atomic<uint32_t> first_this{0};
+  std::atomic<uint32_t> last_this{0};
+  std::atomic<uint32_t> first_vt{0};
+};
+inline VscEntry* vsc_tab(){ static VscEntry t[VSC_MAX]; return t; }
+inline std::atomic<long long>& vsc_dispatches(){ static std::atomic<long long> n{0}; return n; }
+inline std::atomic<long long>& vsc_matched(){ static std::atomic<long long> n{0}; return n; }
+
+inline bool vsc_on(){ static const bool on = std::getenv("RT_VSLOTCENSUS") != nullptr; return on; }
+
+inline int vsc_parse(){
+  VscEntry* t = vsc_tab();
+  const char* e = std::getenv("RT_VSLOTCENSUS_TARGETS");
+  const char* s = (e && *e) ? e : "82061A58:20,821BD348:13,821BF1D0:13";
+  int n = 0;
+  while(*s && n < VSC_MAX){
+    while(*s==',' || *s==' ') ++s;
+    if(!*s) break;
+    if(s[0]=='0' && (s[1]=='x' || s[1]=='X')) s += 2;
+    char* end = nullptr;
+    const unsigned long a = std::strtoul(s, &end, 16);
+    if(end == s) break;
+    s = end;
+    unsigned long sl = VSC_NOSLOT;
+    if(*s == ':'){ ++s; char* e2 = nullptr; const unsigned long v = std::strtoul(s, &e2, 10);
+                   if(e2 != s){ sl = v; s = e2; } }
+    t[n].addr.store((uint32_t)a, std::memory_order_relaxed);
+    t[n].slot.store((uint32_t)sl, std::memory_order_relaxed);
+    ++n;
+    while(*s && *s != ',') ++s;
+  }
+  return n;
+}
+inline int vsc_n(){ static const int n = vsc_parse(); return n; }
+
+// <<w115 (DRIVER, at apply time) -- the w114-3 DUMP POLICY the ruling requires before this block
+// flies. The banked w114 diff dumped on CADENCE ONLY, so the first matched sample could sit in
+// memory for up to RT_VSLOTCENSUS_EVERY samples and a sparse target could read NOFILE on a leg it
+// actually fired on. Every leg ends in Stop-Process -Force (TerminateProcess): the static
+// destructor below NEVER runs, so "flush at END" is implemented as KEEP-THE-FILE-CURRENT --
+//   (1) dump on the FIRST matched sample, so NOFILE can only ever mean "no target ever fired";
+//   (2) a wall-clock backstop RT_VSLOTCENSUS_MAXGAP_S (default 30 s) on BOTH the matched and the
+//       dispatch path;  (3) the two cadences the banked diff already had.
+// DISCLOSED RESIDUE: the last < EVERY samples or < MAXGAP seconds before the kill are not on disk
+// -- bounded, and the resolved values are printed in the ARMED banner.
+inline long vsc_maxgap_s(){
+  static const long g = [] {
+    const char* v = std::getenv("RT_VSLOTCENSUS_MAXGAP_S");
+    const long x = v ? std::atol(v) : 0; return x > 0 ? x : 30L;
+  }();
+  return g;
+}
+inline long vsc_every(){
+  static const long e = [] {
+    const char* v = std::getenv("RT_VSLOTCENSUS_EVERY");
+    const long x = v ? std::atol(v) : 0; return x > 0 ? x : 300L;
+  }();
+  return e;
+}
+// true at most once per MAXGAP seconds; steady_clock, so no wall-clock jump can starve it.
+inline bool vsc_gap_due(){
+  static std::atomic<long long> last{0};
+  const long long now = (long long)std::chrono::duration_cast<std::chrono::seconds>(
+      std::chrono::steady_clock::now().time_since_epoch()).count();
+  long long prev = last.load(std::memory_order_relaxed);
+  if(prev == 0){ last.store(now, std::memory_order_relaxed); return true; }   // first sample ever
+  if(now - prev < vsc_maxgap_s()) return false;
+  return last.compare_exchange_strong(prev, now, std::memory_order_relaxed);
+}
+// >>w115
+void vsc_dump(){
+  const char* p = std::getenv("RT_VSLOTCENSUS_OUT");
+  const char* path = p ? p : "C:/tmp/vslotcensus.txt";
+  FILE* fp = std::fopen(path, "w");
+  if(!fp){
+    static std::atomic<long> warned{0};
+    if(warned.fetch_add(1, std::memory_order_relaxed) == 0)
+      std::fprintf(stderr, "[vslotcensus] ** DUMP NOT WRITTEN: fopen(\"%s\") failed "
+                           "(Windows-style path required, e.g. C:/tmp/...)\n", path);
+    return;
+  }
+  VscEntry* t = vsc_tab();
+  const int n = vsc_n();
+  long nb = 0, vb = 0;
+  for(int i=0;i<n;i++){ nb += t[i].null_this.load(std::memory_order_relaxed);
+                        vb += t[i].vt_breach.load(std::memory_order_relaxed); }
+  const long long d = vsc_dispatches().load(std::memory_order_relaxed);
+  const long long m = vsc_matched().load(std::memory_order_relaxed);
+  std::fprintf(fp, "[vslotcensus] dispatch_total=%lld matched=%lld other=%lld targets=%d "
+                   "vtable_breach=%ld this_null_breach=%ld\n", d, m, d-m, n, vb, nb);
+  for(int i=0;i<n;i++){
+    const long c = t[i].calls.load(std::memory_order_relaxed);
+    if(!c) continue;   // a target with calls=0 does not print — what makes an edge-absence
+                       // negctl readable (its line vanishes while the siblings' lines stay)
+    std::fprintf(fp, "[vslottarget] addr=0x%08X slot=%d calls=%ld vtable_breach=%ld "
+                     "this_null_breach=%ld first_lr=0x%08X last_lr=0x%08X first_this=0x%08X "
+                     "last_this=0x%08X first_vt=0x%08X\n",
+      t[i].addr.load(std::memory_order_relaxed),
+      (int)(int32_t)t[i].slot.load(std::memory_order_relaxed), c,
+      t[i].vt_breach.load(std::memory_order_relaxed),
+      t[i].null_this.load(std::memory_order_relaxed),
+      t[i].first_lr.load(std::memory_order_relaxed),
+      t[i].last_lr.load(std::memory_order_relaxed),
+      t[i].first_this.load(std::memory_order_relaxed),
+      t[i].last_this.load(std::memory_order_relaxed),
+      t[i].first_vt.load(std::memory_order_relaxed));
+  }
+  std::fprintf(fp, "# END vslotcensus\n");
+  std::fclose(fp);
+}
+
+inline void vsc_note(PPCContext& ctx, uint8_t* base, uint32_t target){
+  const long long d = vsc_dispatches().fetch_add(1, std::memory_order_relaxed) + 1;
+  VscEntry* t = vsc_tab();
+  const int n = vsc_n();
+  int hit = -1;
+  for(int i=0;i<n;i++) if(t[i].addr.load(std::memory_order_relaxed) == target){ hit = i; break; }
+  if(hit >= 0){
+    VscEntry& e = t[hit];
+    e.calls.fetch_add(1, std::memory_order_relaxed);
+    const long long m = vsc_matched().fetch_add(1, std::memory_order_relaxed) + 1;
+    const uint32_t lr = (uint32_t)ctx.lr, self = ctx.r3.u32;
+    { uint32_t z = 0; e.first_lr.compare_exchange_strong(z, lr, std::memory_order_relaxed); }
+    e.last_lr.store(lr, std::memory_order_relaxed);
+    if(self == 0){
+      e.null_this.fetch_add(1, std::memory_order_relaxed);
+      std::fprintf(stderr, "[vslotcensus] THIS_NULL_BREACH target=0x%08X lr=0x%08X\n", target, lr);
+    } else {
+      { uint32_t z = 0; e.first_this.compare_exchange_strong(z, self, std::memory_order_relaxed); }
+      e.last_this.store(self, std::memory_order_relaxed);
+      const uint32_t vt = (self < 0xF0000000u) ? __builtin_bswap32(*(uint32_t*)(base+self)) : 0u;
+      { uint32_t z = 0; e.first_vt.compare_exchange_strong(z, vt, std::memory_order_relaxed); }
+      const uint32_t slot = e.slot.load(std::memory_order_relaxed);
+      if(slot != VSC_NOSLOT){
+        const uint32_t ea = vt + slot*4u;
+        const uint32_t ent = (vt && vt < 0xF0000000u && ea < 0xF0000000u)
+                           ? __builtin_bswap32(*(uint32_t*)(base+ea)) : 0u;
+        if(ent != target){
+          e.vt_breach.fetch_add(1, std::memory_order_relaxed);
+          std::fprintf(stderr, "[vslotcensus] VTABLE_BREACH target=0x%08X lr=0x%08X this=0x%08X "
+                               "vt=0x%08X slot=%u entry=0x%08X\n", target, lr, self, vt, slot, ent);
+        }
+      }
+    }
+    const long every = vsc_every();                                // <<w115 hoisted into vsc_every()
+    if(m == 1 || (m % every) == 0 || vsc_gap_due()) vsc_dump();   // <<w115 first sample + 30 s backstop
+  }
+  static const long long devery = [] {
+    const char* v = std::getenv("RT_VSLOTCENSUS_EVERY_DISPATCH");
+    const long long x = v ? std::atoll(v) : 0; return x > 0 ? x : 500000LL;
+  }();
+  if((d % devery) == 0 || vsc_gap_due()) vsc_dump();   // <<w115 wall-clock backstop on the dispatch
+                                                      // path too, so a leg on which NO target fires
+                                                      // still keeps dispatch_total current
+}
+
+// ARMED banner at load; FLUSH AT END from the destructor (best effort — see the header).
+struct VscLifecycle {
+  VscLifecycle(){
+    std::fprintf(stderr, "[vslotcensus] ARMED=%d targets=%d every=%ld maxgap=%lds (RT_VSLOTCENSUS %s)\n",
+                 vsc_on() ? 1 : 0, vsc_on() ? vsc_n() : 0,
+                 vsc_on() ? vsc_every() : 0L, vsc_on() ? vsc_maxgap_s() : 0L,   // <<w115 w114-3 banner
+                 vsc_on() ? "set" : "unset — census OFF, pass-through only");
+    std::fflush(stderr);
+  }
+  ~VscLifecycle(){ if(vsc_on()) vsc_dump(); }
+};
+static VscLifecycle g_vsc_lifecycle;
+
 // ── RT_A3EMIT state (see the probe in rt_indirect_call for the full rationale) ───────────────
 // Two spellings of ONE body (arcade 0x881A1428 / abn twin 0x881A1430) x four watched cells.
 // Counters are per (spelling, cell) so the verdict cannot be assembled by hand from a log tail:
@@ -654,6 +881,7 @@ extern "C" void rt_indirect_call(PPCContext& ctx, uint8_t* base, uint32_t target
       }();
       if((c % every) == 0) ic_dump(c);
     }
+    if(vsc_on()) vsc_note(ctx, base, target);   // RT_VSLOTCENSUS: target-keyed vtable-slot census (r23-w114)
     // r26-clobber hunt: the indirect call at ppc_recomp.4.cpp:15012 (sub_8808FDF8, ret
     // lr=0x8808FEE4) is the prime suspect for clobbering non-volatile r26 (game-main fn ptr
     // 0x88168D48) on the real-.data path. Name its target + report if r26 isn't preserved.

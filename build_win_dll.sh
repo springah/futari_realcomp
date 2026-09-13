@@ -421,7 +421,15 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
       # own header records that it reads only owner/state pointers recovered at the sub_88094220
       # hook site and no reco_normal .data globals of its own -- the same reasoning as the
       # famk1/famk9/famk11/famk12 census cases above.
-      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw|class233_236_draw|actor3pose_draw|objnode_park|objnode_parkcensus|famk1|famk9|pagescene|famk2|famk11|famk12|famk30) continue;; esac
+      # r23-w115 DRIVER STEP 0: famk5 and famk28 join this list. Each TU's own header names
+      # FOURTEEN distinct reco_normal .data anchors that drift +0x60 on the abn image
+      # (gdraft_HANDOFF_famk5_w114.md step 2 / gdraft_HANDOFF_famk28_w114.md step 2), so
+      # without these two names the abn arm links them unexcluded and reads the shifted
+      # addresses. famk5census / famk28census are NOT added: their own headers record that
+      # they read only owner/state pointers recovered at their hook sites (famk28census
+      # keeps its ONE .data read behind RT_FAMK28CENSUS_SCENE, set on the reco_normal leg
+      # only) -- the same reasoning as the famk1/famk9/famk11/famk12/famk30 census cases.
+      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw|class233_236_draw|actor3pose_draw|objnode_park|objnode_parkcensus|famk1|famk9|pagescene|famk2|famk11|famk12|famk30|famk5|famk28) continue;; esac
     fi
     cc "decomp_$n" "$f" $GI -I . $RT $MAP
   done
