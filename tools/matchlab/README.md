@@ -319,3 +319,43 @@ manipulating `ctx.rNN`, so there is no natural C++ for 9328 to compile and compa
 The natural end state is the UnleashedRecomp shape: keep the matched natural-C++ body, verify it
 with 9328 + `ppcmatch`, and give it a thin adapter that unpacks the guest register file for the
 recomp host — which is what the C1 "register-file rule" was hand-deriving.
+
+## KNOWN DEFECT (r23-w116/w117, reported by the futari_decomp BYTE-tier lanes)
+
+**Three `Driver_Start` globals are commented at their HA-ADJUSTED addresses, 0x10000 too high.**
+`src/shell_driver_msgs.cpp:156-158` declares
+
+```
+extern u32 g_driverStartGate;       // 0x82208574     <-- really 0x821F8574
+extern u32 g_driverStartedOnce;     // 0x82208578     <-- really 0x821F8578
+extern u32 g_driverStartValue;      // 0x822085B8     <-- really 0x821F85B8
+```
+
+The image itself says otherwise. At `0x821C3280` (this file's own `Driver_Start`, ASM-EXACT here)
+the sequence is `lis r11, 0x8220` / `lwz r11, -0x7A8C(r11)`: the `lis` half is HA-ADJUSTED because
+the displacement is NEGATIVE, so the effective address is `0x82200000 - 0x7A8C = 0x821F8574`, not
+`0x82208574`. Same at `-0x7A88` (0x821F8578) and `-0x7A48` (0x821F85B8). Reading the `lis`
+immediate as the top half of the address without folding the signed displacement back in is the
+whole defect; it is in the COMMENTS only, so nothing here mis-matched — `ppcmatch` MASKS the
+relocated fields, so a wrong address in a comment cannot fail its own gate.
+
+It bites a consumer that RESOLVES relocations instead of masking them. futari_decomp's
+`tools/native/linkcmp.py` links every symbol at its real guest address and compares every word: the
+seven `Driver_Start` clones only closed byte-exact once the three addresses were corrected
+(r23-w116 CONV-B rule R26; all seven then linked IDENTICAL). Evidence, re-derivable in one command
+from the decomp repo:
+
+```
+python tools/native/imgbytes.py 0x821C3280 --dis        # the lis/lwz pairs above
+python tools/native/gen_symmap.py --bridge <obj> Driver_Start 0x821C3280
+```
+
+banked at `bank/r23/w116/convb_RESUME.md` (R26) and `bank/r23/w117/toolsn_m6_matchlab_defect_w117.log`.
+
+**Same class, one address further on:** `src/shell_821C30B8_Driver_Init.cpp:80` comments
+`0x8220857C` for the optional config record; by the same arithmetic that address is `0x821F857C`
+— which the futari_decomp atlas and its CONV-B lane already dispute the ROLE of (sound service vs
+mode records), so only the ADDRESS is claimed here.
+
+No source change is proposed: the comments are the defect, and this note is the fix upstream can
+apply or ignore. Nothing else in this tree was touched by the reporting lane.
