@@ -134,6 +134,8 @@ consecutive ship-nothing legs ⇒ back here for re-ranking, not another leg.
 
 ## FIDELITY DEBTS (post-gate, cheap-ish, attended)
 - **[09-20 CLOSED] FNF-14 NOW LOADING black during loads** — decomp regression (logo_indicator.cpp float pool 0x40 low, 08-14); fixed in futari_decomp + host exe rebuilt; see NOTE_fnf_shell_defects.md 2026-09-20. Owed: user eyes on boot feel + whether in-GAME stage loads also show now.
+- **[09-20 OPEN] FNF-15 TRAINING config panel draws NO rows** (only the tips caption; the dialog is live but invisible). CONTROL-PROVEN readable-C regression in one of eight shell TUs (menu_base_states menunode_states menu_containers options_panel_base options_panel_hooks options_decide_builders training_config textview_draw); eight single-TU control exes built (build/futari_combined_ctl_<arm>.exe) + metric scripts/boss1/panelcheck.py — bisect NOT run (user stop 09-20, pivot to decomp). See NOTE_fnf_shell_defects.md 2026-09-20 FNF-15.
+- **[09-20 PARKED] BOSS 1 HEAD — training route to the boss now WORKS** (scripts/boss1/boss1_drive2.sh, ~2 min, RIGHT on the invisible Stage row + START; NAV_MAP's "fresh card locks stage" was dropped presses). Head verdict and the old-build bisect NOT reached (08-07 exe repeats a held DOWN). Same ledger entry.
 - **[09-06 USER RE-REPORT] BOSS 1 HEAD L/R TEXTURE SWAP — STILL PRESENT.** "boss 1 head still also has the
   defect, left texture on the right and the right texture on the left." First banked r23-w35 (08-24): captures in
   futari_decomp/bank/r23/w35 (not clean plates); first hypothesis class = the mirrored-pair sprite machinery

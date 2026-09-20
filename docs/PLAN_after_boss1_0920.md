@@ -16,6 +16,8 @@ guest-faithful, and the user remembers it correct in an earlier build ⇒ a port
 3. Root-cause, fix, verify with the same instruments, ledger it in NOTE_fnf_shell_defects.md, close
    the BACKLOG FIDELITY DEBT line, memory update. Owed to user eyes: the fixed head on their build.
 
+**STATUS 09-20 21:40 (USER STOP — "bank and pivot back to decomp"):** Phase 0 step 1 DONE (route works, scripts/boss1/); step 2 NOT run (old builds need the cursor-tracking driver); step 3 open. New defect FNF-15 (training panel rows not drawn) found on the way, control-proven readable-C, single-TU arms built, bisect unrun. Both parked in NOTE_fnf_shell_defects.md 2026-09-20 FNF-15. Next lane per the user: DECOMP (Phase 2).
+
 ## Phase 1 — realcomp (attended, small)
 1. **Constant-pool audit tool** (Sonnet-tier, mechanical, HIGHEST YIELD). For every readable-C TU
    in futari_decomp (shell + game): re-derive each `lis/addi(s)/ori`-anchored constant from the

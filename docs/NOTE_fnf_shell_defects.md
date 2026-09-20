@@ -1987,3 +1987,47 @@ the census bank shows **63 `[cbf58]` calls for 12 accepts** — the state advanc
 on re-entries instead of 30, which the `ctr >= 30` gate should forbid unless `task[+0x7C]` is not
 being re-zeroed on a re-entry path. Unchased, low priority, but it is a real inconsistency with
 the law as read. (3) Nothing else in the title scene is unaccounted for.
+
+## 2026-09-20 — ★★★★ FNF-15 (NEW, user-confirmed): TRAINING config panel draws NO rows in the port — a readable-C
+## regression in one of eight shell TUs (control proven); single-TU bisect built, not run (user stop). Boss-1 route works.
+**Symptom.** Hub TRAINING → the training/in-game config panel (object 0x19C, vt 0x82050F00, ctor sub_821966D0,
+training_config.cpp) shows only the tips caption 「ステージを選択します。」 + ⬅➡:選択 START:開始 B:戻る. The 360 draws the
+"Training" dialog above it: Stage / Mode / Character / Shot Power / Bomb Stock / Player Stock / Total Counter / Stage
+Counter / Survival Rank / Start Training / EXIT. Pilot frame: futari_decomp/bank/r23/attended_0920/fnf15/
+pilot_tr5_f4140_panel_rows_missing.png. The panel IS live (invisible): RIGHT moves the Stage row, START launches.
+**Markers (pilot AND control identical):** [tstate] 96660(load)#1 → 95AB0(commit)#1..4, never BE500(ACTIVE) — the
+opener parks the panel INTERACTIVE straight after the first stateBuild frame (no slide-in), then START → [dclose]
+slide-out kind=15. So the state ring is not the difference; the drawing of the built row views is.
+**Control (build/futari_combined_ctlshell.exe = host build with DECOMP_SKIP="menu_base_states menunode_states
+menu_containers options_panel_base options_panel_hooks options_decide_builders training_config textview_draw"):** the
+whole dialog draws (frame f4080 viewed: title Training, Stage = Stage 1 ▸, Mode Original, Character Reco/Normal, Shot
+Power / Bomb Stock Stage Default, Player Stock ◂3▸, counters 0, Survival Rank Stage Default, Start Training 1P Side,
+EXIT). Markers banked (control_ctlpanel_markers.txt); the frame file was lost — see landmine 1 below.
+⇒ **FNF-15 = readable-C regression inside those eight TUs.** Prior: menu_base_states.cpp (stateBuild sub_821B6D20
+builds the row textViews and clears V_HIDDEN; stateSlideIn is the only un-hider of the container) or textview_draw.cpp.
+**Bisect prepared, NOT run:** eight single-TU control exes (each reverts ONE TU): build/futari_combined_ctl_{mbs,tvd,
+opb,oph,mns,mct,odb,tcf}.exe (mbs=menu_base_states tvd=textview_draw opb=options_panel_base oph=options_panel_hooks
+mns=menunode_states mct=menu_containers odb=options_decide_builders tcf=training_config), built by
+scripts/boss1/build_host_ctlarm.sh (ARM=<tag> DECOMP_SKIP=<tu>). Verdict metric: scripts/boss1/panelcheck.py <run>
+(black-pixel fraction of the panel box on the frames dumped between load and dclose: pilot 0.015 = ROWS MISSING;
+drawn dialog ⇒ > 0.5). Driver: scripts/boss1/boss1_drive2.sh (ROUTE=training NRIGHT=0 DUR=12, BIN=<arm exe>); chain
+= scripts/boss1/chain1.sh. The whole-shell-revert arm (ctlsh1/ctlsh2) is NOT usable as a control: it boots ~4× slower
+and the nav lib's fixed waits misfire on it.
+**Boss-1 route (Phase 0 of PLAN_after_boss1_0920.md) — WORKS, head verdict NOT reached:** marker-gated driver
+(press → wait for its marker → re-press; hub DOWN tracked by [mcur]) reached the stage-1 boss on the shipped exe at
+~f10200, ~100 s after START (bank tr5: pilot_tr5_sheet.png, pilot_tr5_boss_head_strip.png, pilot_tr5_markers.txt).
+NAV_MAP's "LEFT/RIGHT changes NOTHING on a fresh card" is WRONG: the Stage row is a kind-3 choice list of 10 entries
+(training_config.cpp kRowsB[0], kStage10), the base clamp is [0, n) (options_panel_base.cpp loc_821B574C), the value
+lands in rec@368/369 (options_decide_builders.cpp sub_82196358 case 0) and onDecide maps it through kStageLut — no
+save gate. The earlier "no effect" runs were DROPPED PRESSES: a 0.15–0.2 s hold falls inside a frame stall when the
+[nvkrect]/[nvkdbg] vertex census dumps (RT_NVKVTXALL) fire on that frame ⇒ new harness lever RT_NVKDBGFROM=<frame>
+(render/vk_render.cpp) defers the census until the stage. Old-build bisect (08-07 / 08-14 / 08-27 exes) NOT done:
+the 08-07 exe turns one 0.15 s DOWN into six cursor moves (different pad repeat), the cursor-tracking hub_row that
+handles it was written but unrun. Training death shows a RESUME/RESTART overlay and loops at the boss (useful).
+**Landmines (new, 09-20 evening):** (1) NEVER edit a bash driver while a run is executing it — bash reads scripts
+incrementally; the ctlpanel run lost its banking tail. (2) TaskStop on a background chain does NOT kill the child
+driver/exe — two instances then share the pad FIFO and log (user saw "2 instances"); kill by pid + Stop-Process
+futari*. (3) The Bash tool caps at 10 min: long chains must be `nohup … & disown` with their own log. (4) Menu key
+repeat = 20-frame delay then every 3 frames (stateBuild's pad reconfig, DO-NOT-FIX 8): any hold ≥ 0.33 s overshoots.
+**USER STOP 21:40:** "not sure you're understanding the training menu, boss 1 selection, etc at all. please stop."
++ "bank and pivot back to decomp." Both items PARKED here with their tooling; nothing fixed; no renderer change.

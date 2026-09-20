@@ -43,10 +43,10 @@ log-only probe could not resolve this branch: **no `[mcur]` fires on its first s
 marker-driven driver sees "not a list screen" and learns nothing. The flow is:
   A on TRAINING ...... caption 「トレーニングをプレイします。」 -> **STAGE SELECT**
   STAGE SELECT ....... caption 「ステージを選択します。」, controls ⬅➡:選択 START:開始 B:戻る.
-    ⚠ LEFT/RIGHT (pad 4/8) changes NOTHING on a `save_freshcard` card — only the reached stage is
-      offered, so a fresh card gives stage 1 and nothing else. A save with progress is the
-      prerequisite for practising a later stage (and savegame.bin has no checksum, so a poke leg
-      is the cheap way there — see [[poke-the-save-before-hand-rolling]]).
+    ⚠ CORRECTED 09-20: RIGHT DOES move the Stage row (kind-3 choice list of 10: Stage 1, Stage 1 Boss, …,
+      Stage 5 Boss; no save gate — decomp training_config.cpp/options_panel_base.cpp). The 08-15 "changes
+      NOTHING" was a DROPPED PRESS (frame stall). RIGHT×1 + START reached the stage-1 boss in ~100 s
+      (scripts/boss1/boss1_drive2.sh ROUTE=training NRIGHT=1). The rows are INVISIBLE in the port = FNF-15.
   START .............. -> MODE SELECT (Original/Maniac/Ultra, 48-count) -> A -> char -> shot -> STAGE
   ⚠ TRAINING GIVES NO INVINCIBILITY: an idle ship dies and the run ends in the ordinary NORMAL
     PLAY game-over flow (replay-save prompt 「リプレイを保存しますか?」, B declines). So training

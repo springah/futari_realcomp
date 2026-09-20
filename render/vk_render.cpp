@@ -10975,7 +10975,11 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
   // it sweeps every 100-frame phase thereafter. 0 silences the censuses. Unset = 600 = byte-
   // identical to leg 9.
   static long dbgEvery = std::getenv("RT_NVKDBGEVERY") ? std::atol(std::getenv("RT_NVKDBGEVERY")) : 600;
-  auto dbgTick = [&]() { return dbgEvery > 0 && (nf->frame % dbgEvery) == 0; };
+  // RT_NVKDBGFROM=<frame> (2026-09-20 boss-1 head lane, HARNESS-ONLY): the [nvkrect] lever is capped at 6000
+  // lines for the whole session and a 600-frame cadence spends them on the shell/early stage before a
+  // deep encounter (boss 1 at ~t+360 s) is reached. Censuses stay silent until this frame. Unset = 0.
+  static long dbgFrom = std::getenv("RT_NVKDBGFROM") ? std::atol(std::getenv("RT_NVKDBGFROM")) : 0;
+  auto dbgTick = [&]() { return dbgEvery > 0 && nf->frame >= dbgFrom && (nf->frame % dbgEvery) == 0; };
   static const char* resOnly = std::getenv("RT_NVKRESONLY");   // hex surface base; unset = all
   static uint32_t resOnlyBase = resOnly ? (uint32_t)std::strtoul(resOnly, nullptr, 16) : 0u;
   static bool carryClear = false; static uint32_t carryClearColor = 0;   // resolve clear-after with no draws behind it
