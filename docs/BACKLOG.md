@@ -131,6 +131,7 @@ consecutive ship-nothing legs ⇒ back here for re-ranking, not another leg.
    resumed. Optional next: device-recreate instead of exit (bigger, attended).
 
 ## FIDELITY DEBTS (post-gate, cheap-ish, attended)
+- **[09-20 CLOSED] FNF-14 NOW LOADING black during loads** — decomp regression (logo_indicator.cpp float pool 0x40 low, 08-14); fixed in futari_decomp + host exe rebuilt; see NOTE_fnf_shell_defects.md 2026-09-20. Owed: user eyes on boot feel + whether in-GAME stage loads also show now.
 - **[09-06 USER RE-REPORT] BOSS 1 HEAD L/R TEXTURE SWAP — STILL PRESENT.** "boss 1 head still also has the
   defect, left texture on the right and the right texture on the left." First banked r23-w35 (08-24): captures in
   futari_decomp/bank/r23/w35 (not clean plates); first hypothesis class = the mirrored-pair sprite machinery

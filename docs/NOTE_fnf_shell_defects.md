@@ -24,6 +24,49 @@ lying until positive-controlled, texel-diff acceptance.
   Measure (a)/(b)/(c) above discriminates these: if the task ticks AND draws but the frame is black → compose/
   present; if it ticks but does not draw → gate flag; if it never ticks → scheduling.
 
+## 2026-09-20 — ★★★★★ FNF-14 CLOSED: NOW LOADING black screen = a 0x40-LOW FLOAT POOL in the readable-C
+## logo/indicator TU (decomp regression, 08-14), NOT a compose defect. Fix = six constants. Logos fade again too.
+**Attended realcomp day (user pick: FNF-14 first, unattended measurement). Measure-first plan (a)/(b) executed on the
+shipped build/futari_combined.exe (Sep 13):**
+- RT_LOADPROBE2: guest lifecycle intact — SHOW at t=0 (lr 0x821CD478), HIDE at t=1.5–1.8 s (lr 0x821CE504, root
+  boot-wait). No watchdog hide. Same as the 07-28 measurement.
+- RT_NVKPNG=2 frame dumps (display-independent; PrintWindow cannot see the window from this harness — `no window`):
+  EVERY frame f2..f236 mean luma 0.00; positive control = CAVE logo frames at 253.29. The load phase is black on glass.
+- RT_NVK=1 trace: the guest DOES emit the overlay — 13 textured quads/frame from f12 (atlas 0x1810000, prim 5, n=4, st 24).
+- RT_NVKDBG=1 RT_NVKDBGEVERY=5: the renderer DOES batch them (SEG [0,13) on the display target) — but every vertex
+  colour is 00FFFFFF: **alpha 0**. Not a compose/persist class (suspect 1 REFUTED); the element is drawn transparent.
+- RT_LOADPROBE: elem0(+0x5C) hide=0 colorFC=0x80808000 (alpha=0) for the whole window, then hide=1 at alpha 0. On 07-28
+  the same probe read a full 8→255→0 ramp. **The per-frame ramp stopped ramping between 07-28 and now.**
+- RT_D1PROBE + RT_UPCANARY: sub_821CD120 (Indicator_AlphaRamp, readable C in futari_decomp decomp/shell/
+  logo_indicator.cpp) IS called every frame (cd120 #74 by the hide), ind+71=1, ind+78 stays 0.000. The body runs and adds
+  nothing ⇒ the STEP it reads is ~0.
+**ROOT CAUSE (script-verified, not inferred):** the generated body materialises its float pool as `lis r11,-32251 ;
+addi r11,r11,-2064` = 0x82050000 − 0x810 = **0x8204F7F0**. The 08-14 TU header claimed "real pool base 0x8204F7B0"
+(0x40 low — the SAME shift class commit e127c14 fixed on 08-15 for Logo_Build's four name keys, but never for the six
+float constants). default.img.bin at the TU's addresses: F_FADESTEP 0x8204F838 = **2.3e-10** (real 0x8204F878 = 1/60),
+F_ALPHASCALE 0x8204F868 = 296.0 (real 0x8204F8A8 = 255.0), F_LOGOSCALE 0x8204F8D4 = 40.0 (real 0x8204F914 = 128.0), clip
+window 0.0/−1.0/4.0 (real 0x8204F864/68/6C = 384/296/256). So the indicator alpha grew by 2.3e-10 per frame: never
+visible. The logo FSM used the same step ⇒ logos popped instead of fading (this fix restores their 60-frame ramps).
+Every other shell TU that touches this pool anchors it at 0x8204F7F0 (menu_base_states FTAB, options_panel_base,
+options_maniac_hub, psb_core) — isolated to logo_indicator.cpp.
+**FIX (futari_decomp, decomp/shell/logo_indicator.cpp):** the six F_* constants moved +0x40 to the lis/addi-derived
+addresses; the Logo_Build +56 read (−1.0f no-clip x1/y1), which the 08-15 fix had aliased to F_CLIP_END only because
+the wrong base happened to land on 0x8204F828, gets its own F_NOCLIP = 0x8204F828. Registry provenance (0x821CD120) and
+NOTE_logo_indicator_naturalization.md carry the correction. No renderer change. Host exe rebuilt (host-only stage of
+build_win_dll.sh; module DLLs untouched — shell-only TU).
+**VERIFIED (same instruments, rebuilt exe):** RT_LOADPROBE elem0 alpha 51→102→148→199→237→254→255 (hold) → after HIDE
+233→165→106→38→0 then hide=1 (the authentic 07-28 lifecycle). Frame dumps: f20–f100 lit (Now Loading ··· + ring
+cluster, bottom-right, /c/tmp/fnf14/g/png/nvk_f60.png), CAVE fade-in f100→f160 (8→253, 60 frames), hold, fade-out
+f280→f340, M2 fade-in f350→f410, hold, fade-out f530→f590, title f600→f660. Both boots' hide timing unchanged (1.56/1.81 s).
+**OPEN / user eyes:** (1) the boot overlay now shows for ≈1.5 s + 1 s fade-out because the port loads fast — on the 360
+it holds longer; that is a FEEL question (epozzobon: pacing is authentic, no artificial hold without a ruling). (2) The
+user said "ANY of the now loading" — stage-transition loads inside the GAME module were not measured today; if they are
+still black, that is a separate path (game-module loader), re-measure with the same ladder. (3) The 08-15 commit's
+verification ("CAVE f285-330") was taken with the wrong step — its timings are superseded by the ones above.
+**Harness notes:** Git-Bash `sed -i` strips CR from CRLF files (re-add with `sed 's/$//'` or edit via python bytes);
+`taskkill //F` under MSYS_NO_PATHCONV=1 is NOT converted — use PowerShell Stop-Process; the MSVC INCLUDE env must be
+sourced (bank/r23/w30/w30_toolchain_env.sh) before build_win_dll.sh or every TU fails on <cstdint>.
+
 ## 2026-07-31 — ★★★★★ RANKING SQUARE: THE DROP-SHADOW RING IS **EXONERATED**; the square lives
 ## INSIDE THE ROM'S OWN RENDER TARGET (all four handed hypotheses falsified)
 
