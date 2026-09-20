@@ -28,6 +28,8 @@ consecutive ship-nothing legs ⇒ back here for re-ranking, not another leg.
   classes lurk behind the same seam. Related: ~21 dirty XACT packets/attract (same freed-state
   family, see the audio lane notes).
 
+## 2026-09-20 — POST-FIX PLAN ratified by the user: docs/PLAN_after_boss1_0920.md (Phase 0 boss-1 head bisect · Phase 1 constant-pool audit tool + boss plate gate + parked debts · Phase 2 decomp slate w130 / Opus items / rulings owed).
+
 ## NOW — the gate path (menus/shell → F&F build)
 
 0. **SHELL COMPOSE 1:1 (decomp-grounded) — THE flicker lane (re-rank 07-28 ~02:05).**
