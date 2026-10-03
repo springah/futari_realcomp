@@ -1639,11 +1639,16 @@ extern "C" void rt_audio_submit(uint8_t* base, uint32_t samples_ptr){
   }
 
   if(live){
-#ifdef _WIN32
+    // The SDL3 sink is the default on EVERY platform (CoreAudio on macOS, PulseAudio/PipeWire on
+    // Linux, WASAPI inside SDL on Windows); only the legacy hand-rolled WASAPI revert arm is
+    // Windows-only. Until 2026-10-03 this whole block sat under #ifdef _WIN32, so the macOS/Linux
+    // builds printed "no live backend" and were silent even for PCM BGM.
     static std::once_flag once;
     std::call_once(once,[](){
-      if(rt_sink_wasapi()) std::thread(rt_audio_wasapi_thread).detach();  // legacy revert arm
-      else                 rt_audio_sdl_start();                          // default: SDK-parity SDL3
+#ifdef _WIN32
+      if(rt_sink_wasapi()){ std::thread(rt_audio_wasapi_thread).detach(); return; }  // legacy revert arm
+#endif
+      rt_audio_sdl_start();                                                            // default: SDK-parity SDL3
     });
     uint32_t wr = g_ring_wr.load(std::memory_order_relaxed);
     if(wr - g_ring_rd.load(std::memory_order_acquire) >= (uint32_t)kRingFrames){
@@ -1652,10 +1657,6 @@ extern "C" void rt_audio_submit(uint8_t* base, uint32_t samples_ptr){
       std::memcpy(g_ring[wr % kRingFrames], st, sizeof st);
       g_ring_wr.store(wr+1, std::memory_order_release);
     }
-#else
-    static bool warned=false;
-    if(!warned){ warned=true; std::fprintf(stderr,"[audio] RT_AUDIO: no live backend on this platform yet (dump still works)\n"); }
-#endif
   }
 }
 

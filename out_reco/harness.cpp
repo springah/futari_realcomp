@@ -23,6 +23,7 @@
 #include <csignal>
 #include <execinfo.h>
 #include <sys/mman.h>
+#include <unistd.h>   // alarm/usleep/_exit (macOS libc++ does not pull it in transitively)
 #endif
 #ifdef _WIN32
 // C23 round-half-to-even the recompiler emits (glibc has it; MSVC UCRT does not).
@@ -348,8 +349,11 @@ int main(int argc,char**argv){
     // known-good standalone behavior) -- arm the SIGALRM hang-sampler exactly as shell/gen
     // harness.cpp does (alarm(6) before the call) so RT_SAMPLES watchdog fires and we get a
     // backtrace + clean _exit(42) instead of hanging forever.
+    // RT_SAMPLES=0 = ATTENDED session (scripts/run_mac.sh): no alarm at all, the window's close
+    // button ends the run. Before this the only way to run the shell for longer than ~22 s on a
+    // POSIX host was an absurd sample count printing a backtrace every 4 s.
     { const char* se=getenv("RT_SAMPLES"); g_samples_left=se?atoi(se):5; }
-    alarm(6);
+    if(!(getenv("RT_SAMPLES") && std::strcmp(getenv("RT_SAMPLES"),"0")==0)) alarm(6);
     sfn(ctx,base);
     std::fprintf(stderr,"\n[boot-shell] RETURNED. imports=%ld r3=0x%llx\n",g_import_calls.load(),(unsigned long long)ctx.r3.u64);
     return 0;

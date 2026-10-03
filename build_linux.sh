@@ -14,7 +14,8 @@
 # breakage without a Mac in the loop. Since 2026-10-03 the on-screen window (RVK_WINDOW), the
 # Vulkan surface and host controllers come from SDL3 on this build (Win32 + XInput stay on
 # Windows); host keyboard (RT_PAD_HOST) is the pre-existing X11 XQueryKeymap poller. What is
-# NOT here yet: the xWMA decoder (Media Foundation DMO; rt_xwma reports "no host decoder backend").
+# xWMA host decoder: add -DRT_XWMA_AVCODEC + libavcodec/libavutil (see build_mac.sh) to compile the
+# libavcodec arm; without it rt_xwma reports "no host decoder backend" (only the bridge/A-B arms need it).
 #
 # Dependencies (all under external/, gitignored — see README "external/"):
 #   external/xr-derisk           XenonRecomp checkout (XenonUtils + simde) built with

@@ -322,6 +322,86 @@ static int rx_dmo_decode(const uint8_t* packets, size_t bytes,
 }
 #endif // _WIN32
 
+// ---------------------------------------------------------------- WMAudio2 decode (libavcodec, non-Windows)
+// Same contract as rx_dmo_decode above, same codec (ff_wmav2 IS what the SDK oracle route used),
+// fed the same raw nBlockAlign-sized packets with the same 6-byte WMAUDIO2 extradata libavformat's
+// xwma demuxer synthesizes for container-less xWMA (flags2=31 at bytes 4..5; the DMO arm's 10-byte
+// tail carries the identical word). Compiled in when the build passes -DRT_XWMA_AVCODEC (build_mac.sh
+// does when Homebrew ffmpeg is present); otherwise the "no host decoder backend" stub below stands.
+#if !defined(_WIN32) && defined(RT_XWMA_AVCODEC)
+extern "C" {
+#include <libavcodec/avcodec.h>
+#include <libavutil/channel_layout.h>
+#include <libavutil/mem.h>
+#include <libavutil/error.h>
+#include <libavutil/log.h>
+}
+static int rx_av_decode(const uint8_t* packets, size_t bytes,
+                        int chans, int rate, int blockAlign, int avgBytes,
+                        std::vector<int16_t>& out, char* err, size_t errsz){
+  auto fail=[&](const char* what, int rc)->int{
+    if(err){ char eb[96]={0}; if(rc) av_strerror(rc,eb,sizeof eb);
+             std::snprintf(err,errsz,"%s rc=%d%s%s",what,rc,eb[0]?" ":"",eb); }
+    return -1;
+  };
+  if(blockAlign<=0 || bytes<(size_t)blockAlign) return fail("no packets",0);
+  av_log_set_level(AV_LOG_ERROR);   // mute "Could not update timestamps for skipped samples" (no pts on raw packets)
+  const AVCodec* codec = avcodec_find_decoder(AV_CODEC_ID_WMAV2);
+  if(!codec) return fail("libavcodec has no wmav2 decoder",0);
+  AVCodecContext* c = avcodec_alloc_context3(codec);
+  if(!c) return fail("avcodec_alloc_context3",0);
+  c->sample_rate = rate; c->block_align = blockAlign; c->bit_rate = (int64_t)avgBytes*8;
+  av_channel_layout_default(&c->ch_layout, chans);
+  c->extradata = (uint8_t*)av_mallocz(6 + AV_INPUT_BUFFER_PADDING_SIZE);
+  c->extradata_size = 6; c->extradata[4] = 31;   // flags2: exp-VLC + bit reservoir + variable block len
+  int rc = avcodec_open2(c, codec, nullptr);
+  if(rc<0){ avcodec_free_context(&c); return fail("avcodec_open2",rc); }
+  AVPacket* pkt = av_packet_alloc(); AVFrame* fr = av_frame_alloc();
+  std::vector<uint8_t> padded((size_t)blockAlign + AV_INPUT_BUFFER_PADDING_SIZE);   // libavcodec wants padded input
+  auto drain=[&](void)->int{
+    for(;;){
+      int r = avcodec_receive_frame(c, fr);
+      if(r==AVERROR(EAGAIN) || r==AVERROR_EOF) return 0;
+      if(r<0) return r;
+      const int n = fr->nb_samples, nch = fr->ch_layout.nb_channels;
+      const size_t base = out.size(); out.resize(base + (size_t)n*nch);
+      if(fr->format==AV_SAMPLE_FMT_FLTP){                      // what ff_wmav2 emits
+        for(int ch=0; ch<nch; ch++){ const float* s=(const float*)fr->extended_data[ch];
+          for(int i=0;i<n;i++){ float v=s[i]*32767.f; v = v>32767.f?32767.f:(v<-32768.f?-32768.f:v);
+                                out[base+(size_t)i*nch+ch]=(int16_t)lrintf(v); } }
+      } else if(fr->format==AV_SAMPLE_FMT_S16){ std::memcpy(&out[base], fr->data[0], (size_t)n*nch*2); }
+      else if(fr->format==AV_SAMPLE_FMT_S16P){
+        for(int ch=0; ch<nch; ch++){ const int16_t* s=(const int16_t*)fr->extended_data[ch];
+          for(int i=0;i<n;i++) out[base+(size_t)i*nch+ch]=s[i]; }
+      } else { av_frame_unref(fr); return AVERROR(ENOTSUP); }
+      av_frame_unref(fr);
+    }
+  };
+  int bad=0; size_t packets_in=0;
+  for(size_t off=0; off+(size_t)blockAlign<=bytes; off+=(size_t)blockAlign){
+    std::memcpy(padded.data(), packets+off, (size_t)blockAlign);
+    std::memset(padded.data()+blockAlign, 0, AV_INPUT_BUFFER_PADDING_SIZE);
+    pkt->data = padded.data(); pkt->size = blockAlign;
+    rc = avcodec_send_packet(c, pkt);
+    if(rc<0){ bad=rc; break; }
+    packets_in++;
+    rc = drain(); if(rc<0){ bad=rc; break; }
+  }
+  if(!bad){ avcodec_send_packet(c, nullptr); rc = drain(); if(rc<0) bad=rc; }   // flush
+  pkt->data=nullptr; pkt->size=0;
+  av_frame_free(&fr); av_packet_free(&pkt); avcodec_free_context(&c);
+  if(bad) return fail("decode",bad);
+  if(out.empty()) return fail("decoder produced 0 samples",0);
+  (void)packets_in;
+  return 0;
+}
+#define rx_dmo_decode rx_av_decode   // the entry decoder below is backend-agnostic from here on
+#define RT_XWMA_HAVE_BACKEND 1
+#endif
+#ifdef _WIN32
+#define RT_XWMA_HAVE_BACKEND 1
+#endif
+
 // Decode one .xwb entry. On success *outPcm is a malloc'd interleaved LE PCM16 block of
 // (*outFrames * *outChans) samples at the bank's NATIVE rate (44100 for SE/VOICE, 48000 for
 // SYS_SE) — no resampling here; the consumer decides (the guest has per-voice resamplers, the
@@ -334,8 +414,8 @@ extern "C" int rt_xwma_decode_xwb_entry(const char* path, int waveIdx,
   if(rt_xwb_read_entry(path,waveIdx,&e)!=0) return -1;
   if(e.tag!=3){ std::fprintf(stderr,"[xwma] %s entry %d is tag=%d (not xWMA)\n",path,waveIdx,e.tag); return -2; }
   if(e.chans<1 || e.chans>2 || e.play_len==0) return -3;
-#ifndef _WIN32
-  std::fprintf(stderr,"[xwma] no host decoder backend on this platform\n");
+#ifndef RT_XWMA_HAVE_BACKEND
+  std::fprintf(stderr,"[xwma] no host decoder backend on this platform (build with -DRT_XWMA_AVCODEC + libavcodec)\n");
   return -9;
 #else
   std::vector<uint8_t> raw(e.play_len);

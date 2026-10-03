@@ -686,6 +686,10 @@ static uint16_t syn_buttons_now(){
 #include "win_compat.h"
 #else
 #include <dlfcn.h>
+// SDL-window arm (macOS; Linux under RVK_WINDOW too): the renderer's main-thread event pump owns the
+// keyboard and keeps the pad word (render/vk_render.cpp). Weak so the standalone shell / module
+// builds that carry no renderer still link and fall through to the X11 poller below.
+extern "C" uint16_t rvk_sdl_host_buttons(void) __attribute__((weak));
 #endif
 #include <thread>
 static std::atomic<uint16_t> g_host_buttons{0};
@@ -714,6 +718,18 @@ static void rt_host_poll_thread(){
     std::this_thread::sleep_for(std::chrono::milliseconds(4));
   }
 #else
+  if(getenv("RVK_WINDOW") && rvk_sdl_host_buttons){
+    std::fprintf(stderr,"[padhost] ACTIVE via the SDL window (focus it) -- arrows+ZXCV+Enter+RShift (Esc ignored)\n");
+    for(;;){
+      uint16_t b=rvk_sdl_host_buttons();
+      g_host_buttons.store(b,std::memory_order_relaxed);
+      int16_t lx=0,ly=0;                       // arrows also drive the left stick, full deflection
+      if(b&0x0004) lx=-32767; else if(b&0x0008) lx=32767;
+      if(b&0x0001) ly=32767;  else if(b&0x0002) ly=-32767;   // XInput Y is up-positive
+      g_host_lx.store(lx,std::memory_order_relaxed); g_host_ly.store(ly,std::memory_order_relaxed);
+      std::this_thread::sleep_for(std::chrono::milliseconds(4));
+    }
+  }
   typedef void* (*XOpenDisplay_t)(const char*);
   typedef int   (*XQueryKeymap_t)(void*, char[32]);
   typedef unsigned char (*XKeysymToKeycode_t)(void*, unsigned long);

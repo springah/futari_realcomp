@@ -4568,7 +4568,35 @@ static void rvkToggleFullscreenSdl() {
   int w = 0, h = 0; SDL_GetWindowSizeInPixels(gw.sdlWin, &w, &h);
   std::fprintf(stderr, fs ? "[rvk][win] F11 -> fullscreen %dx%d\n" : "[rvk][win] F11 -> windowed\n", w, h);
 }
+// Host keyboard -> guest pad word (non-Windows). The pump owns SDL's keyboard, so the SDL arm of
+// shell/gen/stubs.cpp's RT_PAD_HOST poller reads this word (rvk_sdl_host_buttons) instead of X11's
+// XQueryKeymap, which does not exist on macOS. Same map as the Win32/X11 arms: arrows = D-pad (+ full
+// left stick, done by the poller), Z=A X=B C=X V=Y, Enter=START, RShift=BACK; Esc unmapped. Scancodes
+// are physical keys, so the map is layout-independent. Focus loss clears it (no stuck keys).
+static std::atomic<uint16_t> g_sdlHostKeys{0};
+extern "C" uint16_t rvk_sdl_host_buttons(void) { return g_sdlHostKeys.load(std::memory_order_relaxed); }
+static uint16_t rvkSdlKeyBit(SDL_Scancode sc) {
+  switch (sc) {
+    case SDL_SCANCODE_UP: return 0x0001;    case SDL_SCANCODE_DOWN: return 0x0002;
+    case SDL_SCANCODE_LEFT: return 0x0004;  case SDL_SCANCODE_RIGHT: return 0x0008;
+    case SDL_SCANCODE_RETURN: case SDL_SCANCODE_KP_ENTER: return 0x0010;
+    case SDL_SCANCODE_RSHIFT: return 0x0020;
+    case SDL_SCANCODE_Z: return 0x1000;     case SDL_SCANCODE_X: return 0x2000;
+    case SDL_SCANCODE_C: return 0x4000;     case SDL_SCANCODE_V: return 0x8000;
+    default: return 0;
+  }
+}
 static void rvkHandleSdlEvent(const SDL_Event& ev) {
+  if ((ev.type == SDL_EVENT_KEY_DOWN || ev.type == SDL_EVENT_KEY_UP) && !ev.key.repeat) {
+    if (uint16_t bit = rvkSdlKeyBit(ev.key.scancode)) {
+      if (ev.type == SDL_EVENT_KEY_DOWN) g_sdlHostKeys.fetch_or(bit, std::memory_order_relaxed);
+      else                               g_sdlHostKeys.fetch_and((uint16_t)~bit, std::memory_order_relaxed);
+      static int traced = 0;   // first 16 mapped edges: proves the host->pump->poller path on a new platform
+      if (traced < 16) { traced++; std::fprintf(stderr, "[rvk][win] key %s %s -> pad 0x%04X (word 0x%04X)\n",
+        SDL_GetScancodeName(ev.key.scancode), ev.type == SDL_EVENT_KEY_DOWN ? "down" : "up", bit, g_sdlHostKeys.load()); }
+    }
+  }
+  if (ev.type == SDL_EVENT_WINDOW_FOCUS_LOST) g_sdlHostKeys.store(0, std::memory_order_relaxed);
   if (ev.type == SDL_EVENT_KEY_DOWN && ev.key.scancode == SDL_SCANCODE_F11 && !ev.key.repeat) {
     static bool off = std::getenv("RVK_NOF11") && atoi(std::getenv("RVK_NOF11")) != 0;
     if (!off) rvkToggleFullscreenSdl();

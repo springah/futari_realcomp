@@ -54,8 +54,9 @@ GPU surface and the audio device is the same code. It builds the combined execut
 `build/futari_merged`. On this build SDL3 provides the on-screen window and Vulkan surface
 (`RVK_WINDOW`, F11 fullscreen, close-to-quit — same levers as Windows) and the host controllers
 (the XInput slot; `RT_NOXINPUT` disables); host keyboard (`RT_PAD_HOST`) is the X11 keymap
-poller. Windows keeps its Win32 window and XInput untouched. Still missing here: the xWMA
-decoder. This is **not** the shipping recipe; `build_win.sh` is.
+poller, or the SDL window's own keys under `RVK_WINDOW`. Windows keeps its Win32 window and XInput
+untouched. The SDL3 audio sink runs here too (since 2026-10-03; before that the live sink was
+Windows-only). This is **not** the shipping recipe; `build_win.sh` is.
 
 The SDL window path has a standalone smoke test that needs no game data (Xvfb + Mesa llvmpipe
 is enough): see the `RVK_SDL_SMOKE` block at the end of `render/vk_render.cpp` for the one-line
@@ -82,10 +83,20 @@ creates goes under `_local/saves/` — set `RT_SAVE=_local/saves/save_<tag>` (co
 ## Building (macOS)
 
 `build_mac.sh` is the macOS counterpart (arm64, Homebrew llvm + molten-vk + vulkan-headers, SDL3
-shared). It was written on the Linux proving ground and has **not yet run on a Mac**; the
-bring-up map, the three macOS-specific designs (main-thread window, duplicate-symbol merge
-without `--allow-multiple-definition`, MoltenVK plumbing) and the first-five-minutes recipe are in
-`docs/PLAN_macos_bringup.md`.
+shared) and **builds and boots the shell to the title screen on an M3 Max (2026-10-03)**. The
+four macOS-specific designs (main-thread window, duplicate-symbol merge without
+`--allow-multiple-definition`, MoltenVK plumbing, and the weak-stub rewrite of the
+`__attribute__((alias))` lines Mach-O cannot take), the recipe, and what is still open are in
+`docs/PLAN_macos_bringup.md`. `scripts/run_mac.sh` is the attended-session drive: keyboard
+(arrows, Z=A, X=B, C=X, V=Y, Enter=START, RShift=BACK) and SDL controllers, sound through the SDL3
+CoreAudio sink, saves under `_local/saves/save_mac/`. Compressed xWMA banks decode through
+libavcodec when Homebrew `ffmpeg` is installed (only the bridge/A-B arms use it).
+
+```bash
+bash build_mac.sh            # combined executable, build/futari_merged (~50 s on an M3 Max)
+LINK_ONLY=1 bash build_mac.sh
+bash scripts/run_mac.sh      # boot the shell in a window
+```
 
 ## Documentation
 

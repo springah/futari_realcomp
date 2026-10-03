@@ -3382,6 +3382,48 @@ PPC_FUNC(sub_82195AB0){
   uint32_t m=ctx.r3.u32; uint32_t vt=m?PPC_LOAD_U32(m):0;
   if(vt==0x82050F00u) g_rt_menu_heartbeat++;   // training panel on-screen (commit)
   if(i<=4) std::fprintf(stderr,"[tstate] 95AB0(commit)#%ld model=0x%X vt=0x%X\n",i,m,vt);
+  // FNF-15 DIFFERENTIAL SNAPSHOT (2026-10-03, HARNESS-ONLY): RT_FNF15DUMP=<file> writes guest
+  // [0x00300000,0x02800000) the first time the TRAINING panel (vt 0x82050F00) reaches commit --
+  // i.e. right after its stateBuild (sub_821B6D20) ran. Taken on the readable build and on the
+  // generated-stateBuild control arm, the two images diff to exactly what the readable body
+  // writes differently (scripts/boss1/fnf15_funcbisect_mac.sh named the function; both reads
+  // of its text came back "clean"). Default off; no behaviour change.
+  if(vt==0x82050F00u){
+    static bool dumped=false; const char* dp=std::getenv("RT_FNF15DUMP");
+    if(dp && !dumped){ dumped=true;
+      // Structured, pointer-NORMALISED walk (a raw image diff drowned in heap-layout pointer
+      // shifts): the panel object, its container (self+80, child list head +16 / next +4 /
+      // hidden +12), the backdrop view (self+124) and every child view. Heap pointers print as
+      // "P", so two runs with different heap layouts diff to the real field differences.
+      auto norm=[&](uint32_t v)->const char*{ static char b[16];
+        if((v>=0x00300000u&&v<0x02800000u)) return "P";
+        std::snprintf(b,sizeof b,"%08X",v); return b; };
+      auto dumpobj=[&](const char* tag,uint32_t o,uint32_t bytes){
+        if(!o||o<0x00300000u||o>=0x02800000u){ std::fprintf(stderr,"[fnf15obj] %s = %s\n",tag,norm(o)); return; }
+        for(uint32_t off=0;off<bytes;off+=16){
+          std::fprintf(stderr,"[fnf15obj] %s+%03X:",tag,off);
+          for(uint32_t k=0;k<16;k+=4) std::fprintf(stderr," %s",norm(PPC_LOAD_U32(o+off+k)));
+          std::fprintf(stderr,"\n"); } };
+      std::fprintf(stderr,"[fnf15obj] BEGIN commit#%ld self=P\n",i);
+      dumpobj("self",m,0x190);
+      uint32_t xf=PPC_LOAD_U32(m+80u); dumpobj("xform",xf,0x40);
+      dumpobj("backdrop",PPC_LOAD_U32(m+124u),0x90);
+      uint32_t c=(xf&&xf>=0x00300000u&&xf<0x02800000u)?PPC_LOAD_U32(xf+16u):0; int n=0;
+      auto f32=[&](uint32_t a)->float{ uint32_t u=PPC_LOAD_U32(a); float f; std::memcpy(&f,&u,4); return f; };
+      auto viewline=[&](const char* tag,uint32_t v){   // one line per view: the fields a draw depends on
+        std::fprintf(stderr,"[fnf15view] %s vt=%08X hidden=%u ext=(%g,%g) rend=%s pitch=(%g,%g) col=%08X str84=",
+          tag,PPC_LOAD_U32(v),(unsigned)PPC_LOAD_U8(v+12u),f32(v+72u),f32(v+76u),norm(PPC_LOAD_U32(v+80u)),
+          f32(v+112u),f32(v+116u),PPC_LOAD_U32(v+128u));
+        for(uint32_t k=0;k<28;k++) std::fprintf(stderr,"%02X",PPC_LOAD_U8(v+84u+k));
+        std::fprintf(stderr," |");
+        for(uint32_t k=0;k<28;k++){ uint8_t ch=PPC_LOAD_U8(v+84u+k); std::fputc((ch>=32&&ch<127)?ch:'.',stderr); }
+        std::fprintf(stderr,"\n"); };
+      { uint32_t bdv=PPC_LOAD_U32(m+124u); if(bdv>=0x00300000u&&bdv<0x02800000u) viewline("backdrop",bdv);
+        uint32_t tv=PPC_LOAD_U32(m+248u); if(tv>=0x00300000u&&tv<0x02800000u) viewline("title",tv); }
+      while(c&&c>=0x00300000u&&c<0x02800000u&&n<64){ char tag[24]; std::snprintf(tag,sizeof tag,"child%02d",n);
+        viewline(tag,c); c=PPC_LOAD_U32(c+4u); n++; }
+      std::fprintf(stderr,"[fnf15obj] END children=%d\n",n); (void)dp; }
+  }
   __imp__sub_82195AB0(ctx,base);
 }
 // ===== TICK-WALKER heartbeat (sub-menu leg, run-1 correction) =====

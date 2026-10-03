@@ -2031,3 +2031,42 @@ futari*. (3) The Bash tool caps at 10 min: long chains must be `nohup … & diso
 repeat = 20-frame delay then every 3 frames (stateBuild's pad reconfig, DO-NOT-FIX 8): any hold ≥ 0.33 s overshoots.
 **USER STOP 21:40:** "not sure you're understanding the training menu, boss 1 selection, etc at all. please stop."
 + "bank and pivot back to decomp." Both items PARKED here with their tooling; nothing fixed; no renderer change.
+
+## 2026-10-03 — ★★★★ FNF-15 CLOSED (Mac bisect + read, same evening the macOS port went green): ONE MISSING
+## REGISTER ARGUMENT in the readable stateBuild — `r4 = renderer` before the font-measure bctrl (menu_base_states.cpp)
+**Method (all on the M3 Max; builds are 48 s, a link is 10 s, a drive to the panel is 60 s):**
+1. TU-level bisect, `scripts/boss1/fnf15_bisect_mac.sh` (links each arm from one pristine object set, drives
+   START A A A DOWN DOWN A on a card with a save, scores the black-pixel fraction of the panel box on a window
+   capture): pilot 0.154 = rows missing; ctlshell (all eight skipped) 0.758 = dialog drawn; **mbs (menu_base_states
+   alone) 0.758**; tvd/opb/oph/mns/mct/odb/tcf 0.154 each. Verdict: menu_base_states.cpp alone.
+2. Function-level knock-out inside the TU, `scripts/boss1/fnf15_funcbisect_mac.sh` (renames ONLY the readable
+   definition line of one body to `<sym>__ro`, so every caller — vtable dispatch and the TU's own direct calls —
+   resolves to the generated weak body): of the 14 bodies, **only sub_821B6D20 (stateBuild) flips to 0.758**; the
+   other 13 knock-outs stay 0.154.
+3. Two independent instruction-level reads of sub_821B6D20 vs ppc_recomp.33.cpp:1170. The first called it clean
+   (every constant, every +12 store, every loop bound, every lr). The second, told the knock-out verdict and asked
+   for register state at every call site, found it: at the renderer-measure bctrl (lr 0x821B6D7C) the generated
+   body does `lwz r4,200(r30)` (33.cpp:1216) — r4 = the renderer — and the callee sub_8216EFD0 (renderer vt+4,
+   27.cpp:1008) reads the glyph size THROUGH r4 (`lwz r11,20(r4); lwz r10,24(r4)`). The readable set r3 (out
+   struct) and ctr but never r4, so r4 still held sub_821BF3D8's last value, 0x82061D50 (the ST_SLIDE_IN thunk),
+   and the font metrics were read out of CODE BYTES: pitchX ≈ 0, pitchY ≈ +1.9e37 → every row setPos'd to
+   Y ≈ 1e37, off-screen. Container un-hidden correctly ⇒ panel live but invisible, title/tips (positioned without
+   pitch) still drawn. Explains every FNF-15 observation, and why both pilot/control marker rings were identical.
+4. Memory corroboration (RT_FNF15DUMP=1, merged_shell.cpp commit hook): the panel, backdrop and all 29 child
+   views have identical vtables, hidden bytes, extents, colours and inline strings on both arms — the damage is in
+   the positions set through the vtable, not in the view bodies. (A raw image diff was useless: heap layouts differ.)
+5. **Fix**: futari_decomp decomp/shell/menu_base_states.cpp, one line `ctx.r4.u32 = renderer;` before the bctrl,
+   with the root cause in the comment. Verified: pilot (readable, fixed) scores **0.758**, the dialog is drawn
+   (_local/captures/mac_training_panel_FIXED_20261003.png: Training / Stage 1 ▸ / Mode Original / Character
+   Reco/Normal / Shot Power / Bomb Stock / Player Stock ◂3▸ / counters / Survival Rank / Start Training 1P Side / EXIT).
+**Lesson for the LAWS (new refusal class for reads):** a readable body can be instruction-faithful in every store,
+constant and branch and still diverge in a REGISTER it never writes — the implicit argument the generated code loads
+for a callee that reads it. A read must list the register state at every bl/bctrl, not just the arguments the
+readable author believed the callee takes. The constant-pool audit (PLAN_after_boss1 Phase 1) would NOT have caught
+this; a "register contract at call sites" audit would, and it is mechanical: for each call, the set of rN the
+generated body wrote since the previous call.
+**Side findings banked:** textview_draw.cpp's promotion (09-13) silently shadowed shell/gen/rt.cpp's RT_TXTNODE
+hook (strong PPC_FUNC(sub_8216E510) wins over the kernel's) — that instrument no longer fires. Two real divergences
+OFF the Training path in the same TU: sub_821A0760's static RowSpec table (captions rotated Zoom/-----/Zoom-X/
+Zoom-Y, +32/+36 values, every lr +8 — Picture panel, vt 0x82050BC0) and sub_821A0580's double clamp in
+layoutNudge (Simple panel). Both unfixed; both owed a drive.

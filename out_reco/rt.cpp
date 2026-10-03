@@ -8,6 +8,7 @@
 #include <cstdlib>   // std::getenv/std::atoll — RT_INDCENSUS reads env above the later include
 #include <mutex>
 #include <condition_variable>
+#include <thread>   // std::this_thread::yield (macOS libc++ does not pull it in transitively)
 #include <unordered_map>
 #include <chrono>
 #include "win_compat.h"
