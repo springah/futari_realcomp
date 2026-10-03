@@ -49,6 +49,9 @@ RT="-include out_reco/rt_indirect.h"
 export DECOMP_DIR="${DECOMP_DIR:-../futari_decomp/decomp}"
 OBJ=build/obj_linux
 mkdir -p "$OBJ"
+# LINK_ONLY=1: skip the compile phase and relink what is in $OBJ (iteration aid; a full run
+# always starts from a clean object dir, like build_win.sh).
+if [ "${LINK_ONLY:-0}" != "1" ]; then
 rm -f "$OBJ"/*.o "$OBJ"/*.err build/futari_merged
 
 JOBS="${JOBS:-$(nproc 2>/dev/null || echo 4)}"
@@ -102,6 +105,7 @@ echo "objects: $NOBJ"
 FAILED=0
 for e in "$OBJ"/*.err; do if grep -q 'error:' "$e" 2>/dev/null; then echo "--- $e ---"; grep -A2 'error:' "$e" | head -12; FAILED=1; fi; done
 if [ "$FAILED" -ne 0 ]; then echo "COMPILE_INCOMPLETE"; exit 1; fi
+fi  # LINK_ONLY
 
 echo "== LINK (lld, --allow-multiple-definition, decomp + game + merged first) =="
 "$CXX" -fuse-ld=lld -O2 -std=c++20 \
