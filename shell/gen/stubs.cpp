@@ -719,9 +719,15 @@ static void rt_host_poll_thread(){
   }
 #else
   if(getenv("RVK_WINDOW") && rvk_sdl_host_buttons){
-    std::fprintf(stderr,"[padhost] ACTIVE via the SDL window (focus it) -- arrows+ZXCV+Enter+RShift (Esc ignored)\n");
+    // RT_PAD_HOST_FIFO=<file>: a hex pad word OR'd into THIS host channel (same edge/level semantics as a
+    // human on the keyboard; no RT_PAD synthetic timeline, no g_syn_quiet silencer) -- the Mac boss driver's
+    // focus-independent input. "0" releases. Distinct from RT_PAD_FIFO, which rides the SYNTHETIC channel.
+    const char* hf=getenv("RT_PAD_HOST_FIFO");
+    std::fprintf(stderr,"[padhost] ACTIVE via the SDL window (focus it) -- arrows+ZXCV+Enter+RShift (Esc ignored)%s%s\n",
+      hf?" + host FIFO ":"", hf?hf:"");
     for(;;){
       uint16_t b=rvk_sdl_host_buttons();
+      if(hf){ if(FILE* f=std::fopen(hf,"r")){ unsigned v=0; if(std::fscanf(f,"%x",&v)==1) b|=(uint16_t)v; std::fclose(f); } }
       g_host_buttons.store(b,std::memory_order_relaxed);
       int16_t lx=0,ly=0;                       // arrows also drive the left stick, full deflection
       if(b&0x0004) lx=-32767; else if(b&0x0008) lx=32767;

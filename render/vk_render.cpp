@@ -560,6 +560,18 @@ struct Win {
 // failed post-init, 4 = window bring-up failed, 5 = Vulkan init failed while hooked.
 // std::_Exit after fflush: guest threads are recompiled Xbox threads that cannot be joined;
 // a CRT exit path would hang on them, which is the exact defect this exists to remove.
+// Dump directory for every frame/texture PNG and text dump this file writes (RT_NVKPNG, RVK_DUMPTEX, the
+// wash/res/pre dumps, meshdump): RVK_DUMPDIR, else C:/tmp on Windows and /tmp elsewhere. Until 2026-10-03
+// the literal rvkDumpPath("...") was baked in, so on macOS/Linux every dump silently went nowhere.
+static const char* rvkDumpDir() {
+  static const char* d = [] { const char* e = std::getenv("RVK_DUMPDIR"); if (e && *e) return e;
+#ifdef _WIN32
+    return "C:/tmp";
+#else
+    return "/tmp";
+#endif
+  }(); return d; }
+static const char* rvkDumpPath(const char* name) { static char b[512]; std::snprintf(b, sizeof b, "%s/%s", rvkDumpDir(), name); return b; }
 static bool rvkDiehardOn() { static bool on = std::getenv("RVK_DIEHARD") && atoi(std::getenv("RVK_DIEHARD")) != 0; return on; }
 [[noreturn]] static void rvkDieLoud(const char* what, int code) {
   std::fprintf(stderr,
@@ -6975,7 +6987,7 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
             if (const char* e = std::getenv("RVK_MESHDUMP")) {
               meshDumpBase[0] = (uint32_t)strtoul(e, nullptr, 16);
               if (const char* comma = std::strchr(e, ',')) meshDumpBase[1] = (uint32_t)strtoul(comma + 1, nullptr, 16);
-              meshDumpFp = std::fopen("C:/tmp/meshdump.txt", "a");
+              meshDumpFp = std::fopen(rvkDumpPath("meshdump.txt"), "a");
             }
           }
           if (meshDumpFp && g_curVsIdx == 48 && meshDumpLines < 200000 &&
@@ -11343,7 +11355,7 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
         VKC(rvkWaitFences(g.dev, 1, &g.fence, VK_TRUE, 10000000000ull), "wait(nvkq)");
         void* mq = nullptr;
         VKC(vkMapMemory(g.dev, g.readbackMem, 0, VK_WHOLE_SIZE, 0, &mq), "map(nvkq)");
-        char fq[96]; std::snprintf(fq, sizeof fq, "C:/tmp/nvkpre_f%ld_%07X.png", nf->frame, d.resolveDst);
+        char fq[512]; std::snprintf(fq, sizeof fq, "%s/nvkpre_f%ld_%07X.png", rvkDumpDir(), nf->frame, d.resolveDst);
         writePng(fq, (const uint8_t*)mq, kW, kH);
         vkUnmapMemory(g.dev, g.readbackMem);
       }
@@ -11373,8 +11385,8 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
         VKC(rvkWaitFences(g.dev, 1, &g.fence, VK_TRUE, 10000000000ull), "wait(nvkrd)");
         void* mr2 = nullptr;
         VKC(vkMapMemory(g.dev, g.readbackMem, 0, VK_WHOLE_SIZE, 0, &mr2), "map(nvkrd)");
-        char fr[128];
-        std::snprintf(fr, sizeof fr, "C:/tmp/nvkrtpre_f%ld_%07X_%ux%u.png",
+        char fr[512];
+        std::snprintf(fr, sizeof fr, rvkDumpPath("nvkrtpre_f%ld_%07X_%ux%u.png"),
                       nf->frame, rtDumpBase, curRT->w, curRT->h);
         writePng(fr, (const uint8_t*)mr2, curRT->w, curRT->h);
         vkUnmapMemory(g.dev, g.readbackMem);
@@ -12708,7 +12720,7 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
         VKC(rvkWaitFences(g.dev, 1, &g.fence, VK_TRUE, 10000000000ull), "wait(nvkd)");
         void* map = nullptr;
         VKC(vkMapMemory(g.dev, g.readbackMem, 0, VK_WHOLE_SIZE, 0, &map), "map(nvkd)");
-        char fp[96];
+        char fp[512];
         // leg 10 item 1: writePng assumes tightly-packed RGBA8 bytes. Check THIS target's format
         // (ring slots are now A2B10G10R10_UNORM_PACK32); the old g_rtFmt test no longer speaks for
         // a single target. The 10-bit case is UNPACKED to 8-bit rather than skipped — the c3
@@ -12724,13 +12736,13 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
             tmp[i * 4 + 2] = (uint8_t)(((v >> 20) & 0x3FFu) >> 2);   // B bits 20-29
             tmp[i * 4 + 3] = (uint8_t)(((v >> 30) & 0x3u) * 85u);    // A bits 30-31
           }
-          std::snprintf(fp, sizeof fp, "C:/tmp/nvkres_f%ld_%07X_%ux%u.png", nf->frame, kv.first, rt.w, rt.h);
+          std::snprintf(fp, sizeof fp, "%s/nvkres_f%ld_%07X_%ux%u.png", rvkDumpDir(), nf->frame, kv.first, rt.w, rt.h);
           writePng(fp, tmp.data(), rt.w, rt.h);
         } else if (rt.fmt != VK_FORMAT_R8G8B8A8_UNORM) {   // HDR off in ship env, but stay honest
           std::fprintf(stderr, "[nvkdbg] resolve 0x%07X vkfmt=%d has no png unpacker — skipping\n",
                        kv.first, (int)rt.fmt);
         } else {
-          std::snprintf(fp, sizeof fp, "C:/tmp/nvkres_f%ld_%07X_%ux%u.png", nf->frame, kv.first, rt.w, rt.h);
+          std::snprintf(fp, sizeof fp, "%s/nvkres_f%ld_%07X_%ux%u.png", rvkDumpDir(), nf->frame, kv.first, rt.w, rt.h);
           writePng(fp, (const uint8_t*)map, rt.w, rt.h);
         }
         vkUnmapMemory(g.dev, g.readbackMem);
@@ -12790,8 +12802,8 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
       void* map = nullptr;
       VKC(vkMapMemory(g.dev, g.readbackMem, 0, VK_WHOLE_SIZE, 0, &map), "map(nvkp)");
       if (dumpPng) {
-        writePng("C:/tmp/nvk_last.png", (const uint8_t*)map, kW, kH);
-        char fp[64]; std::snprintf(fp, sizeof fp, "C:/tmp/nvk_f%ld.png", nf->frame);
+        writePng(rvkDumpPath("nvk_last.png"), (const uint8_t*)map, kW, kH);
+        char fp[512]; std::snprintf(fp, sizeof fp, "%s/nvk_f%ld.png", rvkDumpDir(), nf->frame);
         writePng(fp, (const uint8_t*)map, kW, kH);
         if (washForced > 0) --washForced;
         if (g_rvkWashForce > 0) --g_rvkWashForce;   // ★ r23-w19: mirrors washForced exactly
@@ -12986,7 +12998,7 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
                                    "whiteFrac=%.4f p95span=%s\n",
                            washQcK, nf->frame, nf->frame + 1, nf->frame + washQcK, wfPx, p95buf);
             } }
-          char wp[80]; std::snprintf(wp, sizeof wp, "C:/tmp/nvkwash_f%ld.png", nf->frame);
+          char wp[512]; std::snprintf(wp, sizeof wp, "%s/nvkwash_f%ld.png", rvkDumpDir(), nf->frame);
           writePng(wp, (const uint8_t*)map, kW, kH);      // THIS frame, not the next one
           washForced = washNAfter;                        // and the next N, unconditionally
           std::fprintf(stderr, "[washtrig] FIRE#%ld f%ld tilemax=%.4f -> %s + next %ld frames forced\n",

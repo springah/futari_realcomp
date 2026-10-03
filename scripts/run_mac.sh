@@ -27,6 +27,7 @@ export RVK_RESALIAS=1 RVK_RESFRESH=1 RVK_FIXB2=1 RVK_RESREAL=1 RVK_HDR=0
 export RVK_WINDOW=1 RVK_WINSIZE="${RVK_WINSIZE:-1280x720}" RVK_DIMFIX=1
 export RT_NAVREAL=1 RT_STARTWIRE=1 RT_SNDQFREE=1 RT_RESCACHE=1 RT_HEAPLOCK=1
 export RT_PAD_HOST=1 RT_AUDIOXWMA=1   # keyboard via the SDL window (focus it); xWMA SE/voice via libavcodec
+export RT_TRAINPROBE=1                 # logs the shell->game training-flow payload ([trainprobe], two lines per launch; byte-inert)
 export RT_SAMPLES="${RT_SAMPLES:-0}"   # 0 = attended: no SIGALRM hang sampler (harness.cpp RT_BOOT_SHELL arm)
 echo "log: $LOG"
 "$BIN" 8208A2B8 0 "$XR_SHELL_XEX" 2>"$LOG" &
