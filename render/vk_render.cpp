@@ -32,6 +32,12 @@
 // an unhooked build is unaffected. Used by RVK_RDCCAP to self-trigger a capture on the exact frame
 // under investigation, since renderdoccmd has no capture-frame-N option.
 #include "third_party/renderdoc_app.h"
+#else
+// RVK_WINDOW on non-Windows (2026-10-03, SDL3 window swap): SDL3 owns the window, the Vulkan
+// surface (VK_KHR_*_surface for whatever WSI the host has — X11/Wayland now, Metal via MoltenVK
+// later) and the event pump. Windows keeps its hand-rolled Win32 window above, byte-for-byte.
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_vulkan.h>
 #endif
 #include <cstdio>
 #include <cstdlib>
@@ -518,9 +524,12 @@ static void rvk_fps_tick(const char* which) {
 }
 bool g_anyRender = false;          // at least one render has filled g.image (blit source valid)
 bool g_dumpWhiteTrig = false;      // RVK_DUMP_ON_WHITE: set by the first unsupported-fmt white fallback
-#ifdef _WIN32
 struct Win {
+#ifdef _WIN32
   HWND hwnd = nullptr;
+#else
+  SDL_Window* sdlWin = nullptr;
+#endif
   bool closed = false, failed = false, inited = false;
   VkSurfaceKHR surface = VK_NULL_HANDLE;
   VkSwapchainKHR swapchain = VK_NULL_HANDLE;
@@ -539,7 +548,6 @@ struct Win {
   VkCommandBuffer cmd = VK_NULL_HANDLE;   // own cmdbuf so we never disturb g.cmd mid-frame
   VkFence fence = VK_NULL_HANDLE;
 } gw;
-#endif
 
 // ★ 2026-07-27 SURVIVABILITY (FNF-2 fallback + FNF-8 P1; F&F ship gate: renderer death must be
 // LOUD + nonzero exit, never a live guest behind a dead/hung window). Measured failure shape
@@ -4164,6 +4172,23 @@ bool initVk() {
   // RVK_WINDOW: WSI instance extensions, only when the on-screen window is requested.
   const char* winExts[] = {VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_WIN32_SURFACE_EXTENSION_NAME};
   if (rvk_window_on()) { ici.enabledExtensionCount = 2; ici.ppEnabledExtensionNames = winExts; }
+#else
+  // RVK_WINDOW (SDL3): the WSI instance extensions come from SDL for the host's actual video
+  // driver. SDL's video subsystem must be up (and its Vulkan loader attached) before asking.
+  // SDL_Init(VIDEO) on this thread: the pump (SDL_PollEvent in rvkWindowPump) runs on the same
+  // presenting thread, which is what X11/Wayland want. (macOS: Cocoa wants the MAIN thread —
+  // that is the known MoltenVK-lane item, not solved here.)
+  if (rvk_window_on()) {
+    if (!SDL_WasInit(SDL_INIT_VIDEO) && !SDL_InitSubSystem(SDL_INIT_VIDEO))
+      std::fprintf(stderr, "[rvk][win] SDL_InitSubSystem(VIDEO) FAILED: %s — RVK_WINDOW will not come up\n", SDL_GetError());
+    else if (!SDL_Vulkan_LoadLibrary(nullptr))
+      std::fprintf(stderr, "[rvk][win] SDL_Vulkan_LoadLibrary FAILED: %s\n", SDL_GetError());
+    else {
+      Uint32 nExt = 0; const char* const* sdlExts = SDL_Vulkan_GetInstanceExtensions(&nExt);
+      if (sdlExts && nExt) { ici.enabledExtensionCount = nExt; ici.ppEnabledExtensionNames = sdlExts; }
+      else std::fprintf(stderr, "[rvk][win] SDL_Vulkan_GetInstanceExtensions FAILED: %s\n", SDL_GetError());
+    }
+  }
 #endif
   VKC(vkCreateInstance(&ici, nullptr, &g.instance), "vkCreateInstance");
 
@@ -4224,11 +4249,10 @@ bool initVk() {
   VkDeviceQueueCreateInfo qci{VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO}; qci.queueFamilyIndex = g.qfam; qci.queueCount = 1; qci.pQueuePriorities = &pri;
   VkDeviceCreateInfo dci{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO}; dci.queueCreateInfoCount = 1; dci.pQueueCreateInfos = &qci;
   dci.pNext = &feat2; dci.pEnabledFeatures = nullptr;
-#ifdef _WIN32
-  // RVK_WINDOW: swapchain device extension, same gate as the instance extensions above.
+  // RVK_WINDOW: swapchain device extension, same gate as the instance extensions above
+  // (platform-neutral: every WSI presents through VK_KHR_swapchain).
   const char* devExts[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
   if (rvk_window_on()) { dci.enabledExtensionCount = 1; dci.ppEnabledExtensionNames = devExts; }
-#endif
   VKC(vkCreateDevice(g.phys, &dci, nullptr, &g.dev), "vkCreateDevice");
   vkGetDeviceQueue(g.dev, g.qfam, 0, &g.queue);
 
@@ -4449,7 +4473,9 @@ bool initVk() {
 }
 
 // ============================================================================
-// RVK_WINDOW on-screen present (2026-07-13, Windows-only)
+// RVK_WINDOW on-screen present (2026-07-13; Win32 window on Windows, SDL3 window elsewhere
+// since 2026-10-03). The Vulkan side (swapchain, blit, present) is shared; only the window,
+// the surface and the event pump are per platform.
 // ============================================================================
 #ifdef _WIN32
 // ★ F11 fullscreen toggle (2026-08-03, beta1 user request). Borderless-fullscreen on the
@@ -4502,6 +4528,36 @@ LRESULT CALLBACK rvkWndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
   }
   return DefWindowProcA(h, m, w, l);
 }
+// Pump the Win32 message queue so the window stays responsive (move/close); guest present
+// cadence (~60/s) doubles as the pump cadence.
+static void rvkWindowPump() {
+  MSG msg;
+  while (PeekMessageA(&msg, nullptr, 0, 0, PM_REMOVE)) { TranslateMessage(&msg); DispatchMessageA(&msg); }
+}
+#else   // SDL3 window: fullscreen toggle + event pump (same semantics as the Win32 WndProc above)
+static void rvkToggleFullscreenSdl() {
+  static bool fs = false;
+  fs = !fs;
+  if (!SDL_SetWindowFullscreen(gw.sdlWin, fs)) { fs = !fs; std::fprintf(stderr, "[rvk][win] F11 fullscreen toggle FAILED: %s\n", SDL_GetError()); return; }
+  int w = 0, h = 0; SDL_GetWindowSizeInPixels(gw.sdlWin, &w, &h);
+  std::fprintf(stderr, fs ? "[rvk][win] F11 -> fullscreen %dx%d\n" : "[rvk][win] F11 -> windowed\n", w, h);
+}
+static void rvkWindowPump() {
+  SDL_Event ev;
+  while (SDL_PollEvent(&ev)) {
+    if (ev.type == SDL_EVENT_KEY_DOWN && ev.key.scancode == SDL_SCANCODE_F11 && !ev.key.repeat) {
+      static bool off = std::getenv("RVK_NOF11") && atoi(std::getenv("RVK_NOF11")) != 0;
+      if (!off) rvkToggleFullscreenSdl();
+    } else if (ev.type == SDL_EVENT_QUIT || ev.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) {
+      gw.closed = true; std::fprintf(stderr, "[rvk][win] window closed by user\n");
+      // Same FNF-8 P1 semantics as the Win32 WM_CLOSE: X must actually QUIT (flush + _Exit; guest
+      // threads cannot be joined). RVK_NOEXITONCLOSE=1 keeps the process alive, window gone.
+      static bool stay = std::getenv("RVK_NOEXITONCLOSE") && atoi(std::getenv("RVK_NOEXITONCLOSE")) != 0;
+      if (!stay) { std::fflush(nullptr); std::_Exit(0); }
+    }
+  }
+}
+#endif  // _WIN32 (window platform arm 1: toggle + pump)
 
 bool rvkWindowCreateSwapchain() {
   VkSurfaceCapabilitiesKHR caps{};
@@ -4572,6 +4628,7 @@ bool rvkWindowCreateSwapchain() {
   return true;
 }
 
+#ifdef _WIN32
 bool rvkWindowInit() {
   if (gw.inited) return !gw.failed;
   gw.inited = true;
@@ -4626,14 +4683,51 @@ bool rvkWindowInit() {
   std::fprintf(stderr, "[rvk][win] window up (%ux%u client) — RT_PAD_HOST keys: arrows+Z(A)+X(B)+Enter(START)\n", winW, winH);
   return true;
 }
-#else   // !_WIN32: no on-screen window yet (Linux build 2026-10-03). RVK_WINDOW stays Windows-only
-        // until the SDL3 window/surface swap lands; the offscreen->PNG pipeline is unaffected.
+#else   // SDL3 window (2026-10-03). Mirrors the Win32 init above step for step; the Vulkan tail
+        // (surface support, swapchain, semaphores, own pool/cmd/fence) is deliberately the same code.
 bool rvkWindowInit() {
-  static bool said = false;
-  if (!said && std::getenv("RVK_WINDOW")) { said = true; std::fprintf(stderr, "[rvk][win] RVK_WINDOW is Windows-only on this build; offscreen path only\n"); }
-  return false;
+  if (gw.inited) return !gw.failed;
+  gw.inited = true;
+  // Unlike the Win32 arm this only builds a window when RVK_WINDOW asked for one: initVk only
+  // enables the WSI instance extensions under rvk_window_on(), and a headless drive box has no
+  // display to put a window on anyway.
+  if (!rvk_window_on()) { gw.failed = true; return false; }
+  if (!SDL_WasInit(SDL_INIT_VIDEO)) { std::fprintf(stderr, "[rvk][win] SDL video is not up (see initVk) — no window\n"); gw.failed = true; return false; }
+  uint32_t winW = kW, winH = kH;
+  if (const char* ws = std::getenv("RVK_WINSIZE")) {
+    unsigned pw = 0, ph = 0;
+    if (std::sscanf(ws, "%ux%u", &pw, &ph) == 2 && pw >= 320 && ph >= 240 && pw <= 7680 && ph <= 4320) {
+      winW = pw; winH = ph;
+      std::fprintf(stderr, "[rvk][win] RVK_WINSIZE=%ux%u (compose stays %ux%u, blit-scaled)\n", winW, winH, kW, kH);
+    } else std::fprintf(stderr, "[rvk][win] RVK_WINSIZE '%s' invalid — using %ux%u\n", ws, kW, kH);
+  }
+  // Fixed-size window like the Win32 arm (no RESIZABLE flag); F11 toggles borderless fullscreen.
+  gw.sdlWin = SDL_CreateWindow("Mushihimesama Futari - futari_realcomp", (int)winW, (int)winH, SDL_WINDOW_VULKAN);
+  if (!gw.sdlWin) { std::fprintf(stderr, "[rvk][win] SDL_CreateWindow FAILED: %s\n", SDL_GetError()); gw.failed = true; return false; }
+  if (!SDL_Vulkan_CreateSurface(gw.sdlWin, g.instance, nullptr, &gw.surface)) {
+    std::fprintf(stderr, "[rvk][win] SDL_Vulkan_CreateSurface FAILED: %s\n", SDL_GetError()); gw.failed = true; return false;
+  }
+  VkBool32 sup = VK_FALSE;
+  vkGetPhysicalDeviceSurfaceSupportKHR(g.phys, g.qfam, gw.surface, &sup);
+  if (!sup) { std::fprintf(stderr, "[rvk][win] queue family %u cannot present\n", g.qfam); gw.failed = true; return false; }
+  if (!rvkWindowCreateSwapchain()) { std::fprintf(stderr, "[rvk][win] swapchain create FAILED\n"); gw.failed = true; return false; }
+  VkSemaphoreCreateInfo semci{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+  vkCreateSemaphore(g.dev, &semci, nullptr, &gw.semAcquire);
+  // gw.semBlit is created per-image inside rvkWindowCreateSwapchain (already ran above).
+  // DEDICATED command pool, own cmdbuf, own fence — see the Win32 arm for why (worker pool race).
+  VkCommandPoolCreateInfo wpci{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+  wpci.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT; wpci.queueFamilyIndex = g.qfam;
+  if (vkCreateCommandPool(g.dev, &wpci, nullptr, &gw.pool) != VK_SUCCESS) { gw.failed = true; return false; }
+  VkCommandBufferAllocateInfo cai{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+  cai.commandPool = gw.pool; cai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY; cai.commandBufferCount = 1;
+  vkAllocateCommandBuffers(g.dev, &cai, &gw.cmd);
+  VkFenceCreateInfo fci{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+  vkCreateFence(g.dev, &fci, nullptr, &gw.fence);
+  std::fprintf(stderr, "[rvk][win] SDL3 window up (%ux%u, video=%s) — RT_PAD_HOST keys: arrows+Z(A)+X(B)+Enter(START)\n",
+               winW, winH, SDL_GetCurrentVideoDriver() ? SDL_GetCurrentVideoDriver() : "?");
+  return true;
 }
-#endif  // _WIN32
+#endif  // _WIN32 (window platform arm 2: init)
 
 // ---- RVK_HDR shared tonemap recorder (F6 fix, 2026-07-14) ----
 // Records the g.image(F16) -> g.imageLdr(UNORM8) tonemap into `cb`. On entry g.image MUST be in
@@ -4724,7 +4818,7 @@ static std::mutex* g_showMtx = new std::mutex;
 static std::condition_variable* g_showCv = new std::condition_variable;
 static std::atomic<uint32_t> g_workerCostMs10{140};   // EWMA of drain cost, tenths of ms
 void rvkWindowPresent(bool asyncShow = false) {
-#ifdef _WIN32
+#ifdef _WIN32   // RenderDoc ATFRAME trigger: renderdoc.dll, Windows-only. The present body below is shared.
   // ★ RVK_RDCCAP_ATFRAME=<N> (2026-08-01, OLD-vs-NVK shadow bisect) — PRESENT-COUNT capture
   // trigger that works on EVERY renderer path. The existing RVK_RDCCAP self-trigger lives inside
   // the nvk draw loop ([shtexiso], ~L10756) and therefore can never fire when RT_NVK is unset —
@@ -4772,6 +4866,7 @@ void rvkWindowPresent(bool asyncShow = false) {
                                        p, capAt, capEvery, capFires);
     }
   }
+#endif  // _WIN32 (rdccap ATFRAME)
   if (!rvk_window_on() || !g.ok || !g_anyRender) return;
   // Async fast path before the first worker publish: keep the last swapchain frame on screen
   // rather than blitting a possibly-mid-render g.image (the worker owns g.image in async mode).
@@ -4780,10 +4875,9 @@ void rvkWindowPresent(bool asyncShow = false) {
   // running forever (every present a silent no-op). Die loudly once instead.
   if (gw.failed && !rvkDiehardOn()) rvkDieLoud("window bring-up failed (no window will ever exist)", 4);
   if (!rvkWindowInit() || gw.closed || gw.failed) return;
-  // pump the message queue so the window stays responsive (move/close); guest present cadence
-  // (~60/s) doubles as the pump cadence.
-  MSG msg;
-  while (PeekMessageA(&msg, nullptr, 0, 0, PM_REMOVE)) { TranslateMessage(&msg); DispatchMessageA(&msg); }
+  // pump the window's event queue so it stays responsive (move/close/F11); guest present
+  // cadence (~60/s) doubles as the pump cadence. Per-platform: Win32 messages or SDL events.
+  rvkWindowPump();
   if (gw.closed) return;
   // Deferred fence wait (async mode): the previous present's fence is waited HERE, one present
   // later, instead of at the tail of its own call — by now the prior blit is ~a frame old so this
@@ -4956,7 +5050,6 @@ void rvkWindowPresent(bool asyncShow = false) {
   }
   if (asyncShow) gwFencePending = true;   // wait deferred to the next present (see above)
   else rvkWaitFences(g.dev, 1, &gw.fence, VK_TRUE, 1000000000ull);  // sync mode: serialize with the renderer's own submits
-#endif
 }
 
 // ============================================================================
@@ -12847,3 +12940,56 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
   if (render) renderBody();
   rvkWindowPresent();   // idle presents re-blit the last composed g.image (guest re-present idiom)
 }
+
+// ============================================================================
+// RVK_SDL_SMOKE (2026-10-03, dev-only; NOT compiled by any build script): a standalone main for
+// the SDL3 window path, so the window/surface/swapchain/pump code can be exercised on a box with
+// no game data — e.g. Xvfb + Mesa llvmpipe in CI. Brings Vulkan up, opens the window, clears the
+// compose image to a colour, presents N frames through the SHARED rvkWindowPresent, then pushes a
+// quit event through the pump (RVK_NOEXITONCLOSE=1 to observe gw.closed instead of exiting).
+//   clang++ -std=c++20 -O2 -DRVK_SDL_SMOKE -DFUTARI_MODULE=0 -DFUTARI_BUILD_ID='"smoke"' \
+//     -Irender -Iexternal/SDL/include render/vk_render.cpp external/SDL/build/libSDL3.a \
+//     -lvulkan -lpthread -ldl -lm -o build/rvk_sdl_smoke
+//   RVK_WINDOW=1 RVK_NOEXITONCLOSE=1 DISPLAY=:99 build/rvk_sdl_smoke [frames]
+// ============================================================================
+#if defined(RVK_SDL_SMOKE) && !defined(_WIN32)
+extern "C" volatile unsigned int g_rt_menu_heartbeat = 0;
+extern "C" volatile int g_rt_realstage = 0;
+extern "C" uint32_t rt_mem_epoch(uint32_t, uint32_t) { return 0; }
+extern "C" long g_nvk_fBuild = 0, g_nvk_fNoScratch = 0, g_nvk_fSpliced = 0;
+int main(int argc, char** argv) {
+  const int frames = argc > 1 ? std::atoi(argv[1]) : 60;
+  if (!rvk_window_on()) { std::fprintf(stderr, "[smoke] set RVK_WINDOW=1\n"); return 1; }
+  if (!initVk()) { std::fprintf(stderr, "[smoke] initVk FAILED\n"); return 2; }
+  if (!rvkWindowInit()) { std::fprintf(stderr, "[smoke] rvkWindowInit FAILED\n"); return 3; }
+  // Stand in for one rendered frame: clear g.image and leave it TRANSFER_SRC_OPTIMAL, the layout
+  // the present blit expects after a render (see rvkWindowPresent).
+  VkCommandBufferBeginInfo cbi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+  cbi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+  vkResetCommandBuffer(g.cmd, 0); vkBeginCommandBuffer(g.cmd, &cbi);
+  VkImageMemoryBarrier b{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+  b.image = g.image; b.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+  b.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED; b.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+  b.srcAccessMask = 0; b.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+  vkCmdPipelineBarrier(g.cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &b);
+  VkClearColorValue cc{{0.10f, 0.45f, 0.80f, 1.0f}};
+  vkCmdClearColorImage(g.cmd, g.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &cc, 1, &b.subresourceRange);
+  b.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; b.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+  b.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; b.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+  vkCmdPipelineBarrier(g.cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &b);
+  vkEndCommandBuffer(g.cmd);
+  VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO}; si.commandBufferCount = 1; si.pCommandBuffers = &g.cmd;
+  vkQueueSubmit(g.queue, 1, &si, VK_NULL_HANDLE); vkQueueWaitIdle(g.queue);
+  g_anyRender = true;
+  int presented = 0;
+  for (int i = 0; i < frames && !gw.closed && !gw.failed; ++i) {
+    rvkWindowPresent(false); ++presented;
+    std::this_thread::sleep_for(std::chrono::milliseconds(16));
+  }
+  SDL_Event q{}; q.type = SDL_EVENT_QUIT; SDL_PushEvent(&q);
+  rvkWindowPresent(false);   // the pump inside sees the quit
+  std::fprintf(stderr, "[smoke] presented=%d closed=%d failed=%d swapchain=%ux%u\n",
+               presented, (int)gw.closed, (int)gw.failed, gw.scExtent.width, gw.scExtent.height);
+  return (gw.failed || presented != frames || !gw.closed) ? 4 : 0;
+}
+#endif  // RVK_SDL_SMOKE

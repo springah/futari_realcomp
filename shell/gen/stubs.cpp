@@ -809,6 +809,15 @@ typedef struct { unsigned short wButtons; unsigned char bLeftTrigger, bRightTrig
 typedef struct { unsigned int dwPacketNumber; XI_GAMEPAD Gamepad; } XI_STATE;
 typedef DWORD (WINAPI *XInputGetState_t)(DWORD, XI_STATE*);
 static XInputGetState_t g_XInputGetState = nullptr;
+#else
+// Non-Windows host controllers (2026-10-03, SDL3 window swap): SDL3's gamepad subsystem stands
+// in for XInput. Same contract as the Windows arm — this function returns the guest PAD MASK
+// in XInput wButtons layout, sticks/triggers go to g_xi_*; pad index = order of SDL's gamepad
+// list. SDL_UpdateGamepads() is polled here (documented for apps that do not run SDL's event
+// loop on this thread); the window's SDL_PollEvent pump, when it runs, takes the same joystick
+// lock. Disconnected indices back off to ~1 re-scan/sec like the XInput arm.
+#include <SDL3/SDL.h>
+static SDL_Gamepad* g_sdl_pad[2] = {nullptr, nullptr};
 #endif
 static std::atomic<int16_t> g_xi_lx[2], g_xi_ly[2];   // per-pad analog stick for XamInputGetState
 static std::atomic<uint8_t> g_xi_lt[2], g_xi_rt[2];   // per-pad analog triggers (rapid-fire binding reads these)
@@ -830,7 +839,13 @@ static bool rt_xinput_on(){
   }
   return usable;
 #else
-  return false;
+  static bool inited=false, usable=false;
+  if(!inited){ inited=true;
+    if(getenv("RT_NOXINPUT")){ std::fprintf(stderr,"[xinput] disabled by RT_NOXINPUT\n"); }
+    else if(!SDL_InitSubSystem(SDL_INIT_GAMEPAD)){ std::fprintf(stderr,"[xinput] SDL_InitSubSystem(GAMEPAD) FAILED: %s -- host controllers off\n",SDL_GetError()); }
+    else { usable=true; std::fprintf(stderr,"[xinput] host controllers ENABLED via SDL3 gamepad (set RT_NOXINPUT to disable)\n"); }
+  }
+  return usable;
 #endif
 }
 // Poll one XInput pad index; return the guest PAD MASK (0 if off/disconnected). Cheap when
@@ -870,7 +885,50 @@ static uint16_t rt_xinput_buttons(int idx){
   g_xi_rt[idx].store(g.bRightTrigger,std::memory_order_relaxed);
   return b;
 #else
-  (void)idx; return 0;
+  if(idx<0 || idx>1 || !rt_xinput_on()) return 0;
+  static std::atomic<long long> next_try[2];   // steady-clock ms; re-scan for a pad no sooner than this
+  long long nowms=std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::steady_clock::now().time_since_epoch()).count();
+  auto zero=[&](){ g_xi_lx[idx].store(0,std::memory_order_relaxed); g_xi_ly[idx].store(0,std::memory_order_relaxed);
+                   g_xi_lt[idx].store(0,std::memory_order_relaxed); g_xi_rt[idx].store(0,std::memory_order_relaxed); };
+  SDL_UpdateGamepads();
+  if(g_sdl_pad[idx] && !SDL_GamepadConnected(g_sdl_pad[idx])){ SDL_CloseGamepad(g_sdl_pad[idx]); g_sdl_pad[idx]=nullptr;
+    std::fprintf(stderr,"[xinput] pad %d disconnected\n",idx); }
+  if(!g_sdl_pad[idx]){
+    if(nowms < next_try[idx].load(std::memory_order_relaxed)){ zero(); return 0; }
+    next_try[idx].store(nowms+1000,std::memory_order_relaxed);
+    int n=0; SDL_JoystickID* ids=SDL_GetGamepads(&n);
+    if(ids){ if(idx<n){ g_sdl_pad[idx]=SDL_OpenGamepad(ids[idx]);
+               if(g_sdl_pad[idx]) std::fprintf(stderr,"[xinput] pad %d = \"%s\"\n",idx,SDL_GetGamepadName(g_sdl_pad[idx])); }
+             SDL_free(ids); }
+    if(!g_sdl_pad[idx]){ zero(); return 0; }
+  }
+  SDL_Gamepad* p=g_sdl_pad[idx];
+  // SDL_GamepadButton -> XInput wButtons bit (the guest PAD MASK). Same 0xF3FF coverage as the
+  // Windows arm: every standard 360 button; 0x0400/0x0800 (reserved/guide) never set.
+  static const struct { SDL_GamepadButton sb; uint16_t bit; } map[]={
+    {SDL_GAMEPAD_BUTTON_DPAD_UP,0x0001},{SDL_GAMEPAD_BUTTON_DPAD_DOWN,0x0002},
+    {SDL_GAMEPAD_BUTTON_DPAD_LEFT,0x0004},{SDL_GAMEPAD_BUTTON_DPAD_RIGHT,0x0008},
+    {SDL_GAMEPAD_BUTTON_START,0x0010},{SDL_GAMEPAD_BUTTON_BACK,0x0020},
+    {SDL_GAMEPAD_BUTTON_LEFT_STICK,0x0040},{SDL_GAMEPAD_BUTTON_RIGHT_STICK,0x0080},
+    {SDL_GAMEPAD_BUTTON_LEFT_SHOULDER,0x0100},{SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER,0x0200},
+    {SDL_GAMEPAD_BUTTON_SOUTH,0x1000},{SDL_GAMEPAD_BUTTON_EAST,0x2000},
+    {SDL_GAMEPAD_BUTTON_WEST,0x4000},{SDL_GAMEPAD_BUTTON_NORTH,0x8000},
+  };
+  uint16_t b=0;
+  for(const auto& m : map) if(SDL_GetGamepadButton(p,m.sb)) b|=m.bit;
+  // SDL axes are down-positive on Y; XInput is up-positive. Triggers: SDL 0..32767 -> XInput 0..255.
+  const int16_t lx=SDL_GetGamepadAxis(p,SDL_GAMEPAD_AXIS_LEFTX);
+  const int16_t lyRaw=SDL_GetGamepadAxis(p,SDL_GAMEPAD_AXIS_LEFTY);
+  const int16_t ly=(int16_t)(lyRaw==-32768 ? 32767 : -lyRaw);
+  const uint8_t lt=(uint8_t)(SDL_GetGamepadAxis(p,SDL_GAMEPAD_AXIS_LEFT_TRIGGER)>>7);
+  const uint8_t rt=(uint8_t)(SDL_GetGamepadAxis(p,SDL_GAMEPAD_AXIS_RIGHT_TRIGGER)>>7);
+  const int DZ=7849;   // XInput standard left-stick deadzone, same as the Windows arm
+  if(lx<=-DZ) b|=0x0004; else if(lx>=DZ) b|=0x0008;   // LEFT / RIGHT
+  if(ly>= DZ) b|=0x0001; else if(ly<=-DZ) b|=0x0002;  // UP   / DOWN
+  g_xi_lx[idx].store(lx,std::memory_order_relaxed); g_xi_ly[idx].store(ly,std::memory_order_relaxed);
+  g_xi_lt[idx].store(lt,std::memory_order_relaxed); g_xi_rt[idx].store(rt,std::memory_order_relaxed);
+  return b;
 #endif
 }
 // sample the timeline; on edge, push keystroke + bump packet. Call under g_syn_m.

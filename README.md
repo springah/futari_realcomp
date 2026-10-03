@@ -51,9 +51,15 @@ All build products — objects, executables, DLLs — land in `build/`, which is
 
 The Linux build is the proving ground for the macOS/Deck ports (BACKLOG #12): everything but the
 GPU surface and the audio device is the same code. It builds the combined executable
-`build/futari_merged` headless — no on-screen window (`RVK_WINDOW` is Windows-only until the SDL3
-window swap lands), no host pad/keyboard, and no xWMA decoder — and it is **not** the shipping
-recipe; `build_win.sh` is.
+`build/futari_merged`. On this build SDL3 provides the on-screen window and Vulkan surface
+(`RVK_WINDOW`, F11 fullscreen, close-to-quit — same levers as Windows) and the host controllers
+(the XInput slot; `RT_NOXINPUT` disables); host keyboard (`RT_PAD_HOST`) is the X11 keymap
+poller. Windows keeps its Win32 window and XInput untouched. Still missing here: the xWMA
+decoder. This is **not** the shipping recipe; `build_win.sh` is.
+
+The SDL window path has a standalone smoke test that needs no game data (Xvfb + Mesa llvmpipe
+is enough): see the `RVK_SDL_SMOKE` block at the end of `render/vk_render.cpp` for the one-line
+build and run.
 
 ```bash
 bash build_linux.sh      # combined executable, build/futari_merged
@@ -61,8 +67,8 @@ LINK_ONLY=1 bash build_linux.sh   # relink the existing object dir
 ```
 
 Requires clang, lld, `libvulkan-dev`, and under the gitignored `external/`: a XenonRecomp
-checkout built with CMake (`external/xr-derisk`, for XenonUtils + simde) and an audio-only static
-SDL3 console build (`external/SDL`). The exact cmake lines are in the header of `build_linux.sh`,
+checkout built with CMake (`external/xr-derisk`, for XenonUtils + simde) and a static SDL3 build
+with audio, video, Vulkan and joystick on (`external/SDL`). The exact cmake lines are in the header of `build_linux.sh`,
 which also checks for every dependency before compiling. The decomp tree is picked up from
 `../futari_decomp/decomp` exactly as on Windows (`DECOMP_DIR` overrides). The merge semantics are
 the same as `build_win.sh`: ELF's `--allow-multiple-definition` keeps the first definition, so the

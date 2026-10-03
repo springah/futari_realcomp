@@ -11,20 +11,26 @@
 #
 # This is the macOS/Deck proving ground (BACKLOG #12): everything except the GPU surface and
 # the audio device is identical on macOS, so a Linux compile+link flushes out portability
-# breakage without a Mac in the loop. What is NOT here yet: an on-screen window (RVK_WINDOW is
-# Windows-only — the renderer's offscreen/PNG path is intact), host pad/keyboard input, and the
-# xWMA decoder (Media Foundation DMO; rt_xwma reports "no host decoder backend").
+# breakage without a Mac in the loop. Since 2026-10-03 the on-screen window (RVK_WINDOW), the
+# Vulkan surface and host controllers come from SDL3 on this build (Win32 + XInput stay on
+# Windows); host keyboard (RT_PAD_HOST) is the pre-existing X11 XQueryKeymap poller. What is
+# NOT here yet: the xWMA decoder (Media Foundation DMO; rt_xwma reports "no host decoder backend").
 #
 # Dependencies (all under external/, gitignored — see README "external/"):
 #   external/xr-derisk           XenonRecomp checkout (XenonUtils + simde) built with
 #                                 cmake -S external/xr-derisk -B external/xr-derisk/build -G Ninja
 #                                 ninja -C external/xr-derisk/build XenonUtils LibXenonAnalyse disasm xxhash fmt
-#   external/SDL                 SDL 3.x, audio-only static console build:
-#                                 cmake -S external/SDL -B external/SDL/build -G Ninja -DSDL_UNIX_CONSOLE_BUILD=ON
-#                                   -DSDL_SHARED=OFF -DSDL_STATIC=ON -DSDL_VIDEO=OFF -DSDL_RENDER=OFF -DSDL_GPU=OFF
-#                                   -DSDL_JOYSTICK=OFF -DSDL_HAPTIC=OFF -DSDL_HIDAPI=OFF -DSDL_CAMERA=OFF
-#                                   -DSDL_SENSOR=OFF -DSDL_POWER=OFF -DSDL_DIALOG=OFF -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF
+#   external/SDL                 SDL 3.x static build with audio + video (X11 and/or Wayland) +
+#                                 Vulkan + joystick/gamepad (the window, surface and controllers):
+#                                 cmake -S external/SDL -B external/SDL/build -G Ninja -DSDL_SHARED=OFF -DSDL_STATIC=ON
+#                                   -DSDL_AUDIO=ON -DSDL_VIDEO=ON -DSDL_VULKAN=ON -DSDL_JOYSTICK=ON -DSDL_HIDAPI=ON
+#                                   -DSDL_OPENGL=OFF -DSDL_OPENGLES=OFF -DSDL_RENDER=OFF -DSDL_GPU=OFF -DSDL_HAPTIC=OFF
+#                                   -DSDL_CAMERA=OFF -DSDL_SENSOR=OFF -DSDL_POWER=OFF -DSDL_DIALOG=OFF
+#                                   -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF -DSDL_INSTALL=OFF
 #                                 ninja -C external/SDL/build
+#                                 (X11 needs libx11-dev + the extension -dev packages SDL's README
+#                                 lists; any missing extension can be switched off with -DSDL_X11_<EXT>=OFF.
+#                                 SDL dlopens X11/Wayland/udev at runtime, so nothing extra is linked here.)
 #   system                       libvulkan-dev (headers + loader), clang, lld
 #   ../futari_decomp             the readable-decomp sibling repo (DECOMP_DIR, same as build_win.sh)
 set -u
@@ -87,7 +93,7 @@ cc "shell_ppc_func_mapping" "shell/gen/ppc_func_mapping.cpp" $SHELL_INC $XS $RT 
 
 echo "== SHELL kernel (real vblank/notify/signin/D3D9 layer) =="
 cc "shellkernel_rt"    "shell/gen/rt.cpp"    $SHELL_INC $XS $RT
-cc "shellkernel_stubs" "shell/gen/stubs.cpp" $SHELL_INC $XS $RT
+cc "shellkernel_stubs" "shell/gen/stubs.cpp" $SHELL_INC $XS $RT -I "$SDL_SRC/include"   # SDL3 gamepad arm
 cc "shellkernel_rt_audio" "shell/gen/rt_audio.cpp" -I "$SDL_SRC/include"
 cc "shellkernel_rt_xwma"  "shell/gen/rt_xwma.cpp"
 
@@ -96,8 +102,8 @@ cc "merged_game"   "out_reco/merged/merged_game.cpp"   $GAME_INC $RT
 cc "merged_bridge" "out_reco/merged/merged_bridge.cpp" $GAME_INC $RT
 cc "merged_shell"  "out_reco/merged/merged_shell.cpp"  $GAME_INC $RT
 
-echo "== Vulkan renderer (vk_render, RT_VK-gated; system vulkan headers) =="
-cc "vk_render" "render/vk_render.cpp"
+echo "== Vulkan renderer (vk_render, RT_VK-gated; system vulkan headers; SDL3 window) =="
+cc "vk_render" "render/vk_render.cpp" -I "$SDL_SRC/include"
 
 wait
 NOBJ=$(ls "$OBJ"/*.o 2>/dev/null | wc -l)
