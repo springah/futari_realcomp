@@ -49,6 +49,10 @@ extern "C" volatile int g_game_unloaded = 0;
 // request must fail LOUDLY (0xC0000135) instead of silently serving reco_normal's code
 // under another mode's name — see NOTE_other_modes.md §5/§7 (silent-substitution hazard:
 // every Module path used to match here via the "Module" substring).
+#ifndef _WIN32
+#include <strings.h>
+#define _strnicmp strncasecmp   // MSVC CRT spelling; same alias as host/module_registry.cpp
+#endif
 static bool str_icontains(const char* hay, const char* needle){
   const size_t nl = std::strlen(needle);
   for(const char* p = hay; *p; ++p)

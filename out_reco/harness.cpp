@@ -181,6 +181,13 @@ static void onsig(int s, siginfo_t* si, void*){
   if(s==SIGALRM && --g_samples_left>0){ alarm(4); return; }  // hang sampling, not a fault
   _exit(42);
 }
+// RT_WATCHTEX / rt_watch_arm_dyn are the PAGE_GUARD + single-step watch (Windows-only above);
+// the merged_shell.cpp probes call rt_watch_arm_dyn unconditionally, so POSIX gets a no-op
+// that says so once. A mprotect+SIGSEGV port is possible but is harness-only instrumentation.
+extern "C" void rt_watch_arm_dyn(uint32_t guestAddr, uint32_t len){
+  static bool said=false;
+  if(!said){ said=true; std::fprintf(stderr,"[watchtex] DYN arm requested (guest 0x%08X len 0x%X) — guard-page watch is Windows-only; ignored\n",guestAddr,len); }
+}
 #endif
 // ---- GameEntry driver (RT_DRIVE=1): we play the shell side of the msg protocol.
 // msg-9 hands the game 4 callback fn ptrs; we point them at fake guest addrs inside the

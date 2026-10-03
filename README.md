@@ -46,6 +46,27 @@ bash build_win_dll.sh    # combined executable + the two module DLLs
 ```
 
 All build products — objects, executables, DLLs — land in `build/`, which is gitignored.
+
+## Building (Linux)
+
+The Linux build is the proving ground for the macOS/Deck ports (BACKLOG #12): everything but the
+GPU surface and the audio device is the same code. It builds the combined executable
+`build/futari_merged` headless — no on-screen window (`RVK_WINDOW` is Windows-only until the SDL3
+window swap lands), no host pad/keyboard, and no xWMA decoder — and it is **not** the shipping
+recipe; `build_win.sh` is.
+
+```bash
+bash build_linux.sh      # combined executable, build/futari_merged
+LINK_ONLY=1 bash build_linux.sh   # relink the existing object dir
+```
+
+Requires clang, lld, `libvulkan-dev`, and under the gitignored `external/`: a XenonRecomp
+checkout built with CMake (`external/xr-derisk`, for XenonUtils + simde) and an audio-only static
+SDL3 console build (`external/SDL`). The exact cmake lines are in the header of `build_linux.sh`,
+which also checks for every dependency before compiling. The decomp tree is picked up from
+`../futari_decomp/decomp` exactly as on Windows (`DECOMP_DIR` overrides). The merge semantics are
+the same as `build_win.sh`: ELF's `--allow-multiple-definition` keeps the first definition, so the
+object order carries over unchanged.
 The repository root holds the README, `STATUS.md` (a pointer to the live campaign state), the
 three build scripts, and exactly three save-directory templates that the drive scripts copy
 from (`save_freshcard`, `save_r17_boss`, `save_eyeball`). Every other save directory a drive
