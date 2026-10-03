@@ -8,6 +8,7 @@
 #include <deque>
 #include <vector>
 #include <cstring>
+#include <algorithm>   // std::sort (POSIX libstdc++ does not pull it in transitively)
 // L3/E4 (dll_packaging_plan §3.4): the load-bearing guest .data addresses below are
 // MODULE properties.  They migrate one at a time out of this -DGA_DSHIFT literal block
 // into the descriptor, the single place a swapped module's layout is described.  A

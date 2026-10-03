@@ -487,6 +487,9 @@ static void rvk_timer_res_probe() {
   static bool done = false; if (done) return; done = true;
   const char* e = std::getenv("RVK_TIMERRES"); if (!e) return;
   unsigned ms = (unsigned)std::atoi(e); if (!ms) return;
+#ifndef _WIN32
+  std::fprintf(stderr, "[timerres] RVK_TIMERRES is a winmm probe; no-op on this platform\n");
+#else
   HMODULE wm = LoadLibraryA("winmm.dll");
   if (!wm) { std::fprintf(stderr, "[timerres] winmm.dll load FAILED\n"); return; }
   typedef unsigned (__stdcall *TBP)(unsigned);
@@ -494,6 +497,7 @@ static void rvk_timer_res_probe() {
   if (!tbp) { std::fprintf(stderr, "[timerres] timeBeginPeriod not found\n"); return; }
   unsigned r = tbp(ms);
   std::fprintf(stderr, "[timerres] timeBeginPeriod(%u) -> %u (0=OK). Sleep granularity now ~%ums.\n", ms, r, ms);
+#endif
 }
 
 static void rvk_fps_tick(const char* which) {
@@ -4621,6 +4625,13 @@ bool rvkWindowInit() {
   vkCreateFence(g.dev, &fci, nullptr, &gw.fence);
   std::fprintf(stderr, "[rvk][win] window up (%ux%u client) — RT_PAD_HOST keys: arrows+Z(A)+X(B)+Enter(START)\n", winW, winH);
   return true;
+}
+#else   // !_WIN32: no on-screen window yet (Linux build 2026-10-03). RVK_WINDOW stays Windows-only
+        // until the SDL3 window/surface swap lands; the offscreen->PNG pipeline is unaffected.
+bool rvkWindowInit() {
+  static bool said = false;
+  if (!said && std::getenv("RVK_WINDOW")) { said = true; std::fprintf(stderr, "[rvk][win] RVK_WINDOW is Windows-only on this build; offscreen path only\n"); }
+  return false;
 }
 #endif  // _WIN32
 
@@ -11701,6 +11712,7 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
           // survives boot-timing drift. Inert unless the process is hooked (GetModuleHandle
           // returns null when running outside RenderDoc), and inert unless the lever is set.
           // RVK_RDCCAP_FADE overrides the fade threshold; RVK_RDCCAP_N how many frames to grab.
+#ifdef _WIN32   // RenderDoc in-app API: renderdoc.dll + GetModuleHandle, Windows-only
           {
             static const bool rdcCap = std::getenv("RVK_RDCCAP") && atoi(std::getenv("RVK_RDCCAP")) != 0;
             static const float rdcFade = std::getenv("RVK_RDCCAP_FADE") ? (float)atof(std::getenv("RVK_RDCCAP_FADE")) : 0.9f;
@@ -11741,6 +11753,7 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
               }
             }
           }
+#endif  // _WIN32 (rdccap)
           if (shIso == 1) blendUse = 0x00010001u;      // src ONE / dst ZERO = replace
           else if (shIso == 2) shIsoMask = 0x7u;       // RGB only, leave destination alpha alone
           // ★ iso=3 = the CLEAN A/B arm. RVK_MODOFF `continue`s the draw, which changes the draw
