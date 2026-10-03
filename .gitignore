@@ -75,3 +75,11 @@ external/
 
 # Claude Code worktree symlinks — machine-local, not project content
 .claude/worktrees/
+
+# --- Editor-style backup copies and banked run logs (10-03 hygiene) ---
+# Backups of hand-patched TUs belong in git history, not as .bak_* siblings; run logs belong
+# under _local/. The 33 .bak* files and 10 bank/ logs that had accumulated were removed 10-03.
+*.bak
+*.bak_*
+*.pre_*.bak
+bank/**/*.log
