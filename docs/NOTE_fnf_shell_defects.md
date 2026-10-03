@@ -63,7 +63,8 @@ it holds longer; that is a FEEL question (epozzobon: pacing is authentic, no art
 user said "ANY of the now loading" — stage-transition loads inside the GAME module were not measured today; if they are
 still black, that is a separate path (game-module loader), re-measure with the same ladder. (3) The 08-15 commit's
 verification ("CAVE f285-330") was taken with the wrong step — its timings are superseded by the ones above.
-**Harness notes:** Git-Bash `sed -i` strips CR from CRLF files (re-add with `sed 's/$//'` or edit via python bytes);
+**Harness notes:** Git-Bash `sed -i` strips CR from CRLF files (re-add with `sed 's/$/
+/'` or edit via python bytes);
 `taskkill //F` under MSYS_NO_PATHCONV=1 is NOT converted — use PowerShell Stop-Process; the MSVC INCLUDE env must be
 sourced (bank/r23/w30/w30_toolchain_env.sh) before build_win_dll.sh or every TU fails on <cstdint>.
 
@@ -2031,6 +2032,40 @@ futari*. (3) The Bash tool caps at 10 min: long chains must be `nohup … & diso
 repeat = 20-frame delay then every 3 frames (stateBuild's pad reconfig, DO-NOT-FIX 8): any hold ≥ 0.33 s overshoots.
 **USER STOP 21:40:** "not sure you're understanding the training menu, boss 1 selection, etc at all. please stop."
 + "bank and pivot back to decomp." Both items PARKED here with their tooling; nothing fixed; no renderer change.
+
+## 2026-10-04 — ★★★★★ BOSS-1 HEAD CLOSED (Mac, overnight lane): TWO OPERAND SLIPS in the readable boss-1 draw body
+## (futari_decomp decomp/game/objaction_queue.cpp sub_880DCE90, "straight ahead" head pose, second face-mosaic pair)
+**Symptom (user, 09-06 + 10-03, confirmed against the HG101 arcade shot):** the stage-1 boss's front-on head rendered
+inside-out — eyes at the centre line, cheeks outside; "left texture on the right". **Root cause:** in the a == 128
+("straight ahead") sub-arm of the second bdzf dispatch, the second mosaic pair (descriptor 0x8827AF30, call sites
+0x880DE77C / 0x880DE7A0) was emitted with the int8 DY byte at G-15281 added into the X half-offset instead of Y, and
+with the pair's base word at G-15584 dropped. Measured against the generated TU: 44-tile group ids 26875..26918,
+delta (+/-9, -40) px (G-15584 = 0x1F, DY = 0x28) -> both face halves 9 px too far out and 40 px too high. Fix = two
+lines (ctx.r27 gains Fx16(i8 G-15281); ctx.r26 = Fx16(i8 G-15282) + Fx16(u32 G-15584)); the same dropped G-15584
+term was also restored in arm 0 and arm 1/2's second pair (ppc_recomp.11.cpp loc_880DE24C / loc_880DE51C), which the
+front-on pose does not exercise.
+**Method (what finally worked, ~3 h of instruments after a long detour):**
+1. Route: `scripts/boss1/boss1_drive_mac.sh` reaches the boss in ~100 s (Training > Stage row RIGHT > 開始 with A).
+2. **Single-unit reverts do NOT compose:** seven readable units knocked out one at a time (famk2, bossvein_object,
+   actor3pose_draw, page_bake, asset_decode, asset_upload, nvk_game_hooks) all rendered the head identically — because
+   none of them was the culprit. The decisive arm was **ALL readable game units at once except the renderer bridge
+   (nvk_game_hooks) and the hook/memory helpers**: it rendered the head correctly. Then objaction_queue alone did too.
+   Lesson: when single-unit arms are all negative, run the whole-side revert BEFORE reading anything.
+3. **Per-push trace diff** named the exact emit: `RT_EMITTRACE=lr:<lo>-<hi>` (merged_game.cpp sub_881538C0 wrapper,
+   arms at the first boss-1 head push) logs every Sprite_Emit with its caller and record; `RT_DCD70TRACE=1` logs the
+   composite plate drawer sub_880DCD70's call site + args; `RT_SPRITETRACE=<extent>` (nvk_game_hooks.cpp) logs the
+   emitter's quads. Diffing the readable vs the generated-unit build frame by frame (scratch emitdiff.py, frames split
+   at the id-20649 push) showed every push identical except one 2x44-tile group at (+/-9, -40). The generated listing
+   at those call sites then read in five minutes.
+**Detours banked so they are not repeated:** the vertex census, texture-page dumps (RVK_DUMPTEX), HUD-glyph orientation
+and the Xenos RECTLIST / tiledOff reads were all faithful and all irrelevant — the geometry the game emits IS what the
+renderer draws; the question was only which unit emits it. The "texture page V-flipped" hypothesis is refuted by the
+all-game arm. Harness-only levers added (never ship armed): RT_EMITTRACE, RT_DCD70TRACE, RT_SPRITETRACE.
+**NEW READ-REFUSAL CLASS (companion to 10-03's implicit-register class):** in a 1,200-line body with a dozen
+near-identical mirrored-pair blocks, a transcription can route an operand to the wrong register (DY byte -> x) and drop
+a term, while every store/branch/constant still matches. Reads of such bodies must be checked block-by-block against
+the generated listing's final `add rN,...` for EACH argument register at EACH bl, or better, measured with the
+per-push trace diff above — a 4-minute instrument that beats any read.
 
 ## 2026-10-03 — ★★★★ FNF-15 CLOSED (Mac bisect + read, same evening the macOS port went green): ONE MISSING
 ## REGISTER ARGUMENT in the readable stateBuild — `r4 = renderer` before the font-measure bctrl (menu_base_states.cpp)

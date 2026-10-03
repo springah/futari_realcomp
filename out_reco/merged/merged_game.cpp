@@ -3488,6 +3488,23 @@ PPC_FUNC(sub_88080298){
 static bool rt_ringp();
 static void w13_ringp_38c0(uint8_t* base, long allocIdx, uint32_t lr, uint32_t id,
                            uint32_t x, uint32_t y, uint32_t prio, uint32_t rec);
+// RT_DCD70TRACE=1 (HARNESS-ONLY, 2026-10-04 boss-1 head lane): wrap the composite plate drawer
+//   sub_880DCD70(descTab, x.16, y.16, prio, tintPtr, alphaPtr, mirror) and log its CALL SITE (lr) and
+//   arguments once the boss-1 head has been seen (g_boss1Armed, set by the RT_EMITTRACE lr mode).
+//   Names the exact arm/pair of sub_880DCE90 whose arguments differ between two builds. Cap 600.
+static bool g_boss1Armed=false;
+extern "C" void __imp__sub_880DCD70(PPCContext& __restrict, uint8_t*);
+PPC_FUNC(sub_880DCD70){
+  static const bool on = std::getenv("RT_DCD70TRACE")!=nullptr;
+  if(on && g_boss1Armed){ static int n=0; if(n<600){ ++n;
+    static bool once=false; if(!once){ once=true; const uint32_t G=0x8827B238u;
+      std::fprintf(stderr,"[dcd70] G-15592..-15580 = %08X %08X %08X %08X | i8 G-15312: %02X %02X %02X %02X %02X %02X %02X %02X | i8 G-15296: %02X %02X %02X %02X %02X %02X %02X %02X\n",
+        PPC_LOAD_U32(G-15592),PPC_LOAD_U32(G-15588),PPC_LOAD_U32(G-15584),PPC_LOAD_U32(G-15580),
+        base[G-15312],base[G-15311],base[G-15310],base[G-15309],base[G-15308],base[G-15307],base[G-15306],base[G-15305],
+        base[G-15296],base[G-15295],base[G-15294],base[G-15293],base[G-15292],base[G-15291],base[G-15290],base[G-15289]); }
+    std::fprintf(stderr,"[dcd70] lr=%08X desc=%08X x=%08X y=%08X prio=%u mirror=%u\n",(uint32_t)ctx.lr,ctx.r3.u32,ctx.r4.u32,ctx.r5.u32,ctx.r6.u32,ctx.r9.u32); } }
+  __imp__sub_880DCD70(ctx,base);
+}
 // [vs] sub_881538C0 = THE 2D vertex-slot allocator (every quad writer allocs here then writes
 // color into the slot). Log lr (identifies the writer fn) + read back the PREVIOUS slot's
 // color words (+0, +48) — the caller has written them by then. Two 40-call windows post-boot.
@@ -3502,8 +3519,26 @@ PPC_FUNC(sub_881538C0){
   const bool w13rp = rt_ringp();
   uint32_t w13lr=0,w13id=0,w13x=0,w13y=0,w13prio=0;
   if(w13rp){ w13lr=(uint32_t)ctx.lr; w13id=ctx.r3.u32; w13x=ctx.r4.u32; w13y=ctx.r5.u32; w13prio=ctx.r6.u32; }
+  const uint32_t etlr=(uint32_t)ctx.lr, etid=ctx.r3.u32, etx=ctx.r4.u32, ety=ctx.r5.u32, etp=ctx.r6.u32;  // [emittrace] pre-call capture
   __imp__sub_881538C0(ctx,base);
   if(w13rp) w13_ringp_38c0(base,i,w13lr,w13id,w13x,w13y,w13prio,ctx.r3.u32);
+  // RT_EMITTRACE=<w>x<h> (HARNESS-ONLY, 2026-10-04 boss-1 head lane): log the CALLER (lr), the four
+  //   args and the returned record (attr, top-left, centre, uv, size) whenever the record's size words
+  //   (+36/+40) equal <w>x<h> (a plate size from the [nvkrect] census). Cap 400 lines. Names the family
+  //   site that pushes a given plate without knowing its sprite id up front.
+  { static const char* et = std::getenv("RT_EMITTRACE");
+    if(et){ static const bool byLr = std::strncmp(et,"lr:",3)==0;   // RT_EMITTRACE=lr:<lo>-<hi> (hex): every push whose CALLER is in [lo,hi)
+      static const uint32_t lrLo = byLr ? (uint32_t)std::strtoul(et+3,nullptr,16) : 0u;
+      static const uint32_t lrHi = byLr && std::strchr(et,'-') ? (uint32_t)std::strtoul(std::strchr(et,'-')+1,nullptr,16) : 0u;
+      static const uint32_t wantW=byLr?0u:(uint32_t)std::strtoul(et,nullptr,10);
+      static const uint32_t wantH=(!byLr && std::strchr(et,'x'))?(uint32_t)std::strtoul(std::strchr(et,'x')+1,nullptr,10):0u; static int en=0;
+      uint32_t r=ctx.r3.u32;
+      static bool armed=false; if(byLr && etid==20649u){ armed=true; g_boss1Armed=true; }   // lr mode: start at the first boss-1 head push
+      const bool hit = byLr ? (armed && etlr>=lrLo && etlr<lrHi) : (r>=0x1000 && r<0xFFFF0000u && PPC_LOAD_U32(r+36)==wantW && PPC_LOAD_U32(r+40)==wantH);
+      if(en<3000 && hit && r>=0x1000 && r<0xFFFF0000u){
+        ++en; std::fprintf(stderr,"[emittrace] lr=%08X id=%u x=%08X y=%08X prio=%u rec=%08X attr=%08X tl=(%08X,%08X) c=(%08X,%08X) uv=(%u,%u) wh=(%u,%u)\n",
+          etlr,etid,etx,ety,etp,r,PPC_LOAD_U32(r),PPC_LOAD_U32(r+4),PPC_LOAD_U32(r+8),PPC_LOAD_U32(r+12),PPC_LOAD_U32(r+16),
+          PPC_LOAD_U32(r+28),PPC_LOAD_U32(r+32),PPC_LOAD_U32(r+36),PPC_LOAD_U32(r+40)); } } }
   if(std::getenv("RT_TRACERES")){
     bool win=(i>=500000&&i<500040)||(i>=1500000&&i<1500040);
     if(win){

@@ -19,6 +19,9 @@ guest-faithful, and the user remembers it correct in an earlier build ⇒ a port
 **STATUS 09-20 21:40 (USER STOP — "bank and pivot back to decomp"):** Phase 0 step 1 DONE (route works, scripts/boss1/); step 2 NOT run (old builds need the cursor-tracking driver); step 3 open. New defect FNF-15 (training panel rows not drawn) found on the way, control-proven readable-C, single-TU arms built, bisect unrun. Both parked in NOTE_fnf_shell_defects.md 2026-09-20 FNF-15. Next lane per the user: DECOMP (Phase 2).
 **10-03 (Mac):** FNF-15 CLOSED — TU bisect → function knock-out → read → one-line fix (NOTE_fnf_shell_defects.md
 2026-10-03). Boss-1 head still open; the Mac's 48 s builds make the Phase 0 step-2 bisect cheap now.
+**10-04 (Mac, overnight):** BOSS-1 HEAD CLOSED — Phase 0 done. Culprit objaction_queue.cpp (two operand slips in the
+straight-ahead pose's second mosaic pair), named by the all-game revert arm + per-push trace diff; see
+NOTE_fnf_shell_defects.md 2026-10-04. The boss plate gate (Phase 1 item 2) now has its reference frames in _local/boss1_mac/.
 
 ## Phase 1 — realcomp (attended, small)
 1. **Constant-pool audit tool** (Sonnet-tier, mechanical, HIGHEST YIELD). For every readable-C TU
