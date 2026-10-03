@@ -971,7 +971,11 @@ PPC_FUNC(sub_820F06C8){
 // timebase semantics for all 16 emitted mftb sites (both trees). RT_MFTB_RAW=1 restores rdtsc.
 extern "C" unsigned long long rt_mftb(void){
   static int raw = getenv("RT_MFTB_RAW") ? atoi(getenv("RT_MFTB_RAW")) : 0;
+#if defined(__x86_64__) || defined(__i386__)
   if(raw) return __builtin_ia32_rdtsc();
+#else
+  if(raw) return __builtin_readcyclecounter();   // arm64: CNTVCT_EL0 (the "raw" lever keeps a raw counter)
+#endif
   static const std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
   unsigned long long us = (unsigned long long)std::chrono::duration_cast<std::chrono::microseconds>(
       std::chrono::steady_clock::now() - t0).count();

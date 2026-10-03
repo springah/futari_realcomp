@@ -198,8 +198,11 @@ consecutive ship-nothing legs ⇒ back here for re-ranking, not another leg.
 
 ## PLATFORM / END-GOAL
 
-12. **Deck/Linux + macOS ports — PARKED (USER RULING 2026-07-27: "Windows only for now,
-    will port to MacOS/Linux later").** Do not spend legs here until the user re-opens it.
+12. **Deck/Linux + macOS ports — RE-OPENED 2026-10-03 (user: "could we whip up a macos version";
+    the user's only machine is now an arm64 Mac).** Linux build resurrected and green
+    (`build_linux.sh`: links, runs headless, SDL3 window smoke-tested on Xvfb+llvmpipe); macOS
+    handoff written blind (`build_mac.sh` + `docs/PLAN_macos_bringup.md`), to be driven to green
+    by a session on the Mac. Previous ruling (2026-07-27: "Windows only for now") superseded.
     Banked for that day: the welded-clock fix (RVK_DECOUPLE) was the "slow by construction"
     mechanism the old Deck pacing notes blamed — a Deck retest under decouple is the first
     step and may make the old timer-granularity work moot.

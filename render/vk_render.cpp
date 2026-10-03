@@ -38,6 +38,7 @@
 // later) and the event pump. Windows keeps its hand-rolled Win32 window above, byte-for-byte.
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
+#include <pthread.h>   // rvk_run_on_main_thread: explicit stack size for the guest thread
 #endif
 #include <cstdio>
 #include <cstdlib>
@@ -4179,9 +4180,14 @@ bool initVk() {
   // presenting thread, which is what X11/Wayland want. (macOS: Cocoa wants the MAIN thread —
   // that is the known MoltenVK-lane item, not solved here.)
   if (rvk_window_on()) {
+    // RVK_VULKAN_LIBRARY (build-time, e.g. the MoltenVK dylib this binary links): make SDL load
+    // the SAME library we call directly, so its surface and our instance belong to one driver.
+#ifndef RVK_VULKAN_LIBRARY
+#define RVK_VULKAN_LIBRARY nullptr
+#endif
     if (!SDL_WasInit(SDL_INIT_VIDEO) && !SDL_InitSubSystem(SDL_INIT_VIDEO))
       std::fprintf(stderr, "[rvk][win] SDL_InitSubSystem(VIDEO) FAILED: %s — RVK_WINDOW will not come up\n", SDL_GetError());
-    else if (!SDL_Vulkan_LoadLibrary(nullptr))
+    else if (!SDL_Vulkan_LoadLibrary(RVK_VULKAN_LIBRARY))
       std::fprintf(stderr, "[rvk][win] SDL_Vulkan_LoadLibrary FAILED: %s\n", SDL_GetError());
     else {
       Uint32 nExt = 0; const char* const* sdlExts = SDL_Vulkan_GetInstanceExtensions(&nExt);
@@ -4189,6 +4195,18 @@ bool initVk() {
       else std::fprintf(stderr, "[rvk][win] SDL_Vulkan_GetInstanceExtensions FAILED: %s\n", SDL_GetError());
     }
   }
+#endif
+#if defined(__APPLE__)
+  // MoltenVK is a portability implementation: when it sits behind the Vulkan loader, devices are
+  // only enumerated with VK_KHR_portability_enumeration + the matching create flag. Linked
+  // directly (no loader) the extension is absent and nothing is needed — so add it only if offered.
+  std::vector<const char*> appleExts(ici.ppEnabledExtensionNames, ici.ppEnabledExtensionNames + ici.enabledExtensionCount);
+  { uint32_t n = 0; vkEnumerateInstanceExtensionProperties(nullptr, &n, nullptr);
+    std::vector<VkExtensionProperties> props(n); if (n) vkEnumerateInstanceExtensionProperties(nullptr, &n, props.data());
+    for (auto& e : props) if (!std::strcmp(e.extensionName, "VK_KHR_portability_enumeration")) {
+      appleExts.push_back("VK_KHR_portability_enumeration"); ici.flags |= 0x00000001u /*VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR*/;
+      std::fprintf(stderr, "[rvk] portability enumeration enabled (Vulkan loader + MoltenVK)\n"); break; } }
+  ici.enabledExtensionCount = (uint32_t)appleExts.size(); ici.ppEnabledExtensionNames = appleExts.data();
 #endif
   VKC(vkCreateInstance(&ici, nullptr, &g.instance), "vkCreateInstance");
 
@@ -4253,6 +4271,14 @@ bool initVk() {
   // (platform-neutral: every WSI presents through VK_KHR_swapchain).
   const char* devExts[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
   if (rvk_window_on()) { dci.enabledExtensionCount = 1; dci.ppEnabledExtensionNames = devExts; }
+#if defined(__APPLE__)
+  // VK_KHR_portability_subset: a device that advertises it REQUIRES it to be enabled (MoltenVK).
+  std::vector<const char*> appleDevExts(dci.ppEnabledExtensionNames, dci.ppEnabledExtensionNames + dci.enabledExtensionCount);
+  { uint32_t n = 0; vkEnumerateDeviceExtensionProperties(g.phys, nullptr, &n, nullptr);
+    std::vector<VkExtensionProperties> props(n); if (n) vkEnumerateDeviceExtensionProperties(g.phys, nullptr, &n, props.data());
+    for (auto& e : props) if (!std::strcmp(e.extensionName, "VK_KHR_portability_subset")) { appleDevExts.push_back("VK_KHR_portability_subset"); break; } }
+  dci.enabledExtensionCount = (uint32_t)appleDevExts.size(); dci.ppEnabledExtensionNames = appleDevExts.data();
+#endif
   VKC(vkCreateDevice(g.phys, &dci, nullptr, &g.dev), "vkCreateDevice");
   vkGetDeviceQueue(g.dev, g.qfam, 0, &g.queue);
 
@@ -4542,20 +4568,65 @@ static void rvkToggleFullscreenSdl() {
   int w = 0, h = 0; SDL_GetWindowSizeInPixels(gw.sdlWin, &w, &h);
   std::fprintf(stderr, fs ? "[rvk][win] F11 -> fullscreen %dx%d\n" : "[rvk][win] F11 -> windowed\n", w, h);
 }
-static void rvkWindowPump() {
-  SDL_Event ev;
-  while (SDL_PollEvent(&ev)) {
-    if (ev.type == SDL_EVENT_KEY_DOWN && ev.key.scancode == SDL_SCANCODE_F11 && !ev.key.repeat) {
-      static bool off = std::getenv("RVK_NOF11") && atoi(std::getenv("RVK_NOF11")) != 0;
-      if (!off) rvkToggleFullscreenSdl();
-    } else if (ev.type == SDL_EVENT_QUIT || ev.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) {
-      gw.closed = true; std::fprintf(stderr, "[rvk][win] window closed by user\n");
-      // Same FNF-8 P1 semantics as the Win32 WM_CLOSE: X must actually QUIT (flush + _Exit; guest
-      // threads cannot be joined). RVK_NOEXITONCLOSE=1 keeps the process alive, window gone.
-      static bool stay = std::getenv("RVK_NOEXITONCLOSE") && atoi(std::getenv("RVK_NOEXITONCLOSE")) != 0;
-      if (!stay) { std::fflush(nullptr); std::_Exit(0); }
-    }
+static void rvkHandleSdlEvent(const SDL_Event& ev) {
+  if (ev.type == SDL_EVENT_KEY_DOWN && ev.key.scancode == SDL_SCANCODE_F11 && !ev.key.repeat) {
+    static bool off = std::getenv("RVK_NOF11") && atoi(std::getenv("RVK_NOF11")) != 0;
+    if (!off) rvkToggleFullscreenSdl();
+  } else if (ev.type == SDL_EVENT_QUIT || ev.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) {
+    gw.closed = true; std::fprintf(stderr, "[rvk][win] window closed by user\n");
+    // Same FNF-8 P1 semantics as the Win32 WM_CLOSE: X must actually QUIT (flush + _Exit; guest
+    // threads cannot be joined). RVK_NOEXITONCLOSE=1 keeps the process alive, window gone.
+    static bool stay = std::getenv("RVK_NOEXITONCLOSE") && atoi(std::getenv("RVK_NOEXITONCLOSE")) != 0;
+    if (!stay) { std::fflush(nullptr); std::_Exit(0); }
   }
+}
+// SDL's "main thread" is the thread that initialised video (Linux: the presenting thread, so
+// this pumps from the present like Win32) — except on Apple, where it is the process main thread
+// and rvk_run_on_main_thread below owns the pump; presents then skip it.
+static void rvkWindowPump() {
+  if (!SDL_IsMainThread()) return;
+  SDL_Event ev;
+  while (SDL_PollEvent(&ev)) rvkHandleSdlEvent(ev);
+}
+// Window + surface creation, which Cocoa only allows on the main thread. Called directly when
+// we already are it (Linux), else marshalled through SDL_RunOnMainThread (Apple), which needs
+// the main thread to be pumping — rvk_run_on_main_thread guarantees that.
+struct RvkWinCreate { uint32_t w, h; bool ok; };
+static void rvkWindowCreateNativeCb(void* ud) {
+  RvkWinCreate* c = (RvkWinCreate*)ud; c->ok = false;
+  gw.sdlWin = SDL_CreateWindow("Mushihimesama Futari - futari_realcomp", (int)c->w, (int)c->h, SDL_WINDOW_VULKAN);
+  if (!gw.sdlWin) { std::fprintf(stderr, "[rvk][win] SDL_CreateWindow FAILED: %s\n", SDL_GetError()); return; }
+  if (!SDL_Vulkan_CreateSurface(gw.sdlWin, g.instance, nullptr, &gw.surface)) {
+    std::fprintf(stderr, "[rvk][win] SDL_Vulkan_CreateSurface FAILED: %s\n", SDL_GetError()); return;
+  }
+  c->ok = true;
+}
+static bool rvkWindowCreateNative(uint32_t w, uint32_t h) {
+  RvkWinCreate c{w, h, false};
+  if (SDL_IsMainThread()) rvkWindowCreateNativeCb(&c);
+  else if (!SDL_RunOnMainThread(rvkWindowCreateNativeCb, &c, true)) std::fprintf(stderr, "[rvk][win] SDL_RunOnMainThread FAILED: %s\n", SDL_GetError());
+  return c.ok;
+}
+// Apple entry (harness.cpp main() calls this under RVK_WINDOW): own SDL video on the process main
+// thread, run the real harness on a big-stack thread, pump events (which also services the
+// SDL_RunOnMainThread marshalling above) until the guest returns. Compiled on every non-Windows
+// build so Linux links the same objects; Linux never calls it.
+extern "C" int rvk_run_on_main_thread(int (*fn)(int, char**), int argc, char** argv) {
+  if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) { std::fprintf(stderr, "[rvk][win] SDL_InitSubSystem(VIDEO) on main thread FAILED: %s\n", SDL_GetError()); return fn(argc, argv); }
+  struct Args { int (*fn)(int, char**); int argc; char** argv; std::atomic<int> rc{0}; std::atomic<bool> done{false}; } a{fn, argc, argv};
+  pthread_attr_t at; pthread_attr_init(&at); pthread_attr_setstacksize(&at, 64u << 20);   // the harness main used the 8MB main stack
+  pthread_t th;
+  if (pthread_create(&th, &at, [](void* p) -> void* { Args* a = (Args*)p; a->rc = a->fn(a->argc, a->argv); a->done = true; return nullptr; }, &a) != 0) {
+    std::fprintf(stderr, "[rvk][win] guest thread create FAILED\n"); return fn(argc, argv);
+  }
+  std::fprintf(stderr, "[rvk][win] main thread owns SDL; guest runs on a 64MB-stack thread\n");
+  SDL_Event ev;
+  while (!a.done.load(std::memory_order_acquire)) {
+    while (SDL_PollEvent(&ev)) rvkHandleSdlEvent(ev);
+    SDL_Delay(2);   // RunOnMainThread callbacks are serviced by the event pump; keep it ~500Hz
+  }
+  pthread_join(th, nullptr);
+  return a.rc.load();
 }
 #endif  // _WIN32 (window platform arm 1: toggle + pump)
 
@@ -4702,11 +4773,8 @@ bool rvkWindowInit() {
     } else std::fprintf(stderr, "[rvk][win] RVK_WINSIZE '%s' invalid — using %ux%u\n", ws, kW, kH);
   }
   // Fixed-size window like the Win32 arm (no RESIZABLE flag); F11 toggles borderless fullscreen.
-  gw.sdlWin = SDL_CreateWindow("Mushihimesama Futari - futari_realcomp", (int)winW, (int)winH, SDL_WINDOW_VULKAN);
-  if (!gw.sdlWin) { std::fprintf(stderr, "[rvk][win] SDL_CreateWindow FAILED: %s\n", SDL_GetError()); gw.failed = true; return false; }
-  if (!SDL_Vulkan_CreateSurface(gw.sdlWin, g.instance, nullptr, &gw.surface)) {
-    std::fprintf(stderr, "[rvk][win] SDL_Vulkan_CreateSurface FAILED: %s\n", SDL_GetError()); gw.failed = true; return false;
-  }
+  // Created on SDL's main thread (directly on Linux, marshalled on Apple — see rvkWindowCreateNative).
+  if (!rvkWindowCreateNative(winW, winH)) { gw.failed = true; return false; }
   VkBool32 sup = VK_FALSE;
   vkGetPhysicalDeviceSurfaceSupportKHR(g.phys, g.qfam, gw.surface, &sup);
   if (!sup) { std::fprintf(stderr, "[rvk][win] queue family %u cannot present\n", g.qfam); gw.failed = true; return false; }

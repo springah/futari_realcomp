@@ -206,7 +206,27 @@ static void rt_cb_dump(uint8_t* base, uint32_t a, const char* tag){
   { static long v=-1; if(v<0){ char nm[16]; std::snprintf(nm,16,"RT_CB%d_RET",n); const char* e=getenv(nm); v=e?atol(e):0; } ctx.r3.u64=(uint64_t)v; } }
 RT_SVC_CB(0) RT_SVC_CB(1) RT_SVC_CB(2) RT_SVC_CB(3)
 
+#ifndef _WIN32
+#ifndef MAP_NORESERVE
+#define MAP_NORESERVE 0   // macOS has no MAP_NORESERVE; anonymous mappings are lazily committed anyway
+#endif
+#endif
+#if defined(__APPLE__)
+// macOS (2026-10-03 handoff): Cocoa requires the window and its event pump on the process's main
+// thread, and the guest (and its presents) run on whatever thread calls into it. So under
+// RVK_WINDOW the real main() hands the whole harness to rvk_run_on_main_thread (vk_render.cpp),
+// which runs guest_main on a big-stack thread while the main thread owns SDL. Headless runs are
+// unchanged. Weak so a vk_render-less link still resolves.
+extern "C" int rvk_run_on_main_thread(int (*fn)(int, char**), int argc, char** argv) __attribute__((weak));
+static int guest_main(int argc,char**argv);
 int main(int argc,char**argv){
+  if(std::getenv("RVK_WINDOW") && rvk_run_on_main_thread) return rvk_run_on_main_thread(guest_main,argc,argv);
+  return guest_main(argc,argv);
+}
+static int guest_main(int argc,char**argv){
+#else
+int main(int argc,char**argv){
+#endif
 #ifdef _WIN32
   AddVectoredExceptionHandler(1, onsig_veh);
 #else

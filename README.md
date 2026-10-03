@@ -79,10 +79,19 @@ from (`save_freshcard`, `save_r17_boss`, `save_eyeball`). Every other save direc
 creates goes under `_local/saves/` — set `RT_SAVE=_local/saves/save_<tag>` (convention since
 2026-09-04; the runtime uses the value verbatim, relative to the repo root).
 
+## Building (macOS)
+
+`build_mac.sh` is the macOS counterpart (arm64, Homebrew llvm + molten-vk + vulkan-headers, SDL3
+shared). It was written on the Linux proving ground and has **not yet run on a Mac**; the
+bring-up map, the three macOS-specific designs (main-thread window, duplicate-symbol merge
+without `--allow-multiple-definition`, MoltenVK plumbing) and the first-five-minutes recipe are in
+`docs/PLAN_macos_bringup.md`.
+
 ## Documentation
 
 - `STATUS.md` — where the live state is (one paragraph; points at the decomp repo's ledger)
 - `docs/BACKLOG.md` — ranked open work (last re-ranked 2026-08-03; the ledger's owed list is fresher)
+- `docs/PLAN_macos_bringup.md` — the macOS port handoff (2026-10-03): what is done, what is blind, the order to look
 - `../futari_decomp/docs/NOTE_campaign_decomp.md` — the campaign ledger; newest entries at the top
 - `tools/matchlab/README.md` — the matching toolchain, its rules, and its landmines
 

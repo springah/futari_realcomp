@@ -62,7 +62,12 @@ static inline uint8_t* xr_guest_arena(unsigned long long size) {
 
 #include <unistd.h>
 #include <sys/syscall.h>
+#if defined(__APPLE__)
+#include <pthread.h>
+static inline long xr_gettid() { uint64_t t = 0; pthread_threadid_np(nullptr, &t); return (long)t; }   // no gettid(2) on macOS
+#else
 static inline long xr_gettid() { return (long)syscall(SYS_gettid); }
+#endif
 
 #endif // _WIN32
 

@@ -349,6 +349,11 @@ PPC_FUNC_IMPL(__imp__ExCreateThread){ LOGN("ExCreateThread");
   uintptr_t th=_beginthreadex(nullptr,0,rt_thread_trampoline,T,0,nullptr); T->hth=(void*)th;
 #else
   pthread_t th; pthread_attr_t at; pthread_attr_init(&at); pthread_attr_setdetachstate(&at,PTHREAD_CREATE_DETACHED);
+#if defined(__APPLE__)
+  // macOS secondary threads default to a 512KB stack (Linux: 8MB). Recompiled guest code uses the
+  // HOST stack for its call frames, so give guest threads what the Linux default gives them.
+  pthread_attr_setstacksize(&at, 16u << 20);
+#endif
   pthread_create(&th,&at,rt_thread_main,T);
 #endif
   if(ctx.r3.u32) *(uint32_t*)(base+ctx.r3.u32)=__builtin_bswap32(0xE000u+idx);
