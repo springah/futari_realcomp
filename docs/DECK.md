@@ -44,6 +44,21 @@ never take that arm. RADV VANGOGH: Vulkan 1.4.350, present modes MAILBOX/FIFO/IM
 - Screenshots in Gaming Mode: `WAYLAND_DISPLAY=gamescope-0 gamescopectl screenshot /tmp/x.png`; synthetic input:
   xdotool on `DISPLAY=:1` (held keys, no `--window`) or uinput (see the daytona Deck notes).
 
+## Desktop Mode launch over SSH that is actually visible (verified 10-05 10:01, _local/captures/deck_desktop_title_20261005.png)
+`setsid nohup … & disown` from an ssh `bash -c` did NOT survive (the AppImage died before writing a line); a
+foreground run worked; the robust detached form is a user service:
+```
+P=$(pgrep -u deck -x plasmashell | head -1); tr "\0" "\n" < /proc/$P/environ | grep -E "^(DISPLAY|WAYLAND_DISPLAY|XDG_RUNTIME_DIR|XAUTHORITY)=" > /tmp/plasma.env
+systemd-run --user --unit=futari-realcomp --collect --setenv=DISPLAY=:0 --setenv=WAYLAND_DISPLAY=wayland-0 \
+  --setenv=XDG_RUNTIME_DIR=/run/user/1000 --setenv=XAUTHORITY=<from plasma.env> --working-directory=/home/deck \
+  /home/deck/Downloads/Futari-Realcomp-x86_64.AppImage
+systemctl --user stop futari-realcomp        # to end it
+```
+Plasma on SteamOS 3.9 is a Wayland session (`XDG_SESSION_TYPE=wayland`, `WAYLAND_DISPLAY=wayland-0`, XWayland on
+`:0`); SDL picked Wayland (`video=wayland`), swapchain 1280x800 x4. Screenshot from ssh with the same env:
+`spectacle -b -n -o /tmp/x.png`. The title appeared in a 1280x800 window at full rate (f1501 at ~25 s), 0 errors.
+A gamescope SIGABRT coredump at 09:56 coincides with the session switch to Desktop Mode (not the game's process).
+
 ## Still owed
 A Steam-launched run with eyes on it (the user), then the pacing retest under RVK_DECOUPLE (BACKLOG #12) and the
 controller mapping check under Steam Input.
