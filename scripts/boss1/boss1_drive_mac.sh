@@ -6,6 +6,7 @@
 # "Stage 1 Boss"); A = 開始 (NOT START: START is the in-game PAUSE, GameEntry msg=10); A x4 through the selects; then a dwell with
 # autofire (A 2 s on / 0.4 off). Needs a card with a save (_local/saves/save_mac).
 # Bank: _local/boss1_mac/<tag>/{png/nvk_f<frame>.png, guest.log, presses.txt}
+# Route is MARKER-DRIVEN (10-05): each press waits for its own log confirmation and retries once -- see step().
 set -u
 cd "$(dirname "$0")/../.."
 TAG="${1:-pilot}"; BIN="${2:-build/futari_merged}"; DUR="${3:-120}"
@@ -20,19 +21,38 @@ export RT_PAD_HOST=1 RT_PAD_HOST_FIFO="$FIFO"   # no RT_NOXINPUT: the user plays
 # segment -- the user's manual runs never set it.
 [ "${NOPAUSE:-0}" = "1" ] && export RT_NOPAUSE=1
 export RT_NVKPNG="${NVKPNG:-60}" RVK_DUMPDIR="$PWD/$B/png"
-pkill -f "build/ctl_\|build/futari_merged" 2>/dev/null; sleep 1
+pkill -f "build/ctl_\|build/futari_merged\|build/plate_" 2>/dev/null; sleep 1
+PREVLOG=$(ls -t _local/logs/mac_*.log 2>/dev/null | head -1)
 BIN="$BIN" RUN_SECS=$((DUR+100)) bash scripts/run_mac.sh > "$B/run_out.txt" 2>&1 &
 T0=$(date +%s)
-log(){ ls -t _local/logs/mac_*.log | head -1; }
+# pin THIS launch's log: the newest mac_*.log is the previous run's until run_mac.sh creates ours, and that one
+# already holds every marker (a whole-log wait would fire at once)
+LOGF=""; for ((i=0;i<60;i++)); do L=$(ls -t _local/logs/mac_*.log 2>/dev/null | head -1); [ -n "$L" ] && [ "$L" != "$PREVLOG" ] && { LOGF="$L"; break; }; sleep 0.5; done
+[ -n "$LOGF" ] || { echo "[boss1] no new log appeared -- did $BIN start? ($B/run_out.txt)"; exit 1; }
+log(){ echo "$LOGF"; }
 say(){ echo "[boss1] t+$(( $(date +%s)-T0 ))s $*" | tee -a "$B/presses.txt"; }
 press(){ echo "$1" > "$FIFO"; sleep "${3:-0.2}"; echo 0 > "$FIFO"; say "pad $1 ($2)"; }
 waitfor(){ local pat="$1" to="$2" lbl="$3" i; for ((i=0;i<to;i++)); do grep -q "$pat" "$(log)" 2>/dev/null && { say "marker: $lbl"; return 0; }; sleep 1; done; say "TIMEOUT: $lbl"; return 1; }
-sleep 14
-press 10 START; sleep 5; press 1000 A; sleep 5; press 1000 A; sleep 5; press 1000 A; sleep 5
-press 2 DOWN; sleep 1; press 2 DOWN; sleep 2; press 1000 A
-waitfor '96660(load)' 10 "training panel"; sleep 2
+# Marker-driven route (10-05): every step waits for ITS OWN confirmation line, counted from the log position at
+# press time (the SE/BGM cue lines repeat, so a whole-log grep would match an earlier step), and a press whose
+# marker never shows is re-pressed once. Replaces the blind `sleep 14` before START and the fixed 5 s gaps: a
+# fresh binary's cold first launch slipped the old timings and the run desynced in the menus (plate_allgame 10-04).
+MARK=0
+mark(){ MARK=$(wc -l < "$(log)" 2>/dev/null | tr -d ' '); MARK=${MARK:-0}; }
+waitnew(){ local pat="$1" to="$2" lbl="$3" i; for ((i=0;i<to*2;i++)); do tail -n +"$((MARK+1))" "$(log)" 2>/dev/null | grep -q "$pat" && { say "marker: $lbl"; return 0; }; sleep 0.5; done; say "TIMEOUT: $lbl"; return 1; }
+step(){ # pad label marker timeout [settle]  -- press, wait for the marker since the press; one retry on timeout
+  local pad="$1" lbl="$2" pat="$3" to="$4" settle="${5:-1}" try
+  for try in 1 2; do mark; press "$pad" "$lbl"; waitnew "$pat" "$to" "$lbl -> $pat" && { sleep "$settle"; return 0; }; say "retry $lbl"; done; return 1; }
+waitfor "name='motion/title.lzx'" 60 "title loaded"; sleep "${TITLE_SETTLE:-4}"
+step 10 START 'SYS_BGM cue0 (mushifuta_Menu02)' 10 4            # menu BGM = START accepted; the save-data check slides by itself
+step 1000 "A 1" 'SYS_SE cue1 (SE_OK01)' 6 3
+step 1000 "A 2" '\[modeidx\] .*ARCADE' 6 3                    # mode chosen
+step 1000 "A 3" '\[p0build\] menu_game_title' 8 2             # hub menu built (items incl. item_training)
+step 2 "DOWN 1" 'SYS_SE cue5 (SE_Select01)' 4 0.6
+step 2 "DOWN 2" 'SYS_SE cue5 (SE_Select01)' 4 0.8
+step 1000 "A (training)" '96660(load)' 10 2                   # training panel
 for ((i=0;i<${NRIGHT:-1};i++)); do press 8 "RIGHT (Stage row)"; sleep 1.2; done
-sleep 1; press 1000 "A (開始)"; waitfor 'dclose.*vt=0x82050F00' 8 "panel closed"; sleep 2
+sleep 1; step 1000 "A (開始)" 'dclose.*vt=0x82050F00' 8 2     # panel closed
 for i in 1 2 3 4; do press 1000 "A select $i"; sleep 3; done
 waitfor 'BGM cue1\|m02_stg\|BGM cue[0-9]* (m0[2-9]' 20 "stage BGM"
 STAGE_T0=$(date +%s); say "STAGE_T0 — dwell ${DUR}s autofire via FIFO (QUIET=${QUIET:-0}s hold-fire first)"
