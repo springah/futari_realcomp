@@ -37,7 +37,9 @@ the NAS is reachable).
 ## Steam Deck (added 10-04 night, user "go")
 - [DONE] Linux two-mode engine built from the Mac in a Rosetta container (`mac-build/deck/`, `build_linux_dll.sh`);
   headless boot binds both modules; package staged + zipped (`Futari-Realcomp-Deck-v0.2.0-beta3.zip`).
-- [USER] First boot on the Deck in Gaming Mode (never run on an AMD GPU yet); send logs/ if it refuses.
+- [DONE 10-05] First boot on the Deck: failed on the undefined Wayland surface extent, fixed (vk_render.cpp,
+  e3512aa); renderer up on RADV, frames at full rate. SEEING it needs a Steam-launched run: docs/DECK.md.
+- [USER] Steam shortcut launch with eyes on it; controller under Steam Input; pacing retest.
 - [ ] Upload route (Drive client / tunnel / GitHub release) -- the user's choice; then the Deck pacing retest under
   RVK_DECOUPLE (BACKLOG #12's first measurement).
 
