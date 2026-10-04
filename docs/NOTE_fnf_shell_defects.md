@@ -2067,6 +2067,17 @@ a term, while every store/branch/constant still matches. Reads of such bodies mu
 the generated listing's final `add rN,...` for EACH argument register at EACH bl, or better, measured with the
 per-push trace diff above — a 4-minute instrument that beats any read.
 
+## 2026-10-04 (night) — the REGISTER-CONTRACT AUDIT exists, and its first sweep found one more FNF-15-class miss
+`futari_decomp/tools/instruments/regcontract_audit.py` (the 10-03 lesson made mechanical: per call, the registers the
+generated caller rewrote since its previous call that the callee reads, minus what the readable body assigns). Positive
+controls = FNF-15's bctrl at 2507022b^ and the new catch at e7bfc9c2; sweep = 1,427 calls clean, one miss:
+**menu_base_states.cpp sub_821A0580 (Screen Setting (Simple) panel tick) never set r4 = cfg before `bl sub_82187EE0`**,
+the settings-changed notify that fires after a nudge; the generated body's `addi r4,r3,360` is live there and the
+callee reads r4 (Layout/Picture pass `lwz r4,360(r28)` at the same call). Fixed (ctx.r4.u32 = cfg). The audit is the
+witness (row present at e7bfc9c2, gone at HEAD); a drive that exercises the Simple panel's nudge path (BTN_NUDGE_*)
+would be the plate if one is ever needed. 22 indirect-call sites remain with an upper-bound contract because the TU
+does not name the slot's callee -- the audit lists them; naming the callee in a comment closes each.
+
 ## 2026-10-04 (evening) — FNF-14's open half MEASURED: in-game stage loads never go black and show "PLEASE WAIT"
 Route (scripts/nav_mac.sh np_load, build/opt_pilot, frames every 10 ticks): HUB > NORMAL PLAY > 1P SIDE START > Original >
 Reco > Normal shot > stage 1. Playfield blackness (RGB < 24, box 408..880 x 40..680) over f2300..f3100 never exceeds 0.07;
