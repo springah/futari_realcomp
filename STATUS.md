@@ -1,4 +1,4 @@
-# STATUS — futari_realcomp (pointer, 2026-09-04)
+# STATUS — futari_realcomp (pointer, 2026-10-05)
 
 **Where the live state is:** the campaign ledger in the sibling repo,
 `../futari_decomp/docs/NOTE_campaign_decomp.md` (top block = current state, then the ranked
@@ -6,7 +6,19 @@ owed list for the next window). The scoreboard is `../futari_decomp/docs/progres
 (metric definitions: `PLAN_FULL_READABLE.md` §1.1 — headline is DONE = MATCHED+CONVERTED over
 AUTHORED insns).
 
-**This repo today (09-04):** the working native port — attract, menus, Normal Play, Training,
+**This repo today (10-05):** the port now lives on the user's Mac (arm64, MoltenVK, SDL3; `build_mac.sh`,
+`scripts/run_mac.sh`) and ships as a double-clickable family-and-friends bundle (`mac-build/build_mac_app.sh` ->
+`~/Desktop/projects/Futari Realcomp.app`, game data inside). Since 10-03: boss-1 head and FNF-15 root-caused and
+fixed, three constant typos + one missing-register miss + an arm3 operand slip found by the two new audits
+(futari_decomp tools/instruments/constpool_audit.py, regcontract_audit.py) and fixed, the RT_TXTNODE hook
+restored, FrameDelay 2V/3V un-pacing fixed (RT_FDPACE), FNF-14's in-game half measured (PLEASE WAIT, not black),
+D3 wall-dim moot on the ship path, the save card's layout/FrameDelay bytes pinned, B3 round-trip passing.
+Gates that run unattended here: the boss plate gate (`scripts/boss1/boss_plate_gate.sh`, pixel + structural, last
+all-game sweep PASS), the stage pixel gate (`scripts/stagepix_mac.sh`, PASS), both audits (0 DRIFT / 0 MISSING).
+Still not shippable for the same reason as 09-04 -- the F&F gate is closed on shell-compose fidelity (flicker,
+BACKLOG #0), whose ratified fix is the shell compositor decomp (Phase 2).
+
+**This repo on 09-04 was:** the working native port — attract, menus, Normal Play, Training,
 saves and native audio all run. Not shippable: the friends-and-family gate (07-26) is closed on
 shell-compose fidelity (flicker), and the ratified fix is the shell compositor decomp. Game logic
 has been untouched since 08-25; commits since then are harness-only instruments for the decomp
