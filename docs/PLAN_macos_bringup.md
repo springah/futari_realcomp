@@ -56,6 +56,25 @@
 >   `build/rt_xwma <bank> N out.wav`), and plays in-process through RT_XWMATEST. It serves the
 >   bridge/A-B arms (`RT_BRIDGESE=1`, `RT_XWMATEST`), not the shipping path.
 >
+> **10-04 (late): TWO MODES on the Mac — the module arm ported (beta 3; docs/PLAN_beta3_mac.md).**
+> `build_mac_dll.sh` = the macOS twin of build_win_dll.sh: `build/futari_combined` (host, -DFUTARI_COMBINED=1)
+> + `build/futari_game_normal.dylib` + `build/futari_game_abn.dylib`, each a -dynamiclib link through the same
+> rename-on-duplicate pass (now `mac-build/link_merge.py`, shared with build_mac.sh; the de-alias pre-pass is
+> `mac-build/dealias.py`). `host/module_registry.cpp` grew the dlopen arm (RT_MODDLL_DIR, then the executable's
+> directory; RTLD_LOCAL). `tools/gen_host_abi.py` grew a Mach-O arm (Homebrew llvm-nm, leading underscore,
+> the four globals seen as the shim's futari_p_* pointers, libc++/libSystem as CRT) and measured one helper the
+> Windows ABI lacked: `rt_kick_capture` (a weak reference in merged_game.cpp — dead in the Windows beta-2 DLLs,
+> live in the merged exe the Mac gates ran on — now ABI member #20, hash 0xECFBA58AD25409D9). Mach-O lessons:
+> a weak extern to a symbol defined NOWHERE is a link error (weak_import does not cover it) → rt_audio_module_swap
+> gets a weak empty definition on Apple; Apple libm has no roundevenf (harness.cpp defines it on Apple too).
+> **The XBOX 360 tree had to be regenerated here** (out_reco_abn/ppc_recomp.*.cpp are gitignored; the Windows
+> box holds the eqv-fixed recompiler as a never-pushed local repo). The fork's codegen was reconstructed on
+> upstream XenonRecomp — `tools/xenonrecomp_mac_eqv_fixes.patch`, `scripts/regen_abn_mac.sh` — and VALIDATED
+> by regenerating reco_normal and diffing the 1.1M-line tracked tree: residual = exactly the 41 FIX-2026 hand
+> patches (the patch now emits the same expressions mechanically) + the 24 harness-tap hunks. First boot:
+> `[modreg] 2/2 module DLL(s) bound, hosted modeIdx mask=0x03`, title at 60 fps. Deployment target pinned
+> to 13.0 everywhere (the 10-04 bundle had been stamped minos 27.0: engine, launcher, SDL3).
+>
 > **10-04: `.app` DONE** — `bash mac-build/build_mac_app.sh` → `~/Desktop/projects/Futari Realcomp.app` (892 MB with
 > the assets inside, family-and-friends build): combined engine relinked without libavcodec, SDL3 + MoltenVK in
 > Contents/Frameworks with the load commands rewritten (no Homebrew/checkout paths survive), `mac-build/launcher.c`

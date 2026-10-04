@@ -32,8 +32,24 @@ USAGE (read-only w.r.t. the build; writes only the three generated files)
 """
 import argparse, glob, os, subprocess, sys
 
-NM = r"C:\Program Files\LLVM\bin\llvm-nm.exe"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# macOS arm (2026-10-04, beta 3): the same measurement over the Mach-O module objects that
+# build_mac_dll.sh compiles (--objdir build/obj_mac_mod_<mod>). Differences handled below:
+#   * llvm-nm lives in Homebrew llvm and every Mach-O symbol carries one leading underscore (stripped);
+#   * the objects are compiled WITH -DFUTARI_IN_MODULE_DLL=1, so the four globals are referenced by the
+#     shim's pointer names (futari_p_*), mapped back onto the GLOBALS keys (which are the MSVC-decorated
+#     exe-form names the Windows measurement sees);
+#   * CRT/OS = libSystem + libc++ (every _Z* name, plus the C names in MAC_CRT); anything else aborts,
+#     exactly as on Windows -- that abort is the point of the tool.
+IS_MAC = sys.platform == "darwin"
+NM = "/opt/homebrew/opt/llvm/bin/llvm-nm" if IS_MAC else r"C:\Program Files\LLVM\bin\llvm-nm.exe"
+MAC_CRT = set("""
+_Unwind_Resume __cxa_allocate_exception __cxa_atexit __cxa_free_exception __cxa_guard_abort __cxa_guard_acquire
+__cxa_guard_release __cxa_throw __dso_handle __gxx_personality_v0 __stack_chk_fail __stack_chk_guard __stderrp
+atexit atoi atol bzero fclose fflush fopen fprintf fputc fwrite getenv memcpy memmove memset pthread_threadid_np
+remove rename snprintf sscanf strchr strcmp strlen strncmp strtoul strtol time syscall abort calloc free malloc
+realloc sprintf printf puts putchar ceilf truncf usleep nanosleep clock_gettime gettimeofday
+""".split())
 
 # ---------------------------------------------------------------------------------------
 # The objects that become a module DLL.  Everything else in the obj dir stays in the exe.
@@ -118,6 +134,11 @@ HELPERS = {
       "shell/gen/rt_audio.cpp"),
   "rt_audio_bridge_play": H("fn_rt_audio_bridge_play", "void",
       "int bankType, int waveIdx", "bankType, waveIdx", "shell/gen/rt_audio.cpp"),
+  "rt_kick_capture": H("fn_rt_kick_capture", "void",
+      "uint8_t* base, uint32_t dev, uint32_t seg, uint32_t lenDw", "base, dev, seg, lenDw",
+      "shell/gen/rt.cpp — LEG-27/40 ring-segment capture, called from merged_game.cpp's sub_88080298 "
+      "wrapper (a weak reference there: dead in the Windows beta-2 DLLs, live in the merged exe; "
+      "made an ABI member 2026-10-04 so the module build matches the merged exe the Mac gates ran on)"),
   "rvk_handback_invalidate": H("fn_rvk_handback_invalidate", "void", "void", "",
       "render/vk_render.cpp — the FNF-11 guest-teardown cache drop; sole call site is the "
       "GAME half's sub_8813A5F0 wrapper, so it becomes a module->host call at L4"),
@@ -167,6 +188,8 @@ abort calloc free malloc realloc snprintf sprintf sscanf strtol printf puts putc
 def is_crt(sym):
     if sym in CRT:
         return True
+    if IS_MAC and (sym in MAC_CRT or sym.startswith("_Z")):
+        return True
     # Win32 dllimports: lld spells them `__imp_<Name>` (ONE underscore after imp).  The
     # recompiler's kernel stubs are `__imp__<Name>` (TWO) — the collision plan §1.3 is built
     # around.  Discriminate structurally, exactly as build_win_abn.sh:118 documents.
@@ -182,13 +205,21 @@ def run_nm(args, objs):
 
 def measure(objdir):
     objs = []
-    for g in DLL_OBJ_GLOBS:
-        objs += sorted(glob.glob(os.path.join(ROOT, objdir, g)))
+    if IS_MAC:
+        # build_mac_dll.sh's module object dir IS the DLL group, minus the shim it is about to emit.
+        objs = sorted(o for o in glob.glob(os.path.join(ROOT, objdir, "*.o")) if not o.endswith("module_shim.o"))
+    else:
+        for g in DLL_OBJ_GLOBS:
+            objs += sorted(glob.glob(os.path.join(ROOT, objdir, g)))
     if not objs:
         sys.exit(f"FATAL: no DLL-group objects under {objdir}/ — build first")
     und = run_nm(["--undefined-only"], objs)
     dfn = run_nm(["--defined-only"], objs)
-    return objs, sorted(und - dfn)
+    need = sorted(und - dfn)
+    if IS_MAC:
+        shim_to_key = {e["shim"]: k for k, e in GLOBALS.items()}
+        need = sorted({shim_to_key.get(s[1:], s[1:]) for s in need})
+    return objs, need
 
 
 def classify(need):
@@ -371,7 +402,12 @@ def emit_shim(path, moddir, module_idx, kernel, helpers, globs):
     L.append("// symbol.  Everything else is inherited verbatim from host/futari_module_desc.h.")
     L.append("static FutariModuleDesc g_desc;")
     L.append("")
-    L.append('extern "C" __declspec(dllexport)')
+    L.append("#ifdef _WIN32")
+    L.append("#define FUTARI_MODULE_EXPORT __declspec(dllexport)")
+    L.append("#else")
+    L.append('#define FUTARI_MODULE_EXPORT __attribute__((visibility("default")))')
+    L.append("#endif")
+    L.append('extern "C" FUTARI_MODULE_EXPORT')
     L.append("const FutariModuleDesc* FutariModuleBind(const FutariHostAbi* h) {")
     L.append("    if (!h) return nullptr;")
     L.append("    if (h->abi_version != FUTARI_HOST_ABI_VERSION) return nullptr;")

@@ -84,6 +84,7 @@ extern "C" {
     void rt_indirect_call(PPCContext& __restrict ctx, uint8_t* base, uint32_t target);
     void rt_jankstate_summary(long long frames, long long slow, long long maxd, long long meand);
     void rt_jankstate_tick(long long n, long long d_us);
+    void rt_kick_capture(uint8_t* base, uint32_t dev, uint32_t seg, uint32_t lenDw);
     unsigned long long rt_mftb(void);
     void rvk_handback_invalidate(void);
 }
@@ -176,6 +177,7 @@ static FutariHostAbi futari_build_host_abi(uint8_t* base) {
     a.fn_rt_indirect_call = &rt_indirect_call;
     a.fn_rt_jankstate_summary = &rt_jankstate_summary;
     a.fn_rt_jankstate_tick = &rt_jankstate_tick;
+    a.fn_rt_kick_capture = &rt_kick_capture;
     a.fn_rt_mftb = &rt_mftb;
     a.fn_rvk_handback_invalidate = &rvk_handback_invalidate;
     a.pg_import_calls = &g_import_calls;

@@ -54,6 +54,9 @@ MVK_DYLIB="$MVK/lib/libMoltenVK.dylib"
 # dylib we link; the .app build passes "@executable_path/../Frameworks/libMoltenVK.dylib" so the bundle is
 # self-contained (build_mac_app.sh). Linking is unchanged -- the load command is rewritten after the link.
 MVK_LOADPATH="${MVK_LOADPATH:-$MVK_DYLIB}"
+# Deployment target (beta 3, 2026-10-04): without it clang stamps the host SDK's own version as the minimum OS,
+# and the 10-04 bundle would only launch on macOS 27. 13.0 = Ventura, the oldest Apple-silicon-era release.
+export MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-13.0}"
 # xWMA (compressed SE/voice banks): libavcodec's wmav2 via Homebrew ffmpeg when present; otherwise the
 # decoder stays a stub and those voices are silent (PCM BGM plays either way through the SDL3 sink).
 FFM="${FFM:-$BREW/opt/ffmpeg}"
@@ -102,30 +105,9 @@ cc(){ # name  src  flags...   (compiles the de-aliased copy under $OBJ/src when 
   sem
 }
 
-echo "== de-alias pre-pass (Mach-O has no __attribute__((alias)); see header item 4) =="
+echo "== de-alias pre-pass (Mach-O has no __attribute__((alias)); see header item 4; mac-build/dealias.py) =="
 mkdir -p "$OBJ/src"; rm -f "$OBJ"/src/*.cpp
-python3 - "$OBJ/src" out_reco/*.cpp out_reco/merged/*.cpp shell/gen/*.cpp "$DECOMP_DIR"/game/*.cpp "$DECOMP_DIR"/shell/*.cpp <<'EOF'
-import re, sys, os
-out = sys.argv[1]
-# column-0 only: the generated shape. Comments that quote the shape (decomp notes) start with // and are left alone.
-# The target is either a string literal or the one stringified macro the shell tree uses for its CRT entry
-# (shell/gen/ppc_recomp.5.cpp: alias(RT_XSTART_ALIAS_STR) == "__imp___xstart", renamed by -D in the merged build);
-# as a plain token it goes through the same -D rename, so the stub form needs no special case at link.
-pat = re.compile(r'^__attribute__\(\(alias\((?:"(\w+)"|(\w+))\)\)\)\s*PPC_WEAK_FUNC\((\w+)\);', re.M)
-macro_targets = {'RT_XSTART_ALIAS_STR': '__imp___xstart'}
-def stub(m):
-    tgt = m.group(1) or macro_targets[m.group(2)]
-    return f'PPC_FUNC_IMPL({tgt}); PPC_WEAK_FUNC({m.group(3)}) {{ {tgt}(ctx, base); }}'
-files = total = 0
-for f in sys.argv[2:]:
-    if not os.path.isfile(f): continue
-    t = open(f).read()
-    if 'alias(' not in t: continue
-    t2, n = pat.subn(stub, t)
-    if n == 0: continue
-    open(os.path.join(out, f.replace('/', '__')), 'w').write(t2); files += 1; total += n
-print(f"rewrote {total} alias lines in {files} TUs -> {out}/")
-EOF
+python3 mac-build/dealias.py "$OBJ/src" out_reco/*.cpp out_reco/merged/*.cpp shell/gen/*.cpp "$DECOMP_DIR"/game/*.cpp "$DECOMP_DIR"/shell/*.cpp || exit 1
 
 echo "== DECOMP tree ($DECOMP_DIR/game/*.cpp + $DECOMP_DIR/shell/*.cpp — game_abn/ EXCLUDED; __imp__ overrides, linked FIRST) =="
 for f in "$DECOMP_DIR"/game/*.cpp; do
@@ -180,62 +162,6 @@ if [ -n "$XWMA_FLAGS" ]; then
   "$CXX" -std=c++20 -O2 -DRT_XWMA_MAIN $XWMA_FLAGS shell/gen/rt_xwma.cpp "${XWMA_LIBS[@]}" -o build/rt_xwma 2>"$OBJ/rt_xwma_tool.err" \
     && echo "tool: build/rt_xwma" || echo "tool: build/rt_xwma FAILED (see $OBJ/rt_xwma_tool.err)"
 fi
-link(){ "$CXX" -O2 -std=c++20 "${LINKLINE[@]}" -o "$OUT" "${LIBS[@]}" -Wl,-map,"$OUT.map" 2>"$OBJ/link.err"; }
-echo "== LINK pass 1 (expect duplicate symbols; they are the merge) =="
-if link; then echo "LINK_OK (no duplicates?) -> $OUT"; exit 0; fi
-# Apple ld prints either
-#   duplicate symbol '_sym' in:\n    a.o\n    b.o [\n    c.o ...]   (ld64 / ld-prime, one object per indented line; three-way
-#                                                                   duplicates happen: game_rt + game_stubs + shellkernel_stubs)
-#   ld: duplicate symbol '_sym' in a.o and b.o                      (older ld-prime)
-# and it DEMANGLES C++ names ('sub_X(PPCContext&, unsigned char*)'), so each name is mapped back to the
-# object's mangled symbol through llvm-nm + llvm-cxxfilt before the rename. Every definition except the one
-# in the object that appears EARLIEST in LINKLINE is renamed (first-definition-wins, as build_win.sh).
-python3 - "$OBJ/link.err" "$OBJCOPY" "$OBJ/dup_renames.txt" "${LINKLINE[@]}" <<'EOF'
-import re, sys, collections, subprocess, os
-err = open(sys.argv[1]).read(); objcopy = sys.argv[2]; renames_path = sys.argv[3]; linkline = sys.argv[4:]
-order = {p: i for i, p in enumerate(linkline)}
-def idx(o):
-    for p, i in order.items():
-        if p == o or o.endswith('/' + p) or p.endswith('/' + o) or os.path.basename(p) == os.path.basename(o): return i
-    return None
-groups = []  # (symbol-as-printed, [objects])
-for m in re.finditer(r"duplicate symbol '([^']+)' in:\n((?:[ \t]+\S+\n?)+)", err):
-    groups.append((m.group(1), m.group(2).split()))
-for m in re.finditer(r"duplicate symbol '([^']+)' in (\S+) and (\S+)", err):
-    groups.append((m.group(1), [m.group(2), m.group(3)]))
-cxxfilt = os.path.join(os.path.dirname(objcopy), 'llvm-cxxfilt'); nm = os.path.join(os.path.dirname(objcopy), 'llvm-nm')
-_maps = {}
-def mangled(obj, printed):
-    """ld prints C symbols as-is ('___imp__X') and C++ ones demangled; return the real symbol in obj."""
-    if obj not in _maps:
-        syms = subprocess.run([nm, '--defined-only', '--format=just-symbols', obj], capture_output=True, text=True).stdout.split()
-        dem = subprocess.run([cxxfilt], input='\n'.join(syms), capture_output=True, text=True).stdout.split('\n')
-        _maps[obj] = ({s: s for s in syms}, dict(zip(dem, syms)))
-    direct, demap = _maps[obj]
-    return direct.get(printed) or demap.get(printed)
-losers = collections.defaultdict(set); unresolved = []
-for sym, objs in groups:
-    ranked = [(idx(o), o) for o in objs]
-    if any(i is None for i, _ in ranked): unresolved.append((sym, objs)); continue
-    ranked.sort()
-    for _, o in ranked[1:]:
-        real = mangled(o, sym)
-        if real is None: unresolved.append((sym, [o])); continue
-        losers[o].add(real)
-n = 0
-with open(renames_path, "w") as f:
-    for o, syms in sorted(losers.items()):
-        for s in sorted(syms): f.write(f"{o} {s}\n"); n += 1
-print(f"duplicate groups: {len(groups)}; definitions to rename: {n} across {len(losers)} objects")
-for sym, objs in unresolved: print(f"  UNRESOLVED: {sym} in {objs}")
-EOF
-[ -s "$OBJ/dup_renames.txt" ] || { echo "LINK_FAILED (no duplicate-symbol lines parsed — read $OBJ/link.err)"; tail -40 "$OBJ/link.err"; exit 1; }
-echo "== renaming losing definitions (llvm-objcopy --redefine-sym) =="
-awk '{print $1}' "$OBJ/dup_renames.txt" | sort -u | while read -r o; do
-  tag="$(basename "$o" .o)"   # per-object suffix: the same symbol can lose in two objects (game_stubs AND shellkernel_stubs)
-  args=(); while read -r sym; do args+=("--redefine-sym=${sym}=${sym}__dup_dropped__${tag}"); done < <(awk -v o="$o" '$1==o{print $2}' "$OBJ/dup_renames.txt")
-  src="$o"; [ -f "$src" ] || src="$OBJ/$(basename "$o")"
-  "$OBJCOPY" "${args[@]}" "$src" "$src" || { echo "objcopy FAILED on $src"; exit 1; }
-done
-echo "== LINK pass 2 =="
-if link; then echo "LINK_OK -> $OUT"; else echo "LINK_FAILED"; tail -60 "$OBJ/link.err"; exit 1; fi
+# first-definition-wins via rename-on-duplicate: mac-build/link_merge.py (the parser + objcopy pass that used to
+# live inline here, shared with build_mac_dll.sh). Mutates the objects in place -- see COMPILE_ONLY above.
+python3 mac-build/link_merge.py --cxx "$CXX" --objcopy "$OBJCOPY" --out "$OUT" --objdir "$OBJ" -- "${LINKLINE[@]}" -- "${LIBS[@]}" || { echo "LINK_FAILED"; exit 1; }

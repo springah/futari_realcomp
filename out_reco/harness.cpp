@@ -25,8 +25,9 @@
 #include <sys/mman.h>
 #include <unistd.h>   // alarm/usleep/_exit (macOS libc++ does not pull it in transitively)
 #endif
-#ifdef _WIN32
-// C23 round-half-to-even the recompiler emits (glibc has it; MSVC UCRT does not).
+#if defined(_WIN32) || defined(__APPLE__)
+// C23 round-half-to-even the recompiler emits (glibc has it; MSVC UCRT and Apple libm do not --
+// the combined host's ABI table takes &roundevenf, so macOS needs the definition too, 2026-10-04).
 #include <cmath>
 extern "C" float  roundevenf(float x){ return nearbyintf(x); }
 extern "C" double roundeven (double x){ return nearbyint(x); }

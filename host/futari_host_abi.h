@@ -13,7 +13,7 @@ typedef void FutariPPCFunc(struct PPCContext& __restrict ctx, uint8_t* base);
 
 
 #define FUTARI_HOST_ABI_VERSION 1u
-#define FUTARI_HOST_ABI_HASH    0x7579CC55D4CEFDD3ull
+#define FUTARI_HOST_ABI_HASH    0xECFBA58AD25409D9ull
 
 // Handed to the DLL once, at FutariModuleBind().  Const to the DLL, owned by the exe.
 struct FutariHostAbi {
@@ -83,7 +83,7 @@ struct FutariHostAbi {
     FutariPPCFunc* imp__vsnprintf;
     FutariPPCFunc* imp_sprintf;
 
-    // ---- 19 host helper functions ----
+    // ---- 20 host helper functions ----
     void (*fn_nvk_ev)(const char* fn, unsigned long long r3, unsigned long long r4, unsigned long long r5, unsigned long long r6, unsigned long long r7, unsigned long long r8, unsigned long long r9);   // nvk_ev: decomp/shell/nvk.cpp
     int (*fn_nvk_mode)(void);   // nvk_mode: decomp/shell/nvk.cpp
     void (*fn_nvk_on_clear)(unsigned colorARGB);   // nvk_on_clear: decomp/shell/nvk.cpp
@@ -101,6 +101,7 @@ struct FutariHostAbi {
     void (*fn_rt_indirect_call)(PPCContext& __restrict ctx, uint8_t* base, uint32_t target);   // rt_indirect_call: out_reco/rt.cpp — the checked indirect-call dispatcher; ~191 call sites per module tree
     void (*fn_rt_jankstate_summary)(long long frames, long long slow, long long maxd, long long meand);   // rt_jankstate_summary: merged_shell.cpp
     void (*fn_rt_jankstate_tick)(long long n, long long d_us);   // rt_jankstate_tick: merged_shell.cpp — the L3 stage-1 replacement for the 3 cross-line g_js_* statics
+    void (*fn_rt_kick_capture)(uint8_t* base, uint32_t dev, uint32_t seg, uint32_t lenDw);   // rt_kick_capture: shell/gen/rt.cpp — LEG-27/40 ring-segment capture, called from merged_game.cpp's sub_88080298 wrapper (a weak reference there: dead in the Windows beta-2 DLLs, live in the merged exe; made an ABI member 2026-10-04 so the module build matches the merged exe the Mac gates ran on)
     unsigned long long (*fn_rt_mftb)(void);   // rt_mftb: scaled guest timebase; called from the GENERATED tree (ppc_recomp.3.cpp)
     void (*fn_rvk_handback_invalidate)(void);   // rvk_handback_invalidate: render/vk_render.cpp — the FNF-11 guest-teardown cache drop; sole call site is the GAME half's sub_8813A5F0 wrapper, so it becomes a module->host call at L4
 

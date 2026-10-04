@@ -6,6 +6,10 @@ owed list for the next window). The scoreboard is `../futari_decomp/docs/progres
 (metric definitions: `PLAN_FULL_READABLE.md` §1.1 — headline is DONE = MATCHED+CONVERTED over
 AUTHORED insns).
 
+**Beta 3 (10-04 late):** the first macOS family-and-friends build, TWO modes (`build_mac_dll.sh` host + module dylibs;
+the Xbox 360 tree regenerated here with the reconstructed eqv-fixed recompiler, `scripts/regen_abn_mac.sh`), all
+bundle checks PASS -- docs/PLAN_beta3_mac.md and NOTE_fnf_shell_defects.md 2026-10-04. Zip on the Desktop; SHARED owed.
+
 **This repo today (10-05):** the port now lives on the user's Mac (arm64, MoltenVK, SDL3; `build_mac.sh`,
 `scripts/run_mac.sh`) and ships as a double-clickable family-and-friends bundle (`mac-build/build_mac_app.sh` ->
 `~/Desktop/projects/Futari Realcomp.app`, game data inside). Since 10-03: boss-1 head and FNF-15 root-caused and

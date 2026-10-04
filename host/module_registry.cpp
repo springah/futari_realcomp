@@ -25,16 +25,28 @@
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-
-// 08-12 frame-clock ownership (shell/gen/rt.cpp) — dropped at swap so the vblank thread can
-// never block on a dying module's handshake ack.
-extern "C" void rt_frameclock_disarm(const char* why);
+#define FUTARI_MODULE_EXT ".dll"
 #else
-// Mac/Deck are post-alpha (plan §7); the dlopen arm lands with them.  Keep the file compiling.
+// POSIX arm (2026-10-04, the macOS beta-3 two-mode bundle): dlopen/dlsym, the module file is
+// futari_game_<mod>.dylib on Apple and .so elsewhere, searched exactly like the Windows arm --
+// RT_MODDLL_DIR, then the executable's own directory, then the loader's default search.
+#include <dlfcn.h>
+#include <strings.h>
+#include <unistd.h>
+#if defined(__APPLE__)
+#include <mach-o/dyld.h>
+#define FUTARI_MODULE_EXT ".dylib"
+#else
+#define FUTARI_MODULE_EXT ".so"
+#endif
 #define MAX_PATH 260
 #define _stricmp  strcasecmp
 #define _strnicmp strncasecmp
 #endif
+
+// 08-12 frame-clock ownership (shell/gen/rt.cpp) — dropped at swap so the vblank thread can
+// never block on a dying module's handshake ack.
+extern "C" void rt_frameclock_disarm(const char* why);
 
 // ---------------------------------------------------------------------------------------
 // PPCFuncMapping, mirrored.  This TU deliberately does NOT include ppc_context.h: that header
@@ -65,8 +77,8 @@ struct ModuleSlot {
 // The build's module inventory.  Adding a third module is one row plus its DLL — the mask, the
 // stub layers, the resolver and the swap all read this table and need no other edit.
 ModuleSlot g_slots[] = {
-    { "futari_game_normal.dll", "reco_normal",   0u, nullptr, nullptr, 0 },
-    { "futari_game_abn.dll",    "reco_abnormal", 1u, nullptr, nullptr, 0 },
+    { "futari_game_normal" FUTARI_MODULE_EXT, "reco_normal",   0u, nullptr, nullptr, 0 },
+    { "futari_game_abn"    FUTARI_MODULE_EXT, "reco_abnormal", 1u, nullptr, nullptr, 0 },
 };
 constexpr int NSLOT = (int)(sizeof(g_slots) / sizeof(g_slots[0]));
 
@@ -144,7 +156,16 @@ long table_residue(uint8_t* base, const FutariModuleDesc* d) {
 // yet.  rvk_module_swap_invalidate lands with this leg (render/vk_render.cpp);
 // rt_audio_module_swap is DELIBERATELY left unimplemented for beta1 — see the call site.
 extern "C" void rvk_module_swap_invalidate(void) __attribute__((weak));
+#if defined(__APPLE__)
+// Mach-O: ld rejects a reference to a symbol defined NOWHERE even when the declaration is weak
+// (weak_import only covers symbols a library may lack at load time). rt_audio_module_swap has no
+// implementation anywhere yet, by design (see its call site), so on Apple it gets a weak EMPTY
+// definition instead: same observable behaviour (the swap does nothing for audio), and a strong
+// definition in rt_audio.cpp will still win the day one lands.
+extern "C" __attribute__((weak)) void rt_audio_module_swap(void) {}
+#else
 extern "C" void rt_audio_module_swap(void) __attribute__((weak));
+#endif
 // CODE_REVIEW_0804 A5: renderer lock across the guest-memory mutation window (steps 3-6) so a
 // mid-flight frame walk can never read a half-zeroed arena. Weak like the invalidate hook.
 extern "C" void rvk_swap_guard_begin(void) __attribute__((weak));
@@ -296,8 +317,46 @@ void* load_module_dll(const char* name, char* whereOut, size_t whereN) {
 }
 void* dll_sym(void* h, const char* s) { return (void*)GetProcAddress((HMODULE)h, s); }
 #else
-void* load_module_dll(const char*, char* w, size_t n) { std::snprintf(w, n, "(no dlopen path yet)"); return nullptr; }
-void* dll_sym(void*, const char*) { return nullptr; }
+// Same search order as the Windows arm: RT_MODDLL_DIR, the executable's own directory (the .app
+// bundle keeps the dylibs beside the engine in Contents/MacOS), then dlopen's default search.
+// RTLD_LOCAL: the module defines its own __imp__* kernel thunks and host-helper forwards (the
+// generated moduleshim), and NOTHING in it may interpose the host's definitions of the same
+// names -- two-level namespace binds the module's own references to its own copies.
+static bool exe_dir(char* out, size_t n) {
+#if defined(__APPLE__)
+    char buf[4096]; uint32_t bn = sizeof buf;
+    if (_NSGetExecutablePath(buf, &bn) != 0) return false;
+    char real[PATH_MAX]; const char* p = realpath(buf, real) ? real : buf;
+#else
+    char p[PATH_MAX]; ssize_t k = readlink("/proc/self/exe", p, sizeof p - 1);
+    if (k <= 0) return false; p[k] = 0;
+#endif
+    const char* slash = std::strrchr(p, '/');
+    if (!slash) return false;
+    size_t len = (size_t)(slash - p); if (len + 1 > n) return false;
+    std::memcpy(out, p, len); out[len] = 0; return true;
+}
+void* load_module_dll(const char* name, char* whereOut, size_t whereN) {
+    char path[MAX_PATH * 2];
+    const char* dir = std::getenv("RT_MODDLL_DIR");
+    if (dir && *dir) {
+        std::snprintf(path, sizeof path, "%s/%s", dir, name);
+        void* h = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+        if (h) { std::snprintf(whereOut, whereN, "%s", path); return h; }
+    }
+    char exe[MAX_PATH * 2];
+    if (exe_dir(exe, sizeof exe)) {
+        std::snprintf(path, sizeof path, "%s/%s", exe, name);
+        void* h = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+        if (h) { std::snprintf(whereOut, whereN, "%s", path); return h; }
+    }
+    void* h = dlopen(name, RTLD_NOW | RTLD_LOCAL);
+    if (h) { std::snprintf(whereOut, whereN, "%s (loader search path)", name); return h; }
+    const char* e = dlerror();
+    std::snprintf(whereOut, whereN, "%s NOT FOUND (%s)", name, e ? e : "dlopen failed");
+    return nullptr;
+}
+void* dll_sym(void* h, const char* s) { return dlsym(h, s); }
 #endif
 
 } // namespace

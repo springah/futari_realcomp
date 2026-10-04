@@ -53,6 +53,7 @@ int main(int argc, char** argv) {
 
   // --- the attended-session env set (scripts/run_mac.sh), every value overridable ---
   def("RT_GAME_ROOT", assets.c_str());
+  def("RT_MODDLL_DIR", macos.c_str());     // the two module dylibs sit beside the engine (host/module_registry.cpp searches here first)
   std::string xex = assets + "/default.xex"; def("XR_SHELL_XEX", xex.c_str());
   std::string save = support + "/save";      def("RT_SAVE", save.c_str());
   def("RT_BOOT_SHELL", "1"); def("RT_THREADS", "1"); def("RT_DEFERDRIVER", "1"); def("RT_ASYNCIO", "1");

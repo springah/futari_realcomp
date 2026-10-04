@@ -93,10 +93,17 @@ CoreAudio sink, saves under `_local/saves/save_mac/`. Compressed xWMA banks deco
 libavcodec when Homebrew `ffmpeg` is installed (only the bridge/A-B arms use it).
 
 ```bash
-bash build_mac.sh            # combined executable, build/futari_merged (~50 s on an M3 Max)
+bash build_mac.sh            # single merged executable, build/futari_merged (~50 s on an M3 Max) — the drive/gate target
 LINK_ONLY=1 bash build_mac.sh
-bash scripts/run_mac.sh      # boot the shell in a window
+bash build_mac_dll.sh        # the shipping shape (beta 3): build/futari_combined + futari_game_{normal,abn}.dylib (both modes)
+bash mac-build/build_mac_app.sh   # -> "Futari Realcomp.app" (game data inside: family-and-friends only)
+bash scripts/run_mac.sh      # boot the shell in a window (BIN=build/futari_combined for the two-mode host)
 ```
+
+The Xbox 360 tree (`out_reco_abn/`, gitignored) is regenerated on the Mac with `scripts/regen_abn_mac.sh`, which applies
+`tools/xenonrecomp_mac_eqv_fixes.patch` (the codegen fixes of the Windows-side recompiler fork, reconstructed and
+validated against the tracked reco_normal tree) to the upstream XenonRecomp checkout. The beta-3 checklist is
+`docs/PLAN_beta3_mac.md`.
 
 ## Documentation
 

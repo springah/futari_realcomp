@@ -208,7 +208,10 @@ consecutive ship-nothing legs ⇒ back here for re-ranking, not another leg.
 
 ## PLATFORM / END-GOAL
 
-12. **Deck/Linux + macOS ports — RE-OPENED 2026-10-03 (user: "could we whip up a macos version";
+12. **[10-04 late] macOS = BETA 3 TARGET, two modes** (docs/PLAN_beta3_mac.md): the module arm is ported
+    (`build_mac_dll.sh`, dylibs; abn tree regenerated on the Mac with the reconstructed eqv-fixed recompiler,
+    `scripts/regen_abn_mac.sh`); the F&F flicker gate ships as a KNOWN ISSUE by user ruling 10-04.
+    **Deck/Linux + macOS ports — RE-OPENED 2026-10-03 (user: "could we whip up a macos version";
     the user's only machine is now an arm64 Mac).** Linux build resurrected and green
     (`build_linux.sh`: links, runs headless, SDL3 window smoke-tested on Xvfb+llvmpipe); macOS
     handoff written blind (`build_mac.sh` + `docs/PLAN_macos_bringup.md`), to be driven to green

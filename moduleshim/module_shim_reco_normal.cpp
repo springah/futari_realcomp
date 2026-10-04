@@ -116,7 +116,7 @@ PPC_FUNC_IMPL(__imp____C_specific_handler){ g_host->imp___C_specific_handler(ctx
 PPC_FUNC_IMPL(__imp___vsnprintf){ g_host->imp__vsnprintf(ctx, base); }
 PPC_FUNC_IMPL(__imp__sprintf){ g_host->imp_sprintf(ctx, base); }
 
-// ---- 19 host helper thunks ----
+// ---- 20 host helper thunks ----
 extern "C" {
     void nvk_ev(const char* fn, unsigned long long r3, unsigned long long r4, unsigned long long r5, unsigned long long r6, unsigned long long r7, unsigned long long r8, unsigned long long r9) { g_host->fn_nvk_ev(fn, r3, r4, r5, r6, r7, r8, r9); }
     int nvk_mode(void) { return g_host->fn_nvk_mode(); }
@@ -135,6 +135,7 @@ extern "C" {
     void rt_indirect_call(PPCContext& __restrict ctx, uint8_t* base, uint32_t target) { g_host->fn_rt_indirect_call(ctx, base, target); }
     void rt_jankstate_summary(long long frames, long long slow, long long maxd, long long meand) { g_host->fn_rt_jankstate_summary(frames, slow, maxd, meand); }
     void rt_jankstate_tick(long long n, long long d_us) { g_host->fn_rt_jankstate_tick(n, d_us); }
+    void rt_kick_capture(uint8_t* base, uint32_t dev, uint32_t seg, uint32_t lenDw) { g_host->fn_rt_kick_capture(base, dev, seg, lenDw); }
     unsigned long long rt_mftb(void) { return g_host->fn_rt_mftb(); }
     void rvk_handback_invalidate(void) { g_host->fn_rvk_handback_invalidate(); }
 }
@@ -145,7 +146,12 @@ extern "C" {
 // symbol.  Everything else is inherited verbatim from host/futari_module_desc.h.
 static FutariModuleDesc g_desc;
 
-extern "C" __declspec(dllexport)
+#ifdef _WIN32
+#define FUTARI_MODULE_EXPORT __declspec(dllexport)
+#else
+#define FUTARI_MODULE_EXPORT __attribute__((visibility("default")))
+#endif
+extern "C" FUTARI_MODULE_EXPORT
 const FutariModuleDesc* FutariModuleBind(const FutariHostAbi* h) {
     if (!h) return nullptr;
     if (h->abi_version != FUTARI_HOST_ABI_VERSION) return nullptr;
