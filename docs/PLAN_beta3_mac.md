@@ -34,6 +34,13 @@ characterise; its ratified fix stays Phase 2 (the shell compositor decomp).
 Results: NOTE_fnf_shell_defects.md 2026-10-04 beta-3 entry (all PASS; the zip is on the Desktop, SHARED owed until
 the NAS is reachable).
 
+## Steam Deck (added 10-04 night, user "go")
+- [DONE] Linux two-mode engine built from the Mac in a Rosetta container (`mac-build/deck/`, `build_linux_dll.sh`);
+  headless boot binds both modules; package staged + zipped (`Futari-Realcomp-Deck-v0.2.0-beta3.zip`).
+- [USER] First boot on the Deck in Gaming Mode (never run on an AMD GPU yet); send logs/ if it refuses.
+- [ ] Upload route (Drive client / tunnel / GitHub release) -- the user's choice; then the Deck pacing retest under
+  RVK_DECOUPLE (BACKLOG #12's first measurement).
+
 ## Post-beta (not blocking)
 - Phase 2 compositor decomp (the flicker).
 - MoltenVK device-loss behaviour (die-loud path exists; never exercised here).

@@ -100,6 +100,9 @@ bash mac-build/build_mac_app.sh   # -> "Futari Realcomp.app" (game data inside: 
 bash scripts/run_mac.sh      # boot the shell in a window (BIN=build/futari_combined for the two-mode host)
 ```
 
+`bash mac-build/deck/build_deck.sh` builds the same two-mode engine for the Steam Deck (x86_64 Linux) inside a Rosetta
+container on the Mac (`mac-build/deck/Dockerfile`, `build_linux_dll.sh`) and stages `Futari-Realcomp-Deck/`.
+
 The Xbox 360 tree (`out_reco_abn/`, gitignored) is regenerated on the Mac with `scripts/regen_abn_mac.sh`, which applies
 `tools/xenonrecomp_mac_eqv_fixes.patch` (the codegen fixes of the Windows-side recompiler fork, reconstructed and
 validated against the tracked reco_normal tree) to the upstream XenonRecomp checkout. The beta-3 checklist is

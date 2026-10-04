@@ -2139,6 +2139,24 @@ the bundle's engine, `scripts/fdpace_check_mac.sh`, stagepix pilot=bundle engine
 Owed to the user's eyes (unchanged): boot overlay feel, 3V feel, a two-pad couch session, fullscreen/Retina on a
 smaller display; and the flicker retest this beta exists for.
 
+**6. The Steam Deck build, from the Mac (user: "could we build a steam deck version?" -> "go"; then "i've got the deck
+with me away, i can test if we can package it up").** No Linux host was reachable (iacon/WSL, archbox, arch-vm all
+down), so the build runs in an x86_64 Debian 12 container under colima + Rosetta on this Mac (profile `futari`, vz,
+10 CPU / 16 GB; mac-build/deck/Dockerfile = glibc 2.36 + clang/lld 18 from apt.llvm.org + SDL's X11/Wayland/PipeWire/
+Pulse/ALSA headers; SDL built with -DSDL_X11_XTEST=OFF). `build_linux_dll.sh` is the ELF twin of build_mac_dll.sh
+(-Wl,--allow-multiple-definition is the whole merge; modules -fPIC -shared --no-undefined; -march=x86-64-v3 for the
+Deck's Zen 2); host/module_registry.cpp's POSIX arm already dlopens futari_game_<mod>.so from the executable's dir.
+Result: build/linux/futari_combined (22 MB, PIE, max GLIBC_2.34 < SteamOS's 2.41) + futari_game_normal.so (45 MB) +
+futari_game_abn.so (9.7 MB). Headless smoke in the container: `[modreg] 2/2 module DLL(s) bound, mask=0x03`, the shell
+XEX + 9,554 funcs registered, the guest runs and opens `game:\media\motion\menu_title.lzx -> assets/media/motion/...`
+(the file layer maps guest paths 1:1 under RT_GAME_ROOT: the dump's case must be kept verbatim on the Deck's
+case-sensitive disk -- the lowercase-`module` rule belongs to the ReXGlue recomp, not here; a first stage step that
+re-cased the folder was reverted). Staged: ~/Desktop/projects/Futari-Realcomp-Deck/ (884 MB: engine + both modules +
+assets + `futari-realcomp` launcher script with the attended env, saves in ./save, logs in ./logs, README) and the zip
+Futari-Realcomp-Deck-v0.2.0-beta3.zip. NOT yet run on a real AMD GPU: the Deck (10.0.1.154) was away/unreachable;
+first-boot risk = RADV disagreeing with a renderer feature, which `[rvk]` names before the first present. Upload: no
+Google Drive client, rclone or cloudflared on this Mac; the user is choosing the route.
+
 ## 2026-10-05 — Phase 1 item 4 measured unattended: B3 round-trip PASSES, the save's layout/FrameDelay bytes PINNED,
 ## D3 wall-dim MOOT on the ship path -- and a NEW DEFECT: FrameDelay 2V/3V UN-PACES THE PORT ON macOS
 **B3 (menu save round-trip) — CLOSED, scripted (scripts/nav_mac.sh b3write2 / b3read2):** Screen Setting (Maniac) >
