@@ -56,7 +56,12 @@
 >   `build/rt_xwma <bank> N out.wav`), and plays in-process through RT_XWMATEST. It serves the
 >   bridge/A-B arms (`RT_BRIDGESE=1`, `RT_XWMATEST`), not the shipping path.
 >
-> Still open: module-DLL arm (dlopen + .dylib), code signing/bundle, and the rest of
+> **10-04: `.app` DONE** — `bash mac-build/build_mac_app.sh` → `~/Desktop/projects/Futari Realcomp.app` (892 MB with
+> the assets inside, family-and-friends build): combined engine relinked without libavcodec, SDL3 + MoltenVK in
+> Contents/Frameworks with the load commands rewritten (no Homebrew/checkout paths survive), `mac-build/launcher.c`
+> as CFBundleExecutable (sets run_mac.sh's env, bundle-relative paths, saves under ~/Library/Application Support,
+> log under ~/Library/Logs, then exec()s the engine), ad-hoc signed. Finder launch → title, 0 FATAL. On another
+> Mac: right-click > Open once. Still open: module-DLL arm (only for per-mode bundles), and the rest of
 > docs/BACKLOG.md which is platform-independent. `presentMode` is FIFO (MoltenVK offers no
 > MAILBOX) — fine at 60 Hz.
 

@@ -50,6 +50,10 @@ MVK="${MVK:-$BREW/opt/molten-vk}"
 VKH="${VKH:-$BREW/opt/vulkan-headers/include}"
 [ -d "$VKH/vulkan" ] || VKH="$MVK/include"
 MVK_DYLIB="$MVK/lib/libMoltenVK.dylib"
+# MVK_LOADPATH: the path SDL is told to dlopen for Vulkan (baked in as RVK_VULKAN_LIBRARY). Defaults to the
+# dylib we link; the .app build passes "@executable_path/../Frameworks/libMoltenVK.dylib" so the bundle is
+# self-contained (build_mac_app.sh). Linking is unchanged -- the load command is rewritten after the link.
+MVK_LOADPATH="${MVK_LOADPATH:-$MVK_DYLIB}"
 # xWMA (compressed SE/voice banks): libavcodec's wmav2 via Homebrew ffmpeg when present; otherwise the
 # decoder stays a stub and those voices are silent (PCM BGM plays either way through the SDL3 sink).
 FFM="${FFM:-$BREW/opt/ffmpeg}"
@@ -69,7 +73,7 @@ ARCH="$(uname -m)"
 BUILD_ID="$(git rev-parse --short HEAD 2>/dev/null || echo nogit)$(git diff --quiet 2>/dev/null || echo -dirty)"
 # -fms-extensions is NOT used (see build_linux.sh history: it does not cover the goto-past-init
 # case and -fms-compatibility breaks libc++/libstdc++).
-STD="-std=c++20 -O2 -Wno-macro-redefined -DFUTARI_MODULE=0 -DFUTARI_BUILD_ID=\"$BUILD_ID\" -DRVK_VULKAN_LIBRARY=\"$MVK_DYLIB\""
+STD="-std=c++20 -O2 -Wno-macro-redefined -DFUTARI_MODULE=0 -DFUTARI_BUILD_ID=\"$BUILD_ID\" -DRVK_VULKAN_LIBRARY=\"$MVK_LOADPATH\""
 GAME_INC="-I out_reco -I $DERISK/XenonUtils -I $DERISK/thirdparty/simde"
 SHELL_INC="-I shell/gen -I out_reco -I $DERISK/thirdparty/simde"
 XS="-D_xstart=_xstart_shell -D__imp___xstart=__imp___xstart_shell"

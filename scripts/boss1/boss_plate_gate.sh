@@ -36,7 +36,7 @@ export QUIET="${QUIET:-10}"     # hold fire through the boss intro: the traced f
 export RT_EMITTRACE="${RT_EMITTRACE:-lr:880DCD70-880DEE68}" RT_DCD70TRACE=1
 PR=build/obj_pristine
 if [ "${PRISTINE:-0}" = "1" ] || [ ! -d "$PR" ] || [ "$(ls "$PR"/*.o 2>/dev/null | wc -l | tr -d ' ')" -lt 100 ]; then
-  echo "== compiling pristine objects ($PR)"; COMPILE_ONLY=1 OBJ="$PR" bash build_mac.sh > "_local/plate_${TAG}_pristine.log" 2>&1 || { tail -20 "_local/plate_${TAG}_pristine.log"; exit 1; }
+  echo "== compiling pristine objects ($PR)"; COMPILE_ONLY=1 OBJ="$PR" OUT="$PR/.unused" bash build_mac.sh   # OUT must not default to build/futari_merged: build_mac.sh rm -f's $OUT before compiling > "_local/plate_${TAG}_pristine.log" 2>&1 || { tail -20 "_local/plate_${TAG}_pristine.log"; exit 1; }
 fi
 link_arm(){ # name  skip-list  [extra-obj-dir-with-replacements]
   local name="$1" skip="$2" repl="${3:-}" s
@@ -55,7 +55,7 @@ if [ "${NEGCTL:-0}" = "1" ]; then
   T="build/decomp_prefix_$TAG"; rm -rf "$T"; cp -R "${DECOMP_DIR:-../futari_decomp/decomp}" "$T"
   git -C ../futari_decomp show d7dc0f34^:decomp/game/objaction_queue.cpp > "$T/game/objaction_queue.cpp"
   echo "   compiling the pre-fix objaction_queue (d7dc0f34^) -> build/obj_plate_${TAG}_prefix"
-  COMPILE_ONLY=1 OBJ="build/obj_plate_${TAG}_prefix" DECOMP_DIR="$T" bash build_mac.sh > "_local/plate_${TAG}_prefix.log" 2>&1 || { tail -20 "_local/plate_${TAG}_prefix.log"; exit 1; }
+  COMPILE_ONLY=1 OBJ="build/obj_plate_${TAG}_prefix" OUT="build/obj_plate_${TAG}_prefix/.unused" DECOMP_DIR="$T" bash build_mac.sh > "_local/plate_${TAG}_prefix.log" 2>&1 || { tail -20 "_local/plate_${TAG}_prefix.log"; exit 1; }
   mkdir -p "build/obj_plate_${TAG}_repl"; cp "build/obj_plate_${TAG}_prefix/decomp_objaction_queue.o" "build/obj_plate_${TAG}_repl/"
   link_arm pilot "" "build/obj_plate_${TAG}_repl"
 else
