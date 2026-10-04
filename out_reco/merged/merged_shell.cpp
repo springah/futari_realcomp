@@ -3760,6 +3760,18 @@ PPC_FUNC(sub_821BEED8){
   bool isDlg2=(vt==0x82050200u&&kind==2);   // BEED8 is shared too — models enter it on close
   if(i<=8) std::fprintf(stderr,"[dclose] slide-out#%ld obj=0x%X vt=0x%X kind=%u ticks=%u lr=0x%X%s\n",
     i,d,vt,kind,d?PPC_LOAD_U32(d+0x100):0,(uint32_t)ctx.lr,(hold&&isDlg2)?" HELD":"");
+  // RT_PEEK=<hexaddr>:<len>:<hexvt> (HARNESS-ONLY, 2026-10-04 Picture-panel lane): when a panel with
+  //   vtable <hexvt> reaches slide-out, print <len> bytes of guest memory at <hexaddr> as words --
+  //   e.g. the Picture panel's function-local static RowSpec table (0x821F9698, 320 bytes, built by
+  //   its +0x34 tick), compared byte-for-byte between the readable and the generated-body arm.
+  //   Every close of that panel prints (the table is static, so repeats are a free consistency check).
+  { static const char* pk=std::getenv("RT_PEEK");
+    if(pk){ static uint32_t pa=0,pl=0,pv=0; static bool parsed=false;
+      if(!parsed){ parsed=true; char* e=nullptr; pa=(uint32_t)std::strtoul(pk,&e,16); if(e&&*e==':'){ pl=(uint32_t)std::strtoul(e+1,&e,0); if(e&&*e==':') pv=(uint32_t)std::strtoul(e+1,nullptr,16); } }
+      if(pl&&(pv==0||vt==pv)){ std::fprintf(stderr,"[peek] vt=0x%X close#%ld addr=0x%08X len=%u\n",vt,i,pa,pl);   // <hexvt> 0 = every close
+        for(uint32_t off=0;off<pl;off+=16){ std::fprintf(stderr,"[peek] +%03X:",off);
+          for(uint32_t k=0;k<16&&off+k<pl;k+=4) std::fprintf(stderr," %08X",PPC_LOAD_U32(pa+off+k));
+          std::fprintf(stderr,"\n"); } } } }
   if(rt_cancellife()&&isDlg2){ long s=g_cl_slideout.fetch_add(1)+1;
     if(s<=8||s%120==0) std::fprintf(stderr,"[cancellife] SLIDE-OUT#%ld dlg=0x%X ticks(+100)=%u state(+48)=0x%X\n",
       s,d,PPC_LOAD_U32(d+0x100),PPC_LOAD_U32(d+0x48)); }

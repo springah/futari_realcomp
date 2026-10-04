@@ -2067,6 +2067,24 @@ a term, while every store/branch/constant still matches. Reads of such bodies mu
 the generated listing's final `add rN,...` for EACH argument register at EACH bl, or better, measured with the
 per-push trace diff above — a 4-minute instrument that beats any read.
 
+## 2026-10-04 (evening) — the two 10-03 side findings CLOSED: sub_821A0760's static RowSpec table + sub_821A0580's double clamp
+**sub_821A0760 (menu_base_states.cpp, the "Zoom(xN.NN DbD)" panel tick, vt 0x82050BC0):** against ppc_recomp.32.cpp
+0x821A0948..0x821A0A7C the readable table had the four captions rotated one slot (entry 0 is `addi r4,r30,-16` = "Zoom",
+then "-----", "Zoom-X", "Zoom-Y"), entry 1's +32/+36 as 6/2 instead of 2/0, entries 2-3's +32 as 8 instead of 0, every
+template-call return address 4-8 too high, the r9..r11 state at each `bl 0x82060F40` zeroed where the body leaves
+r9 = mn / r11 = mx live, and the first patchRow call's lr set to an instruction address (0x821A0AE8) instead of the
+arm's real return (0x821A0AB8 DbD-on / 0x821A0AE0 off). The `moved` arm now uses layoutNudge's own flag (r7) instead
+of re-reading the pad. **sub_821A0580 (Simple panel):** cfg = this+360, so `lwz r11,384(r3)` IS cfg+24 -- one word,
+one clamp; the pre-clamp before layoutNudge is gone and the "two different words" comment with it.
+**Verified (scripts/nav_mac.sh + the new RT_PEEK=<addr>:<len>:<vt|0> lever in merged_shell.cpp, fires at every
+dialog slide-out):** route HUB > OPTION > Screen Setting > "Maniac" Menu Mode (A, A) > first Maniac entry; the
+320-byte table at 0x821F9698 peeked on the readable arm (build/opt_pilot) and the generated-body arm (opt_ctl,
+decomp_menu_base_states.o dropped) is IDENTICAL except the four caption-buffer heap pointers (+038/+088/+0D8/+128,
+different heap layouts, the FNF-15 "P" class). Banks: _local/nav_mac/pic_{pilot,ctl}/.
+**Why no drive ever saw it:** the templates are only consumed when the display mode flips to/from DbD (patchRow),
+and nobody toggled DbD under the readable TU. The table BUILD, though, runs on the first tick of that panel --
+which is why a memory peek, not a screenshot, is the right witness for a function-local static.
+
 ## 2026-10-04 (later) — ★★★ BOSS-1 ARM3 RESIDUAL: the indexed 32-direction sub-arm had the 9-px sense INVERTED and a
 ## dropped word — found by the new BOSS PLATE GATE's structural witness, invisible to eyes and to the symmetry plate
 **Found by:** `scripts/boss1/boss_plate_gate.sh v1 objaction_queue famk1 famk9` (the first end-to-end run of the Phase 1.2 gate,
