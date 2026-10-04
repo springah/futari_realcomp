@@ -145,8 +145,14 @@ consecutive ship-nothing legs ⇒ back here for re-ranking, not another leg.
   head halves. Decomp angle (cheap, in-scope): the boss-1 head draw body's mirror/flip operand handling in the
   readable C — a decomp read may name the bug without a drive. Ruling 09-06: NOTED, not laned (decomp first).
 
-6. **D3 wall-dim exact factor at composite** (0.875 vs 0.90 = 1/16 quantization) — demoted
-   07-27 (reload cost fixed); compose-path surgery, do attended with texel gates.
+6. ✅ **CLOSED 2026-10-05 — MOOT ON THE SHIP PATH. D3 wall-dim exact factor at composite** (0.875
+   vs 0.90 = 1/16 quantization). Both wall-dim blocks (the `lround(0.9*16)/16` line at
+   vk_render.cpp:6677 and the live-guest-read block at :9218) sit inside `renderFrameReal`, the
+   LEGACY compose path that `shell/gen/rt.cpp:2560` short-circuits whenever `nvk_mode() >= 2`.
+   Measured 10-05 under the attended env (RT_NVK=2): `RVK_WALLDIMLOG=1` through the hub and the
+   Options screens = **0 `[walldim]` samples across 97 presented frames** (_local/nav_mac/walldim/).
+   Under RT_NVK=2 the wallpaper's dim is the GUEST's own draw (the same re-derivation that closed #7),
+   so there is no host factor to quantise. Re-open only if RT_NVK=2 is ever abandoned.
 7. **Honor-settings work-list — ✅ CLOSED BY RE-DERIVATION 2026-08-13 (Day-3): the premise was
    legacy-renderer-era.** Under RT_NVK=2 the GUEST applies its own settings and the renderer
    reproduces them (settings_audit.md's own 0-PRE rotation proof, now extended). Save-poke
@@ -166,10 +172,13 @@ consecutive ship-nothing legs ⇒ back here for re-ranking, not another leg.
    needed tearing only to dodge its vsync wait). Lever RVK_FRAMEDELAY=0 reverts to inert.
    Smoke: day3_poke 0x16E4:2/3 → "[rvk] framedelay=1V→2V/3V" transitions (proves renderer
    read + guest applier), attract runs clean, frameclock cadence unchanged (logs
-   /c/tmp/day3/poke_fd2v.log, poke_fd3v.log). OWED: user-eyes feel check at 3V (+2-frame
-   lag just-perceptible = the ring's positive control). STILL OPEN (small): Color/
-   ExtraView sub-offsets unpinned (N1, doc work); oracle-grade pixel fidelity of the effects
-   (post-beta); B3 user-driven menu save round-trip (attended acceptance, user's hands).
+   /c/tmp/day3/poke_fd2v.log, poke_fd3v.log). **⚠ 10-05 (macOS): 3V is a DEFECT, not a feel
+   question -- the port runs at ~210 presents/s with the ring engaged (57 at 1V) and menu input
+   drops/repeats; NOTE_fnf_shell_defects.md 2026-10-05. Owed: pace the ring path or gate 2V/3V
+   off on macOS.** Sub-offsets PINNED 10-05 (same note: card +0x16F8 preset record, zoom +0x08,
+   X +0x18, Y +0x1C; FrameDelay byte +0x16E7); B3 menu save round-trip PASSED scripted 10-05
+   (four bytes, atomic publish, read back on a fresh boot). Still open: oracle-grade pixel
+   fidelity of the effects (post-beta).
 8. **Card-page clipped fragment / title blink** — ledger says authentic/known; do not re-chase.
 
 ## FEATURES (post-gate)

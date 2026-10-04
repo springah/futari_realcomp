@@ -142,8 +142,12 @@ def structural(pilot, control):
             break
         lock += 1
     n = min(len(P), len(C))
+    # When the arms diverge at frame k, the game state already forked INSIDE frame k-1 (its anchor still
+    # matches, its pushes do not: plate_final 10-05, 202 rows all in the last lockstep frame). Only frames
+    # strictly before that are evidence about the TU.
+    cmp_n = lock if lock == n else max(0, lock - 1)
     diffs = []            # (frame, side, kind, key, count)
-    for i in range(lock):
+    for i in range(cmp_n):
         for kind in ('emit', 'dcd'):
             a, b = P[i][kind], C[i][kind]
             for k in (a - b): diffs.append((i, 'pilot-only', kind, k, (a - b)[k]))
@@ -151,15 +155,15 @@ def structural(pilot, control):
     lines = ['   structural: traced frames pilot=%d control=%d, lockstep=%d (anchor identical to the 16.16 bit)%s' % (
         len(P), len(C), lock, '' if lock == n else ' -- arms diverge at frame %d: boss y %.2f vs %.2f (drive nondeterminism, not the TU; rerun with QUIET)' % (
             lock, P[lock]['anchor'][2] / 65536.0, C[lock]['anchor'][2] / 65536.0))]
-    if lock < MIN_LOCKSTEP:
+    if cmp_n < MIN_LOCKSTEP:
         return 'nolock', lines, diffs
     if not diffs:
-        lines.append('   structural: IDENTICAL push sets over %d lockstep frames (%d emit + %d dcd70 keys)' % (
-            lock, sum(len(f['emit']) for f in P[:lock]), sum(len(f['dcd']) for f in P[:lock])))
+        lines.append('   structural: IDENTICAL push sets over %d compared frames (%d emit + %d dcd70 keys)' % (
+            cmp_n, sum(len(f['emit']) for f in P[:cmp_n]), sum(len(f['dcd']) for f in P[:cmp_n])))
         return 'identical', lines, diffs
     byframe = collections.Counter((i, side) for i, side, kind, k, c in diffs)
-    lines.append('   structural: %d differing push rows over %d lockstep frames: %s' % (
-        len(diffs), lock, ' '.join('f%d:%s=%d' % (i, side[0], c) for (i, side), c in sorted(byframe.items()))))
+    lines.append('   structural: %d differing push rows over %d compared frames: %s' % (
+        len(diffs), cmp_n, ' '.join('f%d:%s=%d' % (i, side[0], c) for (i, side), c in sorted(byframe.items()))))
     shown = collections.Counter()
     for i, side, kind, k, c in diffs:
         if shown[(side, kind)] >= 6:

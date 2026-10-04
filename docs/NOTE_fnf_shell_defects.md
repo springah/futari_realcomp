@@ -2067,6 +2067,31 @@ a term, while every store/branch/constant still matches. Reads of such bodies mu
 the generated listing's final `add rN,...` for EACH argument register at EACH bl, or better, measured with the
 per-push trace diff above — a 4-minute instrument that beats any read.
 
+## 2026-10-05 — Phase 1 item 4 measured unattended: B3 round-trip PASSES, the save's layout/FrameDelay bytes PINNED,
+## D3 wall-dim MOOT on the ship path -- and a NEW DEFECT: FrameDelay 2V/3V UN-PACES THE PORT ON macOS
+**B3 (menu save round-trip) — CLOSED, scripted (scripts/nav_mac.sh b3write2 / b3read2):** Screen Setting (Maniac) >
+Layout Setting #1: Zoom +3, Position-X +2, Position-Y +1; Extra Setting: FrameDelay 1V > 3V; back out to the hub.
+The guest wrote the card itself (`[file] atomic save published`, three SAVE CreateEx/Close cycles) and EXACTLY FOUR bytes
+changed; a fresh boot read them back (Extra panel shows 3V, renderer logs `framedelay=3V -> +2 frame(s)` at boot).
+**Save layout pinned (closes the N1 "zoom/position sub-offsets unpinned" doc debt):** FrameDelay = `+0x16E7` (the LOW
+byte of the u32 at +0x16E4 -- a poke of +0x16E4 itself does nothing, that is the high byte); layout preset #1 record at
+`+0x16F8` (stride 0x80): +0x00/+0x04 the (8,8) rotation pair, **+0x08 Zoom, +0x18 Position-X, +0x1C Position-Y** (u32,
+big-endian; the in-memory cfg layout the TUs read -- elem = cfg + idx*128 + 32, X/Y at elem+24/+28, zoom at +40 -- is a
+different structure from the card record). Diff: _local/savegame_before_b3.bin vs the live card; the 3V card is kept at
+_local/savegame_3v_repro.bin.
+**D3 wall-dim 0.875 vs 0.90 — CLOSED, moot:** both wall-dim blocks live in `renderFrameReal` (vk_render.cpp:6677 and
+:9218), the legacy compose path that `shell/gen/rt.cpp:2560` skips at `nvk_mode() >= 2`; `RVK_WALLDIMLOG=1` through the
+hub + Options under the attended env = 0 samples in 97 presents. BACKLOG #6 closed with the citation.
+**★ NEW DEFECT — FrameDelay 2V/3V un-paces the port on macOS (the "3V feel check" is not a feel question):** with the
+card at 3V every drive after the boot ran at **~206-224 presents/s** (nvk_f counters: b3read2 12,180 frames in 59 s;
+plate_final control 34,140 in 152 s; pilot 42,780 in 201 s) against **~57/s at 1V** (walldim run 2,910 in 51 s), and the
+menus dropped or repeated presses (DOWN x4 on the hub landed on NORMAL PLAY; the boss drives wandered into stage 4).
+The ring's own comment (vk_render.cpp:5028) claims "zero contact with the frameclock" -- on this path the pacing evidently
+came from the 1V blocking present, and presenting from the ring slot returns without that wait. Not fixed here (a
+present-path change is an attended lane); the live card is restored to 1V. Repro: copy _local/savegame_3v_repro.bin
+over the card, boot, count nvk_f frames per second. Owed: pace the ring path (wait on the swapchain the same way the
+direct path does) or gate 2V/3V off on macOS until then.
+
 ## 2026-10-04 (night) — the REGISTER-CONTRACT AUDIT exists, and its first sweep found one more FNF-15-class miss
 `futari_decomp/tools/instruments/regcontract_audit.py` (the 10-03 lesson made mechanical: per call, the registers the
 generated caller rewrote since its previous call that the callee reads, minus what the readable body assigns). Positive

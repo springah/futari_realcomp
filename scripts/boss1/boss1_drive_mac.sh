@@ -51,7 +51,7 @@ step 1000 "A 3" '\[p0build\] menu_game_title' 8 2             # hub menu built (
 step 2 "DOWN 1" 'SYS_SE cue5 (SE_Select01)' 4 0.6
 step 2 "DOWN 2" 'SYS_SE cue5 (SE_Select01)' 4 0.8
 step 1000 "A (training)" '96660(load)' 10 2                   # training panel
-for ((i=0;i<${NRIGHT:-1};i++)); do press 8 "RIGHT (Stage row)"; sleep 1.2; done
+for ((i=0;i<${NRIGHT:-1};i++)); do step 8 "RIGHT (Stage row)" 'SYS_SE cue4 (SE_Select02)' 4 1; done   # the Stage row's move cue (10-05); the four selects after 開始 leave no marker and stay timed
 sleep 1; step 1000 "A (開始)" 'dclose.*vt=0x82050F00' 8 2     # panel closed
 for i in 1 2 3 4; do press 1000 "A select $i"; sleep 3; done
 waitfor 'BGM cue1\|m02_stg\|BGM cue[0-9]* (m0[2-9]' 20 "stage BGM"

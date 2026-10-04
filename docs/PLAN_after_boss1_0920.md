@@ -52,6 +52,9 @@ NOTE_fnf_shell_defects.md 2026-10-04. The boss plate gate (Phase 1 item 2) now h
    fades into the stage (NOTE_fnf_shell_defects.md 2026-10-04 evening). Only the boot-overlay FEEL remains for your eyes.
 4. **Parked debts, in order, ~1 h each:** FrameDelay 3V feel check (ring positive control) ·
    D3 wall-dim 0.875 vs 0.90 quantisation · Color/ExtraView sub-offsets (doc) · B3 menu save
+   **10-05 measured unattended:** D3 wall-dim MOOT on the ship path (BACKLOG #6 closed) · Color/ExtraView
+   sub-offsets PINNED from a scripted save diff · B3 round-trip PASSED scripted · FrameDelay 3V = a DEFECT on
+   macOS (un-paces to ~210 presents/s), owed a present-path fix -- NOTE_fnf_shell_defects.md 2026-10-05.
    round-trip (user's hands).
 5. **Leave alone:** flicker (superseded by compose 1:1) · title blink / card fragment (authentic) ·
    swap-stale heap descriptors (post-beta research).

@@ -69,5 +69,16 @@ bash scripts/boss1/boss1_drive_mac.sh "plate_${TAG}_pilot"   "$PB" "$DUR" | tail
 echo "== score"
 python3 scripts/boss1/boss_plate_gate.py compare "plate_${TAG}_pilot" "plate_${TAG}_control"
 rc=$?
+# The boss intro has TWO paths (y 343.03 / 345.69 at its third frame) chosen per run by something the drive does
+# not control (plate_final 10-05 diverged WITH QUIET=10). Lockstep is a coin flip, so on a lockstep NO-VERDICT
+# re-drive the CONTROL (then the pilot) up to RETRIES more times until the anchors match -- an honest retry:
+# each arm's bank is replaced whole, never merged.
+for ((try=1; try<=${RETRIES:-3} && rc==2; try++)); do
+  grep -q "lockstep frames" "_local/boss1_mac/plate_${TAG}_pilot/plate_verdict.txt" || break
+  arm=$([ $((try%2)) -eq 1 ] && echo control || echo pilot); bin=$([ "$arm" = control ] && echo "$CB" || echo "$PB")
+  echo "== retry $try: arms not in lockstep -- re-driving $arm"
+  bash scripts/boss1/boss1_drive_mac.sh "plate_${TAG}_$arm" "$bin" "$DUR" | tail -1
+  python3 scripts/boss1/boss_plate_gate.py compare "plate_${TAG}_pilot" "plate_${TAG}_control"; rc=$?
+done
 [ "${NEGCTL:-0}" = "1" ] && { [ $rc -eq 1 ] && echo "NEGCTL: the gate FAILED the pre-fix arm as it must (M4 control holds)" || echo "NEGCTL: ⚠ the gate did NOT fail the pre-fix arm -- the instrument is broken, do not trust a PASS"; }
 exit $rc

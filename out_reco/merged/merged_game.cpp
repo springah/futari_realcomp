@@ -3496,7 +3496,7 @@ static bool g_boss1Armed=false;
 extern "C" void __imp__sub_880DCD70(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_880DCD70){
   static const bool on = std::getenv("RT_DCD70TRACE")!=nullptr;
-  if(on && g_boss1Armed){ static int n=0; if(n<600){ ++n;
+  if(on && g_boss1Armed){ static int n=0; if(n<2400){ ++n;      // cap 600 -> 2400 (10-05: ~50 boss frames for the plate gate)
     static bool once=false; if(!once){ once=true; const uint32_t G=0x8827B238u;
       std::fprintf(stderr,"[dcd70] G-15592..-15580 = %08X %08X %08X %08X | i8 G-15312: %02X %02X %02X %02X %02X %02X %02X %02X | i8 G-15296: %02X %02X %02X %02X %02X %02X %02X %02X\n",
         PPC_LOAD_U32(G-15592),PPC_LOAD_U32(G-15588),PPC_LOAD_U32(G-15584),PPC_LOAD_U32(G-15580),
@@ -3535,7 +3535,7 @@ PPC_FUNC(sub_881538C0){
       uint32_t r=ctx.r3.u32;
       static bool armed=false; if(byLr && etid==20649u){ armed=true; g_boss1Armed=true; }   // lr mode: start at the first boss-1 head push
       const bool hit = byLr ? (armed && etlr>=lrLo && etlr<lrHi) : (r>=0x1000 && r<0xFFFF0000u && PPC_LOAD_U32(r+36)==wantW && PPC_LOAD_U32(r+40)==wantH);
-      if(en<3000 && hit && r>=0x1000 && r<0xFFFF0000u){
+      if(en<12000 && hit && r>=0x1000 && r<0xFFFF0000u){     // cap 3000 -> 12000 (10-05: ~50 boss frames instead of 13 for the plate gate)
         ++en; std::fprintf(stderr,"[emittrace] lr=%08X id=%u x=%08X y=%08X prio=%u rec=%08X attr=%08X tl=(%08X,%08X) c=(%08X,%08X) uv=(%u,%u) wh=(%u,%u)\n",
           etlr,etid,etx,ety,etp,r,PPC_LOAD_U32(r),PPC_LOAD_U32(r+4),PPC_LOAD_U32(r+8),PPC_LOAD_U32(r+12),PPC_LOAD_U32(r+16),
           PPC_LOAD_U32(r+28),PPC_LOAD_U32(r+32),PPC_LOAD_U32(r+36),PPC_LOAD_U32(r+40)); } } }
