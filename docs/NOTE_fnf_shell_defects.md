@@ -2157,6 +2157,15 @@ Futari-Realcomp-Deck-v0.2.0-beta3.zip. NOT yet run on a real AMD GPU: the Deck (
 first-boot risk = RADV disagreeing with a renderer feature, which `[rvk]` names before the first present. Upload: no
 Google Drive client, rclone or cloudflared on this Mac; the user is choosing the route.
 
+**7. (10-05, the Deck in hand) Two Deck findings.** (a) "fails to load": gamescope/Wayland surfaces report
+currentExtent 0xFFFFFFFF; the swapchain now takes the window's pixel size (e3512aa). (b) "a little slower than the
+rexglue port" (in Gaming Mode): 60 frames/s everywhere, but the main thread at 96% of a core at the TITLE -- the
+shell's vsync gate sub_8216B148 polls 0x821F8550 vs 0x821F8560 for the next vblank (register-true; a pinned core on
+any port, and on the Deck's shared APU budget a competitor for GPU boost). RT_VBSLEEP (79b314e): the wrapper blocks on
+the vblank thread's condition variable while the loop's own condition holds. Main thread 96% -> 28-30%, process 107%
+-> 40-46%, still 60 frames/s; Mac 97% -> 27%. Full method in docs/DECK.md. Note for the ledger: the Mac beta-3 bundle
+on the Desktop pre-dates this (same behaviour, one hot core) -- rebuilt after the Deck validation.
+
 ## 2026-10-05 — Phase 1 item 4 measured unattended: B3 round-trip PASSES, the save's layout/FrameDelay bytes PINNED,
 ## D3 wall-dim MOOT on the ship path -- and a NEW DEFECT: FrameDelay 2V/3V UN-PACES THE PORT ON macOS
 **B3 (menu save round-trip) — CLOSED, scripted (scripts/nav_mac.sh b3write2 / b3read2):** Screen Setting (Maniac) >

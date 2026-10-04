@@ -59,6 +59,21 @@ Plasma on SteamOS 3.9 is a Wayland session (`XDG_SESSION_TYPE=wayland`, `WAYLAND
 `spectacle -b -n -o /tmp/x.png`. The title appeared in a 1280x800 window at full rate (f1501 at ~25 s), 0 errors.
 A gamescope SIGABRT coredump at 09:56 coincides with the session switch to Desktop Mode (not the game's process).
 
+## Performance: the spinning vsync gate (found and fixed 10-05, user: "a little slower than the rexglue port")
+Measured in Gaming Mode through the Steam shortcut, before the fix: 60 frames/s in menus AND in stage, GPU 1040 MHz
+at 23% busy -- but the process's main thread at 96% of a core even at the title, user-space PC inside
+`sub_8216B148` (+0x636): the shell's mode-1 vsync gate, `do { v = *(u64*)0x821F8550 } while (v == *(u64*)0x821F8560)`,
+a pure memory poll for the next vblank (8550 = written by the vblank ISR chain, 8560 = last value the gate consumed).
+Register-true, free on a 360, a pinned host core on a port; on the Deck's shared 15 W APU budget that core competes
+with the GPU for boost. Fix = RT_VBSLEEP (shell/gen/rt.cpp + the sub_8216B148 wrapper in merged_shell.cpp): block on
+a condition variable the vblank thread notifies, only while the loop's own condition holds, 40 ms guard, guest loop
+untouched. After: main thread 28-30%, process 40-46%, 60 frames/s, GPU idling at 200 MHz in menus and boosting on
+demand (M3 Max: 97% -> 27%). `RT_VBSLEEP=0` reverts. Tooling that got these numbers over ssh: frames from the
+`[nvk] submit fN` counter delta, CPU from `/proc/<pid>/stat` utime+stime deltas and `ps -L -o tid,pcpu`,
+GPU from `/sys/class/drm/card0/device/pp_dpm_sclk` + `gpu_busy_percent`, the hot PC from `sudo eu-stack -p`
+(sudo password needed: `echo 1 | sudo -S`) mapped through `llvm-nm` on the Linux binary (PIE: vaddr = pc - map
+start + segment vaddr).
+
 ## Still owed
 A Steam-launched run with eyes on it (the user), then the pacing retest under RVK_DECOUPLE (BACKLOG #12) and the
 controller mapping check under Steam Input.
