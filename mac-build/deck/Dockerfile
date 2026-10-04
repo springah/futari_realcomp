@@ -16,3 +16,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && for t in clang clang++ lld ld.lld llvm-nm llvm-objcopy llvm-cxxfilt; do ln -sf /usr/bin/$t-18 /usr/local/bin/$t; done \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /work/futari_realcomp
+# AppImage tooling (added 10-04 night): mksquashfs + the type2 AppImage runtime (static, x86_64). The AppImage is
+# runtime + squashfs(AppDir), assembled by mac-build/deck/make_appimage.sh without FUSE (no appimagetool needed).
+RUN apt-get update && apt-get install -y --no-install-recommends squashfs-tools && rm -rf /var/lib/apt/lists/* \
+    && curl -fsSL -o /usr/local/lib/appimage-runtime-x86_64 https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-x86_64 \
+    && file /usr/local/lib/appimage-runtime-x86_64 | grep -q ELF && chmod 755 /usr/local/lib/appimage-runtime-x86_64

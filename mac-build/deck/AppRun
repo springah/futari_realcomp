@@ -1,0 +1,24 @@
+#!/bin/bash
+# AppRun -- the AppImage entry of futari_realcomp (Steam Deck / Linux). Game data lives read-only inside the image
+# ($APPDIR/usr/share/futari/assets); saves and logs go to $XDG_DATA_HOME/futari-realcomp (~/.local/share/futari-realcomp).
+# Same environment as the macOS launcher and scripts/run_mac.sh; any variable already SET in the environment wins
+# (so `RVK_WINDOW= RT_VK= ./Futari.AppImage` is a headless boot).
+HERE="$(dirname "$(readlink -f "$0")")"; APPDIR="${APPDIR:-$HERE}"
+d(){ [ -z "${!1+x}" ] && export "$1=$2"; }
+DATA="${XDG_DATA_HOME:-$HOME/.local/share}/futari-realcomp"; mkdir -p "$DATA/save" "$DATA/logs"
+d RT_GAME_ROOT "$APPDIR/usr/share/futari/assets"; d XR_SHELL_XEX "$APPDIR/usr/share/futari/assets/default.xex"
+d RT_SAVE "$DATA/save"; d RT_MODDLL_DIR "$APPDIR/usr/lib/futari"
+[ -f "$RT_SAVE/435A07D7/00000001/systemdata.bin/savegame.bin" ] || { [ -d "$APPDIR/usr/share/futari/save_freshcard" ] && cp -r "$APPDIR/usr/share/futari/save_freshcard/." "$RT_SAVE"/; }
+d RT_BOOT_SHELL 1; d RT_THREADS 1; d RT_DEFERDRIVER 1; d RT_ASYNCIO 1; d RT_EHCONTAIN 1; d RT_AUDIOPUMP 1
+d RT_AUDIO 1; d RT_AUDIOWORKER 1; d RT_AUDIOBRIDGE 1; d RT_CUEBRIDGE 1
+# FUTARI_HEADLESS=1: no renderer, no window (the container-side boot check; the Deck never sets it)
+if [ -n "${FUTARI_HEADLESS:-}" ]; then unset RT_VK RT_NVK RVK_WINDOW; else d RT_VK 1; d RT_NVK 2; fi
+ d RVK_PERSIST 1; d RVK_RENDER_FROM 1; d RVK_NOHALVE 1; d RVK_FIXVP 1; d RVK_BLEND 1; d RVK_REALALPHA 1
+d RT_WALLPAPER 1; d RVK_TEXPITCH 1; d RVK_FMT3KEY 1; d RVK_GPFIELD 1; d RVK_C255 "0.00625:0.00390625:-1:0"
+d RVK_RESALIAS 1; d RVK_RESFRESH 1; d RVK_FIXB2 1; d RVK_RESREAL 1; d RVK_HDR 0
+[ -n "${FUTARI_HEADLESS:-}" ] || d RVK_WINDOW 1; d RVK_WINSIZE 1280x800; d RVK_DIMFIX 1
+d RT_NAVREAL 1; d RT_STARTWIRE 1; d RT_SNDQFREE 1; d RT_RESCACHE 1; d RT_HEAPLOCK 1
+d RT_PAD_HOST 1; d RT_SAMPLES 0; d RVK_DUMPDIR /tmp
+export DISABLE_VULKAN_RENDERDOC_CAPTURE=1
+cd "$DATA"
+exec "$APPDIR/usr/lib/futari/futari_combined" 8208A2B8 0 "$XR_SHELL_XEX" 2> "$DATA/logs/futari_$(date +%Y%m%d_%H%M%S).log"

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Mushihimesama Futari (realcomp)
+Comment=Mushihimesama Futari Ver 1.5, native Linux build (two modes)
+Exec=AppRun
+Icon=futari-realcomp
+Categories=Game;
+Terminal=false
