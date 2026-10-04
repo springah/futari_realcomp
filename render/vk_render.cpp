@@ -4673,7 +4673,27 @@ extern "C" int rvk_run_on_main_thread(int (*fn)(int, char**), int argc, char** a
 bool rvkWindowCreateSwapchain() {
   VkSurfaceCapabilitiesKHR caps{};
   if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(g.phys, gw.surface, &caps) != VK_SUCCESS) return false;
-  if (caps.currentExtent.width == 0 || caps.currentExtent.height == 0) return false;  // minimized
+  // Wayland / gamescope (the Steam Deck, 2026-10-05): the surface reports currentExtent = 0xFFFFFFFF, i.e. "the
+  // swapchain decides" -- the window's pixel size, clamped to the surface's min/max image extent. Win32, X11 and
+  // MoltenVK always report a defined extent, so this arm never runs there. Before it, the Deck died at
+  // "[rvk][win] swapchain create FAILED" with extent=4294967295x4294967295 in the log.
+  VkExtent2D ext = caps.currentExtent;
+  if (ext.width == 0xFFFFFFFFu || ext.height == 0xFFFFFFFFu) {
+    uint32_t pw = 0, ph = 0;
+#ifndef _WIN32
+    int iw = 0, ih = 0; if (gw.sdlWin) SDL_GetWindowSizeInPixels(gw.sdlWin, &iw, &ih);
+    if (iw > 0 && ih > 0) { pw = (uint32_t)iw; ph = (uint32_t)ih; }
+#endif
+    if (!pw || !ph) { pw = 1280u; ph = 720u; }
+    if (pw < caps.minImageExtent.width)  pw = caps.minImageExtent.width;
+    if (ph < caps.minImageExtent.height) ph = caps.minImageExtent.height;
+    if (caps.maxImageExtent.width  && pw > caps.maxImageExtent.width)  pw = caps.maxImageExtent.width;
+    if (caps.maxImageExtent.height && ph > caps.maxImageExtent.height) ph = caps.maxImageExtent.height;
+    ext = {pw, ph};
+    std::fprintf(stderr, "[rvk] surface extent undefined (Wayland-style) -> window %ux%u (min %ux%u max %ux%u)\n", pw, ph,
+                 caps.minImageExtent.width, caps.minImageExtent.height, caps.maxImageExtent.width, caps.maxImageExtent.height);
+  }
+  if (ext.width == 0 || ext.height == 0) return false;  // minimized
   uint32_t nf = 0; vkGetPhysicalDeviceSurfaceFormatsKHR(g.phys, gw.surface, &nf, nullptr);
   std::vector<VkSurfaceFormatKHR> fmts(nf); vkGetPhysicalDeviceSurfaceFormatsKHR(g.phys, gw.surface, &nf, fmts.data());
   VkSurfaceFormatKHR pick = fmts.empty() ? VkSurfaceFormatKHR{VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR} : fmts[0];
@@ -4683,7 +4703,7 @@ bool rvkWindowCreateSwapchain() {
   VkSwapchainCreateInfoKHR sci{VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
   sci.surface = gw.surface; sci.minImageCount = imgCount;
   sci.imageFormat = pick.format; sci.imageColorSpace = pick.colorSpace;
-  sci.imageExtent = caps.currentExtent; sci.imageArrayLayers = 1;
+  sci.imageExtent = ext; sci.imageArrayLayers = 1;
   sci.imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
   sci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
   sci.preTransform = caps.currentTransform; sci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
