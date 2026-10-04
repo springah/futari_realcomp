@@ -32,6 +32,10 @@ NOTE_fnf_shell_defects.md 2026-10-04. The boss plate gate (Phase 1 item 2) now h
    delta, value-at-each. Acceptance: reproduces BOTH known defects (logo keys 0x40, float pool 0x40)
    as positive controls; zero deltas elsewhere or a named list to fix. Run it BEFORE any further
    shell promotion, and make it part of the promotion gate (LAWS entry).
+   **✅ DONE 10-04 (Mac):** `futari_decomp/tools/instruments/constpool_audit.py` — selftest PASS on both
+   positive controls (+ a third, famk1) and the HEAD negative; sweep = 0 DRIFT across 62 TUs, but
+   **3 live constant typos in promoted TUs** (famk1 G_RNG_SEED/G_JUMPTAB high half, famk9 G_HALT
+   −0x20) — fixes owed, then re-gate those families. LAWS T7/M4 carry the gate. Ledger 10-04.
 2. **Boss plate gate for game-side promotions.** A training-mode stage-1 boss drive on pilot +
    control arms, scored by (a) the mirrored-twin rect signature (same cell, same flip, same
    positions) and (b) a head-crop pixel diff. Costs ~5 min per gate. Add to the DRIVER gate
