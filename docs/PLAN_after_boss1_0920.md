@@ -48,6 +48,8 @@ NOTE_fnf_shell_defects.md 2026-10-04. The boss plate gate (Phase 1 item 2) now h
 3. **FNF-14 follow-ups (user eyes):** boot overlay feel (≈1.5 s + 1 s fade because the port loads
    fast; any hold is a ruling, never a silent fix); whether in-GAME stage loads show NOW LOADING
    (game-module path, unmeasured). If black, re-run the FNF-14 ladder on that path.
+   **10-04 measured:** in-game loads are NOT black -- the Shot Type Select screen shows "PLEASE WAIT" (~20 frames) and
+   fades into the stage (NOTE_fnf_shell_defects.md 2026-10-04 evening). Only the boot-overlay FEEL remains for your eyes.
 4. **Parked debts, in order, ~1 h each:** FrameDelay 3V feel check (ring positive control) ·
    D3 wall-dim 0.875 vs 0.90 quantisation · Color/ExtraView sub-offsets (doc) · B3 menu save
    round-trip (user's hands).

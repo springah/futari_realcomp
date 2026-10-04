@@ -2067,6 +2067,17 @@ a term, while every store/branch/constant still matches. Reads of such bodies mu
 the generated listing's final `add rN,...` for EACH argument register at EACH bl, or better, measured with the
 per-push trace diff above — a 4-minute instrument that beats any read.
 
+## 2026-10-04 (evening) — FNF-14's open half MEASURED: in-game stage loads never go black and show "PLEASE WAIT"
+Route (scripts/nav_mac.sh np_load, build/opt_pilot, frames every 10 ticks): HUB > NORMAL PLAY > 1P SIDE START > Original >
+Reco > Normal shot > stage 1. Playfield blackness (RGB < 24, box 408..880 x 40..680) over f2300..f3100 never exceeds 0.07;
+the only transition is the Shot Type Select screen itself: at f2890 its corner caption flips from "PRESS 2P START" to
+"PLEASE WAIT" (the game module's own load indicator), f2920 begins the fade into the stage, BGM cue m02_stg1 lands at
+f2985, the stage is fully up by f2950. Roughly 20 frames of "PLEASE WAIT" -- the load is fast, like the shell's. So the
+game-module path has no NOW LOADING screen to miss: the FNF-14 ladder does not apply there, and the Phase 1 item 3
+"if black, re-run the ladder" branch is closed as not-black. Still owed to user eyes: the boot overlay feel (any hold is
+a ruling), and whether ~20 frames of PLEASE WAIT reads as authentic or as "too fast" -- a feel question, not a defect.
+Bank: _local/nav_mac/np_load/ (386 frames, shot_1..5 = the five select screens).
+
 ## 2026-10-04 (evening) — the two 10-03 side findings CLOSED: sub_821A0760's static RowSpec table + sub_821A0580's double clamp
 **sub_821A0760 (menu_base_states.cpp, the "Zoom(xN.NN DbD)" panel tick, vt 0x82050BC0):** against ppc_recomp.32.cpp
 0x821A0948..0x821A0A7C the readable table had the four captions rotated one slot (entry 0 is `addi r4,r30,-16` = "Zoom",
