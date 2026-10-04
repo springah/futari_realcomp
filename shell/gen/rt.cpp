@@ -5,6 +5,7 @@
 #include "ppc_recomp_shared.h"
 #include <cstdio>
 #include <atomic>
+#include <string>
 #include <cstdint>
 #include <cstdlib>
 #include <mutex>
@@ -185,6 +186,17 @@ static thread_local LbFrm g_lb_stk[64]; static thread_local int g_lb_sd=0;
 extern "C" void rt_indirect(uint32_t t, PPCContext& ctx, uint8_t* base){
   static bool trace = getenv("RT_TRACE")!=nullptr;
   if(trace){ static std::atomic<int> tc{0}; int n=tc++; if(n<2000000) std::fprintf(stderr,"  [ind] 0x%08X\n",t); }
+  // RT_INDPAIRS=<file> (HARNESS-ONLY, 2026-10-04): distinct (caller lr -> target) pairs of every SHELL-tree
+  //   indirect dispatch, rewritten in place every RT_INDPAIRS_EVERY (default 200) dispatches -- the shell tree
+  //   routes PPC_CALL_INDIRECT_FUNC here (ppc_recomp_shared.h:4), not through out_reco/rt.cpp's shim, so the
+  //   same lever lives in both. Written as <file>.shell so the two never clobber each other.
+  { static const char* pf = getenv("RT_INDPAIRS");
+    if(pf){ static std::mutex m; static std::set<std::pair<uint32_t,uint32_t>> pairs; static long n=0; static std::string path = std::string(pf) + ".shell";
+      static const long every = [] { const char* e = getenv("RT_INDPAIRS_EVERY"); long v = e ? atol(e) : 0; return v > 0 ? v : 200L; }();
+      std::lock_guard<std::mutex> g(m);
+      const bool fresh = pairs.insert({(uint32_t)ctx.lr, t}).second;
+      if(fresh || (++n % every) == 0){
+        if(FILE* o = fopen(path.c_str(), "w")){ for(auto& pr : pairs) fprintf(o, "%08X %08X\n", pr.first, pr.second); fclose(o); } } } }
   if(t>=PPC_CODE_BASE && t<PPC_CODE_BASE+PPC_CODE_SIZE){
     PPCFunc* f=*(PPCFunc**)(base+PPC_IMAGE_BASE+PPC_IMAGE_SIZE+(uint64_t)(uint32_t)(t-PPC_CODE_BASE)*2);
     if(f){ rt_watch(base,t,"before");

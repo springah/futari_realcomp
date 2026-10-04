@@ -888,6 +888,17 @@ extern "C" void rt_indirect_call(PPCContext& ctx, uint8_t* base, uint32_t target
       if((c % every) == 0) ic_dump(c);
     }
     if(vsc_on()) vsc_note(ctx, base, target);   // RT_VSLOTCENSUS: target-keyed vtable-slot census (r23-w114)
+    // RT_INDPAIRS=<file> (HARNESS-ONLY, 2026-10-04 register-contract lane): the DISTINCT (caller lr ->
+    //   target) pairs of every indirect dispatch, rewritten in place every RT_INDPAIRS_EVERY (default 200)
+    //   dispatches (drives end in a kill). Names the implementation(s) behind each readable bctrl site so
+    //   the TU can annotate `-> sub_X | sub_Y` and regcontract_audit.py gets a precise contract.
+    { static const char* pf = std::getenv("RT_INDPAIRS");
+      if(pf){ static std::mutex m; static std::set<std::pair<uint32_t,uint32_t>> pairs; static long n=0;
+        static const long every = [] { const char* e = std::getenv("RT_INDPAIRS_EVERY"); long v = e ? std::atol(e) : 0; return v > 0 ? v : 200L; }();
+        std::lock_guard<std::mutex> g(m);
+        const bool fresh = pairs.insert({(uint32_t)ctx.lr, target}).second;
+        if(fresh || (++n % every) == 0){
+          if(FILE* o = std::fopen(pf, "w")){ for(auto& pr : pairs) std::fprintf(o, "%08X %08X\n", pr.first, pr.second); std::fclose(o); } } } }
     // r26-clobber hunt: the indirect call at ppc_recomp.4.cpp:15012 (sub_8808FDF8, ret
     // lr=0x8808FEE4) is the prime suspect for clobbering non-volatile r26 (game-main fn ptr
     // 0x88168D48) on the real-.data path. Name its target + report if r26 isn't preserved.
