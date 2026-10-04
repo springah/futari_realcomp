@@ -35,9 +35,13 @@ for ((i=0;i<${NRIGHT:-1};i++)); do press 8 "RIGHT (Stage row)"; sleep 1.2; done
 sleep 1; press 1000 "A (開始)"; waitfor 'dclose.*vt=0x82050F00' 8 "panel closed"; sleep 2
 for i in 1 2 3 4; do press 1000 "A select $i"; sleep 3; done
 waitfor 'BGM cue1\|m02_stg\|BGM cue[0-9]* (m0[2-9]' 20 "stage BGM"
-STAGE_T0=$(date +%s); say "STAGE_T0 — dwell ${DUR}s autofire via FIFO"
+STAGE_T0=$(date +%s); say "STAGE_T0 — dwell ${DUR}s autofire via FIFO (QUIET=${QUIET:-0}s hold-fire first)"
+# QUIET=<s> (boss plate gate): no shots for the first QUIET seconds of the dwell, so the boss intro -- the frames the
+# per-push trace captures -- sees no player input at all and two arms stay in lockstep (shots landing a frame apart
+# perturbed the boss path from its third frame, plate_v2 / plate_neg 10-04).
 P=0
 while [ $(( $(date +%s)-STAGE_T0 )) -lt "$DUR" ]; do
+  if [ $(( $(date +%s)-STAGE_T0 )) -lt "${QUIET:-0}" ]; then sleep 1; continue; fi
   echo 1000 > "$FIFO"; sleep 2.0; echo 0 > "$FIFO"; sleep 0.4; P=$((P+1))
   # NO START pulses in the dwell: START is PAUSE in-game (GameEntry msg=10). The old Windows driver pulsed it
   # and masked the result with RT_NOPAUSE; the user's log (10-03 22:28) shows the game needs no START at all.

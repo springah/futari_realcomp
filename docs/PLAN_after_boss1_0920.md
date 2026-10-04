@@ -40,6 +40,11 @@ NOTE_fnf_shell_defects.md 2026-10-04. The boss plate gate (Phase 1 item 2) now h
    control arms, scored by (a) the mirrored-twin rect signature (same cell, same flip, same
    positions) and (b) a head-crop pixel diff. Costs ~5 min per gate. Add to the DRIVER gate
    ladder next to the stage pixel gate, which only ever saw early-stage frames.
+   **✅ DONE 10-04 (Mac):** `scripts/boss1/boss_plate_gate.sh <tag> <tu>...` (+ `boss_plate_gate.py`, ~6 min/gate): pilot vs
+   generated-body control, head-symmetry pixel plate + anchor-relative per-push signature on lockstep frames (QUIET=10
+   input-free intro), M4 controls (`--selftest`, `NEGCTL=1`). First run: pixel PASS but structural FAIL = a second
+   objaction_queue defect (sel==3 indexed sub-arm: 9-px sense inverted ×2, dropped G-15600 word) — fixed, plate_v3 PASS
+   with famk1/famk9 in the control arm (their constant fixes re-gated). NOTE_fnf_shell_defects.md 2026-10-04 (later).
 3. **FNF-14 follow-ups (user eyes):** boot overlay feel (≈1.5 s + 1 s fade because the port loads
    fast; any hold is a ruling, never a silent fix); whether in-GAME stage loads show NOW LOADING
    (game-module path, unmeasured). If black, re-run the FNF-14 ladder on that path.

@@ -2067,6 +2067,30 @@ a term, while every store/branch/constant still matches. Reads of such bodies mu
 the generated listing's final `add rN,...` for EACH argument register at EACH bl, or better, measured with the
 per-push trace diff above — a 4-minute instrument that beats any read.
 
+## 2026-10-04 (later) — ★★★ BOSS-1 ARM3 RESIDUAL: the indexed 32-direction sub-arm had the 9-px sense INVERTED and a
+## dropped word — found by the new BOSS PLATE GATE's structural witness, invisible to eyes and to the symmetry plate
+**Found by:** `scripts/boss1/boss_plate_gate.sh v1 objaction_queue famk1 famk9` (the first end-to-end run of the Phase 1.2 gate,
+pilot = all readable TUs, control = those three handed back to the generated bodies, both driven under
+`RT_EMITTRACE=lr:880DCD70-880DEE68 RT_DCD70TRACE=1`). The pixel plate PASSED (head symmetry p90 0.909 vs 0.905) — the
+front-on head is right since the morning fix — but the per-push diff on 13 lockstep frames showed every push from call
+sites `0x880DE888` (+9.00 px in x, dcd70 desc 0x8827ACxx, prio 122) and `0x880DE958` (+5.00 px, desc 0x8827ADxx, prio 125)
+from frame 3 on, y identical to the 16.16 bit. Those sites are the `sel == 3` **indexed** sub-arm (the head aimed at the
+player, mirrored directions), not the straight-ahead pair the morning fix repaired.
+**Root cause (futari_decomp decomp/game/objaction_queue.cpp, arm3 indexed sub-arm):** (1) generated `loc_880DE7C0`:
+`cmpwi cr6,r23,-1 ; bne cr6,0x880DE800 ; subf r26,r21,r26` — the 9.0 (lis r21,9) is subtracted when sign == -1; the TU had
+`if (sign != -1)`. (2) `loc_880DE8C0`: same shape for the second call (`subf r5,r21,r5`), same inversion. (3) the second
+call's x term: generated `mullw r4,r5,r23 ; rlwinm r9,r4,16 ; add r5,r9,r7` with r7 = Fx16(lwz G-15600) — ONE Fx16 over
+(byte×sign + word); the TU wrote `Fx16(byte×sign + Fx16(word))`, and Fx16's `& 0xFFFF` turns the already-shifted word into 0.
+G-15600 = 4 in the image, so the second site measured +9 − 4 = +5. Fix = three lines, applied 10-04; verified by the gate's
+re-run (plate_v3, see the ledger) with IDENTICAL push sets on lockstep frames.
+**Method lessons:** (a) a mirrored-pair body has to be measured in EVERY pose arm — eyes and the symmetry plate only ever saw
+the front-on pose; the indexed arm is reached when the boss aims off-centre, which the gate's trace window covered because
+the boss turns toward the (static) player within its first 13 frames. (b) the structural witness only means something on
+LOCKSTEP frames: two arms whose boss paths diverged at frame 2 (plate_v2 / plate_neg, shots landing a frame apart) produce
+thousands of spurious set differences; the scorer now compares frame-by-frame only while the anchor push sits at the
+identical 16.16 position, and the drive holds fire through the boss intro (`QUIET=10`). (c) relative offsets must be kept
+in exact 16.16 units — flooring x and the anchor separately manufactures ±1 px rows.
+
 ## 2026-10-03 — ★★★★ FNF-15 CLOSED (Mac bisect + read, same evening the macOS port went green): ONE MISSING
 ## REGISTER ARGUMENT in the readable stateBuild — `r4 = renderer` before the font-measure bctrl (menu_base_states.cpp)
 **Method (all on the M3 Max; builds are 48 s, a link is 10 s, a drive to the panel is 60 s):**
