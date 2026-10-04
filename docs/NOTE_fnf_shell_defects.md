@@ -2154,7 +2154,10 @@ readable author believed the callee takes. The constant-pool audit (PLAN_after_b
 this; a "register contract at call sites" audit would, and it is mechanical: for each call, the set of rN the
 generated body wrote since the previous call.
 **Side findings banked:** textview_draw.cpp's promotion (09-13) silently shadowed shell/gen/rt.cpp's RT_TXTNODE
-hook (strong PPC_FUNC(sub_8216E510) wins over the kernel's) — that instrument no longer fires. Two real divergences
+hook (strong PPC_FUNC(sub_8216E510) wins over the kernel's) — that instrument no longer fires. **→ CLOSED 10-04:
+the body now ships in the __imp__ override form (futari_decomp e7bfc9c2..), rt.cpp's wrapper owns the plain symbol again;
+proven by dup_renames + llvm-nm + an RT_TXTNODE=1 drive ([txtnode]/[rspeedT] rows at the hub). LAWS I1 now names the
+shell kernel files in the hook grep.** Two real divergences
 OFF the Training path in the same TU: sub_821A0760's static RowSpec table (captions rotated Zoom/-----/Zoom-X/
 Zoom-Y, +32/+36 values, every lr +8 — Picture panel, vt 0x82050BC0) and sub_821A0580's double clamp in
 layoutNudge (Simple panel). Both unfixed; both owed a drive.
