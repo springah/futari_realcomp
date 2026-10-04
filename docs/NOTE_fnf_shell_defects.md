@@ -2089,8 +2089,16 @@ menus dropped or repeated presses (DOWN x4 on the hub landed on NORMAL PLAY; the
 The ring's own comment (vk_render.cpp:5028) claims "zero contact with the frameclock" -- on this path the pacing evidently
 came from the 1V blocking present, and presenting from the ring slot returns without that wait. Not fixed here (a
 present-path change is an attended lane); the live card is restored to 1V. Repro: copy _local/savegame_3v_repro.bin
-over the card, boot, count nvk_f frames per second. Owed: pace the ring path (wait on the swapchain the same way the
-direct path does) or gate 2V/3V off on macOS until then.
+over the card, boot, count nvk_f frames per second.
+**→ FIXED the same session (RT_FDPACE, shell/gen/rt.cpp VdSwap hook):** the mechanism was not the ring at all. The
+shell's mode-1 gate (sub_8216B148) turns the device's vsync-wait flag OFF for 2V/3V (arms 0x8216B344/0x8216B364:
+`sub_820A4F80(dev, 0)` then `sub_82098688(dev, 1)`) and relies on queued-swap back-pressure for pacing -- which this
+port's instant-retire GPU ([fastmarker], null-GPU semantics) never produces, so VdSwap returned at once. The hook now
+paces modes >= 2 on the 59.94 Hz vblank counter (0x821F8560), the same software wait the guest's own 0V mode performs,
+with a 40 ms guard; the composed-frame ring keeps adding the N frames. Measured: 3V card **~55 presents/s** (was ~210),
+the hub route lands on OPTION again, `framedelay=3V -> +2 frame(s)` at boot, `[fdpace]` armed; 1V card unchanged at
+~58/s with 0 `[fdpace]` lines. `RT_FDPACE=0` reverts. The 3V FEEL (+2 frames of latency) is now a real question for
+your eyes again.
 
 ## 2026-10-04 (night) — the REGISTER-CONTRACT AUDIT exists, and its first sweep found one more FNF-15-class miss
 `futari_decomp/tools/instruments/regcontract_audit.py` (the 10-03 lesson made mechanical: per call, the registers the

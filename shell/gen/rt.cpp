@@ -1949,6 +1949,23 @@ PPC_FUNC_IMPL(__imp__VdSwap){ LOGN("VdSwap");
   // LEG-27/40 ring-window: cursor at VdSwap exit (after everything this impl ran).
   if(g_d3d_device) g_vk_vd_post.store(rt_be32(base,g_d3d_device+0x30));
 
+  // RT_FDPACE (default ON, =0 reverts; 2026-10-05 FrameDelay lane): in FrameDelay modes 2V/3V the shell's
+  // mode-1 gate (sub_8216B148, arms 0x8216B344/0x8216B364) turns the device's vsync-wait flag OFF
+  // (sub_820A4F80(dev,0)) and relies on queued-swap back-pressure for pacing -- which this port's
+  // instant-retire GPU (null-GPU semantics, [fastmarker]) never produces, so the shell ran at ~210
+  // presents/s on macOS with menu input dropping. Pace those modes here on the 59.94Hz vblank counter
+  // (0x821F8560, the same software wait mode 0V performs itself); the composed-frame delay ring in
+  // vk_render.cpp still adds the N frames of display latency. Never wedges: 40ms guard.
+  { static const bool fdpace = !(getenv("RT_FDPACE") && atoi(getenv("RT_FDPACE"))==0);
+    if(fdpace && rt_be32(base,0x821F8558u)>=2u){
+      const uint64_t c0=__builtin_bswap64(*(uint64_t*)(base+0x821F8560u));
+      const auto t0=std::chrono::steady_clock::now();
+      while(__builtin_bswap64(*(uint64_t*)(base+0x821F8560u))==c0){
+        std::this_thread::sleep_for(std::chrono::microseconds(250));
+        if(std::chrono::steady_clock::now()-t0 > std::chrono::milliseconds(40)) break;
+      }
+      static bool once=false; if(!once){ once=true;
+        std::fprintf(stderr,"[fdpace] FrameDelay>=2V: VdSwap paced on the vblank counter (RT_FDPACE=0 reverts)%c",10); } } }
   ctx.r3.u32=0; (void)base; }
 
 // ================= D3D9 hook set (logging-only, no behavior change) =================

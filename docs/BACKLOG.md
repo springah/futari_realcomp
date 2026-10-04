@@ -174,8 +174,9 @@ consecutive ship-nothing legs ⇒ back here for re-ranking, not another leg.
    read + guest applier), attract runs clean, frameclock cadence unchanged (logs
    /c/tmp/day3/poke_fd2v.log, poke_fd3v.log). **⚠ 10-05 (macOS): 3V is a DEFECT, not a feel
    question -- the port runs at ~210 presents/s with the ring engaged (57 at 1V) and menu input
-   drops/repeats; NOTE_fnf_shell_defects.md 2026-10-05. Owed: pace the ring path or gate 2V/3V
-   off on macOS.** Sub-offsets PINNED 10-05 (same note: card +0x16F8 preset record, zoom +0x08,
+   drops/repeats; NOTE_fnf_shell_defects.md 2026-10-05. FIXED same session: RT_FDPACE paces 2V/3V on
+   the vblank counter in the VdSwap hook (the guest drops its vsync-wait flag in those modes and the
+   port's instant-retire GPU gave no back-pressure); 3V now ~55 presents/s, menus navigable.** Sub-offsets PINNED 10-05 (same note: card +0x16F8 preset record, zoom +0x08,
    X +0x18, Y +0x1C; FrameDelay byte +0x16E7); B3 menu save round-trip PASSED scripted 10-05
    (four bytes, atomic publish, read back on a fresh boot). Still open: oracle-grade pixel
    fidelity of the effects (post-beta).
