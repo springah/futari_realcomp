@@ -4120,8 +4120,10 @@ PPC_FUNC(sub_821BE9D0){
     std::fprintf(stderr,"[closer] f%ld 821BE9D0#%ld obj=0x%X owner=0x%X lr=0x%X\n",
       rt_bdj_frame(),i,obj,owner,lr);
 }
+extern "C" int rt_vblank_sleep_until_edge(uint8_t* base);   // shell/gen/rt.cpp, RT_VBSLEEP (2026-10-05)
 PPC_FUNC(sub_8216B148){
   long n=g_b148.fetch_add(1)+1;
+  rt_vblank_sleep_until_edge(base);   // block (not spin) until the gate's own poll would pass; see rt.cpp
   __imp__sub_8216B148(ctx,base);
   { static const bool rtModeTickB148 = std::getenv("RT_MODETICK")!=nullptr;
     if(rtModeTickB148 && (n<=10 || n%100==0)) modetick_dump(base,"b148",n); }

@@ -217,6 +217,7 @@ PPC_FUNC_IMPL(__imp__XGetVideoMode){ LOGN("XGetVideoMode");
 #include <thread>
 #include <mutex>
 #include <condition_variable>
+extern "C" void rt_vblank_notify();   // defined below the VdSwap hook (RT_VBSLEEP)
 #include <unordered_map>
 #include <chrono>
 #include <cstring>
@@ -1232,6 +1233,7 @@ PPC_FUNC_IMPL(__imp__VdSetGraphicsInterruptCallback){ LOGN("VdSetGraphicsInterru
           if(!once){ once=true; std::fprintf(stderr,"  [vbisr] real vblank ISR chain LIVE: dev=0x%08X vbc=%u swc=%u swapcb=0x%08X 8550=0x%08X%c",
             devp,rt_be32(B,devp+0x4174),rt_be32(B,devp+0x4188),rt_be32(B,devp+0x4170),rt_be32(B,0x821F8550),10); } }
         if(!isr_ran){ if(PPCFunc* tick=rt_lookup(B,0x8216AD38)) tick(c,B); }
+        rt_vblank_notify();   // RT_VBSLEEP: wake the shell's gate (sub_8216B148 wrapper, merged_shell.cpp) on this edge
         // (RT_GAMEPUMP_VBLANK vbpump RETIRED 2026-08-13, Day-5. The 07-17 vblank msg-5 pump was
         // the attract-pacing bring-up; the NATURAL vbisr/shell chain dispatches msg-5 on arcade
         // (Day-1 G6: pump unset -> logic 62.9/s, 0 [gamepump] lines, stage reached) and the abn
@@ -1973,6 +1975,37 @@ PPC_FUNC_IMPL(__imp__VdSwap){ LOGN("VdSwap");
 // calls through to the original recompiled body via __imp__. Gated behind RT_D3D9
 // so default runs stay quiet. Throttle: full detail for first ~8 calls per hook,
 // then 1-in-500 thereafter, to keep the log bounded across a long run.
+// RT_VBSLEEP (default ON, =0 reverts; 2026-10-05, the Steam Deck "a little slower than the rexglue port"):
+// the shell's mode-1 vsync gate sub_8216B148 waits for the next vblank with a pure memory poll,
+//     loc_8216B244: do { v = *(u64*)0x821F8550 } while (v == *(u64*)0x821F8560);   (then 8560 = v)
+// 8550 is written by the vblank ISR chain (sub_8216AD38, fired from the 59.94Hz thread above), 8560 is
+// the value the gate last consumed. Register-true and harmless on a 360; on a port it pins one host
+// core at 100% for the whole session (measured: the main thread at 96-97% on the Deck and on the M3
+// Max at the TITLE screen). On the Deck's shared 15 W APU budget that core steals GPU boost, which is
+// the plausible mechanism behind the perceived slowdown vs the SDK port. The fix keeps the guest's
+// loop and its semantics untouched: merged_shell.cpp's wrapper calls rt_vblank_sleep_until_edge()
+// BEFORE the body, which blocks on a condition variable the vblank thread notifies on every edge,
+// but ONLY while the loop's own condition (8550 == 8560) holds -- so a late frame (the counter
+// already moved) is never delayed, exactly as on hardware. 40 ms guard: it can never wedge.
+static std::mutex g_vb_mx; static std::condition_variable g_vb_cv; static std::atomic<unsigned long long> g_vb_gen{0};
+extern "C" void rt_vblank_notify(){ { std::lock_guard<std::mutex> l(g_vb_mx); g_vb_gen.fetch_add(1,std::memory_order_relaxed); } g_vb_cv.notify_all(); }
+extern "C" int rt_vblank_sleep_until_edge(uint8_t* base){
+  static const bool on = !(getenv("RT_VBSLEEP") && atoi(getenv("RT_VBSLEEP"))==0);
+  if(!on) return 0;
+  auto same=[&](){ return *(volatile uint64_t*)(base+0x821F8550u) == *(volatile uint64_t*)(base+0x821F8560u); };
+  if(!same()) return 0;
+  const auto t0=std::chrono::steady_clock::now(); int waits=0;
+  std::unique_lock<std::mutex> l(g_vb_mx);
+  while(same()){
+    unsigned long long g=g_vb_gen.load(std::memory_order_relaxed);
+    g_vb_cv.wait_for(l, std::chrono::milliseconds(4), [&]{ return g_vb_gen.load(std::memory_order_relaxed)!=g; });
+    ++waits;
+    if(std::chrono::steady_clock::now()-t0 > std::chrono::milliseconds(40)) break;
+  }
+  static std::atomic<long> n{0}; long k=n.fetch_add(1);
+  if(k==0||k==600) std::fprintf(stderr,"[vbsleep] gate #%ld slept for the vblank edge (waits=%d; RT_VBSLEEP=0 reverts to the guest's spin)%c",k,waits,10);
+  return waits;
+}
 static bool rt_d3d9_on(){ static bool on=getenv("RT_D3D9")!=nullptr; return on; }
 // returns true if this call index k should be logged in full
 static bool rt_d3d9_throttle(long k){ return k<8 || (k%500==0); }
