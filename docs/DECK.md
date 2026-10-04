@@ -74,6 +74,10 @@ GPU from `/sys/class/drm/card0/device/pp_dpm_sclk` + `gpu_busy_percent`, the hot
 (sudo password needed: `echo 1 | sudo -S`) mapped through `llvm-nm` on the Linux binary (PIE: vaddr = pc - map
 start + segment vaddr).
 
+## Verdict (10-05, user at the Deck, Gaming Mode via the Steam shortcut, RT_VBSLEEP build)
+"seems ok now i think?" -- tentative parity with the SDK port after the vsync-gate fix; several stages and four
+game overs played in one session at 60 frames/s, 0 errors.
+
 ## Still owed
-A Steam-launched run with eyes on it (the user), then the pacing retest under RVK_DECOUPLE (BACKLOG #12) and the
-controller mapping check under Steam Input.
+A longer play session for a firm verdict; the pacing retest under RVK_DECOUPLE (BACKLOG #12) if "a little slower"
+ever comes back; the controller mapping check under Steam Input; Xbox 360 mode on the Deck (not yet selected there).
