@@ -2326,3 +2326,24 @@ shell kernel files in the hook grep.** Two real divergences
 OFF the Training path in the same TU: sub_821A0760's static RowSpec table (captions rotated Zoom/-----/Zoom-X/
 Zoom-Y, +32/+36 values, every lr +8 — Picture panel, vt 0x82050BC0) and sub_821A0580's double clamp in
 layoutNudge (Simple panel). Both unfixed; both owed a drive.
+
+## 2026-10-05 (user out) — THE FLICKER CENSUS ON THE MAC: 12 idle minutes, ZERO missing draws, positive control exact
+BACKLOG #0's acceptance instrument (the nvk compose census, `RVK_DRAWCENSUS=2` + `RVK_TITLEPROBE=1`, vk_render.cpp
+~11007) run on the beta-3 engine's source (futari_decomp bank/r23/w136, soak_w136_census.sh, verdict log S7):
+* **Soak A** — TITLE idle 6 min, START, TOP MENU idle 6 min: 43,800 frames, 367 census heartbeats, **0 DROPOUT-CONFIRMED**,
+  0 FATAL / VK_ERROR, RSS 286 → 291 MB. 3,473 `[tprobe]` run-length lines banked.
+* **Soak B** — `RVK_CENSUSTEST=1`, TITLE 4 min: **60 `[census] INJECT` → 60 `DROPOUT-CONFIRMED len=1`**, one every 250
+  censused frames exactly, every one marked, zero unmarked. The instrument sees a one-frame loss on this build/path.
+* Across the window's 11 scripted Options-tour drives (two binaries, 140 s each) the only dropouts were the authored
+  PRESS START post-accept D=2 strobe (reported or not by the K=8 steady threshold) and **five press-coincident 2-frame
+  losses of two menu-atlas quads** (base 0x49C4000, v0 (-392.5,-33.5) ×3 / (-280.5,-124.5) ×2, ~f2370/4170/7130/7495/7757
+  of the route) at the SAME frames on EVERY arm — deterministic and binary-independent: either authored hide-byte
+  flips at panel transitions or a port-level deterministic dropout. Next instrument: a one-shot `RVK_QUADCENSUS`
+  armed on the press (touch /tmp/rvk_quad_now) to attribute the two quads.
+READING: what the census can see, the Mac nvk path does not drop on the two screens the user named. The 07-28 GLASS
+TRUTH leg put the perceived flicker on the PRESENT path, which a draw census cannot see by construction — the beta-3
+eyes retest stands; this measurement narrows it, it does not close BACKLOG #0.
+Also this window (decomp lane, same bank): the w86 compose spine `compose_frame_walks.cpp` is now LINKED into the Mac
+build (decomp/shell/, 14 bodies, A/B-gated PASS, 4 rows MATCHED) — with sub_82173978 under the `__imp__` form because
+shell/gen/rt.cpp:3122 wraps it (the RT_TXTNODE ancestor stack); the plain form had displaced that wrapper in the first
+pilot link. The shipped `build/futari_merged` and the .app were NOT rebuilt; the next `build_mac.sh` will carry the TU.
