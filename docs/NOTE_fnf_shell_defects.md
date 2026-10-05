@@ -2166,6 +2166,28 @@ the vblank thread's condition variable while the loop's own condition holds. Mai
 -> 40-46%, still 60 frames/s; Mac 97% -> 27%. Full method in docs/DECK.md. Note for the ledger: the Mac beta-3 bundle
 on the Desktop pre-dates this (same behaviour, one hot core) -- rebuilt after the Deck validation.
 
+**8. (10-05 noon, unattended) The rebuilt bundle re-validated on the RT_VBSLEEP engine.** The whole chain re-ran on
+the 10:49 bundle engine (scripts/app_smoke_mac.sh, modes_mac.sh, fdpace_check_mac.sh, stagepix_mac.sh: all PASS as
+before) and then three things the chain had not covered: (a) **shell-title soak 30 min** (soak_mac.sh): 60 frames/s
+throughout, RSS 268 -> 277 MB and flat from minute 14, 0 FATAL / VK_ERROR, the engine at ~25% of a core for the
+whole half hour (the spin gate's 97% is gone on the shipped binary). (b) **Boss plate gate A/B of the two waits** on
+the same build/futari_merged (RT_VBSLEEP=0 vs default; scripts/boss1/boss_plate_gate.py compare): PASS on both
+witnesses -- pixel plate within margin, IDENTICAL push sets over 20 lockstep frames (4860 emit + 166 dcd70 keys); the
+first try was a lockstep NO-VERDICT from the known intro coin-flip (y 343.03 / 345.69), the retry locked. The blocking
+wait changes nothing the guest can see. (c) **ARCADE demonstration soak 20 min** (new scripts/demo_soak_mac.sh:
+START, A, A to the ARCADE decide, then hands off): the ROM attract ran **15 cycles at exactly 4800 frames (80 s)
+each**, 14 returns to the title, 60 frames/s, 0 FATAL / VK_ERROR, RSS cycling 202-425 MB with the attract's own
+asset churn and no monotonic growth. Two instrument lessons banked in the scripts: the arcade module is the CV1000 ROM
+under the emulator layer, so its attract fires NO XACT BGM cue -- the demo counter is the module's outer state field
+`[navreal] d76 0->3` (go=1, attract gameplay starts) / `d76 4->0` (back to the title), not `m02_stg`; and the
+all-game plate sweep must NOT list `nvk_game_hooks` -- knocking out the renderer bridge changes what the dump is
+(skin 0.55, 115 "boss" frames from f1560, the exact signature boss_plate_gate.py already excludes), which produced a
+false pixel FAIL at 12:42 with the structural witness identical; boss_plate_gate.sh now refuses that TU up front.
+The corrected all-game sweep (38 game TUs, pilot = every TU linked, control = all of them skipped) then PASSED on
+both witnesses: pixel plate within margin (skin 0.28 vs 0.26, p90 0.917 vs 0.917), IDENTICAL push sets over 46
+lockstep frames (11834 emit + 426 dcd70 keys); results _local/boss1_mac/gates_vbsleep.txt, chain
+_local/nav_mac/beta3_chain_vbsleep.txt. Beta 3 is validated on the engine it ships with.
+
 ## 2026-10-05 — Phase 1 item 4 measured unattended: B3 round-trip PASSES, the save's layout/FrameDelay bytes PINNED,
 ## D3 wall-dim MOOT on the ship path -- and a NEW DEFECT: FrameDelay 2V/3V UN-PACES THE PORT ON macOS
 **B3 (menu save round-trip) — CLOSED, scripted (scripts/nav_mac.sh b3write2 / b3read2):** Screen Setting (Maniac) >

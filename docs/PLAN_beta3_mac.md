@@ -25,8 +25,12 @@ characterise; its ratified fix stays Phase 2 (the shell compositor decomp).
    XBOX 360 both reach stage 1; A -> B -> A swap cycle clean (the Windows D1 full-loop re-pair, on the Mac).
 4. [DONE] The bundle itself (`mac-build/build_mac_app.sh`, VER 0.2.0-beta3): Finder launch -> title -> both modes
    -> game over -> top menu -> quit; the save lands in Application Support and reads back next launch.
-5. [DONE] Soaks on the bundle: attract loop 30-60 min with RSS logged; FrameDelay 1V/2V/3V paced.
-6. [DONE] Gates on the final tree: both audits clean (0 DRIFT / 0 MISSING); stagepix bundle-vs-merged in the chain; the boss plate gate needs no re-run (no game TU changed since the 10-05 all-game PASS).
+5. [DONE, re-run 10-05 noon on the RT_VBSLEEP engine] Soaks on the bundle: shell title 30 min (RSS 268->277 MB flat, 0 errors,
+   ~25% of a core) AND the ARCADE demonstration 20 min (15 attract cycles, RSS cycling 202-425 MB, 0 errors;
+   scripts/demo_soak_mac.sh); FrameDelay 1V/2V/3V paced.
+6. [DONE, re-run 10-05 noon] Gates on the final tree: both audits clean (0 DRIFT / 0 MISSING); stagepix bundle-vs-merged in
+   the chain; boss plate gate A/B of RT_VBSLEEP=0 vs default PASS (both witnesses); all-game sweep (38 TUs, without the renderer bridge) PASS
+   (both witnesses) on the RT_VBSLEEP tree -- _local/boss1_mac/gates_vbsleep.txt.
 7. [PART, share unreachable] README (in the bundle), Gatekeeper steps for macOS 15+, `ditto -c -k --keepParent` zip, staged on the
    SHARED share (arch-vm). Game data inside: never public.
 8. [USER] Eyes: boot overlay feel; 3V feel; two-pad couch session; fullscreen/Retina on a smaller display.
@@ -40,8 +44,12 @@ the NAS is reachable).
 - [DONE 10-05] First boot on the Deck: failed on the undefined Wayland surface extent, fixed (vk_render.cpp,
   e3512aa); renderer up on RADV, frames at full rate. SEEING it needs a Steam-launched run: docs/DECK.md.
 - [USER] Steam shortcut launch with eyes on it; controller under Steam Input; pacing retest.
-- [ ] Upload route (Drive client / tunnel / GitHub release) -- the user's choice; then the Deck pacing retest under
-  RVK_DECOUPLE (BACKLOG #12's first measurement).
+- [DONE 10-05] Upload route: Cloudflare quick tunnel over a loopback http.server (`~/Desktop/projects/_serve/`),
+  AppImage (`mac-build/deck/make_appimage.sh`) alongside the zip; the Deck pacing retest under RVK_DECOUPLE stays
+  (BACKLOG #12's first measurement).
+- [DONE 10-05 noon] Artefacts re-checked against the RT_VBSLEEP host (79b314e): the AppImage (10:39) and the Mac zip
+  (10:50) already carried it; the Deck zip (09:55) did not and was re-zipped from the staging tree (same 59-file set).
+  md5: Deck zip eca8474b…, AppImage 30b876e8…, Mac zip 93089b95… -- the set to copy to SHARED when the NAS answers.
 
 ## Post-beta (not blocking)
 - Phase 2 compositor decomp (the flicker).

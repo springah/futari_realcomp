@@ -31,6 +31,7 @@ TAG="${1:?usage: boss_plate_gate.sh <tag> <decomp_tu>...}"; shift
 TUS="$*"
 [ "${NEGCTL:-0}" = "1" ] && TUS="objaction_queue"
 [ -n "$TUS" ] || { echo "no TUs named"; exit 2; }
+case " $TUS " in *" nvk_game_hooks "*) echo "REFUSED: nvk_game_hooks is the renderer bridge -- knocking it out changes what the dump IS (skin ~0.54, ~120 'boss' frames from f1560: a different instrument, not a head verdict; boss_plate_gate.py excludes it for the same reason). Drop it from the list (10-05 12:42 lesson)."; exit 2;; esac
 DUR="${DUR:-100}"
 export QUIET="${QUIET:-10}"     # hold fire through the boss intro: the traced frames must be input-free (lockstep)
 export RT_EMITTRACE="${RT_EMITTRACE:-lr:880DCD70-880DEE68}" RT_DCD70TRACE=1
