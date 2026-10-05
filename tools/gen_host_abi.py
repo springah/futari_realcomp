@@ -60,11 +60,16 @@ DLL_OBJ_GLOBS = [
     "game_ppc_recomp.*.o",
     "game_ppc_func_mapping.o",
     "merged_game.o",
-    "decomp_game_entry_msgs.o",
-    "decomp_game_entry_msgs_abn.o",
-    "decomp_nvk_game_hooks.o",
-    "decomp_crt_hooks.o",
 ]
+# Every decomp GAME TU rides into the DLL (build_win_dll.sh compiles decomp/game/*.cpp + decomp/game_abn/*.cpp
+# into it), so the DLL group is derived from the decomp tree, not from a hand list -- the four names this
+# used to carry (game_entry_msgs, game_entry_msgs_abn, nvk_game_hooks, crt_hooks) were the 2026-07-31
+# tree and had silently stopped covering the other ~35 game TUs (fixed 2026-10-05, after the Mac arm
+# measured the whole module object dir and found rt_kick_capture missing from the ABI).
+DECOMP_DIR = os.environ.get("DECOMP_DIR") or os.path.join(ROOT, "..", "futari_decomp", "decomp")
+for _sub in ("game", "game_abn"):
+    for _src in sorted(glob.glob(os.path.join(DECOMP_DIR, _sub, "*.cpp"))):
+        DLL_OBJ_GLOBS.append("decomp_" + os.path.basename(_src)[:-4] + ".o")
 
 # ---------------------------------------------------------------------------------------
 # GLOBALS — host-owned data the DLL reads or writes.  A thunk cannot express these, so the
