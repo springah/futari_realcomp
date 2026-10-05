@@ -31,8 +31,10 @@ characterise; its ratified fix stays Phase 2 (the shell compositor decomp).
 6. [DONE, re-run 10-05 noon] Gates on the final tree: both audits clean (0 DRIFT / 0 MISSING); stagepix bundle-vs-merged in
    the chain; boss plate gate A/B of RT_VBSLEEP=0 vs default PASS (both witnesses); all-game sweep (38 TUs, without the renderer bridge) PASS
    (both witnesses) on the RT_VBSLEEP tree -- _local/boss1_mac/gates_vbsleep.txt.
-7. [PART, share unreachable] README (in the bundle), Gatekeeper steps for macOS 15+, `ditto -c -k --keepParent` zip, staged on the
-   SHARED share (arch-vm). Game data inside: never public.
+7. [PART] README (in the bundle), Gatekeeper steps for macOS 15+, `ditto -c -k --keepParent` zip. Distribution: Google Drive
+   via rclone (`scripts/upload_gdrive.sh`, remote `gdrive` = springah@gmail.com scope drive.file, folder
+   Futari-Realcomp/<VER>/; set up 10-05 while the NAS was down) -- the SHARED share copy stays owed for the archive.
+   Game data inside: never public (F&F links only).
 8. [USER] Eyes: boot overlay feel; 3V feel; two-pad couch session; fullscreen/Retina on a smaller display.
 
 Results: NOTE_fnf_shell_defects.md 2026-10-04 beta-3 entry (all PASS; the zip is on the Desktop, SHARED owed until
