@@ -701,13 +701,17 @@ static std::atomic<uint16_t> g_host_buttons{0};
 // w136 A/B legs into phases). Plain "<hexpad>" words keep their old meaning. Harness-only; default inert.
 static std::atomic<long>     g_sched_frame{-1};
 static std::atomic<uint16_t> g_sched_pad{0};
+static std::atomic<bool>     g_sched_by_tick{false};   // r23-w136 S18: "t<tick>:<pad>" keys the window on g_rt_presentN (guest presents)
 extern "C" long rvk_frame_now(void) __attribute__((weak));
+extern "C" long g_rt_presentN; extern "C" long g_rt_dumpTick;   // shell/gen/rt.cpp (the Present hook)
 static uint16_t rt_sched_buttons(){
-  long f=g_sched_frame.load(std::memory_order_relaxed); if(f<0 || !rvk_frame_now) return 0;
-  long now=rvk_frame_now();
+  long f=g_sched_frame.load(std::memory_order_relaxed); if(f<0) return 0;
+  const bool byTick=g_sched_by_tick.load(std::memory_order_relaxed);
+  if(!byTick && !rvk_frame_now) return 0;
+  long now = byTick ? g_rt_presentN : rvk_frame_now();
   if(now<f) return 0;
   if(now>=f+12){ g_sched_frame.store(-1,std::memory_order_relaxed); return 0; }
-  static long lastlog=-1; if(lastlog!=f){ lastlog=f; std::fprintf(stderr,"[padhost] sched f%ld pad=%x fires (frame now %ld)\n",f,(unsigned)g_sched_pad.load(),now); }
+  static long lastlog=-1; if(lastlog!=f){ lastlog=f; std::fprintf(stderr,"[padhost] sched %c%ld pad=%x fires (%s now %ld)\n",byTick?'t':'f',f,(unsigned)g_sched_pad.load(),byTick?"present":"frame",now); }
   return g_sched_pad.load(std::memory_order_relaxed);
 }
 static std::atomic<int16_t>  g_host_lx{0}, g_host_ly{0};
@@ -744,9 +748,14 @@ static void rt_host_poll_thread(){
       hf?" + host FIFO ":"", hf?hf:"");
     for(;;){
       uint16_t b=rvk_sdl_host_buttons();
-      if(hf){ if(FILE* f=std::fopen(hf,"r")){ long fr=-1; unsigned v=0;
-                if(std::fscanf(f,"%ld:%x",&fr,&v)==2 && fr>=0){ g_sched_pad.store((uint16_t)v,std::memory_order_relaxed); g_sched_frame.store(fr,std::memory_order_relaxed); }
-                else { std::rewind(f); if(std::fscanf(f,"%x",&v)==1) b|=(uint16_t)v; }
+      if(hf){ if(FILE* f=std::fopen(hf,"r")){ char tok[64];
+                // whitespace-separated tokens: "<hex>" plain word · "<frame>:<hex>" press at renderer frame · "t<tick>:<hex>" press at
+                // guest present #tick (r23-w136 S18) · "d<tick>" tick-tagged one-shot PNG dump (rt.cpp Present hook -> vk_render)
+                while(std::fscanf(f,"%63s",tok)==1){ long fr=-1; unsigned v=0;
+                  if(tok[0]=='t' && std::sscanf(tok+1,"%ld:%x",&fr,&v)==2 && fr>=0){ g_sched_pad.store((uint16_t)v,std::memory_order_relaxed); g_sched_by_tick.store(true,std::memory_order_relaxed); g_sched_frame.store(fr,std::memory_order_relaxed); }
+                  else if(tok[0]=='d' && std::sscanf(tok+1,"%ld",&fr)==1 && fr>=0){ static long lastDump=-1; if(fr!=lastDump){ lastDump=fr; g_rt_dumpTick=fr; } }   // arm ONCE per distinct tick (the token stays in the file; the hook consumes the arm)
+                  else if(std::sscanf(tok,"%ld:%x",&fr,&v)==2 && fr>=0){ g_sched_pad.store((uint16_t)v,std::memory_order_relaxed); g_sched_by_tick.store(false,std::memory_order_relaxed); g_sched_frame.store(fr,std::memory_order_relaxed); }
+                  else if(std::sscanf(tok,"%x",&v)==1) b|=(uint16_t)v; }
                 std::fclose(f); } }
       g_host_buttons.store(b,std::memory_order_relaxed);
       int16_t lx=0,ly=0;                       // arrows also drive the left stick, full deflection

@@ -414,6 +414,8 @@ std::atomic<long> g_frame{0};
 //   g_nvkFrame below is stamped by nvk_frame_submit itself, so the shell taps and the RT_NVKPNG
 //   filenames now share ONE counter -- which is the entire point of the join.
 std::atomic<long> g_nvkFrame{0};
+static std::atomic<long> g_dumpTickTag{-1};   // r23-w136 S18
+extern "C" void rvk_request_dump_tick(long t){ g_dumpTickTag.store(t, std::memory_order_relaxed); }
 extern "C" long rvk_frame_now(void){ return g_nvkFrame.load(std::memory_order_relaxed); }   // r23-w136 S16: the frame-scheduled pad press (shell/gen/stubs.cpp) reads the join's clock
 extern "C" long rvk_cur_frame(void) {
   long n = g_nvkFrame.load(std::memory_order_relaxed);
@@ -12807,7 +12809,11 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
     static long washForced = 0, washFires = 0;
     bool wantWash = washEvery > 0 && (renderedFrames % washEvery) == 0;
     // PNG readback (display-independent): separate tiny cmd; g.image is TRANSFER_SRC after the last pass
-    bool dumpPng = (pngEvery > 0 && (renderedFrames % pngEvery) == 0) || washForced > 0;
+    // ★ r23-w136 S18: a GUEST-TICK-tagged one-shot dump. rt.cpp's Present hook calls rvk_request_dump_tick(T) at the entry
+    // of present #T; this frame (submitted inside that same Present) is written as nvk_t<T>.png in addition to the cadence
+    // files, so a scripted shot names the guest tick it wants and a tick/present slip cannot change which frame it gets.
+    const long dumpTickTag = g_dumpTickTag.exchange(-1, std::memory_order_relaxed);
+    bool dumpPng = (pngEvery > 0 && (renderedFrames % pngEvery) == 0) || washForced > 0 || dumpTickTag >= 0;
     if (dumpPng || wantWash) {
       segBatchFlush();
       rvkRingNext("nvkp"); VKC(vkResetCommandBuffer(g.cmd, 0), "reset(nvkp)");
@@ -12826,6 +12832,9 @@ extern "C" void nvk_frame_submit(uint8_t* basePtr, NvkFrame* nf) {
         writePng(rvkDumpPath("nvk_last.png"), (const uint8_t*)map, kW, kH);
         char fp[512]; std::snprintf(fp, sizeof fp, "%s/nvk_f%ld.png", rvkDumpDir(), nf->frame);
         writePng(fp, (const uint8_t*)map, kW, kH);
+        if (dumpTickTag >= 0) { char tp[512]; std::snprintf(tp, sizeof tp, "%s/nvk_t%ld.png", rvkDumpDir(), dumpTickTag);
+          writePng(tp, (const uint8_t*)map, kW, kH);
+          std::fprintf(stderr, "[rvk] tickdump t%ld = frame %ld -> %s\n", dumpTickTag, nf->frame, tp); }
         if (washForced > 0) --washForced;
         if (g_rvkWashForce > 0) --g_rvkWashForce;   // ★ r23-w19: mirrors washForced exactly
       }

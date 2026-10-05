@@ -2358,3 +2358,18 @@ screenshots were byte-identical across five legs of two binaries. Residual seen:
 background art is one frame ahead (≤ 1.6 mean units) with identical press frames — an occasional guest-tick/present
 slip; next lever = a guest-tick counter in the VdSwap hook for both the press schedule and the shot pick.
 Also: the card-panel decide must not be scheduled exactly 180 frames after `[modeidx]` (the 0xB4 dwell gate).
+
+## 2026-10-05 (night) — the GUEST-TICK clock closes the shell A/B gate (r23-w136b: batch 2 PASS, 40 rows MATCHED)
+Three harness levers, all default inert, all in the kernel objects (arm-symmetric by construction):
+* `RT_TICKLOG=1` — rt.cpp's Present hook prints `[tick] p<N>` at the entry of present #N (the scripted drive's clock).
+* `RT_PAD_HOST_FIFO` token `t<N>:<hexpad>` — press applied in the guest-thread pad read while the present count is in
+  `[N, N+12)` (stubs.cpp `rt_sched_buttons`, now tick- or frame-keyed); token `d<N>` — the Present hook hands the renderer
+  a one-shot tag at the entry of present #N and the frame submitted inside that Present is written as `nvk_t<N>.png`
+  (`[rvk] tickdump t<N> = frame <F>`; F == N throughout). Tokens are whitespace-separated; a `d` arm fires once per
+  distinct value (the first cut re-armed every 4 ms and dumped 606 frames).
+Result: four legs across the pilot and control binaries byte-identical at 15/16 Options-tour screens; the only deviating
+leg was the FIRST launch of the freshly linked binary (also true of the two earlier recipes) — warm a new binary with one
+uncounted launch. Recipe: futari_decomp bank/r23/w136/{drive_w136_shellgate_v5.sh, route_w136_v5.sh}.
+Promoted and linked as of this close: compose_frame_walks.cpp, shell_table_821e0014_mechanisms.cpp,
+panelbase_class_w105.cpp, save_class_w105_2.cpp (decomp/shell/). `build/futari_merged` and the .app are NOT rebuilt;
+the next `build_mac.sh` carries all four (gated PASS).

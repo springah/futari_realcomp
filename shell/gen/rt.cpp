@@ -2579,12 +2579,18 @@ static void rt_ringcount_scan(uint8_t* base, uint32_t start, uint32_t end, long&
 // FUN_8216B148), so a guest state fn that ticks N times while Present advances != N is, by
 // construction, a pacing defect. Always maintained (one store per present, no branch); read by
 // the RVK_TITLEPROBE hooks in out_reco/merged/merged_shell.cpp.
-extern "C" { long g_rt_presentN = 0; }
+extern "C" { long g_rt_presentN = 0; long g_rt_dumpTick = -1; }   // g_rt_dumpTick: r23-w136 S18, armed by stubs.cpp ("d<tick>")
+extern "C" void rvk_request_dump_tick(long) __attribute__((weak));
 PPC_FUNC_IMPL(__imp__sub_820A5408); // D3D9 Present
 PPC_FUNC(sub_820A5408){
   NVK_TAP("Present");
   static std::atomic<long> n{0}; long k=n++;
   g_rt_presentN = k + 1;
+  { // ★ r23-w136 S18: the GUEST-TICK clock for scripted drives. RT_TICKLOG=1 prints one line per present (the tick count the
+    // frame-scheduled pad press and the tick-tagged dump are keyed on); a dump armed for this tick is handed to the renderer
+    // HERE, before the guest's Present body submits this tick's frame (nvk_on_present_frame -> nvk_frame_submit).
+    static const bool tl = getenv("RT_TICKLOG")!=nullptr; if(tl) std::fprintf(stderr,"[tick] p%ld\n",k+1);
+    long dt=g_rt_dumpTick; if(dt>=0 && k+1>=dt && rvk_request_dump_tick){ g_rt_dumpTick=-1; rvk_request_dump_tick(dt); } }
   // RT_DRAWTRACE window latch: capture presents [RT_DRAWTRACE, RT_DRAWTRACE+120). Each present
   // flushes the draws of the frame that just ended (they run between presents), so a menu frame
   // (many draws) shows all its geometry between its markers. Grep for a present with many draws.
