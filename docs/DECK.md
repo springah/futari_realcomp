@@ -78,6 +78,11 @@ start + segment vaddr).
 "seems ok now i think?" -- tentative parity with the SDK port after the vsync-gate fix; several stages and four
 game overs played in one session at 60 frames/s, 0 errors.
 
+## Unattended validation on the Deck (10-05, RT_VBSLEEP build, Gaming Mode, invisible ssh runs; scripts/deck/)
+`modes_deck.sh d1`: XBOX 360 MODE to stage 1 PASS (first ever on an AMD GPU), ARCADE to stage 1 PASS, swap cycle
+arcade -> x360 -> arcade `#2 DONE` / `#3 DONE` with residue=0 twice and the hub ACTIVE after the return swap,
+0 FATAL / 0 VK_ERROR. Soak: see the soak_*.txt bank under ~/futari_nav on the Deck.
+
 ## Still owed
 A longer play session for a firm verdict; the pacing retest under RVK_DECOUPLE (BACKLOG #12) if "a little slower"
 ever comes back; the controller mapping check under Steam Input; Xbox 360 mode on the Deck (not yet selected there).
