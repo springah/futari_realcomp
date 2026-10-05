@@ -2347,3 +2347,14 @@ Also this window (decomp lane, same bank): the w86 compose spine `compose_frame_
 build (decomp/shell/, 14 bodies, A/B-gated PASS, 4 rows MATCHED) — with sub_82173978 under the `__imp__` form because
 shell/gen/rt.cpp:3122 wraps it (the RT_TXTNODE ancestor stack); the plain form had displaced that wrapper in the first
 pilot link. The shipped `build/futari_merged` and the .app were NOT rebuilt; the next `build_mac.sh` will carry the TU.
+
+## 2026-10-05 (evening) — frame-scheduled pad press (harness lever, default inert) and the w136 batch-2 re-gate
+`RT_PAD_HOST_FIFO` now also accepts `"<frame>:<hexpad>"`: the 4 ms host pad thread only ARMS it; the guest-thread pad
+read (stubs.cpp `rt_host_buttons` → `rt_sched_buttons`) applies the word while `rvk_frame_now()` (vk_render.cpp,
+= `g_nvkFrame` stamped at `nvk_frame_submit`) is in `[frame, frame+12)` — twelve guest ticks starting the tick after
+that frame was submitted, regardless of when the FIFO was written. Logs `[padhost] sched f<N> pad=<x> fires`. Built
+for the decomp campaign's shell A/B gate (futari_decomp bank/r23/w136, PREREG S16): with it, 11/16 Options-tour
+screenshots were byte-identical across five legs of two binaries. Residual seen: at a few indices ONE leg's scrolling
+background art is one frame ahead (≤ 1.6 mean units) with identical press frames — an occasional guest-tick/present
+slip; next lever = a guest-tick counter in the VdSwap hook for both the press schedule and the shot pick.
+Also: the card-panel decide must not be scheduled exactly 180 frames after `[modeidx]` (the 0xB4 dwell gate).

@@ -693,6 +693,23 @@ extern "C" uint16_t rvk_sdl_host_buttons(void) __attribute__((weak));
 #endif
 #include <thread>
 static std::atomic<uint16_t> g_host_buttons{0};
+// ★ RT_PAD_HOST_FIFO frame-scheduled press (2026-10-05, r23-w136 S16: the phase-controlled shell gate). A FIFO word of
+// the form "<frame>:<hexpad>" (e.g. "2131:1000") arms ONE press that the GUEST-THREAD read below applies while the
+// renderer's frame counter (rvk_frame_now(), stamped at nvk_frame_submit) is in [frame, frame+12) -- i.e. for exactly
+// 12 guest ticks starting the tick after frame <frame> was submitted. The 4 ms poll thread only ARMS it hundreds of
+// frames ahead, so the press no longer races the guest's input read (the +-1-frame residual that quantised the
+// w136 A/B legs into phases). Plain "<hexpad>" words keep their old meaning. Harness-only; default inert.
+static std::atomic<long>     g_sched_frame{-1};
+static std::atomic<uint16_t> g_sched_pad{0};
+extern "C" long rvk_frame_now(void) __attribute__((weak));
+static uint16_t rt_sched_buttons(){
+  long f=g_sched_frame.load(std::memory_order_relaxed); if(f<0 || !rvk_frame_now) return 0;
+  long now=rvk_frame_now();
+  if(now<f) return 0;
+  if(now>=f+12){ g_sched_frame.store(-1,std::memory_order_relaxed); return 0; }
+  static long lastlog=-1; if(lastlog!=f){ lastlog=f; std::fprintf(stderr,"[padhost] sched f%ld pad=%x fires (frame now %ld)\n",f,(unsigned)g_sched_pad.load(),now); }
+  return g_sched_pad.load(std::memory_order_relaxed);
+}
 static std::atomic<int16_t>  g_host_lx{0}, g_host_ly{0};
 static bool rt_pad_host_on(){ static bool on=getenv("RT_PAD_HOST")!=nullptr; return on; }
 static void rt_host_poll_thread(){
@@ -727,7 +744,10 @@ static void rt_host_poll_thread(){
       hf?" + host FIFO ":"", hf?hf:"");
     for(;;){
       uint16_t b=rvk_sdl_host_buttons();
-      if(hf){ if(FILE* f=std::fopen(hf,"r")){ unsigned v=0; if(std::fscanf(f,"%x",&v)==1) b|=(uint16_t)v; std::fclose(f); } }
+      if(hf){ if(FILE* f=std::fopen(hf,"r")){ long fr=-1; unsigned v=0;
+                if(std::fscanf(f,"%ld:%x",&fr,&v)==2 && fr>=0){ g_sched_pad.store((uint16_t)v,std::memory_order_relaxed); g_sched_frame.store(fr,std::memory_order_relaxed); }
+                else { std::rewind(f); if(std::fscanf(f,"%x",&v)==1) b|=(uint16_t)v; }
+                std::fclose(f); } }
       g_host_buttons.store(b,std::memory_order_relaxed);
       int16_t lx=0,ly=0;                       // arrows also drive the left stick, full deflection
       if(b&0x0004) lx=-32767; else if(b&0x0008) lx=32767;
@@ -781,7 +801,7 @@ static uint16_t rt_host_buttons(){
   if(!rt_pad_host_on()) return 0;
   static bool started=false;
   if(!started){ started=true; std::thread(rt_host_poll_thread).detach(); }
-  return g_host_buttons.load(std::memory_order_relaxed);
+  return (uint16_t)(g_host_buttons.load(std::memory_order_relaxed) | rt_sched_buttons());
 }
 // RT_PAD_FIFO: file-driven debug input. OR a button word read each frame from a control file
 // (RT_PAD_FIFO_PATH, default /tmp/futari_pad) into the guest pad. Drives input deterministically

@@ -414,6 +414,7 @@ std::atomic<long> g_frame{0};
 //   g_nvkFrame below is stamped by nvk_frame_submit itself, so the shell taps and the RT_NVKPNG
 //   filenames now share ONE counter -- which is the entire point of the join.
 std::atomic<long> g_nvkFrame{0};
+extern "C" long rvk_frame_now(void){ return g_nvkFrame.load(std::memory_order_relaxed); }   // r23-w136 S16: the frame-scheduled pad press (shell/gen/stubs.cpp) reads the join's clock
 extern "C" long rvk_cur_frame(void) {
   long n = g_nvkFrame.load(std::memory_order_relaxed);
   return n ? n : g_frame.load(std::memory_order_relaxed);
