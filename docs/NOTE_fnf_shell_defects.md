@@ -2373,3 +2373,19 @@ uncounted launch. Recipe: futari_decomp bank/r23/w136/{drive_w136_shellgate_v5.s
 Promoted and linked as of this close: compose_frame_walks.cpp, shell_table_821e0014_mechanisms.cpp,
 panelbase_class_w105.cpp, save_class_w105_2.cpp (decomp/shell/). `build/futari_merged` and the .app are NOT rebuilt;
 the next `build_mac.sh` carries all four (gated PASS).
+
+## 2026-10-05 (r23-w138, Mac seat) -- RT_VBLANK_BY_PRESENT: a PARKED harness lever (default OFF, inert), two failed keyings
+Motive (decomp bank/r23/w137, nine scripted legs of one binary): the shell's animating screens fall into discrete phase classes --
+legs byte-identical within a class, 0.4-4.85 units between -- because the shell animates on the vblank count (the vsync gate counter
+0x821F8560, advanced by the ISR sub_820A7DF8 that rt.cpp's vblank thread fires on a WALL-CLOCK 59.94 Hz deadline) while presents are
+vsync-paced at 60 Hz: (vblanks - presents) slips by one on any >16.7 ms stall and on the 59.94/60 beat. The lever makes the vblank
+thread fire the ISR once per guest present (mode 1: keyed on g_rt_presentN at Present entry; mode 2: on g_rt_presentDone at Present
+completion), with a wall-clock fallback (RT_VBLANK_BY_PRESENT_FALLBACK_MS, 250) and "[vbp]" logging. RESULT: lockstep holds (fired =
+presents + 3, 0 fallbacks, 0 jumps) and the title/hub route runs identically up to the mode card, but the CARD DECIDE never reaches
+"[p0build] menu_game_title" under EITHER keying (4/4 legs, deterministic): the press latches exactly as under wall-clock pacing
+(cmdedge/modegate identical), yet the game module's mode-load worker jobs ("[wjob] DISPATCH#1.." sub_88092B80), which under wall-clock
+pacing dispatch DURING the card dwell, dispatch only after the decide and no GameEntry message / navreal state change follows. So the
+mode-load path depends on something the asynchronous wall-clock ISR supplies that a present-keyed ISR does not -- not on the ISR's
+phase within a frame (mode 1 vs 2 identical). Left in rt.cpp for a later look (candidates: the ISR firing while the guest is INSIDE
+Present/its wait vs. while it sleeps; the audio pump cadence per ISR; a time-threshold on the fake KeQuerySystemTime). The decomp gate
+meanwhile uses the symmetric same-build band (decomp LAWS r23-w137 ruling) with >= 4 legs per arm.

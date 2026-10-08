@@ -266,6 +266,7 @@ static void rt_timer_precision_begin(){
 // --- vblank pump: fire the registered graphics-interrupt callback at the console's 59.94Hz ---
 // (Xenia semantics: guest cb(r3=source, r4=user_data); source 0 = vblank.)
 static std::atomic<uint32_t> g_vd_cb{0}, g_vd_cb_ctx{0};
+extern "C" long g_rt_presentN, g_rt_presentDone;   // the guest-Present entry / completion counters (defined with the Present hook below); read by the by-present vblank pacing
 static std::atomic<uint32_t> g_rb_base{0}, g_rb_log2{0}, g_wb_addr{0};
 // D3D device handle (CreateDevice hook result) -- defined here (not at the D3D9 hook set
 // below) because the VdSwap impl samples the device ring cursor (dev+0x30) for the
@@ -1040,10 +1041,32 @@ PPC_FUNC_IMPL(__imp__VdSetGraphicsInterruptCallback){ LOGN("VdSetGraphicsInterru
       static bool vb_legacy = getenv("RT_VBLANK_LEGACY")!=nullptr;
       const auto vb_period = std::chrono::nanoseconds((long long)(1e9/vb_hz));
       auto vb_next = std::chrono::steady_clock::now() + vb_period;
-      std::fprintf(stderr,"  [vblank] pacing %.2f Hz (%.3f ms/frame)%s\n",
-                   vb_hz, 1000.0/vb_hz, vb_legacy?"  [LEGACY sleep_for(2ms) -- pacing WILL be wrong]":"");
+      // ★ RT_VBLANK_BY_PRESENT=1 (r23-w138, 2026-10-05; default OFF, harness lever): fire the vblank ISR ONCE PER GUEST PRESENT
+      // instead of on the wall clock. Motive (decomp bank/r23/w137, nine scripted legs): the shell's animations advance on the
+      // vblank count while presents are vsync-paced, so (vblanks - presents) slips by one on any >16.7 ms stall or on the
+      // 59.94-vs-60 Hz beat, and legs of ONE binary land in discrete phase classes (byte-identical within, 0.4-4.85 units between).
+      // Keyed on presents the two counts cannot diverge while the guest is presenting. Fallback: if no present arrives within
+      // RT_VBLANK_BY_PRESENT_FALLBACK_MS (default 250; before the FIRST present the normal 1/vb_hz period) the ISR fires anyway
+      // so loads/boot keep moving; every fallback fire is logged with the present index (a scripted leg that sees one inside its
+      // measured span is a flagged capture). Audio pump / cue mirror / fence retire in the loop body are unchanged.
+      static int  vb_by_present = getenv("RT_VBLANK_BY_PRESENT") ? atoi(getenv("RT_VBLANK_BY_PRESENT")) : 0;   // 1 = key on Present ENTRY, 2 = on Present COMPLETION (the swap is queued)
+      static long vbp_fallback_ms = [](){ const char* e=getenv("RT_VBLANK_BY_PRESENT_FALLBACK_MS"); long v=e?atol(e):250; return (v>=1&&v<=10000)?v:250; }();
+      long vbp_seen = 0; long vbp_fires = 0, vbp_fallbacks = 0;
+      std::fprintf(stderr,"  [vblank] pacing %.2f Hz (%.3f ms/frame)%s%s\n",
+                   vb_hz, 1000.0/vb_hz, vb_legacy?"  [LEGACY sleep_for(2ms) -- pacing WILL be wrong]":"",
+                   vb_by_present==1?"  [BY-PRESENT(entry): one ISR per guest present, wall-clock fallback]":vb_by_present==2?"  [BY-PRESENT(completion): one ISR per completed guest present, wall-clock fallback]":"");
       for(;;){
-        if(vb_legacy) std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        if(vb_by_present){
+          long seen = vbp_seen; const bool started = seen > 0;
+          const auto deadline = std::chrono::steady_clock::now() + (started ? std::chrono::nanoseconds((long long)vbp_fallback_ms*1000000LL) : std::chrono::nanoseconds(vb_period));
+          const long volatile* pc = (vb_by_present==2) ? (const long volatile*)&g_rt_presentDone : (const long volatile*)&g_rt_presentN;
+          while(*pc == seen && std::chrono::steady_clock::now() < deadline) std::this_thread::sleep_for(std::chrono::microseconds(200));
+          long now_p = *pc;
+          if(now_p != seen){ vbp_seen = now_p; if(started && now_p != seen+1 && (vbp_fires<5 || (vbp_fires%300)==0)) std::fprintf(stderr,"  [vbp] presents jumped p%ld -> p%ld inside one ISR period%c",seen,now_p,10); }
+          else if(started){ ++vbp_fallbacks; if(vbp_fallbacks<=3||(vbp_fallbacks%100)==0) std::fprintf(stderr,"  [vbp] fallback fire #%ld (no present for %ld ms) at p%ld%c",vbp_fallbacks,vbp_fallback_ms,seen,10); }
+          ++vbp_fires; if((vbp_fires%1800)==0) std::fprintf(stderr,"  [vbp] fired=%ld presents=%ld fallbacks=%ld%c",vbp_fires,g_rt_presentN,vbp_fallbacks,10);
+        }
+        else if(vb_legacy) std::this_thread::sleep_for(std::chrono::milliseconds(2));
         else {
           std::this_thread::sleep_until(vb_next);
           auto vb_now=std::chrono::steady_clock::now();
@@ -2579,7 +2602,7 @@ static void rt_ringcount_scan(uint8_t* base, uint32_t start, uint32_t end, long&
 // FUN_8216B148), so a guest state fn that ticks N times while Present advances != N is, by
 // construction, a pacing defect. Always maintained (one store per present, no branch); read by
 // the RVK_TITLEPROBE hooks in out_reco/merged/merged_shell.cpp.
-extern "C" { long g_rt_presentN = 0; long g_rt_dumpTick = -1; }   // g_rt_dumpTick: r23-w136 S18, armed by stubs.cpp ("d<tick>")
+extern "C" { long g_rt_presentN = 0; long g_rt_dumpTick = -1; long g_rt_presentDone = 0; }   // g_rt_dumpTick: r23-w136 S18, armed by stubs.cpp ("d<tick>")
 extern "C" void rvk_request_dump_tick(long) __attribute__((weak));
 PPC_FUNC_IMPL(__imp__sub_820A5408); // D3D9 Present
 PPC_FUNC(sub_820A5408){
@@ -2608,6 +2631,7 @@ PPC_FUNC(sub_820A5408){
   uint32_t vk_entry = (rt_vk_on() && g_d3d_device)? rt_be32(base,g_d3d_device+0x30) : 0;
   __imp__sub_820A5408(ctx,base);
   nvk_present();   // nvk frame boundary (Present-exit)
+  g_rt_presentDone = k + 1;   // r23-w138: Present-COMPLETION counter (the swap is queued) -- the by-present vblank pacing mode 2 keys on it
   // ★ HARD PIVOT (RT_NVK=2): nvk owns the frame — the old renderer is fully bypassed. The kick
   // window is closed (not consumed: nvk gets its draws from the wrapper calls, not the arena) so
   // the capture ring can't grow unboundedly; hookrender accumulators are drained for the same
