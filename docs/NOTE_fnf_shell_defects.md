@@ -5,6 +5,47 @@ friends & family and collect their logs. This note is the running defect ledger 
 Method per doctrine: ship-path first, oracle in hand before theorizing, instruments presumed
 lying until positive-controlled, texel-diff acceptance.
 
+## 2026-10-12 — KSTUB-OVERCLEAR: XGetVideoMode / VdQueryVideoMode zero-filled 0x50 bytes into 0x30-byte guest buffers (engine bug, latent since the port began)
+- Finding (futari_decomp r23-w156H, differential-harness debt D1, `docs/PLAN_diffharness.md` §9.1): the host import
+  `__imp__XGetVideoMode` (shell/gen/rt.cpp) cleared 0x50 bytes at r3, but the out struct is the XDK XVIDEO_MODE = the
+  kernel's X_VIDEO_MODE, **48 = 0x30 bytes** (Xenia `src/xenia/xbox.h` `static_assert_size(X_VIDEO_MODE, 48)`; fields
+  width, height, interlaced, widescreen, hidef, be-float refresh, video standard, unknown_0x8a, unknown_0x01, reserved[3];
+  `xboxkrnl_video.cc` VdQueryVideoMode memsets sizeof). All 5 shell callers reserve exactly 0x30 directly below their
+  register save area, so the extra 0x20 bytes zeroed saved non-volatiles: sub_8216AD98 (Gfx_InitDisplayModeAndViewport,
+  buffer r1+112) lost its saved f31/r26/r27/r28 -> its epilogue handed the caller r28 = 0 (8216C400 had r28 =
+  0xFFFFFFFF821F8660); 8216EBE8 r25-r28; 82181C60 r29-r31 + LR slot; 82185758 / 821CB2E0 LR slot + the parent's frame
+  header. The game-tree `__imp__VdQueryVideoMode` (out_reco/rt.cpp, the copy that links) had the SAME 0x50 over-clear:
+  820B0890 lost its saved f30/f31/r14, 820AB1D0 32 bytes of locals, 820AEC38 32 bytes of the D3D device object.
+- Fix: both clear exactly 0x30 (`kXVideoModeSize`); every field value is unchanged (XGetVideoMode 1280/720/0/1/1/60.0f/1,
+  VdQueryVideoMode zeros unless RT_HDMODE). Xenia's unknown_0x8a = 0x4A / unknown_0x01 = 1 deliberately NOT adopted.
+  The dead out_reco_abn/rt.cpp twin fixed for consistency.
+- Audit (`docs/AUDIT_kstub_sizes.md`): every host stub that writes into a guest out-pointer in the compiled copies
+  (shell/gen/rt.cpp, shell/gen/stubs.cpp, out_reco/{rt,stubs,harness,rt_phys}.cpp, out_reco/merged/*, host/*): **OVER = 2
+  live (both fixed) + 1 dead twin**; everything else OK (XINPUT_STATE 0x10, XINPUT_KEYSTROKE 8, X_CONTENT_DEVICE_DATA 0x50,
+  XOVERLAPPED fields, IOSB, FILE_* classes bounded by the caller's length, TIME_FIELDS 16, FILE_NETWORK_OPEN 56, ...;
+  XamEnumerate's 0x308/item equals the size its own CreateEnumerator reports and the guest passes back). UNDER (real kernel
+  writes, stub does not) 12, five READ-UNINITIALISED on live paths: VdGetCurrentDisplayInformation (display w/h into the
+  device fields), VdGetCurrentDisplayGamma, VdGetSystemCommandBuffer (VdSwap arg), ExGetXConfigSetting time-zone names,
+  XamUserGetXUID (online) -- NOT fixed here: each changes a VALUE the game uses (the 07-22 RT_HDMODE A/B showed true
+  display values break the panel compose), so each needs its own A/B window with the pixel gates. UNKNOWN 6 (listed).
+- Proof (probe = afe66da + fix; `_local/kstub/`): (b) harness: fresh route-B1 capture (build/kstub_cap, DECOMP_SKIP
+  gfx_w105) -> across 8216B0A0's call to 8216AD98 r28 FFFFFFFF821F8660 -> FFFFFFFF821F8660 (w156H record: -> 0), r26/r27/f31
+  unchanged; the w156H `apply_callee` patch now reports NO `[callee-clobber]` for 8216B0A0 / 8216C400 (identity + gfx_w105
+  @HEAD EQUIV-STRICT, mutants 0 NOT-EQUIV) -- `_local/kstub/harness_proof.txt`. (c) non-regression on build/kstub_probe
+  (build_mac_dll.sh combined host + both dylibs): nav_mac hub route PASS; nav360_mac.sh q2 route VERDICT PASS (360 boots
+  from the card, hub, stage 1, pause/resume, RETURN TO TITLE, back to the shell top menu); boss1 drive PASS (training stage
+  1 -> m03_boss BGM); app_smoke shell steps vs the probe PASS (2/2 modules bound, 0 FATAL/VK_ERROR, save read back;
+  seeded save -- a FRESH dir puts the create-save dialog over the title and desyncs the presses, a script artefact);
+  12-min ARCADE demo soak: RSS 425 @2 / 557 @10 = +132 MB (Q5 S0 control +133: unchanged), 0 FATAL/VK_ERROR/slowframe/
+  underrun, 0 DROPOUT-CONFIRMED, 3,600 presents/min, [vblank] pacing 59.94 Hz, 9 demo cycles.
+- **Did anything visible change? NO.** Route B1 (14 shots) vs the w156H pre-fix capture leg: 14/14 byte-identical, marker
+  stream identical (one thread-order swap of a cue-stop line). Route B4 (13 shots), 2 legs pre-fix (build/kstub_pre =
+  afe66da) + 2 post-fix (build/kstub_post): post1 == post2 13/13; pre2 vs post 12/13 identical + shot 11 at 0.24 (= the
+  same-build pre1-pre2 band at shot 11); pre1 alone differs at 2/6/7/8 (5.33/3.94/4.19/1.06 = the known B4 first-leg
+  phase variance, also vs pre2); markers 95 = 95 on all pairs. So the stack clobber was real but the clobbered registers
+  were dead/zero on these routes: **the decomp campaign's control baselines do NOT move.** The .app needs a rebuild to
+  carry the fix (no visible change expected).
+
 ## 2026-10-11 — RC1 Q2: module-side drive observers are reco_normal-addressed (XBOX 360 blind) — lever RT_NAV360
 - Defect (harness, not game): `[navreal]` (merged_game.cpp, sub_88138F00 wrapper; also RT_JOINLOG, RT_ARMCRED and the
   wrapper's own `st` read) loads the scene-FSM / select-FSM / death-flag / slot0-credit cluster (0x884D66A8, 0x884D678C,

@@ -104,7 +104,11 @@ static void rt_consume(RtEvent* e){
 PPC_FUNC_IMPL(__imp__VdQueryVideoMode){ LOGN("VdQueryVideoMode");
   static const bool hd = std::getenv("RT_HDMODE")!=nullptr;
   uint32_t p=ctx.r3.u32;
-  if(p){ uint8_t* v=base+p; for(int i=0;i<0x50;i++) v[i]=0;
+  // KSTUB-OVERCLEAR (2026-10-12): X_VIDEO_MODE is 48 bytes = 0x30 (Xenia xbox.h static_assert_size; xboxkrnl_video.cc
+  // memsets sizeof). Was 0x50: the shell callers reserve 0x30 -- sub_820B0890 (r1+112..160, f30 save at 168: the extra
+  // 0x20 zeroed its saved f30/f31/r14), sub_820AB1D0 (r1+80, 32 bytes of its locals), sub_820AEC38 (device+21912: 32 bytes
+  // of the D3D device object past the mode). This (game-tree) copy is the one that links (shell/gen/stubs.cpp's loses).
+  if(p){ uint8_t* v=base+p; for(int i=0;i<0x30;i++) v[i]=0;
     if(hd){
       auto W=[&](uint32_t o,uint32_t val){ *(uint32_t*)(v+o)=__builtin_bswap32(val); };
       W(0,1280);W(4,720);W(8,0);W(0xC,1);W(0x10,1);W(0x14,0x42700000);W(0x18,1);

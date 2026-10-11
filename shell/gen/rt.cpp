@@ -208,9 +208,18 @@ extern "C" void rt_indirect(uint32_t t, PPCContext& ctx, uint8_t* base){
   }
   static std::atomic<int> c{0}; if(c++<15) std::fprintf(stderr,"  [indirect unresolved 0x%08X]\n",t);
 }
+// XGetVideoMode(XVIDEO_MODE* r3) -- KSTUB-OVERCLEAR (2026-10-12): the out struct is the XDK XVIDEO_MODE = the kernel's
+// X_VIDEO_MODE, 48 bytes = 0x30 (Xenia src/xenia/xbox.h: dwDisplayWidth, dwDisplayHeight, fIsInterlaced, fIsWideScreen,
+// fIsHiDef, RefreshRate (be float), VideoStandard, unknown_0x8a, unknown_0x01, reserved[3]; static_assert_size 48;
+// xboxkrnl_video.cc VdQueryVideoMode memsets sizeof). This stub used to zero 0x50: every guest caller reserves exactly
+// 0x30 on its stack directly below its register save area (8216AD98: r1+112..160, then f31/r26/r27/r28 saves), so the
+// extra 0x20 bytes zeroed the caller's saved non-volatiles -- r26-r28/f31 (8216AD98), r25-r28 (8216EBE8), r29-r31+LR
+// slot (82181C60), r31+LR slot+the parent's back chain (82185758, 821CB2E0). Values unchanged (the old fill wrote 0..0x1B;
+// Xenia's unknown_0x8a=0x4A / unknown_0x01=1 are deliberately NOT adopted -- behaviour-preserving fix).
+static constexpr uint32_t kXVideoModeSize = 0x30;   // sizeof(XVIDEO_MODE)
 PPC_FUNC_IMPL(__imp__XGetVideoMode){ LOGN("XGetVideoMode");
   uint32_t p=ctx.r3.u32;
-  if(p){ uint8_t* v=base+p; for(int i=0;i<0x50;i++) v[i]=0;
+  if(p){ uint8_t* v=base+p; for(uint32_t i=0;i<kXVideoModeSize;i++) v[i]=0;
     auto W=[&](uint32_t o,uint32_t val){ *(uint32_t*)(v+o)=__builtin_bswap32(val); };
     W(0,1280);W(4,720);W(8,0);W(0xC,1);W(0x10,1);W(0x14,0x42700000);W(0x18,1); }
   ctx.r3.u32=0; (void)base; }

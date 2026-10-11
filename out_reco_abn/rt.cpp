@@ -89,7 +89,8 @@ static void rt_consume(RtEvent* e){
 PPC_FUNC_IMPL(__imp__VdQueryVideoMode){ LOGN("VdQueryVideoMode");
   static const bool hd = std::getenv("RT_HDMODE")!=nullptr;
   uint32_t p=ctx.r3.u32;
-  if(p){ uint8_t* v=base+p; for(int i=0;i<0x50;i++) v[i]=0;
+  // KSTUB-OVERCLEAR (2026-10-12): X_VIDEO_MODE = 0x30 bytes (was 0x50 = over-clear); kept in step with out_reco/rt.cpp.
+  if(p){ uint8_t* v=base+p; for(int i=0;i<0x30;i++) v[i]=0;
     if(hd){
       auto W=[&](uint32_t o,uint32_t val){ *(uint32_t*)(v+o)=__builtin_bswap32(val); };
       W(0,1280);W(4,720);W(8,0);W(0xC,1);W(0x10,1);W(0x14,0x42700000);W(0x18,1);

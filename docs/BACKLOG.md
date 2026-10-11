@@ -32,6 +32,7 @@ consecutive ship-nothing legs ⇒ back here for re-ranking, not another leg.
 
 ## NOW — the gate path (menus/shell → F&F build)
 - ✅ **G-START (RC1, 2026-10-12) FIXED**: START in the hub / a hub submenu no longer starts the ARCADE game behind the shell -- RT_STARTWIRE now obeys the shell's own game-input gate (cb3 0x821C5618 *(ctx+152)); host-only, default ON, `RT_STARTWIRE_NOGATE=1` = old path. NOTE_fnf_shell_defects.md 2026-10-12. .app needs a rebuild to carry it.
+- ✅ **KSTUB-OVERCLEAR (RC1, 2026-10-12) FIXED**: XGetVideoMode / VdQueryVideoMode wrote 0x50 bytes into 0x30-byte guest buffers (clobbered callers' saved r26-r28/f31, f30/f31/r14) -> exactly sizeof(X_VIDEO_MODE); no screen changed; audit docs/AUDIT_kstub_sizes.md leaves 5 READ-UNDER stubs (VdGetCurrentDisplayInformation, VdGetCurrentDisplayGamma, VdGetSystemCommandBuffer, ExGetXConfigSetting tz names, XamUserGetXUID) for their own A/B windows; .app rebuild to ship.
 
 0. **SHELL COMPOSE 1:1 (decomp-grounded) — THE flicker lane (re-rank 07-28 ~02:05).**
    Two strikes on the flicker item (wait-path cluster; ghost-draw fix — both real fixes, both
