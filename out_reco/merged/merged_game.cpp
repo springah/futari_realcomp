@@ -3313,6 +3313,27 @@ PPC_FUNC(sub_88138F00){
         static int sb=0; if(sb++<16) std::fprintf(stderr,"[navreal] blocked scene 5->2 teardown -> held at gameplay state 5 (field=%u)\n",field); }
     }
   }
+  // RT_NAV360 (2026-10-11, RC1 Q2, Opus): MODULE-AWARE twin of the [navreal] observer above, for
+  // scripted drives of BOTH hosted modes. [navreal] reads the scene-FSM / select-FSM / death-chain
+  // cluster at its reco_normal addresses, but in reco_abnormal (XBOX 360 MODE) every global from
+  // 0x88351830 up sits at +0x60 (host/futari_module_desc.h dshift law) and that cluster was never
+  // descriptorised (merged_common.h note) -- so [navreal] prints one "-1->0" line and then nothing
+  // in the 360 module. This lever reads the SAME six words shifted by the live module's own
+  // futari_desc()->dshift (0 in ARCADE => a value-for-value copy of [navreal], the positive control;
+  // 0x60 in XBOX 360). READ-ONLY, log-only, one line per change of any field; default OFF => no
+  // code path taken, no line printed. Defect note: docs/NOTE_fnf_shell_defects.md 2026-10-11 Q2.
+  static const bool nav360_on=std::getenv("RT_NAV360")!=nullptr;
+  if(nav360_on){
+    const uint32_t D=futari_desc()->dshift;
+    const uint32_t sc=PPC_LOAD_U32(0x884D66A8u+D), d76=PPC_LOAD_U16(0x884D678Cu+D),
+                   go=PPC_LOAD_U32(0x884D6878u+D), fa=PPC_LOAD_U32(GA_FIELD_ACTIVE),
+                   cr=PPC_LOAD_U16(0x884D6CEAu+D), s0=PPC_LOAD_U8(0x884D6CE8u+D);
+    static uint32_t l[6]={~0u,~0u,~0u,~0u,~0u,~0u}; static int nl=0;
+    if((sc!=l[0]||d76!=l[1]||go!=l[2]||fa!=l[3]||cr!=l[4]||s0!=l[5]) && nl<6000){ nl++;
+      std::fprintf(stderr,"[nav360] D=0x%X st=%u d76=%u field=%u go=%u cred=%u slot0=%u (was st=%d d76=%d field=%d go=%d cred=%d slot0=%d)\n",
+        D,sc,d76,fa,go,cr,s0,(int)l[0],(int)l[1],(int)l[3],(int)l[2],(int)l[4],(int)l[5]);
+      l[0]=sc;l[1]=d76;l[2]=go;l[3]=fa;l[4]=cr;l[5]=s0; }
+  }
   // RT_JOINLOG side-select-window tracer (2026-07-22): dump the systemobj (0x884D6740) slot-marker
   // table + the two side-records on every d76 change through the side-select -> commit window, so we
   // can see (a) whether the 1P join ever writes a -1 marker into a slot (the thing the id47 scan

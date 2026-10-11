@@ -108,3 +108,68 @@ IN-STAGE PAUSE (START, only when actually in a stage):
   (slot=1) -> Mode Select -> char select MIRRORED (1P seat "No Entry", 2P side active).
   Verified scripted co-op: both modules, join -> dual selects -> two-ship stage
   (_local/_tmpscripts/day8_2p_validate.sh: COOP_arcade_PASS + COOP_360_PASS).
+
+## XBOX 360 MODE (futari_game_abn.dylib, modeIdx 1) — mapped 2026-10-11 (RC1 Q2, Mac, build/w152_q2)
+
+WHY THE ARCADE DRIVES "LOST" 360: not the shell. Everything the shell draws (top menu, card panel, the module HUB,
+NORMAL PLAY submenu, pause menu, return-to-top confirm) is the SAME shell code over the SAME shell .data, so
+[mstate]/[mcur]/[decide]/[p0build]/[modswap]/[gemsg] fire identically in both modules (GameEntry's [gemsg] wrapper is
++8-renamed onto 0x8824E6A0 by abn_symbol_map.h). What breaks is every MODULE-side observer that reads game .data by
+literal reco_normal address: in reco_abnormal every global >= 0x88351830 sits at +0x60 (host/futari_module_desc.h),
+but only six addresses were descriptorised — the scene FSM 0x884D66A8, select FSM d76 0x884D678C, death flag
+0x884D6878, slot0 0x884D6CE8/credit 0x884D6CEA cluster was not (static check: the generated `lwz ...,26280(r11)`
+scene-FSM load in out_reco is `26376(r11)` = +0x60 in out_reco_abn). So under 360 [navreal] prints its first
+"-1->0" pair and then nothing (it is watching unrelated bytes) — and with it every d76-based screen/death assert.
+Also: [cue] lines print ONCE per cue per run, so SE-based markers (SE cue2, SYS_SE cue5) are unusable after the attract
+has played them — never gate a press on a [cue] line except a cue that is new in the run (m01_slct, m02_stg1).
+FIX (harness-only): **RT_NAV360=1** (merged_game.cpp, default OFF) = the [navreal] six-field observer re-based on the
+live module's own futari_desc()->dshift (0 in ARCADE, 0x60 in 360), one `[nav360] D=0x.. st= d76= field= go= cred=
+slot0=` line per change. Read-only, log-only.
+
+[nav360] field legend (360, measured r2): st = scene FSM (1 boot, 3 module title/attract, 5 game/menus, 2 teardown);
+d76 = select FSM; field = gameplay field active; go = demo/teardown flag; cred = slot0 credit countdown; slot0 = 1P seat.
+
+Screen graph (marker = what the drive asserts; settle = sleep after the marker before the next press):
+
+| # | screen | press to get here | marker | ceiling / settle |
+|---|---|---|---|---|
+| 0 | SHELL TITLE | (boot) | `name='motion/title.lzx'` | 60 s / 4 s |
+| 0a | (fresh save dir only) "save data not found — create?" then "created" | — | SYS_SE cue6 (SE_OK02); A, A | AVOID: seed RT_SAVE from a copy (nav360_mac.sh SEED=) |
+| 1 | SHELL TOP MENU | START | `SYS_BGM cue0 (mushifuta_Menu02)` (first in run) | 10 s / 3 s |
+| 2 | CARD PANEL (resets to ARCADE) | A | `SYS_SE cue1 (SE_OK01)` | 10 s / 2 s |
+| 3 | Xbox 360 card | LEFT | none (screen); 3.0 s dwell gate → 3.6 s | — |
+| 4 | decide → swap | A | `[modeidx] ... XBOX-360` then `[modswap] #2 DONE` (same second) | 120 s |
+| 5 | 360 MODULE TITLE / attract (Original Ranking, a 360 DEMO: `[nav360] st=3 d76 0->3->4 go=1 slot0=1` cycles) | — | `[nav360] D=0x60 st=3 ` (+ `GameEntry(msg=15,` call#1) | 120 s / 6 s (cold ~25-40 s) |
+| 6 | HUB (7 items, same shell model as ARCADE, vt=0x820503B0) | START (works on title AND during the demo) | `GameEntry(msg=11,` + `[p0build] menu_game_title` + `[nav360] st=5 d76=1` | 15 s / 3 s |
+| 7 | NORMAL PLAY submenu (vt=0x820503F8) | DOWN (`[mcur] 0->1`), A | `[decide] ... item=1 ` | 5 s / 3 s |
+| 8 | MODE SELECT (Original/Maniac/Ultra, 48 count) | A (1P SIDE START, default row) | `[nav360] D=0x60 st=5 d76=2 field=1 cred=3 slot0=1` | 10 s / 3 s |
+| 9 | CHARACTER SELECT | A | none — d76 does not move; screen only | 3 s |
+| 10 | SHOT TYPE SELECT | A | none; screen only | 3 s |
+| 11 | STAGE 1 | A | `[nav360] ... d76=4 ` then `BGM cue1 (m02_stg1)` | 60 s / 6 s |
+| 12 | PAUSE (RESUME/RESTART/OPTION/RETURN TO TITLE; shell model vt=0x82050488) | START (in stage only) | `GameEntry(msg=10,` + `BA4D8(ACTIVE).*vt=0x82050488 .*cursor=0 state 0x82061D50->0x82061D50` | 10 s / 2 s |
+| 13 | RESUME → stage | **A** on RESUME (cursor 0). START does NOT resume (the triage's mistake; caption: A=決定 B=戻る) | `BA4D8(ACTIVE).*vt=0x82050488 .*cursor=0 state 0x82061D50->0x82061D70` | 10 s / 4 s |
+| 14 | RETURN TO TITLE → confirm → module title | START, DOWN×3 (`[mcur] 0->1,1->2,2->3`), A, A | `cursor=3 state 0x82061D50->0x82061D70`, then `GameEntry(msg=10,` + `[nav360] st=3` | 20 s / 6 s |
+| 15 | back to SHELL TOP MENU | (title) START → hub; B → "トップメニューに戻ります" | `[decide] ... item=-1`; then A → `GameEntry(msg=13,` + `GameEntry(msg=3,` + `vt=0x82050518` | 20 s / 3 s |
+
+⚠ THE 360 REPLAY-SAVE TRAP (r2, 2026-10-11): with ~13 s between the MODE/CHAR/SHOT presses (marker timeouts on SE cues),
+the run did NOT reach stage 1: after the SHOT A, `[nav360]` shows d76 3→4, cred 3→2→1→0 (~1 s apart), slot0 1→0, d76
+5→6→8, `GameEntry(msg=10,`, st 5→2 — then 「リプレイを保存しますか?」 and the REPLAY SAVE MENU (shots
+`_local/rc1/q2/r2/shot_14..18`). The triage (rc1m_x360, ~4 s cadence) reached a live stage 1. nav360_mac.sh uses the
+~4 s cadence and FAILS the leg if `GameEntry(msg=10,` precedes the pause press. Cause UNATTRIBUTED (cadence vs the
+seat/credit path in the 360 module) — a 360 defect candidate for the Q4/Q9 seats; the ARCADE twin of this symptom was
+the 07-14 "credited run dies → replay-save loop" class.
+
+PROOF STATUS (2026-10-12 00:35, 3 h budget hit: the drive lock was held by other windows' sweeps for ~2 h 40 min of it;
+only 2 legs ran, r1 = fresh-save desync, r2 = STRICT=0 exploration on build/w152_q2):
+- PROVEN 1x (r2, `_local/rc1/q2/r2/` shots + guest.log; r2_events.txt): nodes 0-10 (shell title → top menu → card →
+  360 card → decide/swap #2 → 360 title/attract incl. the [nav360] demo cycle → hub → NP submenu → MODE/CHAR/SHOT
+  screens) and node 15 (hub B → item=-1 → A → msg=13/msg=3 → shell TOP MENU vt=0x82050518). Node 0a seen in r1.
+- PROVEN on another binary only: node 11 + 12 in 360 (triage rc1m_x360, rc1_probe: m02_stg1, pause model
+  vt=0x82050488 ACTIVE); node 13 resume-by-A in ARCADE on the Mac (`_local/boss1_mac/gamectl/guest.log`: A at cursor 0
+  → `0x82061D50->0x82061D70`, play resumes, the next START builds a new pause model).
+- **UNPROVEN** with nav360_mac.sh: 11 STAGE 1 (r2 fell into the replay-save trap), 12 PAUSE, 13 RESUME, 14 RETURN TO
+  TITLE, and the ≥ 2-consecutive-run bar for the whole route. Next seat: `bash scripts/nav360_mac.sh q2a
+  build/w152_q2/w152_q2` twice (STRICT=1); if node 11 still trips, the replay-save trap is the finding.
+
+Route script: `scripts/nav360_mac.sh <tag> <bin>` (drive lock, save seed, RT_NAV360=1, own FIFO, `pkill -x` only,
+verdict file; STRICT=1 stops at the first failed marker). Proof status per node: see PLAN_RC1 §4 "Q2 done".

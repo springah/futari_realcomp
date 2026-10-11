@@ -72,15 +72,15 @@ Status: PASS / FAIL / UNMEASURED / KNOWN-ISSUE / PARTIAL. "today" = measured thi
 |---|---|---|---|---|
 | R1 | Boot to title, 2/2 modules bound | **PASS** | **PASS** | app smoke 13:29 today on the 68-TU .app (`build/app_smoke_1011c.log`: 2/2 bound, 0 FATAL, 59.94 Hz); today: §2.1 M1/M2 |
 | R2 | Title → mode → module | **PASS** | **PASS** (cold boot ~40 s) | `_local/nav_mac/b4_VERDICT.txt` (10-05, bundle engine); today §2.1 M1 |
-| R3 | Every hosted menu path | **PARTIAL** — hub, NORMAL PLAY+CONFIG, TRAINING (rows visible since FNF-15 fix), SCORE ATTACK decline dialog, REPLAY list, every OPTION sub-panel driven on the Mac by the decomp gate routes v5/B1/B2/B4 (futari_decomp ledger w143-w148, byte-identical shots) | **UNMEASURED** — no gate route enters a single 360-module menu beyond the card decide (ledger w144: "360 card route NOT measured"); the 360 cold boot may land at MODE SELECT directly (NAV_MAP) | NOTE_campaign_decomp.md w144/w145; NAV_MAP.md |
+| R3 | Every hosted menu path | **PARTIAL** — hub, NORMAL PLAY+CONFIG, TRAINING (rows visible since FNF-15 fix), SCORE ATTACK decline dialog, REPLAY list, every OPTION sub-panel driven on the Mac by the decomp gate routes v5/B1/B2/B4 (futari_decomp ledger w143-w148, byte-identical shots) | **Q2 10-11: PARTIAL** — card decide → 360 title/attract → HUB → NORMAL PLAY submenu → 1P SIDE START → MODE/CHARACTER/SHOT select screens, and HUB B → return-to-top → shell TOP MENU, marker-asserted 1x (`_local/rc1/q2/r2/`); the cold boot lands at the module TITLE (not MODE SELECT). TRAINING/REPLAY/OPTION/SCORE ATTACK not driven. (was: UNMEASURED) | NOTE_campaign_decomp.md w144/w145; NAV_MAP.md |
 | R4a | Stage 1 reached + playable | **PASS** | **PASS** | b4/m2 verdicts; today M1 |
 | R4b | Stages 2-5 + bosses, all difficulties | **UNMEASURED** on the Mac (boss 1 only: boss plate gate); Deck: "several stages" by the user 10-05 | **UNMEASURED** | DECK.md verdict; `scripts/boss1/` |
 | R4c | Full clear (1-ALL + ending) | **UNMEASURED** (no record of a port 1-ALL in any doc) | **UNMEASURED** | — |
 | R5a | Settings round-trip | **PASS** (B3, 10-05, scripted; four bytes, atomic publish, read back) | **UNMEASURED** (same shell save path; not driven in 360) | NOTE_fnf_shell_defects.md 2026-10-05 |
 | R5b | High score / ranking persist | **UNMEASURED** | **UNMEASURED** | — |
 | R5c | Replay save → playback | **PARTIAL**: playback of the stored replay PASS (w144 route B4: Stage 1 → GAME OVER → back to the list); scripted replay SAVE never proven ("replay-save probe inconclusive", ledger w75) | **UNMEASURED** | NOTE_campaign_decomp.md w144 |
-| R6 | Game-over flows | **PASS on Windows** (NP + SA, 08-12/08-13, NAV_MAP) + Mac bundle 10-04 ("game over -> top menu"); continue countdown UNMEASURED | **PARTIAL**: 10-04 bundle check covered both modes to game over → top menu; SA flow UNMEASURED | PLAN_beta3_mac.md todo 4; NAV_MAP.md |
-| R7 | Pause / resume | **PARTIAL** today: pause opens (shot); resume via A on RESUME / RESTART / RETURN TO TITLE UNMEASURED | **PARTIAL** today, same | `_local/rc1/nav/rc1m_*/shot_3.png` |
+| R6 | Game-over flows | **PASS on Windows** (NP + SA, 08-12/08-13, NAV_MAP) + Mac bundle 10-04 ("game over -> top menu"); continue countdown UNMEASURED | **PARTIAL**: 10-04 bundle check covered both modes to game over → top menu; SA flow UNMEASURED. ⚠ Q2 r2: a 1P start at a ~13 s select cadence went straight to the replay-save prompt (d76 4→5→6→8, slot0 1→0, st 5→2) instead of stage 1 — unattributed (NAV_MAP 360 "replay-save trap") | PLAN_beta3_mac.md todo 4; NAV_MAP.md |
+| R7 | Pause / resume | **PARTIAL** today: pause opens (shot); RESTART / RETURN TO TITLE UNMEASURED. Q2: resume input = **A on RESUME** (START does not resume), seen working on the Mac 10-03 (`_local/boss1_mac/gamectl/guest.log`: A → pause model `0x82061D50->0x82061D70`, play continues, next START re-pauses) | **PARTIAL**: pause opens (triage); resume-by-A and RETURN TO TITLE scripted in nav360_mac.sh but **UNPROVEN** (Q2 legs blocked by the drive lock) | `_local/rc1/nav/rc1m_*/shot_3.png` |
 | R8 | Swap cycle | **PASS** 1 cycle (10-05 and today on the 68-TU sources, residue=0 x2); ≥ 5 cycles UNMEASURED | same | `_local/rc1/nav/rc1m_VERDICT.txt` |
 | R9 | Co-op | **PASS on Windows** scripted (COOP_arcade_PASS 08-14); Mac UNMEASURED; couch session owed (eyes) | **PASS on Windows** (COOP_360_PASS); Mac UNMEASURED | BACKLOG #9; NAV_MAP.md 2P |
 | R10 | Input | keyboard **PASS** (README map, FIFO drives ride the same host channel); SDL pads used by the user; P2 pad + remap persistence UNMEASURED on the Mac | same | PLAN_macos_bringup.md top block; README |
@@ -221,6 +221,33 @@ section in NAV_MAP. Inputs: NAV_MAP.md instruments list, `out_reco_abn/abn_symbo
 [intap] sources in merged_game.cpp / decomp game_entry_msgs (ABN-EXCLUDED), NOTE_other_modes.md correction (1) (+8
 above 0x880DF080). Harness-only levers, default inert, A/B-proven byte-inert on ARCADE. PASS = the same hub→NORMAL
 PLAY→stage→pause→game-over route asserted marker-by-marker in BOTH modules, 3 legs each, 0 desync. Model: Opus.
+
+**Q2 done — PARTIAL (2026-10-11 21:00 → 10-12 00:35, Opus seat, build/w152_q2 = build_mac_dll.sh from realcomp 87c21ea +
+the lever, decomp a54c40a8 via git archive, FFM off; evidence `_local/rc1/q2/`).** Finding: the 360 module is NOT
+drive-blind at the shell — the hub/submenu/pause/return-to-top are the same shell models and [mstate]/[mcur]/[decide]/
+[p0build]/[modswap]/[gemsg] hold unchanged; what is blind is every MODULE-side observer ([navreal] & co) because the
+scene/select/death/slot cluster is read at reco_normal addresses and sits +0x60 in reco_abnormal (only six globals were
+descriptorised). Delivered: lever **RT_NAV360** (merged_game.cpp, default OFF, read-only, dshift-rebased [navreal] twin;
+defect note NOTE_fnf_shell_defects.md 2026-10-11 Q2; inert by construction — a static bool gate around the only new
+code, no write, no line unless set; a no-lever runtime A/B was NOT run, owed), NAV_MAP "XBOX 360 MODE" (16-node graph,
+markers, ceilings, the fresh-save dialog, the [cue]-prints-once trap, the 360 replay-save trap), `scripts/nav360_mac.sh`
+(lock, save seed, own FIFO, `pkill -x`, verdict). Measured: 2 legs only (the drive lock was held by Q6/w151/w150 sweeps
+for ~2 h 40 min of the window): r1 desynced on the fresh-save dialog (fixed: SEED); r2 proved nodes 0-10 + 15 once. NOT
+proven: stage 1 via the script (r2 hit the replay-save trap at a slow select cadence; the script now uses the triage's
+~4 s cadence), pause → RESUME(A) → RETURN TO TITLE in 360, and the 2-consecutive-run bar. **Next (Sonnet, 15 min of
+lock):** `bash scripts/nav360_mac.sh q2a build/w152_q2/w152_q2` then `q2b` (STRICT=1); both VERDICT PASS closes Q2's
+route and flips R7-X; if node stage1/stage1_go fails again, bank it as the 360 replay-save defect (hand to Opus).
+
+**Sonnet seeds on the Q2 markers (each: own binary name, drive lock, SEED save copy, RT_NAV360=1):**
+- *360 stage sweep (Q3-X):* NAV_MAP TRAINING applies to the 360 hub (same shell rows): hub DOWN×2 (`[mcur] 1->2`) + A →
+  STAGE SELECT, RIGHT×N, START → MODE → char → shot; assert stage entry by `[nav360] ... field=1` + a stage BGM cue new
+  to the run (m02_stg1..5 / boss cues) and shots at entry + 30 s; 10 entries × Original first. Training gives no
+  invincibility: bank the replay-save prompt as the end marker (`GameEntry(msg=10,` + `[nav360] st=2`).
+- *360 persistence (Q4-X):* settings: hub OPTION change → relaunch with the SAME RT_SAVE (no SEED re-copy) → read back;
+  replay: play to the replay-save prompt, A → REPLAY SAVE MENU slot → relaunch → hub REPLAY DATA lists it → play back;
+  scores: the 360 Original Ranking attract (node 5) shows the table — shot it before/after. Diff the save dir per step.
+- *360 co-op (Q9-X):* nav360 route to node 8, P2 START via FIFO field 4 (`echo "0 0 0 10"`) → `[joinp] ... WILL-JOIN`,
+  `[nav360] slot0=1` and both seats' selects → two-ship stage shot; COOP_360_PASS = stage reached with both ships.
 
 **Q3 [S] FULL-GAME SWEEP via training stage select (G1 part 1).** Goal: every stage start and boss (10 entries) on
 Original, Maniac, Ultra, in ARCADE (then XBOX 360 after Q2), with shots at entry + 30 s, error counts, fps.

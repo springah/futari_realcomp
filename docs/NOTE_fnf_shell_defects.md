@@ -5,6 +5,19 @@ friends & family and collect their logs. This note is the running defect ledger 
 Method per doctrine: ship-path first, oracle in hand before theorizing, instruments presumed
 lying until positive-controlled, texel-diff acceptance.
 
+## 2026-10-11 — RC1 Q2: module-side drive observers are reco_normal-addressed (XBOX 360 blind) — lever RT_NAV360
+- Defect (harness, not game): `[navreal]` (merged_game.cpp, sub_88138F00 wrapper; also RT_JOINLOG, RT_ARMCRED and the
+  wrapper's own `st` read) loads the scene-FSM / select-FSM / death-flag / slot0-credit cluster (0x884D66A8, 0x884D678C,
+  0x884D6878, 0x884D6CE8/EA) by literal reco_normal address. In reco_abnormal (XBOX 360 MODE) that cluster is +0x60
+  (dshift law, host/futari_module_desc.h; generated scene-FSM load `26280(r11)` -> `26376(r11)` in out_reco_abn), so
+  every d76/death/field assert is blind in 360 (one "-1->0" line, then silence). Shell-side instruments are unaffected.
+  ⚠ Not fixed here and flagged for a later seat: RT_NAVREAL>=2 / RT_ARMCRED / RT_JOINLOG WRITE or key off the same
+  unshifted addresses — never set them on a 360 drive.
+- Lever (default OFF): `RT_NAV360=1` — a read-only, log-only twin of [navreal] whose six reads are re-based by
+  futari_desc()->dshift (0 ARCADE / 0x60 XBOX 360); one `[nav360] D=.. st= d76= field= go= cred= slot0=` line per
+  change, capped at 6000. Gate = a static bool read once; unset => the block is never entered and prints nothing.
+  Evidence + route: docs/NAV_MAP.md "XBOX 360 MODE", scripts/nav360_mac.sh, _local/rc1/q2/.
+
 ## 2026-09-06 — FNF-14 (USER OBS, unattributed): "I miss the loading screens"
 - User note during r23-w93: the NOW LOADING screens are missed in current builds — either absent or too brief
   to register. No ledger entry records a deliberate removal; the element is a PERMANENT shell task (FNF-12 work).
