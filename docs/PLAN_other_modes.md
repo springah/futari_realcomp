@@ -269,6 +269,8 @@ the +8 law made the whole symbol map mechanical.
 
 ## §4 RECOMMENDED ORDER
 
+> **USER RULING 2026-10-12:** the `dlc/496F816D…` package is the user's own Black Label purchase (confirmed). Order is **Black Label pair → Arrange → Novice → Ver 1.01 pair** — "1.01 is less wanted than the other modes". Start after the RC1 cut, per §5.
+
 The brief expected "Arrange first because no DLC, Black Label last because DLC absent". **The measurements change
 that.** Black Label's data is on this Mac and verifies, and kiniro is the closest independent build to reco: same
 image layout, same millicode anchors, renderer bridge at the same addresses, and a +8 twin.
@@ -306,6 +308,6 @@ modes drive and the swap gate, so it would invalidate RC1's measurements.
 - **Cost per mode** (Opus + Sonnet windows): first new title about 5-6 + 5, its XBOX-360 twin about 1-2 + 3-4,
   Arrange about 5-6 + 5, Novice about 5 + 5. All six come to about 45-50 windows. For reference, the 360 module cost
   about 6 + 7 with every hook free.
-- **Recommended order:** Black Label pair → Ver 1.01 pair → Arrange → Novice.
+- **Recommended order:** Black Label pair → Ver 1.01 pair → Arrange → Novice. **Ruled 2026-10-12:** Black Label pair → Arrange → Novice → Ver 1.01 pair (user: 1.01 is the least wanted); DLC ownership confirmed.
 - **Timing:** start **after the RC1 cut**, because a third module changes the bundle and the smoke.
 - The silent-wrong-mode bridge bug from July is already fixed. Unhosted modes grey out and decline cleanly.
