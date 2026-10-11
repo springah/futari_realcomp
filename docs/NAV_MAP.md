@@ -188,3 +188,31 @@ only 2 legs ran, r1 = fresh-save desync, r2 = STRICT=0 exploration on build/w152
 
 Route script: `scripts/nav360_mac.sh <tag> <bin>` (drive lock, save seed, RT_NAV360=1, own FIFO, `pkill -x` only,
 verdict file; STRICT=1 stops at the first failed marker). Proof status per node: see PLAN_RC1 §4 "Q2 done".
+
+## OPTION / REPLAY / GAME-OVER-SAVE / CO-OP nodes — measured 2026-10-12 (RC1 Q3/Q4, Mac, build/w152_q2 as futari_q3)
+
+Driver: `scripts/persist_mac.sh <tag> <arcade|x360> -- <steps>` (marker-asserted legs; save dir shared between legs of a test; `boot_hub`,
+`hub_to_top`, `sd:<name>` = save-dir md5/size snapshot, `p2:<word>` = P2 pad). Byte diff: `scripts/bindiff.py`. Present-frame markers: `scripts/markframes.py`.
+All shell-owned screens below are identical in ARCADE and XBOX 360 (same shell models, same save bytes).
+- HUB row OPTION (4) (`2`x4 from cursor 0, `[mcur] n->n+1` each, A): panel list = Controller / Screen / Sound / Storage / Staff / Exit.
+  DOWN, A on Screen Setting -> "Screen Setting (Maniac)" (the seed's menu mode): Layout Setting [Preset #1], Picture Setting [Preset #A],
+  Extra Setting, "Simple" Menu Mode, Default Setting, EXIT. RIGHT on the Picture row = Preset #B. **Persisted bytes: savegame.bin +0x16F7 00->01.**
+  The panel needs no log marker; the proof is the on-disk byte and the panel on relaunch. B, B = back to hub (cursor stays on OPTION).
+- NORMAL PLAY submenu -> CONFIG (row 2): Player Stock / Bomb Stock / Extend Original, Maniac, Ultra (1st, 2nd) / Default Setting / Initialize Ranking / EXIT.
+  Any change shows the red 「設定が変更されているため、実績が解除されません。」 note (achievements off). DOWN, RIGHT on Bomb Stock = 3->4.
+  **Persisted bytes: savegame.bin +0x0D..+0x0E 0303->0404** (bomb stock + the post-miss copy). Saved at change time (file already differs before any quit).
+- QUIT path: hub B -> confirm (`[decide] item=-1`) -> A -> shell TOP MENU (`vt=0x82050518`); top menu DOWN x4 = EXIT (「タイトル画面に戻ります」),
+  A -> the shell TITLE ("PRESS START BUTTON"). The process does NOT exit (the app is closed with the window); a SIGTERM after the title loses nothing.
+- REPLAY DATA (hub row 3: `2`x3, A): REPLAY LOAD MENU (6 slots, rows show score / name / mode / stage / continues / date; footer A:ロード B:戻る).
+  A on a slot starts the PLAYBACK at once (no confirm): `GameEntry(msg=17,` + `d76 1->2->3->4` (ARCADE `[navreal]`; 360 `[nav360]`) and the stage plays the stored inputs;
+  the end is the recorded death (d76 4->5 cred=0, 5->8, `st 5->2`, `LOOP/DEATH`) then `GameEntry(msg=11,` = the rebuilt HUB (cursor 0), not the list.
+- GAME OVER after an idle stage 1 (NORMAL PLAY, Original): ~32 s (ARCADE; 360 ~33 s after the stage start) -> `d76 4->5 cred=0` -> `GameEntry(msg=10,` (360: `[nav360] D=0x60 st=2 `)
+  -> 「リプレイを保存しますか?」 A:はい B:いいえ. **A -> REPLAY SAVE MENU (6 slots; slot 01 is the seed's replay)**, DOWN = slot 02, A -> "保存しています" (Accessing, ~3 s)
+  -> 「リプレイデータの保存が完了しました」 A:OK -> the module TITLE attract (Original Ranking). Disk: replaydata.bin 2444 -> 4062 bytes (second entry; savegame.bin untouched).
+  B at the prompt -> the module title directly. NO score-register prompt on this path (score 0-300 never reaches the table).
+- "Today's Original Ranking" attract (title, cycles): 1st 6,880,571 KDK / 2nd 4,000,000 NMR / 3rd 3,000,000 TNK ...; these values are NOT in savegame.bin or
+  replaydata.bin (searched BE/LE 4/8-byte and ASCII/UTF-16 names) -- the table is not persisted in the seed's two files. SCORE ATTACK row = a dialog 「ランキングにアクセスするには、Xbox LIVE にサインインする…」 (A:OK; out of scope).
+- CO-OP: **the host FIFO (`RT_PAD_HOST_FIFO`) OR-merges EVERY whitespace token into P1** -- `echo "0 0 0 10"` there is P1 START (opens the pause menu at character select;
+  Q3 first attempt). P2 is the **RT_PAD_FIFO channel's 4th field**: `RT_PAD_FIFO=1 RT_PAD_FIFO_PATH=<file>`, write `0 0 0 <word>` (persist_mac.sh `p2:<word>`, own file /tmp/futari_pad_q3p2).
+  At CHARACTER SELECT: P2 START -> `[xinput] P2 buttons=0x0010 (user=1)` + `[joinp] *** 881366D0 ENTER slot=1 ... WILL-JOIN ***` (RT_JOINP=1) -> the 2P panel fills (Palm & Hirou).
+  Then each seat drives its own selects: P1 A (char), P2 A (char), P1 A (shot), P2 A (shot) -> stage 1 with PLAYER-1 + PLAYER-2 HUD and two ships. Pause (START), RESUME (A), RETURN TO TITLE (DOWN x3, A, A) -> hub, as solo.
