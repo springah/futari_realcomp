@@ -167,9 +167,24 @@ only 2 legs ran, r1 = fresh-save desync, r2 = STRICT=0 exploration on build/w152
 - PROVEN on another binary only: node 11 + 12 in 360 (triage rc1m_x360, rc1_probe: m02_stg1, pause model
   vt=0x82050488 ACTIVE); node 13 resume-by-A in ARCADE on the Mac (`_local/boss1_mac/gamectl/guest.log`: A at cursor 0
   → `0x82061D50->0x82061D70`, play resumes, the next START builds a new pause model).
-- **UNPROVEN** with nav360_mac.sh: 11 STAGE 1 (r2 fell into the replay-save trap), 12 PAUSE, 13 RESUME, 14 RETURN TO
-  TITLE, and the ≥ 2-consecutive-run bar for the whole route. Next seat: `bash scripts/nav360_mac.sh q2a
-  build/w152_q2/w152_q2` twice (STRICT=1); if node 11 still trips, the replay-save trap is the finding.
+- **Q2b 2026-10-12 (Sonnet seat, lock free, 0 wait): the whole route PROVEN x2 (2 consecutive STRICT=1 VERDICT PASS,
+  `_local/rc1/q2b/q2a4/`, `_local/rc1/q2b/q2b/`; shots + guest.log + steps.txt each).** Nodes 0-15 all PROVEN(2 runs),
+  incl. 11 STAGE 1 (`[nav360] d76=4` + m02_stg1), 12 PAUSE, 13 RESUME (A on RESUME: model `0x82061D50->0x82061D70`; the
+  shot ~5 s after shows the stage advanced, e.g. q2a4 shot_16 vs shot_17 differ and the stage scroll moved), 14 RETURN TO
+  TITLE (DOWN x3, A, A), 15 hub B -> top menu. Three script fixes were needed first (runs q2a/q2a2/q2a3 stopped at them,
+  not at the game): (1) the m02_stg1 cue prints at d76=3, BEFORE d76=4, so it is checked inside stage1_go's window;
+  (2) the in-stage pause model (vt 0x82050488) emits no `[mcur]`, so pause DOWN x1-3 are screen-only (cursor=3 is asserted
+  at rtt_confirm); (3) **RETURN TO TITLE lands directly on the rebuilt HUB** (`GameEntry(msg=11)`, st 5->2,
+  `[p0build] menu_game_title#2`), not on the module title and not msg=10 — the old x360_title_again/hub_again nodes were
+  dropped.
+- **Replay-save trap: did NOT reproduce** (5 stage entries at the ~4 s cadence, all clean). Observed instead: an
+  unattended credited stage 1 dies on its own (q2a, 60 s wait: cred 3->2->1->0 = no-dodge, slot0 1->0, d76 4->5->6->8,
+  `GameEntry(msg=10,`, st 5->2, m05_govr) — the SAME signature as Q2 r2. Hypothesis (not investigated): r2 did reach
+  stage 1 (its `stage1` marker had the d76=3-ordering bug above) and then game-overed in the idle wait, i.e. the "trap"
+  is just the no-input death + replay-save prompt, not a stage-entry defect.
+- RT_NAV360 inertness run (NOLEVER=1, `_local/rc1/q2b/q2n/`): lever unset -> 0 `[nav360]` lines in the log; the full
+  route still VERDICT PASS on shell markers + screen-only waits (module-side nodes mode_select/stage1_go use the shell
+  cue / dwell instead).
 
 Route script: `scripts/nav360_mac.sh <tag> <bin>` (drive lock, save seed, RT_NAV360=1, own FIFO, `pkill -x` only,
 verdict file; STRICT=1 stops at the first failed marker). Proof status per node: see PLAN_RC1 §4 "Q2 done".

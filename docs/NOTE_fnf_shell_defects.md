@@ -17,6 +17,10 @@ lying until positive-controlled, texel-diff acceptance.
   futari_desc()->dshift (0 ARCADE / 0x60 XBOX 360); one `[nav360] D=.. st= d76= field= go= cred= slot0=` line per
   change, capped at 6000. Gate = a static bool read once; unset => the block is never entered and prints nothing.
   Evidence + route: docs/NAV_MAP.md "XBOX 360 MODE", scripts/nav360_mac.sh, _local/rc1/q2/.
+- **Inertness proof (RC1 Q2b, 2026-10-12):** `NOLEVER=1 bash scripts/nav360_mac.sh q2n build/w152_q2/w152_q2` (RT_NAV360
+  unset, same binary): `grep -c nav360 guest.log` = 0, full 360 route (stage 1, pause, resume, RETURN TO TITLE, back to the
+  shell top menu) VERDICT PASS on shell markers alone; with the lever set the same route emits ~13 `[nav360]` lines and
+  also passes (2 runs). Evidence `_local/rc1/q2b/{q2a4,q2b,q2n}/`. (Log-level inertness; a byte-A/B of frames was not run.)
 
 ## 2026-09-06 — FNF-14 (USER OBS, unattributed): "I miss the loading screens"
 - User note during r23-w93: the NOW LOADING screens are missed in current builds — either absent or too brief
