@@ -18,7 +18,7 @@ BIN="build/futari_merged"; if [ "${1:-}" != "--" ]; then BIN="$1"; shift; fi; [ 
 B="_local/nav_mac/$TAG"; rm -rf "$B"; mkdir -p "$B/png"
 FIFO=/tmp/futari_pad_nav; echo 0 > "$FIFO"
 export RT_PAD_HOST=1 RT_PAD_HOST_FIFO="$FIFO" RT_NVKPNG="${NVKPNG:-30}" RVK_DUMPDIR="$PWD/$B/png"
-pkill -f "build/ctl_\|build/futari_merged\|build/plate_" 2>/dev/null; sleep 1
+pkill -x "ctl_.*|plate_.*" 2>/dev/null; pkill -x "$(basename "$BIN")" 2>/dev/null; sleep 1  # exact names only: never -f, never the bare futari_merged (the user's .app engine has that name)
 PREVLOG=$(ls -t _local/logs/mac_*.log 2>/dev/null | head -1)
 BIN="$BIN" RUN_SECS="${RUN_SECS:-240}" bash scripts/run_mac.sh > "$B/run_out.txt" 2>&1 &
 T0=$(date +%s)

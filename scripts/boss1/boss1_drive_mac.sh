@@ -21,7 +21,7 @@ export RT_PAD_HOST=1 RT_PAD_HOST_FIFO="$FIFO"   # no RT_NOXINPUT: the user plays
 # segment -- the user's manual runs never set it.
 [ "${NOPAUSE:-0}" = "1" ] && export RT_NOPAUSE=1
 export RT_NVKPNG="${NVKPNG:-60}" RVK_DUMPDIR="$PWD/$B/png"
-pkill -f "build/ctl_\|build/futari_merged\|build/plate_" 2>/dev/null; sleep 1
+pkill -x "ctl_.*|plate_.*" 2>/dev/null; pkill -x "$(basename "$BIN")" 2>/dev/null; sleep 1  # exact names only: never -f, never the bare futari_merged (the user's .app engine has that name)
 PREVLOG=$(ls -t _local/logs/mac_*.log 2>/dev/null | head -1)
 BIN="$BIN" RUN_SECS=$((DUR+100)) bash scripts/run_mac.sh > "$B/run_out.txt" 2>&1 &
 T0=$(date +%s)

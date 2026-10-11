@@ -25,7 +25,7 @@ T0=$(date +%s); say(){ echo "t+$(( $(date +%s)-T0 ))s $*" | tee -a "$OUT"; }
 press(){ echo "$1" > "$FIFO"; sleep 0.2; echo 0 > "$FIFO"; }
 MARK=0; mark(){ MARK=$(wc -l < "$L" | tr -d ' '); }
 waitnew(){ local pat="$1" i; for ((i=0;i<20;i++)); do tail -n +"$((MARK+1))" "$L" | grep -q "$pat" && return 0; sleep 0.5; done; return 1; }
-step(){ local pad="$1" pat="$2" settle="$3" try; for try in 1 2; do mark; press "$pad"; waitnew "$pat" && { say "pad $pad -> $pat"; sleep "$settle"; return 0; }; done; say "FAIL: no $pat after pad $pad"; pkill -f "$BIN"; exit 1; }
+step(){ local pad="$1" pat="$2" settle="$3" try; for try in 1 2; do mark; press "$pad"; waitnew "$pat" && { say "pad $pad -> $pat"; sleep "$settle"; return 0; }; done; say "FAIL: no $pat after pad $pad"; pkill -x "$(basename "$BIN")"; exit 1; }
 for ((i=0;i<60;i++)); do grep -q "name='motion/title.lzx'" "$L" && break; sleep 1; done; say "shell title loaded"; sleep 4
 step 10   'SYS_BGM cue0 (mushifuta_Menu02)' 4
 step 1000 'SYS_SE cue1 (SE_OK01)' 3
