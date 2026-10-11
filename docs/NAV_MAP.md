@@ -189,6 +189,19 @@ only 2 legs ran, r1 = fresh-save desync, r2 = STRICT=0 exploration on build/w152
 Route script: `scripts/nav360_mac.sh <tag> <bin>` (drive lock, save seed, RT_NAV360=1, own FIFO, `pkill -x` only,
 verdict file; STRICT=1 stops at the first failed marker). Proof status per node: see PLAN_RC1 §4 "Q2 done".
 
+### XBOX 360 TRAINING nodes -- measured 2026-10-12 (RC1 Q7-360, Mac, build/q7x_probe; `scripts/stages360_mac.sh`, evidence `_local/rc1/q7x/`)
+| # | screen | press (from hub) | marker | settle |
+|---|---|---|---|---|
+| T0 | HUB, cursor TRAINING | DOWN x2 (`[mcur] 0->1`, `1->2`) | `[mcur] .*cursor 1->2` | 1.5 s each |
+| T1 | TRAINING panel (identical to ARCADE: Stage / Mode / Character / Shot Power / Bomb Stock / Player Stock / Total Counter / Stage Counter / Survival Rank / Start Training 1P Side / EXIT) | A | `[tstate] 96660(load)` | 3 s |
+| T2 | options | DOWN x3, RIGHT x8 (Shot Power Max); DOWN, RIGHT x8 (Bomb Infinity); DOWN, RIGHT x7 (Player Infinity); UP x5 (cursor to Stage); RIGHT x 2(k-1) = Stage k | shots; `[trainprobe] msg=18` word1 0x0007FFFF after start | 0.8 s spacing |
+| T3 | start | A (dialog; `dclose ... vt=0x82050F00`), A | `[nav360] D=0x60 st=5 d76=4 ` (stage BGM cue prints at d76=3 before it: cue1/6/7/8/9) | 90 s ceiling |
+| T4 | stage play | autofire: A 0.2 s on / 0.2 s off, A+B every 10th | boss = `[cuetally]` `BGM cue2=` (m03_boss, stages 1-4) / `BGM cue10=` (m11_lbs1, stage 5) -- the `[cue]` detail cap (48 lines) hides the boss cue; NO boss-defeat `[fade]` in 360 | st1..5 ends 134/209/287/307/450 s |
+| T5 | results tally (gold frame, count rows) then stage end | (stop autofire AT ONCE) | `[nav360] D=0x60 st=5 d76=8 ` then `st=2`, d76 8->0 | shots every 5 s after the boss |
+| T6 | panel re-opens by itself, cursor Start Training (hub rebuilt first: `[p0build] menu_game_title#2` then `[tstate] 96660(load)#2`) | -- | `96660(load)#2` | 3 s |
+| T7 | back to HUB | B | screen only (hub already built under the panel; no new `[p0build]`) | -- |
+Traps: a stray A after d76=8 hits T6 and restarts training (Start Training is under the cursor); never leave a background autofire subshell alive (an orphan keeps pressing A into the shared FIFO of later legs); the title ignores START until it has finished loading (the `title.lzx` marker is the load request, 3-13 s early): press START every 4 s until the top-menu BGM. Stage 5 in 360 TRAINING ends at the boss (m11_lbs1 only), as in ARCADE.
+
 ## OPTION / REPLAY / GAME-OVER-SAVE / CO-OP nodes — measured 2026-10-12 (RC1 Q3/Q4, Mac, build/w152_q2 as futari_q3)
 
 Driver: `scripts/persist_mac.sh <tag> <arcade|x360> -- <steps>` (marker-asserted legs; save dir shared between legs of a test; `boot_hub`,
