@@ -36,7 +36,7 @@ waitnew(){ local pat="$1" n=$(( ${2:-10}*2 )) i; for ((i=0;i<n;i++)); do tail -n
 shot(){ N=$((N+1)); sleep 0.3; local f; f=$(printf '%s/shot_%02d_%s.png' "$B" "$N" "$1"); cp "$B/png/nvk_last.png" "$f" 2>/dev/null && say "shot $(basename "$f")" || say "no frame for $1"; }
 subf(){ grep -a -o 'submit f[0-9]*' "$LOGF" | tail -1 | tr -dc 0-9; }
 finish(){ sleep 1; kill $FIRER 2>/dev/null; echo 0 > "$FIFO"; pkill -x "$PN" 2>/dev/null; sleep 2; cp "$LOGF" "$B/guest.log"; local L="$B/guest.log"
-  { echo "tag=$TAG stage=$STAGE wall=$(( $(date +%s)-T0 ))s"
+  { echo "tag=$TAG stage=$STAGE diff=${DIFF:-0} wall=$(( $(date +%s)-T0 ))s"
     echo "FATAL=$(grep -a -c FATAL "$L") VKERR=$(grep -a -c 'VK_ERROR\|VUID' "$L") DROPOUT=$(grep -a -c DROPOUT-CONFIRMED "$L") SLOW=$(grep -a -c '\[slowframe\]' "$L") UNDERRUN_NONZERO=$(grep -a '\[starve\]' "$L" | grep -a -vc 'underruns=0 (total=0)')"
     echo "census_distinct_bases: $(grep -a 'DROPOUT-CONFIRMED' "$L" | grep -a -o 'base=0x[0-9A-Fa-f]*' | sort | uniq -c | tr '\n' ' ')"
     echo "BGM first-seen: $(grep -a -o 'BGM cue[0-9]* ([a-z0-9_]*)' "$L" | awk '!s[$0]++' | tr '\n' ';')"
@@ -68,6 +68,9 @@ step hub_down2 2 '\[mcur\] .*cursor 1->2' 5 1.5
 shot hub_training_cursor
 step training_open 1000 '96660(load)' 15 3 0.2
 shot panel_open
+# ---- DIFF (optional, default 0 = Original = unchanged behaviour): TRAINING panel row 1 "Mode" = Original/Maniac/Ultra: DOWN, RIGHT x DIFF, UP ----
+DIFF="${DIFF:-0}"
+if [ "$DIFF" -gt 0 ]; then press 2; for ((d=0;d<DIFF;d++)); do press 8; done; shot opt_mode_diff$DIFF; press 1; fi
 # ---- option recipe: Shot Power Max, Bomb Stock Inf, Player Stock Inf, back to row 0, Stage k ----
 for _ in 1 2 3; do press 2; done; for _ in 1 2 3 4 5 6 7 8; do press 8; done; shot opt_shotpower
 press 2; for _ in 1 2 3 4 5 6 7 8; do press 8; done; shot opt_bomb
