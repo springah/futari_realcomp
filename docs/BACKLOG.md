@@ -15,6 +15,23 @@
   music + SE natively, levels reference-exact, user-ear-signed and deployed. Entry kept below
   for history only.
 
+## 2026-10-12 — ADDED: iOS / iPadOS VERSION (post-RC1 follow-on, user-requested)
+- **iOS/iPadOS port of the realcomp** (user 2026-10-12: "add an iOS version to the todo"). Viability was
+  assessed for the recomp on 2026-06-29 and carries over: the port is AOT static recompilation (no JIT),
+  so iOS's W^X ban does not apply; SDL3 and MoltenVK both ship iOS targets; perf is a non-issue on A17+/M-series.
+  Realcomp-specific prerequisites learned this week: (1) **G5-fix first** — rt_phys.cpp never returns pooled
+  pages on Darwin (ARCADE plateaus ~720 MB RSS, Q5/Q6 2026-10-11); fine on macOS, a jetsam risk on iPhone,
+  so the Darwin page-release arm (RT_DECOMMIT) is a hard prerequisite, iPad likely tolerant either way;
+  (2) **combined build, not module dylibs** — iOS will not dlopen unsigned dylibs; the host already has the
+  FUTARI_COMBINED=1 arm (build_mac_dll.sh header) — the iOS bundle links both modules in (or embeds them as
+  signed frameworks); (3) **input** = GameController framework for MFi/BT pads (easy) + a touch overlay
+  (net-new UI; TATE shmup → portrait touch-drag-move is a good fit); (4) **distribution** = sideload only
+  (TrollStore preferred; AltStore 7-day re-sign fallback) — same bring-your-own-dump rule as the F&F .app,
+  never the App Store; (5) **build** = CMake iOS toolchain + cross-compiled SDL3/MoltenVK + codesign/provisioning,
+  budget one TBDR render-debug pass. Order: after the RC1 cut and after at least the Black Label module
+  (PLAN_other_modes §4), unless the user re-ranks. Cost guess: ~6 design + ~6 measurement windows for a
+  first TrollStore build of the two RC1 modes; measure committed RSS on-device before declaring viable.
+
 Ranking axes: **gate relevance** (user ruling 07-26: "nothing ships until menus/shell is
 done"), **severity class** (correctness > survivable-failure > fidelity > feature), and
 **cost confidence** (measured vs speculative). Two-strikes rule applies per item: two
