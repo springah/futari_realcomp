@@ -2406,3 +2406,41 @@ mode-load path depends on something the asynchronous wall-clock ISR supplies tha
 phase within a frame (mode 1 vs 2 identical). Left in rt.cpp for a later look (candidates: the ISR firing while the guest is INSIDE
 Present/its wait vs. while it sleeps; the audio pump cadence per ISR; a time-threshold on the fake KeQuerySystemTime). The decomp gate
 meanwhile uses the symmetric same-build band (decomp LAWS r23-w137 ruling) with >= 4 legs per arm.
+
+## 2026-10-12 -- G-START (RC1): pad START in a shell menu leaked to the ARCADE module behind the hub -- FIXED (host, default ON)
+**Report** (user eyes 10-11, F&F .app, log `futari_20261011_091935.log`): START pressed in the hub's OPTION submenu advanced
+the ARCADE game behind the shell (log line 2870 `[navreal] d76 1->2 (st=5 field=1 go=0 cred=3)` = the game's MODE SELECT /
+1P join, while shell model 0x21252B0 = OPTION stayed active; lines 2859-2881 = `[startwire] OR host-0x08 ...`).
+**Repro** (`scripts/gstart_mac.sh`, own link `build/gstart_probe` of 3df934d + this fix, drive lock, `_local/gstart/`):
+bug arm = `RT_STARTWIRE_NOGATE=1` (the pre-fix code path). ARCADE: START on the HUB root -> LEAK (`bug3_hubstart`:
+startwire x8, d76 1->2 field=1 cred=3); START in OPTION -> LEAK (`bug2`: identical signature to the user's log, then the shell
+sends GameEntry msg=10); DOWN/UP on the hub, DOWN/A/B in OPTION, A/B into/out of a submenu -> no leak. XBOX 360 module
+(`bug4_x360`): no leak for any button (the ungated wire never fired behind the 360 hub -- see the note below). Top menu and the
+card panel: nothing to leak into (no GameEntry msg=5 tick before the card decide; the module is detached again by msg=13/3 on
+return to the top menu). Fixed arm (`fix2`, `fix3_hubstart`, `fix4_x360`): 0 leaks, 0 FATAL.
+**Ground truth (the game's own shell code):** the only pad path from shell to game is cb3 = `Shell_ProvideInputPad`
+0x821C5618 (`shell/gen/ppc_recomp.34.cpp:11603`; readable twin futari_decomp `decomp/shell/shell_w105_2.cpp:2693`,
+instruction-identical -- no TU slip). Per user it calls Input_PerUserEntry 0x821915C0 (:11646), then
+(a) `rlwinm r5,r3,0,29,27` (:11651) STRIPS processed-mask bit 0x8 = START -- the real shell never hands START to the game
+through this path at all; (b) `lwz r10,152(r31)` / `li r3,0` (:11649/:11657): while *(inputctx+152) != 0 it stores 0 into the
+game's pad word (:11678) instead of the remapped mask. +152 is the shell's "game input suspended" flag: `[cb2gate]` shows it
+raised right after the hub hand-over (GameEntry msg 15/11) and during pause (msg 10), cleared when the game owns the screen
+(mode/char/shot select, stage). So on hardware no button reaches the game behind the hub or its submenus.
+**Root cause (port):** `RT_STARTWIRE` (out_reco/merged/merged_game.cpp:470-503, default ON via mac-build/launcher.c:68 and
+run_mac.sh) is a port-side wire that ORs host 0x08 (-> game 0x8000 1P-START) into EXCH 0x88699894 at the input compose
+sub_8808F2C0 whenever the START button is held (`g_rt_startline`, shell/gen/stubs.cpp syn_sample). It bypassed the +152 gate,
+so START reached the game's join logic while the shell had focus; the ARCADE hub state (st=5 d76=1) takes 0x8000 as a 1P start.
+Not a missing XAM path, not a GameEntry stub, not authentic.
+**Fix:** the cb3 hook (`out_reco/merged/merged_shell.cpp`, `[cb2gate]`) publishes the gate each game frame into
+`g_rt_gamefocus` (shell/gen/stubs.cpp); syn_sample asserts the START line only while the gate is open. Faithful by
+construction (it is the gate the real cb3 applies to every other button), so default ON; `RT_STARTWIRE_NOGATE=1` restores the
+ungated wire (A/B lever only). Host-only change; module dylibs and decomp untouched.
+**Proof** (same probe binary, default env): repro fixed arms above = 0 leaks; `nav360_mac.sh` q2 route VERDICT PASS (card ->
+360 title -> hub -> NORMAL PLAY -> 1P SIDE START -> stage 1 -> pause/resume -> RETURN TO TITLE -> hub -> top menu,
+`_local/gstart/nav360/`); nav_mac hub route PASS (`_local/nav_mac/gstart_hub/`); boss1 drive PASS (title START accepted,
+training stage 1 -> m02_stg1 -> m03_boss, `_local/boss1_mac/gstart/`); app_smoke shell steps re-run against the probe
+(both modules bound, 0 FATAL, hub -> B -> A -> top menu, save mounted and read back existed=1; the seeded save is opened, not
+rewritten, on this route). In-stage START still pauses (startwire fires with the gate open, then msg=10).
+**Note / open:** in the 360 module the hook writes the reco_normal EXCH address (reco_abnormal .data is +0x60, NAV_MAP), so
+the wire is probably inert/misaddressed there -- 360 P2 START join (COOP_360) rides the P2 path; not touched here.
+Xenia would settle only the cosmetic question of what START does on the hub root (expected: nothing reaches the game).

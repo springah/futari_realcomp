@@ -592,6 +592,16 @@ std::atomic<int> g_syn_quiet{0};
 // game-side encoder seam (merged_xex sub_8808F2C0, RT_STARTWIRE) can complete the wiring. Inert until
 // RT_STARTWIRE consumes it; the value is always tracked (cheap, read-only).
 std::atomic<int> g_rt_startline{0};
+// G-START (RC1, 2026-10-12): the game-input FOCUS the real shell already enforces. cb3 FUN_821c5618
+// (shell/gen/ppc_recomp.34.cpp:11603) hands the game its pad ONLY while *(inputctx+152)==0: with +152!=0
+// it stores 0 instead of the remapped mask (loc 821C5664 -> li r3,0). The shell raises +152 when it takes
+// the screen for itself (hub / hub submenus / pause; [cb2gate] INPUT-IGNORED right after the msg 15/11
+// hub hand-over) -- so on hardware NO button reaches the game behind a shell menu. The STARTWIRE line above
+// is a port-side wire that bypassed that gate (START leaked: the ARCADE module coined+advanced to mode
+// select behind the OPTION submenu, user eyes 10-11). merged_shell.cpp's cb3 hook publishes the gate here
+// every game frame; syn_sample drops the START line while it is closed. 1 = live (pre-first-cb3 default:
+// identical to the old behaviour). RT_STARTWIRE_NOGATE=1 restores the ungated wire (A/B repro lever).
+std::atomic<int> g_rt_gamefocus{1};
 static uint16_t syn_buttons_now(){
   // Synthetic output requires explicit opt-in (2026-07-17 desktop-launch fix): without this, the
   // built-in fallback schedule below (START pulse every 2s + A offset 1s) fired on ANY run —
@@ -985,7 +995,9 @@ static uint16_t rt_xinput_buttons(int idx){
 // sample the timeline; on edge, push keystroke + bump packet. Call under g_syn_m.
 static uint16_t syn_sample(){
   uint16_t b=(uint16_t)(syn_buttons_now()|rt_host_buttons()|rt_fifo_buttons()|rt_xinput_buttons(0));
-  g_rt_startline.store((b & 0x0010)?1:0, std::memory_order_relaxed);   // START (wButton 0x10) = 1P-START line
+  { static const bool nogate = getenv("RT_STARTWIRE_NOGATE")!=nullptr;   // G-START: honour the shell's game-input gate
+    const bool focus = nogate || g_rt_gamefocus.load(std::memory_order_relaxed)!=0;
+    g_rt_startline.store(((b & 0x0010) && focus)?1:0, std::memory_order_relaxed); }   // START (wButton 0x10) = 1P-START line
   if(b!=g_syn_last){
     if(b){ uint16_t vk=syn_pad_to_vk(b); if(vk){ g_syn_ks.push_back((uint32_t)vk<<16 | 0x0001); // KEYDOWN
         std::fprintf(stderr,"  [xinput] press pad=0x%04X vk=0x%04X\n",b,vk); } }

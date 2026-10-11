@@ -143,6 +143,9 @@ PPC_FUNC(sub_821C5618){
   if(i<=5 || gate!=lastgate){ lastgate=gate;
     std::fprintf(stderr,"[cb2gate] call#%ld this=0x%X user(+128)=%u gate(+152)=0x%X %s\n",
       i,t,usr,gate,gate?"INPUT-IGNORED":"INPUT-LIVE"); }
+  // G-START (RC1): publish the gate the real cb3 enforces (it returns 0 to the game while +152!=0) so the
+  // port-side START wire (RT_STARTWIRE, shell/gen/stubs.cpp g_rt_gamefocus) obeys the same focus.
+  { extern std::atomic<int> g_rt_gamefocus; if(t) g_rt_gamefocus.store(gate==0?1:0, std::memory_order_relaxed); }
   // RT_INPUTFORCE: override the input-disable gate (modectx+152 stuck at 1 during titles).
   // Diagnostic: if forcing input-live lets our synthetic START drive the title->press-start
   // transition, the gate IS the lever and the real fix is the natural title-done clear.

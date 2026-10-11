@@ -31,6 +31,7 @@ consecutive ship-nothing legs ⇒ back here for re-ranking, not another leg.
 ## 2026-09-20 — POST-FIX PLAN ratified by the user: docs/PLAN_after_boss1_0920.md (Phase 0 boss-1 head bisect · Phase 1 constant-pool audit tool + boss plate gate + parked debts · Phase 2 decomp slate w130 / Opus items / rulings owed).
 
 ## NOW — the gate path (menus/shell → F&F build)
+- ✅ **G-START (RC1, 2026-10-12) FIXED**: START in the hub / a hub submenu no longer starts the ARCADE game behind the shell -- RT_STARTWIRE now obeys the shell's own game-input gate (cb3 0x821C5618 *(ctx+152)); host-only, default ON, `RT_STARTWIRE_NOGATE=1` = old path. NOTE_fnf_shell_defects.md 2026-10-12. .app needs a rebuild to carry it.
 
 0. **SHELL COMPOSE 1:1 (decomp-grounded) — THE flicker lane (re-rank 07-28 ~02:05).**
    Two strikes on the flicker item (wait-path cluster; ghost-draw fix — both real fixes, both

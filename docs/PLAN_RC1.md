@@ -174,6 +174,7 @@ scripted, pre-registered), O = Opus window, E = user eyes/hands, R = user ruling
 | G11 | **w136 owed ④**: five press-coincident 2-frame losses of a menu-atlas quad pair (base 0x49C4000) on the Options tour, deterministic, binary-independent, unattributed | M · shell | NOTE_fnf_shell_defects.md 2026-10-05 | authored hide flip (likely) vs port | S (one-shot `RVK_QUADCENSUS` armed on the press; compare the hide byte) | — |
 | G13 | **[Q5 BISECTED 10-11, `_local/rc1/q5/REPORT_q5.md`: NOT decomp (S1 all-skipped +129 MB vs full +133); engine-side = guest physical allocator rt_phys.cpp: freed blocks pooled but not reused so the frontier advances until the 512 MB line; no macOS page release. Options: Darwin arm of rt_decomSweep (MADV_*, gated, re-run stage gates), pool-reuse change, or re-baseline R13 to bounded <= ~720 MB]** [Q1 MEASURED 10-11 single-instance: REAL, not contention — ramp 395→707 MB over 20 min (~17 MB/min, +23 MB per ~80 s demo cycle) then plateau ~708 MB by min ~21 (R2b 25 min, last-5 slope 0.6); +283 MB over the 10-05 envelope; bisect (DECOMP_SKIP halves) or re-baseline R13 — ruling owed]** **ARCADE demo-loop RSS growth on the 68-TU sources**: 399 → 553 MB over 10 min, ~17 MB/min, no plateau yet (10-05 bundle: cycling 202-425 MB over 20 min, no monotonic growth) — either the 10-05 cycling with a longer period, a regression from the 50 TUs linked since, or 4-instance contention | M (B if it keeps growing) · A | §2.1 table | decomp shell TUs (asset/bank release paths) or allocator churn | S (fold into Q1: 30-min single-instance ARCADE soak; if monotonic, bisect by DECOMP_SKIP halves, 2 legs each) | — |
 | G12 | **RC packaging**: VER/README still beta 3; SHARED copy owed (NAS offline since the 10-07 renumber); RC md5 set; Deck follow-on build | P · A+X | PLAN_beta3_mac.md todo 7 | packaging | S (README + bump + zip + Drive) + E (NAS back) | everything above |
+| G-START | **[FIXED 10-12]** Pad START pressed on the hub or inside a hub submenu (OPTION) reached the ARCADE module ticking behind the shell: the game took it as 1P-START (`[navreal] d76 1->2 field=1 cred=3` = mode select) while the shell menu stayed up (user eyes 10-11) | M · A (360: no leak observed) | NOTE_fnf_shell_defects.md 2026-10-12; `_local/gstart/` | port: RT_STARTWIRE bypassed the shell's game-input gate (cb3 0x821C5618 zeroes the game pad while *(ctx+152)!=0) -> wire now gated (host, default ON) | done | .app rebuild to ship |
 
 ---
 
@@ -329,6 +330,17 @@ Model: Sonnet.
 Parallelism: Q2 (Opus, harness code) can run while Q1/Q3/Q4-ARCADE (Sonnet, drives) run only if they never drive
 the GPU at the same time — serialize the drives, not the reading. Q6 can happen any time the user is at the Mac.
 
+
+**G-START fixed (2026-10-12, Opus defect seat, unattended, drive lock; probe `build/gstart_probe` = 3df934d + fix; evidence
+`_local/gstart/`).** User eyes 10-11: START in the hub's OPTION submenu started the ARCADE game behind the shell. Reproduced by script
+(`scripts/gstart_mac.sh`, bug arm `RT_STARTWIRE_NOGATE=1`): ARCADE START on the hub root and in OPTION -> `[startwire]` + `[navreal] d76 1->2
+field=1 cred=3` (the user's exact signature); DOWN/UP/A/B never leak; the 360 module never leaked; top menu / card panel have no module ticking.
+Ground truth = the shell's own pad provider cb3 0x821C5618 (`shell/gen/ppc_recomp.34.cpp:11649-11678`): it strips START (mask bit 0x8) and
+hands the game 0 while *(inputctx+152) != 0, the flag the shell raises at the hub hand-over (msg 15/11) and in pause (msg 10). The port's
+RT_STARTWIRE (merged_game.cpp:470-503, default ON) ORed 1P-START into the game's EXCH word regardless of that gate. Fix: the cb3 hook
+publishes the gate (`g_rt_gamefocus`), the START line is asserted only while it is open (faithful; default ON). Proof on the probe:
+0 leaks in all fixed arms; nav360 q2 route VERDICT PASS; nav_mac hub route PASS; boss1 drive PASS (title START, training stage 1 -> boss BGM);
+app_smoke shell steps vs the probe PASS (modules bound, 0 FATAL, save read back). The user's .app needs a rebuild to carry it.
 ---
 
 ## §5 OPEN RULINGS FOR THE USER
