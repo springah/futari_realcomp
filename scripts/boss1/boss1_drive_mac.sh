@@ -69,5 +69,5 @@ while [ $(( $(date +%s)-STAGE_T0 )) -lt "$DUR" ]; do
   pgrep -f "$BIN" >/dev/null || { say "child exited"; break; }
 done
 echo 0 > "$FIFO"; say "dwell end"
-pkill -f "$BIN" 2>/dev/null; sleep 1; cp "$(log)" "$B/guest.log"
+pkill -x "$(basename "$BIN")" 2>/dev/null; sleep 1; cp "$(log)" "$B/guest.log"
 echo "[boss1] DONE tag=$TAG pngs=$(ls "$B/png" | wc -l | tr -d ' ') cues: $(grep -o 'BGM cue[0-9]* ([a-z0-9_]*)' "$B/guest.log" | sort | uniq -c | tr '\n' ';')"

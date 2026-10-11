@@ -44,7 +44,7 @@ for arm in $ARMS; do
   rm -rf "$OBJ"; cp -R build/obj_pristine "$OBJ"; for s in $skip; do rm -f "$OBJ/decomp_$s.o"; done
   OBJ="$OBJ" OUT="$BIN" LINK_ONLY=1 bash build_mac.sh > "$D/link.log" 2>&1 || { echo "   LINK FAILED"; tail -5 "$D/link.log"; continue; }
   grep -q LINK_OK "$D/link.log" || { echo "   LINK not OK"; tail -5 "$D/link.log"; continue; }
-  pkill -f "build/ctl_" 2>/dev/null; sleep 1
+  pkill -x "ctl_.*" 2>/dev/null; sleep 1
   BIN="$BIN" RUN_SECS=60 bash scripts/run_mac.sh > "$D/run.log" 2>&1 &
   sleep 14
   osascript -e "tell application \"System Events\" to set frontmost of (first process whose name is \"ctl_$arm\") to true" 2>/dev/null; sleep 1
@@ -58,7 +58,7 @@ src,dst,b=sys.argv[1],sys.argv[2],sys.argv[3]; n=[int(x) for x in re.findall(r'-
 if len(n)==4:
     x,y,w,h=[v*2 for v in n]; subprocess.run(['sips','-c',str(h),str(w),'--cropOffset',str(y),str(x),src,'--out',dst],capture_output=True)
 PY
-  pkill -f "build/ctl_$arm" 2>/dev/null
+  pkill -x "ctl_$arm" 2>/dev/null
   L=$(ls -t _local/logs/mac_*.log | head -1); cp "$L" "$D/guest.log"
   reached=$(grep -c '\[tstate\] 96660(load)' "$D/guest.log")
   m=$( [ -f "$D/panel.png" ] && metric "$D/panel.png" || echo "n/a")

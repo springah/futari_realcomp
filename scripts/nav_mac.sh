@@ -42,4 +42,4 @@ for st in "$@"; do
     *) mark; press "$st"; sleep 0.8;;
   esac
 done
-sleep 1; pkill -f "$BIN" 2>/dev/null; sleep 1; cp "$LOGF" "$B/guest.log"; say "DONE -> $B"
+sleep 1; pkill -x "$(basename "$BIN")" 2>/dev/null; sleep 1; cp "$LOGF" "$B/guest.log"; say "DONE -> $B"

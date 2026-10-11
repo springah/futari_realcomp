@@ -51,7 +51,7 @@ PY
     || { echo "   COMPILE FAILED"; grep error "$Dd/cc.err" | head -3; continue; }
   echo "   knocked-out symbol present: $($NM "$OBJ/decomp_menu_base_states.o" | grep -c "${fn}__ro")"
   OBJ="$OBJ" OUT="$BIN" LINK_ONLY=1 bash build_mac.sh > "$Dd/link.log" 2>&1; grep -q LINK_OK "$Dd/link.log" || { echo "   LINK FAILED"; tail -5 "$Dd/link.log"; continue; }
-  pkill -f "build/ctl_" 2>/dev/null; sleep 1
+  pkill -x "ctl_.*" 2>/dev/null; sleep 1
   BIN="$BIN" RUN_SECS=60 bash scripts/run_mac.sh > "$Dd/run.log" 2>&1 &
   sleep 14
   osascript -e "tell application \"System Events\" to set frontmost of (first process whose name is \"$PROC\") to true" 2>/dev/null; sleep 1
@@ -65,7 +65,7 @@ src,dst,b=sys.argv[1],sys.argv[2],sys.argv[3]; n=[int(x) for x in re.findall(r'-
 if len(n)==4:
     x,y,w,h=[v*2 for v in n]; subprocess.run(['sips','-c',str(h),str(w),'--cropOffset',str(y),str(x),src,'--out',dst],capture_output=True)
 PY
-  pkill -f "build/$PROC" 2>/dev/null
+  pkill -x "$PROC" 2>/dev/null
   L=$(ls -t _local/logs/mac_*.log | head -1); cp "$L" "$Dd/guest.log"
   reached=$(grep -c '\[tstate\] 96660(load)' "$Dd/guest.log")
   m=$( [ -f "$Dd/panel.png" ] && metric "$Dd/panel.png" || echo "n/a")

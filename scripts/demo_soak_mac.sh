@@ -43,4 +43,4 @@ for ((m=1; m<=MIN; m++)); do
 done
 first=$(grep -m1 -o "rss=[0-9]*" "$OUT" | tr -dc 0-9); last=$(tail -1 "$OUT" | grep -o "rss=[0-9]*" | tr -dc 0-9)
 echo "RSS first->last: ${first}MB -> ${last}MB  (growth $(( ${last:-0} - ${first:-0} ))MB)  demo cycles=$(demo) (back to title $(back))  shots=$BANK  fatal=$(grep -c FATAL "$L") vkerr=$(grep -c 'VK_ERROR\|VUID' "$L")" | tee -a "$OUT"
-pkill -f "$BIN" 2>/dev/null
+pkill -x "$(basename "$BIN")" 2>/dev/null

@@ -20,4 +20,4 @@ for ((m=1; m<=MIN; m++)); do
 done
 first=$(sed -n 2p "$OUT" | grep -o "rss=[0-9]*" | tr -dc 0-9); last=$(tail -1 "$OUT" | grep -o "rss=[0-9]*" | tr -dc 0-9)
 echo "RSS first->last: ${first}MB -> ${last}MB  (growth $(( ${last:-0} - ${first:-0} ))MB)" | tee -a "$OUT"
-pkill -f "$BIN" 2>/dev/null
+pkill -x "$(basename "$BIN")" 2>/dev/null
