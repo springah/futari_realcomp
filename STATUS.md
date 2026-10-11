@@ -6,6 +6,8 @@
 when cut). Engine commit today: futari_realcomp `main` @ `d3c9b23` (KSTUB-OVERCLEAR fix; includes the G-START fix 619a190),
 futari_decomp @ `6fc61986`. No RC1 cut exists yet; the `.app` on disk predates both fixes.
 
+**Other modes (2026-10-12):** scoped in `docs/PLAN_other_modes.md` (Arrange/Novice, Ver 1.01, Black Label; start after the RC1 cut).
+
 **Where the live state is:** the campaign ledger in the sibling repo,
 `../futari_decomp/docs/NOTE_campaign_decomp.md` (top block = current state, then the ranked
 owed list for the next window). The scoreboard is `../futari_decomp/docs/progress_treemap.html`

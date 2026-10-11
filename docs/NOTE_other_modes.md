@@ -1,5 +1,7 @@
 # NOTE_other_modes.md — "how big is getting the other modes working?"
 
+> **→ 2026-10-12: superseded as the working plan by `docs/PLAN_other_modes.md`** (mode matrix, bring-up recipe on the regen_abn template, dry regen of all 6 modules + hook-survival census, Black Label DLC found in `dlc/` and verified; recommended order and timing after the RC1 cut).
+
 > ⚠ **CORRECTIONS (2026-07-30, evidence-grade — see _tmpscripts/abn_hook_census.md +
 > namespacing_research_repo.md + NOTE_campaign_decomp.md same date):**
 > (1) §3's reco_abnormal figures (28.1% fn-start / 22.4% word identity) are DELTA-0-ONLY
