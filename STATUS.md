@@ -1,4 +1,10 @@
-# STATUS — futari_realcomp (pointer, 2026-10-05)
+# STATUS — futari_realcomp (pointer, 2026-10-12)
+
+**RC1 state (2026-10-12):** the release-candidate state for the two hosted modes (ARCADE 1.5 Original + XBOX 360 MODE) is
+`docs/PLAN_RC1.md` **§0 RC1 SCORECARD** (per-criterion status, what is left, rulings recorded/open); the proposed cut is
+§6 FREEZE & SHIP PLAN (version `0.3.0-rc1`; tag `v0.3.0-rc1` plus both repos' hashes recorded here and in the bundle README
+when cut). Engine commit today: futari_realcomp `main` @ `d3c9b23` (KSTUB-OVERCLEAR fix; includes the G-START fix 619a190),
+futari_decomp @ `6fc61986`. No RC1 cut exists yet; the `.app` on disk predates both fixes.
 
 **Where the live state is:** the campaign ledger in the sibling repo,
 `../futari_decomp/docs/NOTE_campaign_decomp.md` (top block = current state, then the ranked

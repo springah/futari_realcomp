@@ -1,5 +1,7 @@
 # PLAN — RC1 for the two hosted modes: ARCADE (Ver 1.5 Original) + XBOX 360 MODE
 
+Reading order: **§0 scorecard** (state + what is left) -> **§6 freeze & ship plan** (how it gets cut) -> §1 definition -> §2 per-criterion detail -> §3 gaps -> §4 queue + measurement log -> §5 rulings. Tidied 2026-10-12 (docs seat); no evidence pointer was removed -- superseded cells are kept verbatim in the collapsed blocks of §2 and §3 and in §4.2.
+
 Triage window 2026-10-11 (user: "let's get 1.5 arcade and xbox360 at RC1"). Docs + measurements only: no engine,
 decomp or TU change was made to write this. RC1 builds on docs/PLAN_beta3_mac.md (the beta-3 definition and checklist);
 everything beta 3 proved is cited, not re-proved, unless the measurement below says otherwise.
@@ -12,6 +14,113 @@ Evidence produced by this window is banked under `_local/rc1/` (gitignored; reci
 `PREREG_rc1.txt`, `build_rc1_probe.log`, `nav/` (modes drive), `rc1_shell/`, `rc1_arcade/`, `rc1_x360/` (soaks).
 The probe binary is `build/rc1_probe/rc1_probe` = `build_mac_dll.sh` from realcomp db1df9c + futari_decomp a959478f
 (`decomp/` via `git archive`, i.e. the same 68-TU source set as today's 13:28 .app; FFM off as in the bundle).
+
+---
+
+## §0 RC1 SCORECARD (2026-10-12; engine `main` @ d3c9b23)
+
+This is the decision page; §1-§5 are the definition and the evidence behind it. Status legend: **PASS** (bar met, measured) ·
+**PASS-WITH-NOTE** (met with a named residual that does not block) · **USER-HANDS** (the scripted half is done or impossible;
+only the user's play/eyes can close it) · **OPEN** (a scripted/agent item remains, queue id given) · **N/A**. Where a row
+has both a user part and a scripted part, the row shows the blocking one and the other is in the Note.
+
+**Counts** (21 criteria per mode): ARCADE: PASS 8 / PASS-WITH-NOTE 5 / USER-HANDS 5 / OPEN 3 / N/A 0. XBOX 360 MODE: PASS 8 / PASS-WITH-NOTE 3 / USER-HANDS 5 / OPEN 5 / N/A 0.
+
+**Caveat that applies to every PASS:** nothing below was measured on the commit that will be frozen. The measurements
+ran on probe builds between db1df9c and 939b638; d3c9b23 (KSTUB-OVERCLEAR fix, no screen changed on the probe A/B) is on
+main but not in the user's .app, and the .app on disk predates the G-START fix (619a190). The frozen bundle therefore
+has to pass the §6 smoke before any row here counts for the release.
+
+### 0.1 ARCADE (1.5 Original) -- modeIdx 0, `futari_game_normal.dylib`
+
+| # | Criterion | Status | Window | Evidence | Engine commit measured on | Note |
+|---|---|---|---|---|---|---|
+| R1 | Boot, 2/2 modules bound | **PASS** | M1 + app smoke 10-11 | `build/app_smoke_1011c.log`; `_local/rc1/nav/rc1m_VERDICT.txt` | db1df9c-era 68-TU .app (10-11 13:28) | 2/2 bound, 0 FATAL, 59.94 Hz |
+| R2 | Title -> mode -> module | **PASS** | M1 10-11; b4 10-05 | `_local/nav_mac/b4_VERDICT.txt`; `_local/rc1/nav/` | db1df9c-era 68-TU .app (10-11 13:28) |  |
+| R3 | Every hosted menu path | **PASS-WITH-NOTE** | decomp gates w143-w148; Q7/Q3 legs | futari_decomp NOTE_campaign_decomp.md w143-w148; NAV_MAP.md; `_local/rc1/q7/` | decomp gate routes w143-w148 (per-route builds) | hub, NORMAL PLAY+CONFIG, TRAINING, SA decline dialog, REPLAY list, every OPTION sub-panel driven on the Mac by the decomp gates (byte-identical shots), not by an RC1 window; re-confirm on the frozen bundle |
+| R4a | Stage 1 reached + playable | **PASS** | M1; Q7 | `_local/rc1/q7/` | f7542f9 + decomp 4a3033fa (build/w153_control) |  |
+| R4b | Stages 2-5 + bosses, all difficulties | **OPEN** | Q7 10-12 (Original done) | `_local/rc1/q7/` (rc1_facts_q7.txt, contact_q7_stages.png) | f7542f9 + decomp 4a3033fa (build/w153_control) | Original stages 1-5 each reached + boss + stage end (136/213/275/305/446 s), via TRAINING infinite-stock options (not a no-cheat clear); Maniac/Ultra NOT driven -> queue id Q3 (sweep); stage 5 = m11_lbs1 only |
+| R4c | Full clear (1-ALL + ending) | **USER-HANDS** | Q6 (user) | -- (no record of a port 1-ALL in any doc) | - | no-cheat Original 1-ALL + ending, replay saved; m12_lbs2/m13_endg never played |
+| R5a | Settings round-trip | **PASS** | Q3 10-12 | `_local/rc1/q3/{A_p1a,A_p1b}/`; REPORT_q3.md | w152_q2 binary (pre-619a190) | Picture preset + Bomb Stock; savegame.bin diff = 3 bytes; read back on relaunch |
+| R5b | High score / ranking persists | **USER-HANDS** | Q3 10-12 (BLOCKED-FOR-SCRIPT) | `_local/rc1/q3/A_p2/`; REPORT_q3.md | w152_q2 binary (pre-619a190) | idle death scores 0 -> no register prompt; table (1st 6,880,571 ... ) not in savegame.bin/replaydata.bin; play past the 5th row, enter name, relaunch, read Original Ranking |
+| R5c | Replay save -> playback | **PASS** | Q3 10-12 | `_local/rc1/q3/{A_p3d,A_p3f,A_p3g}/`; scripts/markframes.py | w152_q2 binary (pre-619a190) | replaydata.bin 2444->4062; relaunch lists it; 2 playbacks identical timeline within one 30-frame step |
+| R6 | Game-over flows | **PASS-WITH-NOTE** | Q7 10-12 (C7 legs); b3 10-04 | `_local/rc1/q7/`; NAV_MAP.md | f7542f9 + decomp 4a3033fa (build/w153_control) | NP game over -> replay-save prompt -> save/decline -> module title -> hub PASS; USER-HANDS part: NP stage clear + results, continue-by-START, name entry; SA game-over chain -> queue id Q5 (rc_chain) |
+| R7 | Pause / resume / restart / return | **PASS-WITH-NOTE** | Q7 10-12; Q3 A_p4 | `_local/rc1/q7/`; `_local/rc1/q3/A_p4/` | f7542f9 + decomp 4a3033fa (build/w153_control) | RESUME (A) and RETURN TO TITLE PASS; RESTART unmeasured -> Q5 |
+| R8 | Mode swap, >= 5 cycles | **OPEN** | M1 10-11 (1 cycle) | `_local/rc1/nav/rc1m_VERDICT.txt` | db1df9c + decomp a959478f (build/rc1_probe) | 1 cycle PASS (residue=0 x2); >= 5 cycles with stage-1 shots -> queue id Q5 (G6) |
+| R9 | Co-op | **USER-HANDS** | Q3 10-12 (scripted PASS) | `_local/rc1/q3/A_p4/` | w152_q2 binary (pre-619a190) | P2 START via RT_PAD_FIFO 4th field -> [joinp] WILL-JOIN, two ships + dual HUD, pause/resume/return; couch two-pad session owed (Q6) |
+| R10 | Input (pads, remap, fullscreen) | **USER-HANDS** | -- (keyboard PASS earlier) | PLAN_macos_bringup.md; README | - | pads per class, P2 pad, remap persistence, F11 + Retina/ProMotion; scripted remap round-trip also owed (Q5/G9) |
+| R11 | Audio | **PASS** | RC1 M2/M3 10-11; RT_AUDIODUMP 10-03 | PLAN_macos_bringup.md; `_local/rc1/rc1_*/soak.txt` | db1df9c + decomp a959478f (build/rc1_probe) | guest-native CoreAudio sink; 0 underruns / 0 sink stalls in 10 min; content by ear is part of the eyes/ears pass |
+| R12 | 60 fps pacing | **PASS** | Q1, Q7 10-11/12 | `_local/rc1/q1/REPORT_q1.md`; `q7/` | db1df9c + decomp a959478f (build/rc1_probe) | 3,600 frames/min, 0 slowframe; 3,592-3,601 presents/min in stage legs |
+| R13 | Soak: crash-free + memory bounded (plateau <= 740 MB) | **PASS-WITH-NOTE** | Q1 + Q5 + Q6 10-11 | `_local/rc1/q1/REPORT_q1.md`, `q5/REPORT_q5.md`, `q6/REPORT_q6.md` | db1df9c + decomp a959478f (build/rc1_probe) | shell 30 min 285->292; ARCADE 60 min RSS 426 (min 2)/572 (10)/708 (25)/719 (60), slope 0.32 MB/min last 30 min, heap high-water pinned 496 MB, 0 alloc failure -> BOUNDED (ruled); Darwin page-release fix post-RC1 (G5-fix) |
+| R14 | Visual fidelity gates | **PASS-WITH-NOTE** | b3/10-05 gates; audits | `_local/boss1_mac/gates_vbsleep.txt` | beta-3 bundle 10-04/10-05 (host 79b314e) | stagepix + boss plate all-game sweep PASS, both audits 0 DRIFT/0 MISSING (18-TU era; re-run on the frozen bundle); eyes pass for FNF-class defects = USER-HANDS |
+| R15 | Flicker | **USER-HANDS** | Q1 10-11 (census); user eyes 10-11 | `_local/rc1/q1/REPORT_q1.md`; NOTE_fnf_shell_defects.md 2026-10-05 | db1df9c + decomp a959478f (build/rc1_probe) | census PASS: 0 dropouts in 30 min shell + 20 min + 25 min ARCADE; 6/6 hand-overs only the authentic PRESS START strobe; eyes retest on the frozen bundle incl. the G-START check |
+| R16 | Quit | **PASS** | app smoke 10-11 | `build/app_smoke_1011c.log` | db1df9c-era 68-TU .app (10-11 13:28) | Quit leaves no process, save read back |
+| R17 | Packaging | **OPEN** | -- (Q10) | PLAN_beta3_mac.md todo 7; sec. 6 below | - | VER still 0.2.0-beta3, README is BETA 3 text; SHARED copy owed (NAS offline since 10-07 renumber) |
+
+### 0.2 XBOX 360 MODE -- modeIdx 1, `futari_game_abn.dylib`
+
+| # | Criterion | Status | Window | Evidence | Engine commit measured on | Note |
+|---|---|---|---|---|---|---|
+| R1 | Boot, 2/2 modules bound | **PASS** | M1 + app smoke 10-11 | same | db1df9c-era 68-TU .app (10-11 13:28) | cold boot ~40 s |
+| R2 | Title -> mode -> module | **PASS** | M1 10-11; Q2b 10-12 | `_local/rc1/q2b/` | 87c21ea + RT_NAV360 lever (build/w152_q2, decomp a54c40a8) | card LEFT + dwell; lands at module TITLE, not MODE SELECT |
+| R3 | Every hosted menu path | **OPEN** | Q2 10-11 / Q2b 10-12; Q3; Q7-360 | `_local/rc1/q2/r2/`, `q2b/{q2a4,q2b}/`, `q3/X_*`, `q7x/` | 87c21ea + RT_NAV360 lever (build/w152_q2, decomp a54c40a8) | PASS: NORMAL PLAY route x2, TRAINING (Q7-360), REPLAY DATA list (Q3), OPTION/NP CONFIG settings (Q3). NOT driven: SCORE ATTACK decline dialog, remaining OPTION sub-panels -> queue id Q3-X tour |
+| R4a | Stage 1 reached + playable | **PASS** | M1; Q7-360 | `_local/rc1/q7x/` | 939b638 (build/q7x_probe, incl. 619a190) |  |
+| R4b | Stages 2-5 + bosses, all difficulties | **OPEN** | Q7-360 10-12 (Original done) | `_local/rc1/q7x/` (REPORT_q7x.md, contact_q7x_stages.png) | 939b638 (build/q7x_probe, incl. 619a190) | Original stages 1-5 each reached + boss + tally + end (134/209/287/307/450 s); Maniac/Ultra NOT driven -> Q3 sweep |
+| R4c | Full clear (1-ALL + ending) | **USER-HANDS** | Q6 (user) | -- | - | same, in XBOX 360 MODE |
+| R5a | Settings round-trip | **PASS** | Q3 10-12 | `_local/rc1/q3/{X_p1a,X_p1b}/` | w152_q2 binary (pre-619a190) | same 3 bytes, shell-owned |
+| R5b | High score / ranking persists | **USER-HANDS** | Q3 10-12 (not run separately) | REPORT_q3.md | w152_q2 binary (pre-619a190) | same shell/save path |
+| R5c | Replay save -> playback | **PASS** | Q3 10-12 | `_local/rc1/q3/{X_L1,X_L2}/` | w152_q2 binary (pre-619a190) | same save sizes; 2 playbacks identical [nav360] timelines; playback ends on REPLAY LOAD MENU |
+| R6 | Game-over flows | **PASS-WITH-NOTE** | Q3 10-12 (replay save); b3 10-04 | `_local/rc1/q3/X_*`; PLAN_beta3_mac.md todo 4 | w152_q2 binary (pre-619a190) | NP game over -> replay-save PASS; same USER-HANDS part; SA chain -> Q5; 360 "replay-save trap" of Q2 r2 did not reproduce (open ruling) |
+| R7 | Pause / resume / restart / return | **PASS-WITH-NOTE** | Q2b 10-12 x2 | `_local/rc1/q2b/{q2a4,q2b}/` | 87c21ea + RT_NAV360 lever (build/w152_q2, decomp a54c40a8) | pause, RESUME (A), RETURN TO TITLE (lands on hub, msg=11) PASS; RESTART / OPTION-in-pause unmeasured -> Q5 |
+| R8 | Mode swap, >= 5 cycles | **OPEN** | M1 10-11 (1 cycle) | same | db1df9c + decomp a959478f (build/rc1_probe) | same cycle; >= 5 -> Q5 |
+| R9 | Co-op | **USER-HANDS** | Q4b 10-12 (scripted PASS x2) | `_local/rc1/q4b/{v3_1,v3_3}/`; REPORT_q4b.md | 9b9dd8c (build/q4b_probe, incl. 619a190) | [joinp] ENTER slot=1 + [xinput] P2 buttons=0x0010; couch session owed (Q6) |
+| R10 | Input (pads, remap, fullscreen) | **USER-HANDS** | -- | same | - | same |
+| R11 | Audio | **PASS-WITH-NOTE** | M3 10-11; Q1; Q7-360 | `_local/rc1/q1/`, `q7x/` | db1df9c + decomp a959478f (build/rc1_probe) | 0 underruns; content by ear only on Windows beta 2 -> covered by the eyes/ears pass |
+| R12 | 60 fps pacing | **PASS** | Q1, Q7-360 | `_local/rc1/q1/`; `q7x/` | 939b638 (build/q7x_probe, incl. 619a190) | 3,600/min; 3,575-3,627 presents/min in stage legs |
+| R13 | Soak: crash-free + memory bounded (plateau <= 740 MB) | **PASS** | Q1 10-11 | `_local/rc1/q1/REPORT_q1.md` | db1df9c + decomp a959478f (build/rc1_probe) | 20 min, RSS 545->619 flat from min ~5; 0 FATAL/VK_ERROR/slow/underruns |
+| R14 | Visual fidelity gates | **OPEN** | -- (never driven) | -- | - | boss plate / stagepix only ever drove ARCADE; 360 plate design -> queue id Q7 (G7) |
+| R15 | Flicker | **USER-HANDS** | Q1 10-11 (census); user eyes | same | db1df9c + decomp a959478f (build/rc1_probe) | census PASS-WITH-NOTE: one deterministic unattributed card-LEFT loss (base 0x34E0000, len=1, LEFT+13 presents, 7/7); eyes retest on the frozen bundle |
+| R16 | Quit | **PASS** | app smoke 10-11; b3 10-04 | same | db1df9c-era 68-TU .app (10-11 13:28) | same engine |
+| R17 | Packaging | **OPEN** | -- (Q10) | same | - | same |
+
+### 0.3 What stands between us and RC1
+
+Two columns. (A) is work an agent seat can do unattended; (B) is verbatim from the measurements and needs the user.
+
+| (A) Scripted / agent items still OPEN (queue id) | (B) USER-HANDS (verbatim from the measurements) |
+|---|---|
+| **Q3 sweep** -- Maniac and Ultra: every stage start + boss, both modes (R4b) | Eyes pass on the current .app, including the G-START check (START pressed on the hub and in OPTION must not start the game behind the shell) (R15, R14 FNF-class) |
+| **Q5 rc_chain** -- `scripts/rc_chain_mac.sh` does not exist yet: swap x5 with a stage-1 shot after each (R8, G6), RESTART and continue countdown (R7/G10), SA game-over chain (R6), scripted remap round-trip (R10/G9), stagepix + boss plate + audits on the bundle engine (R14), pkill -x only | Ranking entry per mode: "play Original past the 5th row, enter a name, relaunch, read Original Ranking" (R5b) |
+| **Q7 360 visual gate** -- Opus designs a 360 boss/stage plate (head symmetry + per-push structure, no oracle needed), Sonnet gates stages 1-5 bosses (R14-X, G7) | No-cheat Original 1-ALL + ending with the replay saved, per mode (R4c; Q6) |
+| **Q3-X tour** -- 360 SCORE ATTACK decline dialog and the remaining OPTION sub-panels (R3-X) | Normal Play stage clear + results, continue-by-START (not driven), name entry (R6) |
+| **Q9 / G11** -- one-shot `RVK_QUADCENSUS` on the 360 card-LEFT quad (base 0x34E0000) and the w136 press-coincident pair (base 0x49C4000); also the `RVK_CENSUSTEST` positive control that Q1 did not run | Maniac / Ultra play (only the stage+boss reach is scripted) |
+| **Q8 replay regression** -- after the user's two 1-ALL replays exist: play back on the RC engine, same ending + score (R4c closure) | Couch two-pad co-op session (R9, both modes) |
+| **Q10 RC cut** -- VER bump, README rewrite, tag, rebuild, zip, md5, share copy (R17; §6) | Pads per class, P2 pad, in-game remap persistence, F11 fullscreen on the built-in (ProMotion) and an external display, keyboard-only session (R10, G9) |
+| **Frozen-bundle smoke** -- `scripts/app_smoke_mac.sh` + the Q1 census criterion on the cut .app (§6.5) | Sign-off on the frozen bundle (§6.5) |
+
+Not on the RC1 path (A-side, post-RC1): G5-fix Darwin page release, Q1b shadow-mode harness, Phase-2 compositor decomp.
+
+### 0.4 Rulings recorded
+
+- **2026-10-11 ~14:10 -- flicker:** "clean measurement is good for RC1." Eyes-clean + census-clean on the RC build closes BACKLOG #0 for RC1 (§1 R15); compose 1:1 moves to the long-term decomp lane. The census cannot see the present/glass alternation class (07-28 Windows RenderDoc); the user's eyes cover it.
+- **2026-10-11 -- memory = bounded:** R13 re-baselined to plateau <= 740 MB, no allocation failure over 60 min; the Darwin page-release fix (G5-fix) is post-RC1 (Q6 evidence).
+- **Co-op is IN RC1** (scripted proof both modes done; couch session is the user's).
+- **Steam Deck/Linux is a follow-on**, rebuilt from the RC1 tag; it does not gate RC1.
+- **Clears are the user's, Original only, no cheats:** one Original 1-ALL per mode with the replay saved; no invincibility lever; Maniac/Ultra = every stage + boss reached.
+- **Distribution = the SHARED release share on the NAS, NOT Google Drive** (supersedes PLAN_beta3 todo 7's Drive route). F&F only; the public form ships zero game content.
+- **Version `0.3.0-rc1` + the freeze rule of §6.2.**
+
+(The last five were relayed to this docs seat in the 2026-10-12 brief; the repo carries their recommendations in §5, now annotated, but not the user's original wording or exact time.)
+
+### 0.5 Open rulings
+
+1. **The 5 UNDER kernel stubs that feed the game garbage** (docs/AUDIT_kstub_sizes.md §3): `VdGetCurrentDisplayInformation` (X_DISPLAY_INFO 0x58 read at 820AB528/820B1E80/820B22D0 into device display w/h), `VdGetCurrentDisplayGamma` (820A9CA8), `VdGetSystemCommandBuffer` (820A5408, feeds the VdSwap hook argument), `ExGetXConfigSetting` (time-zone names are stack garbage), `XamUserGetXUID` (online; out of scope under no-Xbox-LIVE). Plus 6 UNKNOWN (XamAlloc, RtlFillMemoryUlong, RtlMultiByteToUnicodeN, RtlUnicodeToMultiByteN, RtlCaptureContext, XamGetExecutionId). **Recommendation: document as known-divergence in the RC1 README/NOTE and fix post-RC1, one stub per window with a pixel gate (B1/B4 + stagepix) -- the 2026-07-22 RT_HDMODE A/B blacked out the menu when display-info fields took true HD values, so a blind fix is the riskier path to RC1.** Options: (a) as recommended, (b) fix before RC1 with their own A/B windows.
+2. **360 START-wire wrong address (side finding of G-START, NOTE_fnf_shell_defects.md 2026-10-12):** the RT_STARTWIRE hook writes the reco_normal EXCH address; reco_abnormal .data sits +0x60 higher (NAV_MAP), so in the 360 module the wire is probably inert/misaddressed. No leak was observed in 360 (bug4_x360, fix4_x360) and every 360 drive started via the ordinary pad path. Recommendation: leave for RC1, record as a known divergence, dshift-rebase the address post-RC1.
+3. **Maniac/Ultra bar:** §1 R4 asks for stage+boss reach on all three difficulties; O5 recommends it. Confirm that the scripted Q3 sweep (not a user clear) satisfies it.
+4. **Unattributed deterministic losses:** the 360 card-LEFT quad (0x34E0000, len=1, 7/7) and the w136 menu-atlas pair (G11, base 0x49C4000). Both are deterministic and the user has not reported them; recommendation: accept as PASS-WITH-NOTE for RC1, attribute in Q9.
+5. **Q2 r2 "replay-save trap" (360):** unattributed; did not reproduce at the ~4 s cadence; hypothesis = an ordering bug in the script marker, not a game defect. Accept as closed unless it recurs on the frozen bundle.
+6. **Allowed-known-issues text for the README** (§1 list) -- confirm, and add the item-1 and item-2 divergences if accepted.
+7. **ARCADE RSS discrepancy:** the 10-05 bundle's ps-RSS read 202-425 MB while the same heap trajectory shows a 496 MB high-water (unresolved, Q5). Not blocking under the bounded ruling; note only.
 
 ---
 
@@ -39,11 +148,11 @@ bundle's own engine, launched from Finder:
 | R10 | Input | keyboard map as README; SDL pads (PS / Xbox / Switch at least one each class the user owns); in-game remap persists; P2 pad = player 2 |
 | R11 | Audio | BGM + SE + voice audible and correct in shell and both modules; 0 audio underruns in the soaks (`RT_AUDIOSTARVE`) |
 | R12 | Performance | 59.9-60.0 frames/s in shell, menus and stage in both modes (submit counter per minute), 0 `[slowframe]` > 100 ms outside loads; ≤ 30 % of a core idle (RT_VBSLEEP); FrameDelay 1V/2V/3V paced |
-| R13 | Soak | crash-free: shell title+top menu 30 min; ARCADE demo 20 min; XBOX 360 module 20 min; memory **bounded** (RULED 2026-10-11, re-baselined from "RSS flat after minute ~15": plateau <= 740 MB, no allocation failure over 60 min; ARCADE plateaus at the 512 MB guest-heap ceiling, Q6); the Darwin page-release fix = post-RC1 (G5-fix); 0 FATAL / VK_ERROR |
+| R13 | Soak | crash-free: shell title+top menu 30 min; ARCADE demo 20 min; XBOX 360 module 20 min; memory **bounded (plateau ≤ 740 MB, no alloc failure over 60 min; Darwin page-release fix post-RC1)** (RULED 2026-10-11, re-baselined from "RSS flat after minute ~15"; ARCADE plateaus at the 512 MB guest-heap ceiling, Q6; G5-fix = post-RC1); 0 FATAL / VK_ERROR |
 | R14 | Visual fidelity | stage pixel gate + boss plate gate PASS (ARCADE today; XBOX 360 needs its own); no OPEN user-reported defect in FNF-x class |
 | R15 | Flicker | **USER RULING 2026-10-11 ~14:10: "clean measurement is good for RC1."** BACKLOG #0 closes for RC1 on a pre-registered measurement on the RC build: user eyes clean + the w136 draw census (RVK_DRAWCENSUS=2) clean over the soak in BOTH modes = zero DROPOUT-CONFIRMED outside named classes that are SHOWN deterministic (identical frame/base/v0 across legs and binaries); the decomp-grounded compose 1:1 leaves the RC1 gate for the long-term decomp lane |
 | R16 | Quit | app-menu Quit and window close leave no process; save intact |
-| R17 | Packaging | VER bumped (proposal `0.3.0-rc1`), README rewritten for RC (known issues current, no beta text), Gatekeeper steps, every Mach-O minos 13.0, md5 recorded, F&F link only; SHARED copy for the archive |
+| R17 | Packaging | VER bumped (proposal `0.3.0-rc1`), README rewritten for RC (known issues current, no beta text), Gatekeeper steps, every Mach-O minos 13.0, md5 recorded, F&F only; distribution = the SHARED release share (ruled; not Google Drive) |
 
 **Allowed known issues in RC1 (if listed in the README):** FNF-2-class GPU device loss (die-loud, never seen on the
 Mac); FNF-7 one-frame menu quad (Windows-era, not seen on the Mac); authentic behaviours (PRESS START strobe, title
@@ -63,7 +172,35 @@ continue on main, but the bundle is only re-cut after the full RC chain (§4 Q1)
 
 ---
 
-## §2 WHERE EACH MODE STANDS TODAY (2026-10-11)
+## §2 WHERE EACH MODE STANDS (2026-10-12)
+
+Same data as §0, one row per criterion, both modes side by side. Every cell reads `STATUS · window · pointer — note`; the commit each was measured on is in §0.1/§0.2. Status vocabulary as §0. (The pre-tidy cells, with their full history, are kept verbatim below.)
+
+| # | Item | ARCADE (status · window · pointer) | XBOX 360 (status · window · pointer) |
+|---|---|---|---|
+| R1 | Boot, 2/2 modules bound | **PASS** · M1 + app smoke 10-11 · `build/app_smoke_1011c.log`; `_local/rc1/nav/rc1m_VERDICT.txt` — 2/2 bound, 0 FATAL, 59.94 Hz | **PASS** · M1 + app smoke 10-11 · same — cold boot ~40 s |
+| R2 | Title -> mode -> module | **PASS** · M1 10-11; b4 10-05 · `_local/nav_mac/b4_VERDICT.txt`; `_local/rc1/nav/` | **PASS** · M1 10-11; Q2b 10-12 · `_local/rc1/q2b/` — card LEFT + dwell; lands at module TITLE, not MODE SELECT |
+| R3 | Every hosted menu path | **PASS-WITH-NOTE** · decomp gates w143-w148; Q7/Q3 legs · futari_decomp NOTE_campaign_decomp.md w143-w148; NAV_MAP.md; `_local/rc1/q7/` — hub, NORMAL PLAY+CONFIG, TRAINING, SA decline dialog, REPLAY list, every OPTION sub-panel driven on the Mac by the decomp gates (byte-identical shots), not by an RC1 window; re-confirm on the frozen bundle | **OPEN** · Q2 10-11 / Q2b 10-12; Q3; Q7-360 · `_local/rc1/q2/r2/`, `q2b/{q2a4,q2b}/`, `q3/X_*`, `q7x/` — PASS: NORMAL PLAY route x2, TRAINING (Q7-360), REPLAY DATA list (Q3), OPTION/NP CONFIG settings (Q3). NOT driven: SCORE ATTACK decline dialog, remaining OPTION sub-panels -> queue id Q3-X tour |
+| R4a | Stage 1 reached + playable | **PASS** · M1; Q7 · `_local/rc1/q7/` | **PASS** · M1; Q7-360 · `_local/rc1/q7x/` |
+| R4b | Stages 2-5 + bosses, all difficulties | **OPEN** · Q7 10-12 (Original done) · `_local/rc1/q7/` (rc1_facts_q7.txt, contact_q7_stages.png) — Original stages 1-5 each reached + boss + stage end (136/213/275/305/446 s), via TRAINING infinite-stock options (not a no-cheat clear); Maniac/Ultra NOT driven -> queue id Q3 (sweep); stage 5 = m11_lbs1 only | **OPEN** · Q7-360 10-12 (Original done) · `_local/rc1/q7x/` (REPORT_q7x.md, contact_q7x_stages.png) — Original stages 1-5 each reached + boss + tally + end (134/209/287/307/450 s); Maniac/Ultra NOT driven -> Q3 sweep |
+| R4c | Full clear (1-ALL + ending) | **USER-HANDS** · Q6 (user) · -- (no record of a port 1-ALL in any doc) — no-cheat Original 1-ALL + ending, replay saved; m12_lbs2/m13_endg never played | **USER-HANDS** · Q6 (user) · -- — same, in XBOX 360 MODE |
+| R5a | Settings round-trip | **PASS** · Q3 10-12 · `_local/rc1/q3/{A_p1a,A_p1b}/`; REPORT_q3.md — Picture preset + Bomb Stock; savegame.bin diff = 3 bytes; read back on relaunch | **PASS** · Q3 10-12 · `_local/rc1/q3/{X_p1a,X_p1b}/` — same 3 bytes, shell-owned |
+| R5b | High score / ranking persists | **USER-HANDS** · Q3 10-12 (BLOCKED-FOR-SCRIPT) · `_local/rc1/q3/A_p2/`; REPORT_q3.md — idle death scores 0 -> no register prompt; table (1st 6,880,571 ... ) not in savegame.bin/replaydata.bin; play past the 5th row, enter name, relaunch, read Original Ranking | **USER-HANDS** · Q3 10-12 (not run separately) · REPORT_q3.md — same shell/save path |
+| R5c | Replay save -> playback | **PASS** · Q3 10-12 · `_local/rc1/q3/{A_p3d,A_p3f,A_p3g}/`; scripts/markframes.py — replaydata.bin 2444->4062; relaunch lists it; 2 playbacks identical timeline within one 30-frame step | **PASS** · Q3 10-12 · `_local/rc1/q3/{X_L1,X_L2}/` — same save sizes; 2 playbacks identical [nav360] timelines; playback ends on REPLAY LOAD MENU |
+| R6 | Game-over flows | **PASS-WITH-NOTE** · Q7 10-12 (C7 legs); b3 10-04 · `_local/rc1/q7/`; NAV_MAP.md — NP game over -> replay-save prompt -> save/decline -> module title -> hub PASS; USER-HANDS part: NP stage clear + results, continue-by-START, name entry; SA game-over chain -> queue id Q5 (rc_chain) | **PASS-WITH-NOTE** · Q3 10-12 (replay save); b3 10-04 · `_local/rc1/q3/X_*`; PLAN_beta3_mac.md todo 4 — NP game over -> replay-save PASS; same USER-HANDS part; SA chain -> Q5; 360 "replay-save trap" of Q2 r2 did not reproduce (open ruling) |
+| R7 | Pause / resume / restart / return | **PASS-WITH-NOTE** · Q7 10-12; Q3 A_p4 · `_local/rc1/q7/`; `_local/rc1/q3/A_p4/` — RESUME (A) and RETURN TO TITLE PASS; RESTART unmeasured -> Q5 | **PASS-WITH-NOTE** · Q2b 10-12 x2 · `_local/rc1/q2b/{q2a4,q2b}/` — pause, RESUME (A), RETURN TO TITLE (lands on hub, msg=11) PASS; RESTART / OPTION-in-pause unmeasured -> Q5 |
+| R8 | Mode swap, >= 5 cycles | **OPEN** · M1 10-11 (1 cycle) · `_local/rc1/nav/rc1m_VERDICT.txt` — 1 cycle PASS (residue=0 x2); >= 5 cycles with stage-1 shots -> queue id Q5 (G6) | **OPEN** · M1 10-11 (1 cycle) · same — same cycle; >= 5 -> Q5 |
+| R9 | Co-op | **USER-HANDS** · Q3 10-12 (scripted PASS) · `_local/rc1/q3/A_p4/` — P2 START via RT_PAD_FIFO 4th field -> [joinp] WILL-JOIN, two ships + dual HUD, pause/resume/return; couch two-pad session owed (Q6) | **USER-HANDS** · Q4b 10-12 (scripted PASS x2) · `_local/rc1/q4b/{v3_1,v3_3}/`; REPORT_q4b.md — [joinp] ENTER slot=1 + [xinput] P2 buttons=0x0010; couch session owed (Q6) |
+| R10 | Input (pads, remap, fullscreen) | **USER-HANDS** · -- (keyboard PASS earlier) · PLAN_macos_bringup.md; README — pads per class, P2 pad, remap persistence, F11 + Retina/ProMotion; scripted remap round-trip also owed (Q5/G9) | **USER-HANDS** · -- · same — same |
+| R11 | Audio | **PASS** · RC1 M2/M3 10-11; RT_AUDIODUMP 10-03 · PLAN_macos_bringup.md; `_local/rc1/rc1_*/soak.txt` — guest-native CoreAudio sink; 0 underruns / 0 sink stalls in 10 min; content by ear is part of the eyes/ears pass | **PASS-WITH-NOTE** · M3 10-11; Q1; Q7-360 · `_local/rc1/q1/`, `q7x/` — 0 underruns; content by ear only on Windows beta 2 -> covered by the eyes/ears pass |
+| R12 | 60 fps pacing | **PASS** · Q1, Q7 10-11/12 · `_local/rc1/q1/REPORT_q1.md`; `q7/` — 3,600 frames/min, 0 slowframe; 3,592-3,601 presents/min in stage legs | **PASS** · Q1, Q7-360 · `_local/rc1/q1/`; `q7x/` — 3,600/min; 3,575-3,627 presents/min in stage legs |
+| R13 | Soak: crash-free + memory bounded (plateau <= 740 MB) | **PASS-WITH-NOTE** · Q1 + Q5 + Q6 10-11 · `_local/rc1/q1/REPORT_q1.md`, `q5/REPORT_q5.md`, `q6/REPORT_q6.md` — shell 30 min 285->292; ARCADE 60 min RSS 426 (min 2)/572 (10)/708 (25)/719 (60), slope 0.32 MB/min last 30 min, heap high-water pinned 496 MB, 0 alloc failure -> BOUNDED (ruled); Darwin page-release fix post-RC1 (G5-fix) | **PASS** · Q1 10-11 · `_local/rc1/q1/REPORT_q1.md` — 20 min, RSS 545->619 flat from min ~5; 0 FATAL/VK_ERROR/slow/underruns |
+| R14 | Visual fidelity gates | **PASS-WITH-NOTE** · b3/10-05 gates; audits · `_local/boss1_mac/gates_vbsleep.txt` — stagepix + boss plate all-game sweep PASS, both audits 0 DRIFT/0 MISSING (18-TU era; re-run on the frozen bundle); eyes pass for FNF-class defects = USER-HANDS | **OPEN** · -- (never driven) · -- — boss plate / stagepix only ever drove ARCADE; 360 plate design -> queue id Q7 (G7) |
+| R15 | Flicker | **USER-HANDS** · Q1 10-11 (census); user eyes 10-11 · `_local/rc1/q1/REPORT_q1.md`; NOTE_fnf_shell_defects.md 2026-10-05 — census PASS: 0 dropouts in 30 min shell + 20 min + 25 min ARCADE; 6/6 hand-overs only the authentic PRESS START strobe; eyes retest on the frozen bundle incl. the G-START check | **USER-HANDS** · Q1 10-11 (census); user eyes · same — census PASS-WITH-NOTE: one deterministic unattributed card-LEFT loss (base 0x34E0000, len=1, LEFT+13 presents, 7/7); eyes retest on the frozen bundle |
+| R16 | Quit | **PASS** · app smoke 10-11 · `build/app_smoke_1011c.log` — Quit leaves no process, save read back | **PASS** · app smoke 10-11; b3 10-04 · same — same engine |
+| R17 | Packaging | **OPEN** · -- (Q10) · PLAN_beta3_mac.md todo 7; sec. 6 below — VER still 0.2.0-beta3, README is BETA 3 text; SHARED copy owed (NAS offline since 10-07 renumber) | **OPEN** · -- (Q10) · same — same |
+
+<details><summary>§2 pre-tidy table, verbatim (2026-10-11/12 accretion; nothing removed)</summary>
 
 Status: PASS / FAIL / UNMEASURED / KNOWN-ISSUE / PARTIAL. "today" = measured this window on build/rc1_probe
 (numbers in §2.1). A = ARCADE, X = XBOX 360 MODE.
@@ -91,6 +228,9 @@ Status: PASS / FAIL / UNMEASURED / KNOWN-ISSUE / PARTIAL. "today" = measured thi
 | R15 | Shell flicker | **Q1 10-11 single-instance census: PASS — 0 dropouts in R1 30 min shell + R2 20 min + R2b 25 min ARCADE; 6/6 hand-over legs = only the authentic PRESS START strobe (class a); the triage len=3 f1641 NOT reproduced in 8 hand-overs (contention artefact).** **user eyes 2026-10-11: "not seen in a while" (beta 3 → today's 68-TU .app); UNMEASURED on the current build before today** — w136 census (10-05) ZERO over 12 min; **today: shell 0 dropouts / 10 min; ARCADE module 1 unreproduced len=3 at the hand-over (1 of 2 legs) → criterion NOT met yet** | **Q1: PASS-WITH-NOTE — R3 20 min + 6 legs: only the card-LEFT loss (base 0x34E0000, LEFT+13 presents, len=1), identical in 7/7 = deterministic, unattributed (R5).** **today: 1 deterministic press-coincident loss on the card panel (2 of 2 legs), unattributed** → PENDING Q1 | NOTE_fnf_shell_defects.md 2026-10-05; coordinator relay of the user's words |
 | R16 | Quit | **PASS** (app smoke: Quit leaves no process, save read back) | **PASS** (same engine; 10-04 bundle check) | app_smoke_1011c.log |
 | R17 | Packaging | **PARTIAL**: bundle builds, minos 13.0, README is BETA 3 text, VER 0.2.0-beta3; zip + Drive route exist; SHARED copy OWED (NAS offline, LAN renumbered 10-07) | same | PLAN_beta3_mac.md todo 7 |
+
+
+</details>
 
 Other standing items checked against RC1:
 - **FNF-2 device loss** — Windows lottery ~1/10 drives; never seen on MoltenVK; die-loud path never exercised on
@@ -153,11 +293,40 @@ deterministic unattributed press-coincident class (360 card). Numbers above; Q1 
 
 ---
 
-## §3 GAP LIST (ranked by RC1-blocking severity)
+## §3 GAP LIST (ranked by RC1-blocking severity)  — open gaps first; closed gaps in §3.2
 
 Severity: **B** = blocks RC1 for that mode · **B?** = blocks unless the user rules it allowed · **M** = must be
 measured before RC1 (cheap, expected to pass) · **P** = polish/packaging. Cost: S = Sonnet window (~30-45 min,
 scripted, pre-registered), O = Opus window, E = user eyes/hands, R = user ruling.
+
+### §3.1 Open gaps
+
+| G | Gap (what remains) | Sev / modes | Queue | Cost |
+|---|---|---|---|---|
+| G1 | Full-game coverage: Maniac/Ultra stage+boss reach (both modes); no-cheat Original 1-ALL + ending per mode (user, Q6). Original stages 1-5 + bosses reached by script (Q7, Q7-360) | B · A+X | Q3 sweep; Q6; Q8 | S + E |
+| G3 | Persistence: only the high-score/ranking entry remains (BLOCKED-FOR-SCRIPT; user hands) | B · A+X | Q6 | E |
+| G4 | Flicker: draw-census half PASS (Q1); eyes retest on the frozen bundle owed | B? · A+X | Q6 / §6.5 | E |
+| G5 | RC regression chain: `scripts/rc_chain_mac.sh` not written (swap x5, RESTART, continue, SA chain, stagepix/boss plate/audits on the bundle engine). Memory half closed (see 3.2) | M · A+X | Q5 | S |
+| G6 | Mode swap at scale (>= 5 cycles, stale-descriptor class) | M · A+X | Q5 | S |
+| G7 | 360 visual gates absent (boss plate / stagepix only drove ARCADE) | B · X | Q7 (design O, gate S) | O then S |
+| G8 | Co-op: couch two-pad session (scripted PASS both modes) | M · A+X | Q6 | E |
+| G9 | Input breadth: pad classes, P2 pad, remap persistence, F11 + Retina/ProMotion, keyboard-only | M · A+X | Q6 + Q5 (remap round-trip) | E + S |
+| G10 | Continue / RESTART / SA game-over chain on the Mac; 360 SCORE ATTACK + remaining OPTION sub-panels (Q3-X tour) | M · A+X | Q5, Q3-X | S |
+| G11 | w136 owed (4): press-coincident menu-atlas pair (base 0x49C4000) + the 360 card-LEFT quad (0x34E0000) unattributed (both deterministic) | M · shell | Q9 | S |
+| G12 | RC packaging: VER/README, tag, md5, SHARED copy (NAS offline since 10-07) | P · A+X | Q10 / §6 | S + E |
+
+### §3.2 Closed gaps
+
+- **G2** (360 drive-blind past the card) — CLOSED for the NORMAL PLAY route by Q2b 10-12 (route PASS x2; lever RT_NAV360 in f7542f9, route proof 3df934d); TRAINING/REPLAY/OPTION/SCORE ATTACK tours remain as Q3-X (G10).
+- **G3** persistence minus ranking entry — CLOSED by Q3 10-12 (9b9dd8c): settings + replay save/playback PASS both modes.
+- **G4 census half** — CLOSED by Q1 10-11 (00c0e29).
+- **G5 memory half / G13** (ARCADE RSS growth) — bisected by Q5 10-11 (87c21ea: guest allocator rt_phys.cpp, not decomp), RULED bounded after Q6 10-11 (5c056c4); Darwin page-release fix = post-RC1 G5-fix.
+- **G8 scripted co-op** — ARCADE PASS Q3 (9b9dd8c); XBOX 360 PASS x2 Q4b (afe66da).
+- **G1 Original stage sweep** — ARCADE Q7 (cb32247, f7542f9 build); XBOX 360 Q7-360 (5549eac, 939b638 build).
+- **G-START** — FIXED 10-12 in 619a190 (RT_STARTWIRE gated on the shell's cb3 input gate); user's .app needs the rebuild to carry it.
+- **KSTUB-OVERCLEAR** — FIXED 10-12 in d3c9b23 (XGetVideoMode / VdQueryVideoMode over-clear, 0x50 -> 0x30); the 5 READ-UNDER stubs are NOT fixed (§0.5 item 1); user's .app needs the rebuild to carry it.
+
+<details><summary>§3 pre-tidy table, verbatim (original rows with all bracketed history)</summary>
 
 | G | Gap | Sev / modes | Evidence | Lane (suspected cause) | Cost | Depends on |
 |---|---|---|---|---|---|---|
@@ -177,6 +346,9 @@ scripted, pre-registered), O = Opus window, E = user eyes/hands, R = user ruling
 | G-START | **[FIXED 10-12]** Pad START pressed on the hub or inside a hub submenu (OPTION) reached the ARCADE module ticking behind the shell: the game took it as 1P-START (`[navreal] d76 1->2 field=1 cred=3` = mode select) while the shell menu stayed up (user eyes 10-11) | M · A (360: no leak observed) | NOTE_fnf_shell_defects.md 2026-10-12; `_local/gstart/` | port: RT_STARTWIRE bypassed the shell's game-input gate (cb3 0x821C5618 zeroes the game pad while *(ctx+152)!=0) -> wire now gated (host, default ON) | done | .app rebuild to ship |
 | KSTUB-OVERCLEAR | **[FIXED 10-12]** Host `XGetVideoMode` (shell/gen/rt.cpp) and `VdQueryVideoMode` (out_reco/rt.cpp) zero-filled 0x50 bytes into 0x30-byte guest buffers (X_VIDEO_MODE = 48 B), zeroing callers' saved non-volatiles (8216AD98 r26-r28/f31; 820B0890 f30/f31/r14; ...) -- found by the decomp diff-harness (w156H D1) | M · A+X (shell) | NOTE_fnf_shell_defects.md 2026-10-12; docs/AUDIT_kstub_sizes.md; `_local/kstub/` | engine thin kernel layer: wrong struct size | done (no screen changed: B1 14/14, B4 within same-build band) | .app rebuild to ship; 5 READ-UNDER stubs listed in the audit (own A/B window each) |
 
+
+</details>
+
 ---
 
 ## §4 THE WORK QUEUE
@@ -185,6 +357,27 @@ Ordered for the orchestrator. Every window: build its own binary (`OUTDIR=build/
 build_mac_dll.sh`, copy the host to a unique process name, kill only by `pkill -x <name>`), never touch the .app /
 build/futari_merged / Application Support, bank under `_local/rc1/<window>/`, pre-register the pass criteria before
 the first drive, and serialize GPU drives with any decomp gate window. **[S]** = Sonnet-able as written.
+
+### §4.1 Measurement log (chronological, one line each; detail in §4.2)
+
+| When | Window | Result | Evidence |
+|---|---|---|---|
+| 10-11 18:02 | M1/M2/M3 (triage window, build/rc1_probe) | modes drive PASS (swap residue=0 x2); shell 10 min clean; ARCADE 10 min RSS 399->553 rising; 360 10 min flat, 1 deterministic card-LEFT dropout | `_local/rc1/nav/rc1m_VERDICT.txt`, `rc1_*/soak.txt` (§2.1) |
+| 10-11 18:21-20:13 | Q1 flicker census + RC soaks | shell 30 min PASS; 360 20 min PASS; ARCADE 20 min RSS 395->707 (bounded, plateau ~708); census ARCADE PASS, 360 PASS-WITH-NOTE | `_local/rc1/q1/REPORT_q1.md` |
+| 10-11 20:15-20:58 | Q5 ARCADE RSS bisect | not decomp (S1 +129 MB vs full +133); guest allocator rt_phys.cpp, no macOS page release | `_local/rc1/q5/REPORT_q5.md` |
+| 10-11 21:29-22:30 | Q6 60-min ARCADE ceiling soak | PASS: RSS 426/572/708/713/719, heap high-water pinned 496 MB, 0 alloc failure -> bounded | `_local/rc1/q6/REPORT_q6.md` |
+| 10-11 21:00 -> 10-12 00:35 | Q2 (Opus) 360 drive parity | PARTIAL: lever RT_NAV360, NAV_MAP 360 section, nav360_mac.sh; nodes 0-10 + 15 once | `_local/rc1/q2/` |
+| 10-12 00:36-01:05 | Q2b 360 route | PASS x2 (stage 1, pause, RESUME, RETURN TO TITLE, hub, top menu); NOLEVER inertness run | `_local/rc1/q2b/` |
+| 10-12 00:40-03:40 | Q7 ARCADE stage sweep (Opus, route C) | Original stages 1-5 + boss + tally reached via TRAINING infinite-stock options; pause/RESUME; NP game-over -> replay-save | `_local/rc1/q7/` |
+| 10-12 ~01:00-04:30 | Q3/Q4 persistence + co-op | settings PASS x2 modes; replay save + playback PASS x2; ARCADE co-op PASS; high score BLOCKED-FOR-SCRIPT | `_local/rc1/q3/`, REPORT_q3.md |
+| 10-12 (Opus defect seat) | G-START | reproduced + fixed (619a190), 0 leaks in fixed arms | `_local/gstart/` |
+| 10-12 04:40-05:30 | Q4b 360 co-op | PASS x2 on the G-START-fixed engine (9b9dd8c) | `_local/rc1/q4b/`, REPORT_q4b.md |
+| 10-12 ~05:00-05:55 | Q7-360 360 stage sweep | Original stages 1-5 + boss + tally reached, 0 errors (939b638) | `_local/rc1/q7x/` |
+| 10-12 05:20-06:30 | KSTUB-OVERCLEAR (Opus) | 2 OVER stubs fixed (d3c9b23); 5 READ-UNDER listed; no screen changed | `_local/kstub/`, docs/AUDIT_kstub_sizes.md |
+
+Not run (designed only): Q1b shadow-mode harness (not an RC1 blocker); Q5 rc_chain script; Q7 360 visual gate; Q8; Q9; Q10.
+
+### §4.2 Queue definitions and measurement detail (verbatim)
 
 **Q1 [S] FLICKER CENSUS + RC SOAKS (G4 measurement, G5 seed).** Goal: settle R13 + the draw half of R15 on the RC
 sources at RC lengths. Inputs: `_local/rc1/rc1_soak.sh` + `PREREG_rc1.txt` (this window's recipe), the w136 census
@@ -330,7 +523,7 @@ the Mac; one-shot quad census on the w136 press-coincident pair. Model: Sonnet.
 
 **Q10 [S] RC1 CUT (G12).** Only after Q1-Q9 are green and O2-O7 ruled: tag realcomp + decomp pair, rebuild the .app
 with VER=0.3.0-rc1 (or the ruled name), rewrite README known issues from §1's allowed list, run Q5 on the bundle
-engine, zip, Drive F&F link, SHARED archive copy when the NAS answers on 10.0.0.x, md5 set; Deck follow-on per O3.
+engine, zip, md5 set, publish to the SHARED share when the NAS answers on 10.0.0.x (quick-tunnel fallback; NOT Drive -- see §6); Deck follow-on per O3.
 Model: Sonnet.
 
 Parallelism: Q2 (Opus, harness code) can run while Q1/Q3/Q4-ARCADE (Sonnet, drives) run only if they never drive
@@ -351,23 +544,76 @@ app_smoke shell steps vs the probe PASS (modules bound, 0 FATAL, save read back)
 **KSTUB-OVERCLEAR fixed (2026-10-12 ~05:20-06:30, Opus defect seat, unattended, drive lock; probes build/kstub_probe (build_mac_dll.sh, afe66da + fix), build/kstub_pre / kstub_post (build_mac.sh, B4 A/B), build/kstub_cap (harness capture); evidence `_local/kstub/`).** The decomp diff-harness (r23-w156H D1) showed `__imp__XGetVideoMode` zero-filling 0x50 bytes into the caller's 0x30-byte XVIDEO_MODE (Xenia X_VIDEO_MODE = 48 B), wiping sub_8216AD98's saved f31/r26/r27/r28; the game-tree `__imp__VdQueryVideoMode` had the same over-clear (820B0890's saved f30/f31/r14). Both now clear exactly 0x30 with unchanged field values; `docs/AUDIT_kstub_sizes.md` checks every stub that writes a guest out-pointer: 2 live OVER (fixed), 12 UNDER (5 read uninitialised on live paths -- display info, gamma, system command buffer, time-zone names, XUID -- listed, not fixed: value changes needing their own A/B), 6 UNKNOWN. Proof: harness record now keeps r28 = 0xFFFFFFFF821F8660 across the call and the w156H callee-clobber oracle finds nothing for 8216B0A0 / 8216C400 (EQUIV-STRICT); nav_mac hub PASS, nav360 q2 VERDICT PASS, boss1 PASS, app-smoke steps vs the probe PASS, 12-min ARCADE soak RSS 425 -> 557 (+132, Q5 control +133), 0 FATAL/VK_ERROR, 0 dropouts, 59.94 Hz. **No screen changed** (B1 14/14 byte-identical vs w156H; B4 pre/post within the same-build band) -> decomp control baselines unchanged. The user's .app needs a rebuild to carry it.
 ---
 
-## §5 OPEN RULINGS FOR THE USER
+## §5 RULINGS (history; the current lists are §0.4 recorded and §0.5 open)
 
 - **RULED 2026-10-11 ~14:10 (was O1) — flicker acceptance:** "clean measurement is good for RC1." Eyes-clean +
   census-clean on the current build closes BACKLOG #0 for RC1 (§1 R15); the 07-26/07-28 compose-1:1 acceptance moves to
   the long-term decomp lane. Note for the record: the census cannot see the present/glass alternation class (07-28,
   Windows RenderDoc); the user's eyes cover that class.
-- **O2 Co-op in RC1?** Recommendation: IN (scripted proof is cheap, Q9; the couch session is the only eyes cost).
-- **O3 Steam Deck arm.** Recommendation: NOT gating RC1; an RC1-follow AppImage/zip from the same tag, validated by
+- **O2 Co-op in RC1? — RULED IN (§0.4).** Recommendation was: IN (scripted proof is cheap, Q9; the couch session is the only eyes cost).
+- **O3 Steam Deck arm — RULED follow-on (§0.4).** Recommendation was: NOT gating RC1; an RC1-follow AppImage/zip from the same tag, validated by
   `modes_deck.sh` + one Steam-shortcut session including XBOX 360 mode on screen and Steam Input.
-- **O4 Full-clear requirement.** Does RC1 require a 1-ALL per mode, and is it yours (Q6) or a scripted one? A scripted
+- **O4 Full-clear requirement — RULED: the user's Original clears, no cheats, no lever (§0.4).** Does RC1 require a 1-ALL per mode, and is it yours (Q6) or a scripted one? A scripted
   clear would need a harness-only invincibility lever (guest RAM poke, default off, never in the bundle) — allowed or
   not? Recommendation: your two Original clears with replays saved; no invincibility lever.
-- **O5 Difficulty scope.** Recommendation: 1-ALL on Original only; Maniac/Ultra = every stage+boss reached (Q3).
+- **O5 Difficulty scope — see §0.5 item 3 (confirm).** Recommendation: 1-ALL on Original only; Maniac/Ultra = every stage+boss reached (Q3).
 - **O6 Distribution (standing rule, restated for sign-off).** The port ships ZERO game content publicly; F&F bundles
-  carry your dump and go only to people who own the game (Drive F&F link); the SHARED share holds the archive copy.
-  Who gets RC1, and is the Drive route still the channel?
-- **O7 Version name + freeze.** `0.3.0-rc1` (recommended) vs `1.0.0-rc1`; and the freeze rule in §1 (decomp
+  carry your dump and go only to people who own the game. **RULED (per the 2026-10-12 brief): the channel is the SHARED release share, NOT Google Drive** (§0.4, §6.6).
+  Still yours: who gets RC1.
+- **O7 Version name + freeze — RULED `0.3.0-rc1` + freeze rule (§0.4, §6).** `0.3.0-rc1` (recommended) vs `1.0.0-rc1`; and the freeze rule in §1 (decomp
   promotions continue on main; the bundle is only re-cut from a tagged realcomp+decomp pair after the Q5 chain).
 - Carried from the decomp ledger, not RC1-blocking: PNG history purge (ruled NO today), band-tightening (ruled today:
   Ruling A), task_w106 delete (ruled YES today).
+
+---
+
+## §6 FREEZE & SHIP PLAN (proposal for the user -- extends docs/PLAN_beta3_mac.md)
+
+PLAN_beta3_mac.md defined beta 3 as two modes, Apple silicon + macOS 13+, built by `mac-build/build_mac_app.sh`, zipped with
+`ditto -c -k --keepParent`, flicker shipped as a known issue. RC1 reuses that machinery unchanged; what changes is the
+bar (§0), the version, the freeze discipline and the distribution channel.
+
+### 6.1 Version
+`0.3.0-rc1` (recommended over `1.0.0-rc1`): `VER=0.3.0-rc1` feeds both Info.plist keys and the README.
+
+### 6.2 Freeze rule
+1. Decide the cut only when §0.3 column (A) is empty and column (B) has a date.
+2. Tag **`v0.3.0-rc1`** on futari_realcomp `main`. Record **both** hashes -- the realcomp tag commit and the exact futari_decomp
+   commit the linked TUs come from (the `decomp/` tree the build used, i.e. `git -C ../futari_decomp rev-parse HEAD` at build time,
+   with a clean decomp worktree) -- in the bundle README (build-id line, which today prints only the realcomp short hash) and in
+   `STATUS.md`. A dirty tree (`-dirty` in the build id) is not a cut.
+3. Decomp promotions continue on main after the cut; the bundle is only re-cut from a new tagged pair after the chain passes on it.
+4. After the tag: no engine change enters RC1 except a fix for a FATAL or a blocking-list defect, which makes the next candidate rc2 (§6.7).
+
+### 6.3 Build recipe
+- macOS: `VER=0.3.0-rc1 bash mac-build/build_mac_app.sh` (checks every Mach-O minos 13.0, MoltenVK/SDL3 bundled, README + licences,
+  icon, self-signed ad-hoc signature; output `~/Desktop/projects/Futari Realcomp.app`). Before running it: rewrite the README heredoc in the
+  script (it still says BETA 3, "Not a release", and lists the beta-3 known issues) to the RC text -- the §1 allowed-known-issues list plus
+  the §0.5 accepted divergences -- and add the two commit hashes of §6.2.
+- Steam Deck / Linux: the PLAN_beta3 recipe (`mac-build/deck/`, `build_linux_dll.sh` in a Rosetta container, AppImage via
+  `make_appimage.sh`, upload via the `_serve` tunnel) is a **follow-on**, rebuilt from the same tag after the Mac RC1 is signed off (ruling O3);
+  it is not part of this cut.
+
+### 6.4 What the RC1 zip contains
+The `.app` made by `ditto -c -k --keepParent` -- engine + both module dylibs + SDL3 + MoltenVK + licences + README, **and the user's own
+game data inside** (`Contents/Resources/assets`). Therefore: **family-and-friends only, to people who own the game, never public.**
+The public form of this project ships zero game content (the UnleashedRecomp model); an RC1 zip must never be posted to a public place. Record the md5 of the
+zip and of every Mach-O in the cut notes.
+
+### 6.5 Smoke and sign-off on the frozen bundle
+Must pass on the cut `.app` itself (not a probe), launched from Finder:
+1. `scripts/app_smoke_mac.sh` -- boot, 2/2 modules bound, 0 FATAL, 59.9-60.0 Hz, Quit leaves no process, save read back.
+2. The Q1 census criterion: 0 DROPOUT-CONFIRMED outside the named deterministic classes (PRESS START strobe; the 360 card-LEFT quad), 0 FATAL/VK_ERROR, 3,600 frames/min, 0 underruns, shell + both modules at RC length (Q1 recipe, `_local/rc1/PREREG_rc1.txt`, with the RVK_CENSUSTEST positive control this time).
+3. The G-START check: ARCADE, START on the hub root and inside OPTION -> no `[navreal] d76 1->2`, the shell menu stays up (`scripts/gstart_mac.sh`).
+4. The 5-swap cycle and the 360 nav route (`scripts/nav360_mac.sh`) once each on the bundle engine.
+**Sign-off: the user, by eyes** -- the §0.3(B) list on this exact .app. An agent PASS does not sign off RC1.
+
+### 6.6 Distribution
+The **SHARED release share on the NAS** (nginx :8088 + cloudflared, see the arch-vm notes) once the NAS is back online -- it has been offline since the
+10-07 LAN renumber to 10.0.0.x and the share copy of beta 3 is still owed. **Fallback for F&F:** the cloudflared quick tunnel over a loopback
+`http.server` from `~/Desktop/projects/_serve/` (the route used for the Deck artefacts on 10-05), link sent only to named testers. Google Drive
+(`scripts/upload_gdrive.sh`) is not the RC1 channel.
+
+### 6.7 RC1 -> RC2 versus RC1 -> 1.0
+- **RC1 -> RC2:** any FATAL or hang in tester use; any new defect class not in §1's allowed list (save loss, missing menu rows, wrong-mode substitution, sprite/texture defect, missing audio, non-60 pacing); any regression of a §0 PASS found on the frozen bundle; any engine change after the tag (even a fix).
+- **RC1 -> 1.0:** a tester round (agree the length with the user) with no new defect class and no FATAL, all §0.3 items closed, the post-RC1 list triaged (G5-fix, the five UNDER stubs, the 360 START-wire address, Deck/Linux follow-on), and the public form still ships zero game content. 1.0 is a re-cut with `VER=1.0.0` from a new tagged pair, not a rename of rc1.
