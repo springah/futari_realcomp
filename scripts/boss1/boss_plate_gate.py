@@ -41,7 +41,7 @@ import numpy as np
 from PIL import Image
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
-BANK = os.path.join(ROOT, '_local', 'boss1_mac')
+BANK = os.environ.get('BOSSPLATE_BANK') or os.path.join(ROOT, '_local', 'boss1_mac')   # BOSSPLATE_BANK=_local/rc1/q7v: the XBOX 360 drive (scripts/boss360_mac.sh)
 X0, X1, Y0, Y1 = 480, 820, 100, 420        # head search box, 1280x720 dump
 HW = 110                                   # half-width of the symmetry band
 AXES = range(540, 741, 4)

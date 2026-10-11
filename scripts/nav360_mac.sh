@@ -79,6 +79,8 @@ node stage1_go             1000  "$M_GO"           10 0
 if tail -n +"$((MARK+1))" "$LOGF" | grep -q 'BGM cue1 (m02_stg1)'; then say "PASS stage1  (BGM cue1 m02_stg1)"; echo "PASS stage1" >> "$V"
 else say "TIMEOUT stage1 (no m02_stg1 cue)"; echo "FAIL stage1 (no m02_stg1 cue)" >> "$V"; FAIL=1; [ "$STRICT" = 1 ] && { shot stage1_FAIL; finish; }; fi
 sleep 3; shot stage1
+# STAGE_DWELL=<s> (RC1 Q7v stagepix360): stay in stage 1 for <s> more seconds, shoot, and stop (default unset = the unchanged full route)
+[ "${STAGE_DWELL:-0}" -gt 0 ] && { sleep "$STAGE_DWELL"; shot stage1_dwell; finish; }
 grep -q 'GameEntry(msg=10,' <(tail -n +"$MARK" "$LOGF") && { echo "FAIL stage1 ended at once (msg=10 = replay-save prompt)" >> "$V"; FAIL=1; }
 # ---- pause / resume (resume = A on RESUME, cursor 0; START does NOT resume) ----
 node pause                 10    'BA4D8(ACTIVE).*vt=0x82050488 .*cursor=0 state 0x82061D50->0x82061D50' 10 2
