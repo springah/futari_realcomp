@@ -602,6 +602,19 @@ std::atomic<int> g_rt_startline{0};
 // every game frame; syn_sample drops the START line while it is closed. 1 = live (pre-first-cb3 default:
 // identical to the old behaviour). RT_STARTWIRE_NOGATE=1 restores the ungated wire (A/B repro lever).
 std::atomic<int> g_rt_gamefocus{1};
+// DC-2 (RC1, 2026-10-12): the START line may only reach the game AFTER the shell has evaluated the same press.
+// The shell's in-stage pause trigger (driver tick sub_821C69F0, loc 821C6D00..821C6DAC) reads user-0's processed EDGE
+// word (rec+68 & 0x8) and opens PAUSE for player i only while the game's own status byte st[1+i] (0x887AD545 =
+// "P1 at the CONTINUE countdown", written by the game's FUN_88137708) is still 0 and the player is active. Any input
+// the real shell hands the game (cb3) is consumed by the game AFTER that tick, so at "CONTINUE?" the shell sees
+// p1cont=1 (no pause) and the game continues. The port's START wire sampled the host button directly, so the game
+// could take the continue (p1cont 1->0, player active again) one or two frames BEFORE the shell's tick saw the edge --
+// which then found p1cont=0 and opened PAUSE on top of the continue (ARCADE 3/4 first presses, Q5 rc_chain item C).
+// g_rt_startedge is latched by the driver-tick hook (merged_shell.cpp sub_821C69F0, after the guest body) when that
+// tick has seen the START edge; syn_sample asserts the line only while START is held AND the latch is set; release
+// clears it. RT_STARTWIRE_RAWLEVEL=1 restores the old host-level timing (A/B lever).
+std::atomic<int> g_rt_startedge{0};
+std::atomic<int> g_rt_startheld{0};   // START held && game focus (the line before the DC-2 ordering latch)
 static uint16_t syn_buttons_now(){
   // Synthetic output requires explicit opt-in (2026-07-17 desktop-launch fix): without this, the
   // built-in fallback schedule below (START pulse every 2s + A offset 1s) fired on ANY run —
@@ -996,8 +1009,13 @@ static uint16_t rt_xinput_buttons(int idx){
 static uint16_t syn_sample(){
   uint16_t b=(uint16_t)(syn_buttons_now()|rt_host_buttons()|rt_fifo_buttons()|rt_xinput_buttons(0));
   { static const bool nogate = getenv("RT_STARTWIRE_NOGATE")!=nullptr;   // G-START: honour the shell's game-input gate
+    static const bool rawlevel = getenv("RT_STARTWIRE_RAWLEVEL")!=nullptr; // DC-2: old host-level timing (A/B lever)
     const bool focus = nogate || g_rt_gamefocus.load(std::memory_order_relaxed)!=0;
-    g_rt_startline.store(((b & 0x0010) && focus)?1:0, std::memory_order_relaxed); }   // START (wButton 0x10) = 1P-START line
+    const bool held = (b & 0x0010)!=0;
+    if(!held) g_rt_startedge.store(0, std::memory_order_relaxed);          // DC-2: a release re-arms the ordering latch
+    g_rt_startheld.store((held && focus)?1:0, std::memory_order_relaxed);
+    const bool seen = rawlevel || g_rt_startedge.load(std::memory_order_relaxed)!=0;
+    g_rt_startline.store((held && focus && seen)?1:0, std::memory_order_relaxed); }   // START (wButton 0x10) = 1P-START line
   if(b!=g_syn_last){
     if(b){ uint16_t vk=syn_pad_to_vk(b); if(vk){ g_syn_ks.push_back((uint32_t)vk<<16 | 0x0001); // KEYDOWN
         std::fprintf(stderr,"  [xinput] press pad=0x%04X vk=0x%04X\n",b,vk); } }

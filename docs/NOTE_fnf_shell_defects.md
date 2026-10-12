@@ -2492,3 +2492,58 @@ Seat: Sonnet, unattended, drive lock. Engine = d3c9b23 code (realcomp main 73ea6
 * **360 card-LEFT quad (base 0x34E0000, len=1, 7/7 -> 12/12 legs): AUTHENTIC, game-issued.** Host-armed one-shot RVK_QUADCENSUS (K=16, armed 2 presents after the LEFT press), 5 arms (3 on the probe, 2 on a host with 94 of 96 decomp shell TUs removed): the card art atlas (2048x1024 fmt6, vs=1 ps=2, 2 card draws; the 2 glint quads join at rest) is absent on exactly LEFT+12 presents. Raw guest draw count nDraws 99 -> 97 -> 101 (the stream itself loses the two draws), the census `missRec{build=0 noscratch=0 spliced=0}` (nvk_on_draw_core dropped nothing: no scratch==0 / count==0 call, no command-list build), no per-draw quad line for the base on that frame. The carousel tween keeps a constant 44.7 px/frame through the hidden frame (x = -92.5, -47.8, [-3.1 hidden], 41.5 rest) = the animation state advanced and no draw was issued. Identical on the lift-only host -> not the decomp layer, not the renderer. Residual caveat: no real-360 trace exists; "authentic" = the original shell code as lifted. A user-visible 1-frame blink of the card at the carousel hand-off would be that code's behaviour.
 * **w136 menu-atlas pair (base 0x49C4000): AUTHENTIC panel hand-off.** The Options-tour route (futari_decomp bank/r23/w136 drive_v3 + route_v3, outputs redirected under `_local/rc1/q7v/w136_*`) reproduces the five 2-frame losses (class/v0/len identical; frames now f2459/4563/7603/7927/8231, +90..+400 vs the 10-05 binary). One-shot quad census armed 12 frames before each: the "pair" is a 9-slice panel frame (128x128 atlas, 18 draws outgoing / 9 incoming) that is hidden for 2 frames at a panel SWITCH while the outgoing panel's entire draw list vanishes in the same frame (nDraws 790 -> 524, 0x2930000 draws 326 -> 124) and the incoming panel's resized frame (-392.5..391.5 -> -280.5..279.5 wide) returns 2 frames later; recorder counters 0.
 * Consequence: both RC1 "unattributed deterministic losses" close as PASS-WITH-NOTE (original-code behaviour); no renderer change, no new §3 gap. The census K/R filters make panel/animation hand-offs read as DROPOUTs; ALWAYS pair a deterministic dropout with the raw nDraws drop before calling it a port defect.
+
+## 2026-10-12 -- DC-1 (RC1 Q5): "second TRAINING start dead in-process" -- NOT A DEFECT (harness marker cap); script fixed
+Seat: Opus defect seat, unattended, drive lock. Probe `build/dc_probe/dc_probe` = fresh `build_mac_dll.sh` of main a2d535b
+(engine d3c9b23 + G-START 619a190) + futari_decomp HEAD f5b9cac3 (`git archive` -> build/dc_decomp), evidence `_local/rc1/dc/`.
+**Repro (the Q5 claim):** after one TRAINING session in a process the next Training panel "ignores A, START, B and UP";
+`scripts/rc_chain_mac.sh <tag> <bin> T2` failed in both modes, item T failed after RESTART / NP game over / SA game over.
+**What the Q5 logs actually show** (`_local/rc1/q5c/{t2a_T2_*,f4_B_*,f5_C_x360,f5_D_*}/guest.log`): in EVERY failing leg the
+FIRST A on the re-opened/next panel started training -- `GameEntry(msg=18,` (the shell's start-training send) followed by
+`[navreal] d76 1->2->3->4` (ARCADE) / `[nav360] d76=4` (360) = stage entered; shot `t2_FAIL` is the running stage, not the
+panel. The later "ignored" A/START/START/B presses landed in the running stage (360: cred 3->2->1->0 = deaths). The
+`[pidx] rawbtn=0x1000 -> mask=0x0` lines are the release frames of a press (the log prints only on mask change; rawbtn
+reads +176, not the processed level) -- not a dropped input.
+**Root cause (harness):** the script's success marker `[dclose] slide-out ... vt=0x82050F00` is printed only for the first 8
+slide-outs per process (`out_reco/merged/merged_shell.cpp:3764`, `if(i<=8)` in the sub_821BEED8 hook); the first training
+session uses all 8, so every later start in the same process "timed out". Same class: `[gemsg]` (3 calls per msg id,
+merged_game.cpp:4268), `[p0build]`, `[tstate] 96660(load)` (4) -- the T3 leg below first tripped on the capped hub-return
+markers too. One-leg-per-process sweeps never saw it because the cap only bites from the second session on.
+**Hypotheses:** H1 (G-START gate stuck closed) REJECTED -- `[cb2gate] INPUT-LIVE` follows msg=18 on the second start and
+the game enters the stage, no NOGATE/pre-fix A/B needed (nothing to fix); H2 (shell +152 flag left set) REJECTED (same
+line); H3 (pad routing after a module swap/PREVIOUS MENU) REJECTED (`[xinput] press` -> `[pidx] mask=0x1` -> msg=18).
+**Fix (script only, no engine change):** `scripts/rc_chain_mac.sh` training_to_stage1 accepts `dclose` OR `GameEntry(msg=18,`
+OR the module's own stage entry (`stage_re`, uncapped transition log) and skips the dialog press when the stage is already
+entered; T2 now requires stage entry, then pauses, exits via PREVIOUS MENU and runs a THIRD start from the hub (T3); hub
+return also accepts the uncapped module marker `hubback_re` (`[navreal] d76 0->1` / `[nav360] ... st=5 d76=1 field=0`).
+**Proof:** T2 (+T3) PASS x2 per mode on dc_probe: `fixa_T2_arcade`, `fixa_T2_x360`, `fixb_T2_arcade`, `fixb_T2_x360`
+(second start = first A on the re-opened panel, third start via hub, each enters the stage; 0 FATAL).
+
+## 2026-10-12 -- DC-2 (RC1 Q5): ARCADE START at "CONTINUE?" opened PAUSE -- FIXED (host, default ON): START wire ordering
+**Repro:** `RT_PAUSEPROBE=1 bash scripts/rc_chain_mac.sh <tag> <bin> CX arcade` (new item: NORMAL PLAY idle deaths, START
+once at each CONTINUE? countdown, CX_N tries, CX_DELAY s after the countdown starts). Old timing arm
+(`RT_STARTWIRE_RAWLEVEL=1`, = the START wire exactly as in a2d535b): paused 1/5 (`raw1`) + 2/8 (`raw2`) = 3/13; Q5 C leg 3/4.
+**Ground truth (shell code):** the in-stage pause trigger is the GameDriverTask tick sub_821C69F0
+(`shell/gen/ppc_recomp.34.cpp:14963-15060`, loc 821C6D00..821C6DAC): with st = *(driver+180) = the module's status block
+0x887AD544 (msg 8), it opens PAUSE (vt+0x14, msg 10) for player i only if st[0]==0, st[4]==5, st[6]!=6/7, user i's
+processed EDGE word rec+68 has 0x8 (START), the player is active (driver+136 bit i) and **st[1+i]==0**. st[1] = 0x887AD545 is
+the game's own "P1 at the CONTINUE countdown" mirror (ARCADE FUN_88137708: `DAT_887ad545 = DAT_884d6d74`,
+reco_normal_decomp_all.txt:125056). So by design START during the countdown is the game's (continue), never the shell's.
+**Measured (RT_PAUSEPROBE, new harness log, default off):** countdown = st `00 01 00 ..`, act=0. Old arm, the 2 raw2
+failures: the shell tick saw the START edge with `st=00 00 00 act=0x1` -- the game had ALREADY taken the continue (player
+re-activated, p1cont 1->0) one or two game frames before the shell tick evaluated the same press -> every pause condition
+true -> msg 10 on top of the continue. Successes saw `st=00 01 00`.
+**Root cause (port):** the RT_STARTWIRE line (`shell/gen/stubs.cpp` syn_sample) followed the HOST button level, sampled
+independently of the shell's input pipeline, so the game could act on START before the shell's tick had processed the
+edge. Any input the real shell hands the game reaches it after the shell's own per-frame evaluation; the wire raced it.
+Not the G-START gate (the gate is open in-stage; `RT_STARTWIRE_RAWLEVEL=1 RT_STARTWIRE_NOGATE=1` = the pre-619a190 path
+reproduces too, `pre_CX_arcade`), and the bug predates 619a190 (the wire is from 07-23).
+**Fix:** `g_rt_startedge` (shell/gen/stubs.cpp, next to g_rt_gamefocus): the driver-tick hook
+(`out_reco/merged/merged_shell.cpp`, sub_821C69F0, right after the guest body) latches it when that tick has seen user-0's
+START edge (rec+68 & 0x8); syn_sample asserts the START line only while START is held AND focus AND the latch is set;
+release clears it. So the game gets START only after the shell decided pause-or-not on it -- the order the real cb3 path
+has. Faithful by construction -> default ON; `RT_STARTWIRE_RAWLEVEL=1` = old timing (A/B lever). Host-only (futari_combined);
+module dylibs and decomp untouched.
+**Proof (dc_probe, default env):** ARCADE CX 16/16 continued, 0 pauses (`fix1` delay 1 s, `fix3` delay 2 s; every edge seen with
+p1cont=1 act=0) vs old timing 5/21 paused (`raw1`, `raw2`, `pre`); XBOX 360 CX 3/3 continued (`fix2`). Non-regression: see the PLAN_RC1 §4.2 DC paragraph (G-START repro 0 leaks, nav360 q2, rc_chain
+B/D both modes, SM/SM2 shell smoke steps, boss1 title START, in-stage START still pauses).

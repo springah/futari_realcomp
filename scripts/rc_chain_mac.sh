@@ -6,6 +6,10 @@
 #                       -> game over -> replay-save prompt (decline) -> title/ranking                                      (per mode)
 #   D  SCORE ATTACK     hub -> SCORE ATTACK -> Xbox LIVE sign-in dialog -> decline (A:OK) -> what follows                 (per mode)
 #   E  REMAP            OPTION -> Controller -> change one binding -> quit -> relaunch same save -> read back -> play proof -> restore
+#   T2                  (DC-1) training start from the panel that re-opens after PREVIOUS MENU, then a THIRD start via the hub (T3)
+#   CX                  (DC-2) START once at each CONTINUE? countdown, CX_N tries (default 3), CX_DELAY s in (default 3); needs RT_PAUSEPROBE=1
+#   SM / SM2            shell smoke steps of app_smoke_mac.sh against a probe binary (title -> card -> hub -> top), then relaunch: save read back
+#   RCC_ROOT / SAVEPFX  bank root (default _local/rc1/q5c) / save-dir prefix (default q5c)
 #   all                 A, then B C D E for arcade and x360.     Mode arg (or MODE=) limits B-E to one mode; A always runs both.
 # The binary must be a uniquely-named copy of the host (cp build/<x>/futari_combined build/<x>/<name>): the leg is killed with `pkill -x <name>` ONLY.
 #   bash scripts/rc_chain_mac.sh r1 build/q5c_probe/q5c_probe all
@@ -24,7 +28,7 @@ set -u
 cd "$(dirname "$0")/.."
 TAG="${1:?tag}"; BIN="${2:?bin}"; ITEM="${3:-all}"; ONLYMODE="${4:-${MODE:-}}"; PN="$(basename "$BIN")"
 [ -x "$BIN" ] || { echo "no $BIN"; exit 2; }
-ROOT=_local/rc1/q5c; LOCK=/tmp/futari_drive.lock; FIFO="${FIFO:-/tmp/futari_pad_q5c}"; GOT=0
+ROOT="${RCC_ROOT:-_local/rc1/q5c}"; LOCK=/tmp/futari_drive.lock; FIFO="${FIFO:-/tmp/futari_pad_q5c}"; GOT=0; SAVEPFX="${SAVEPFX:-q5c}"
 mkdir -p "$ROOT" _local/saves
 OVERALL=0
 
@@ -98,7 +102,7 @@ boot_hub(){ # title -> hub in $LMODE
   title_to_top; card_decide "$LMODE"
   if [ "$LMODE" = x360 ]; then need modswap2 '\[modswap\] #2 DONE' 120; enter_hub 90; else sleep 8; enter_hub 60; fi; }
 SEEDS(){ echo "_local/saves/save_rc1_rc1m_$1"; }
-RT_SAVE_DIR=""; setsave(){ RT_SAVE_DIR="_local/saves/q5c_${TAG}_$1"; }
+RT_SAVE_DIR=""; setsave(){ RT_SAVE_DIR="_local/saves/${SAVEPFX}_${TAG}_$1"; }
 
 # ---------------------------------------------------------------------------------------------------- item A
 item_A(){
@@ -129,6 +133,7 @@ item_A(){
 stage_re(){ [ "$LMODE" = x360 ] && echo '\[nav360\] D=0x60 st=5 d76=4 ' || echo '\[navreal\] d76 3->4'; }
 dead_re(){ [ "$LMODE" = x360 ] && echo 'd76=5 ' || echo 'd76 4->5'; }        # continue countdown expired -> game over begins
 exit_re(){ [ "$LMODE" = x360 ] && echo 'st=2 d76=8 ' || echo '\[navreal\] d76 6->8'; }   # stage torn down (replay-save prompt follows); [gemsg] msg=N lines are capped at the first calls, never gate on them late
+hubback_re(){ [ "$LMODE" = x360 ] && echo '\[nav360\] D=0x60 st=5 d76=1 field=0' || echo '\[navreal\] d76 0->1 '; }   # module back at its hub (d76=1) after a stage teardown -- uncapped
 title_re(){ [ "$LMODE" = x360 ] && echo '\[nav360\] D=0x60 st=3 ' || echo '\[navreal\] st 2->3'; }
 wander(){ # $1 = pattern to stop on, $2 = ceiling s: fly UP-LEFT / UP-RIGHT (no shots) until the pattern shows; sets WANDER_T
   local t=0 w=5; WANDER_T=-1; while [ $t -lt "$2" ]; do newlog | grep -a -q -- "$1" && { WANDER_T=$t; break; }; [ $((t%3)) = 0 ] && { [ $w = 5 ] && w=9 || w=5; }; echo "$w" > "$FIFO"; sleep 1; t=$((t+1)); done; echo 0 > "$FIFO"; [ "$WANDER_T" -ge 0 ]; }
@@ -136,10 +141,17 @@ PAUSE_RE='BA4D8(ACTIVE).*vt=0x82050488 .*cursor=0 state 0x82061D50->0x82061D50'
 training_to_stage1(){ # hub -> TRAINING panel -> A (dialog), A -> stage 1 entry (default options; ships die on their own ~20-30 s). Presses can be dropped: each A retried.
   pstep 2 hub_down1 '\[mcur\] .*cursor 0->1' 5 1.5; pstep 2 hub_down2 '\[mcur\] .*cursor 1->2' 5 1.5
   pstep 1000 training_open '\[decide\] .*item=2 ' 8 4; shot panel_open    # [tstate] 96660(load) is not re-emitted on later panels
-  local t ok=0 pw; TS_A_DEAD=0; for t in 1 2 3 4; do pw=1000; [ $t -ge 3 ] && pw=10; mark; press $pw 0.2; waitnew 'dclose.*vt=0x82050F00' 8 && { ok=1; break; }; say "no dclose after pad $pw try $t"; done
-  if [ $ok = 1 ]; then say "dclose seen (pad $pw try $t)"; if [ $t -ge 3 ]; then TS_A_DEAD=1; info "TRAINING panel: A (0x1000) x2 did nothing; pad $pw opened the start dialog"; fi
-  else bad "training start dialog never opened (A x2, START x2; panel stays; see [pidx] mask=0 in the log)"; shot dialog_FAIL; [ "${SOFT:-0}" = 1 ] && { TS_OK=0; return 1; }; leg_end; fi; sleep 1
-  ok=0; for t in 1 2 3; do pw=1000; [ $t = 2 ] && pw=10; mark; press $pw 0.2; waitnew "$(stage_re)" 25 && { ok=1; break; }; say "no stage entry after dialog pad $pw try $t"; done
+  # DC-1 (10-12): the start marker is the shell's msg-18 send / the module's own stage entry. The old marker, `[dclose]
+  # slide-out ... vt=0x82050F00`, is printed only for the first 8 slide-outs PER PROCESS (merged_shell.cpp sub_821BEED8
+  # `if(i<=8)`), and the first training session uses all 8 -- so every later training start in the same process
+  # looked "dead" although msg=18 + d76 1->2->3->4 followed the first A (Q5 f4_B/f5_C/f5_D/t2a logs). [gemsg] is capped
+  # at 3 calls per msg id, so the stage-entry marker (uncapped, transition-logged) is the one that always holds.
+  local t ok=0 pw; TS_A_DEAD=0; local SRE="dclose.*vt=0x82050F00\|GameEntry(msg=18,\|$(stage_re)"
+  for t in 1 2 3 4; do pw=1000; [ $t -ge 3 ] && pw=10; mark; press $pw 0.2; waitnew "$SRE" 8 && { ok=1; break; }; say "no start marker after pad $pw try $t"; done
+  if [ $ok = 1 ]; then say "training start accepted (pad $pw try $t)"; if [ $t -ge 3 ]; then TS_A_DEAD=1; info "TRAINING panel: A (0x1000) x2 did nothing; pad $pw opened the start dialog"; fi
+  else bad "training start never accepted (A x2, START x2: no dclose / msg=18 / stage entry)"; shot dialog_FAIL; [ "${SOFT:-0}" = 1 ] && { TS_OK=0; return 1; }; leg_end; fi; sleep 1
+  ok=0; waitnew "$(stage_re)" 6 && { ok=1; t=0; say "stage entered without a dialog press"; }
+  [ $ok = 1 ] || for t in 1 2 3; do pw=1000; [ $t = 2 ] && pw=10; mark; press $pw 0.2; waitnew "$(stage_re)" 25 && { ok=1; break; }; say "no stage entry after dialog pad $pw try $t"; done
   [ $ok = 1 ] && ok "stage1_entry (dialog A try $t)" || { bad "stage1_entry"; shot entry_FAIL; [ "${SOFT:-0}" = 1 ] && { TS_OK=0; return 1; }; leg_end; }; TS_OK=1; shot entry; }
 np_to_stage1(){ # hub -> NORMAL PLAY -> 1P SIDE START -> mode select (Original) -> char -> shot -> stage 1 (4 s cadence)
   pstep 2 hub_down1 '\[mcur\] .*cursor 0->1' 5 0.5; pstep 1000 np_submenu '\[decide\] .*item=1 ' 5 3
@@ -171,7 +183,7 @@ body_B(){ say "=== B RESTART ($LMODE) ==="; training_to_stage1; sleep 3; pause_n
 item_B(){ setsave B_$1; leg_begin B_$1 "$1" "$(SEEDS $1)"; boot_hub; body_B; body_T afterRestartSession; leg_end; }
 training_exit_to_hub(){ # (in the training pause menu) PREVIOUS MENU -> confirm -> hub -> the panel re-opens by itself -> B -> hub, cursor back to row 0
   press 2 1.2; press 2 1.2; press 2 1.2; shot previous_menu_cursor      # in TRAINING the 4th pause row reads PREVIOUS MENU (NORMAL PLAY: RETURN TO TITLE)
-  press 1000 2.5; shot previous_menu_confirm; mark; press 1000 0.2; need previous_menu_to_hub 'p0build\] menu_game_title\|GameEntry(msg=11,' 25; sleep 4; shot hub_after_training
+  press 1000 2.5; shot previous_menu_confirm; mark; press 1000 0.2; need previous_menu_to_hub "p0build\\] menu_game_title\\|GameEntry(msg=11,\\|$(hubback_re)" 25; sleep 4; shot hub_after_training
   sleep 5; shot panel_reopened; press 2000 3; shot hub_cursor_training
   pstep 1 hub_up1 '\[mcur\] .*cursor 2->1' 5 1; pstep 1 hub_up2 '\[mcur\] .*cursor 1->0' 5 1; }
 body_T(){ # training start probe in the CURRENT process state ($1 = label): entry, 6 s of play, pause, PREVIOUS MENU, hub. SOFT: records PASS/FAIL, never ends the leg on a missed start
@@ -196,13 +208,32 @@ body_C(){ say "=== C CONTINUE ($LMODE) ==="; np_to_stage1; TE=$(date +%s)
   info "name entry: none expected (score 0 does not rank) -- shots after_decline/title show the next screen"; sleep 4; shot title_ranking
   enter_hub 60; shot hub_after_gameover
   ok "ITEM C CONTINUE ($LMODE): idle death -> CONTINUE -> START resumes -> idle death -> expiry -> game over -> replay prompt B -> title -> hub"; }
+body_CX(){ # DC-2 continue-by-START proof: NORMAL PLAY idle deaths, START once at each CONTINUE? countdown, N times (needs RT_PAUSEPROBE=1:
+  # the countdown marker is the game's own P1-continue status byte 0x887AD545 (+0x60 in 360) going 1, read by the shell's pause trigger)
+  say "=== CX continue-by-START x${CX_N:-3} ($LMODE) ==="; np_to_stage1; local k cont=0 paused=0 CRE='\[pauseprobe\] st@0x[0-9A-F]* = 00 01 '
+  for ((k=1;k<=${CX_N:-3};k++)); do mark; waitnew "$CRE" 150 || { bad "CX#$k: no CONTINUE countdown (p1cont=1) in 150 s"; shot "cx${k}_nodeath"; break; }
+    sleep "${CX_DELAY:-3}"; shot "cx${k}_countdown"; mark; press 10 0.2; sleep 3; shot "cx${k}_after_start"
+    if newlog | grep -a -q 'BA4D8(ACTIVE).*vt=0x82050488\|GameEntry(msg=10,'; then paused=$((paused+1)); bad "CX#$k: START at CONTINUE opened PAUSE"; press 1000 2   # A = RESUME (the game itself already continued under the pause)
+    elif newlog | grep -a -q '\[pauseprobe\] st@0x[0-9A-F]* = 00 00 '; then cont=$((cont+1)); ok "CX#$k: START at CONTINUE continued (p1cont 1->0, no pause)"
+    else bad "CX#$k: START at CONTINUE: neither continue nor pause seen"; fi; done
+  info "CX ($LMODE): continued $cont / ${CX_N:-3}, paused $paused"; }
+item_CX(){ setsave CX_$1; leg_begin CX_$1 "$1" "$(SEEDS $1)"; boot_hub; body_CX; leg_end; }
+item_SM(){ # shell smoke steps of app_smoke_mac.sh, run against a probe binary (never the .app): title -> top -> card ARCADE -> hub -> B -> top
+  setsave SM; leg_begin SM arcade "$(SEEDS arcade)"; boot_hub; hub_to_top
+  grep -a -q "2/2 module DLL(s) bound" "$LOGF" && ok "SM: both modules bound" || bad "SM: modules not both bound"; leg_end; }
+item_SM2(){ # relaunch on SM's save (no reseed): the save must be read back
+  setsave SM; leg_begin SM2 arcade ""; title_to_top; grep -a -q "existed=1" "$LOGF" && ok "SM2: save read back (existed=1)" || bad "SM2: save not read back"; leg_end; }
 item_C(){ setsave C_$1; leg_begin C_$1 "$1" "$(SEEDS $1)"; boot_hub; body_C; body_T NPgameover; leg_end; }
 item_D(){ setsave D_$1; leg_begin D_$1 "$1" "$(SEEDS $1)"; boot_hub; body_D; body_T SAgameover; leg_end; }
 body_T2(){ # isolation probe: after PREVIOUS MENU the panel re-opens by itself; start training again DIRECTLY from it (no B, no hub round-trip)
   say "=== T2 training restart from the re-opened panel ($LMODE) ==="; training_to_stage1; sleep 3; pause_now T2a
-  press 2 1.2; press 2 1.2; press 2 1.2; press 1000 2.5; mark; press 1000 0.2; need t2_to_hub 'p0build\] menu_game_title\|GameEntry(msg=11,' 25; sleep 6; shot t2_panel_reopened
-  SOFT=1; TS_OK=0; local t ok2=0; for t in 1 2 3; do mark; press 1000 0.2; waitnew 'dclose.*vt=0x82050F00' 8 && { ok2=1; break; }; done
-  if [ $ok2 = 1 ]; then ok "ITEM T2 ($LMODE): A on the re-opened panel opens the start dialog (try $t)"; else echo "FAIL ITEM T2 ($LMODE): A on the re-opened panel does nothing (3 tries)" >> "$V"; say "FAIL T2"; FAIL=1; shot t2_FAIL; fi; SOFT=0; }
+  press 2 1.2; press 2 1.2; press 2 1.2; press 1000 2.5; mark; press 1000 0.2; need t2_to_hub "p0build\\] menu_game_title\\|GameEntry(msg=11,\\|$(hubback_re)" 25; sleep 6; shot t2_panel_reopened
+  # DC-1: success = the module's own stage entry (d76 3->4 / nav360 d76=4), not the per-process-capped [dclose] line
+  SOFT=1; TS_OK=0; local t ok2=0; for t in 1 2 3; do mark; press 1000 0.2; waitnew "$(stage_re)" 25 && { ok2=1; break; }; done
+  if [ $ok2 = 1 ]; then ok "ITEM T2 ($LMODE): A on the re-opened panel starts training (stage entry, try $t)"; shot t2_stage2
+    sleep 4; pause_now T2b; training_exit_to_hub; say "=== T3 third training start in the same process, via the hub ($LMODE) ==="
+    training_to_stage1 || true; [ "$TS_OK" = 1 ] && [ "${TS_A_DEAD:-0}" = 0 ] && ok "ITEM T3 ($LMODE): third training start (hub -> panel -> A) enters the stage" || { echo "FAIL ITEM T3 ($LMODE): third training start" >> "$V"; FAIL=1; }
+  else echo "FAIL ITEM T2 ($LMODE): A on the re-opened panel does not start training (3 tries)" >> "$V"; say "FAIL T2"; FAIL=1; shot t2_FAIL; fi; SOFT=0; }
 item_T2(){ setsave T2_$1; leg_begin T2_$1 "$1" "$(SEEDS $1)"; boot_hub; body_T2; leg_end; }
 body_E0(){ say "=== E0 explore OPTION > Controller ($LMODE) ==="
   local k; for k in 1 2 3 4; do pstep 2 "hub_down$k" "\[mcur\] .*cursor $((k-1))->$k" 5 1; done
@@ -246,12 +277,13 @@ item_E(){ item_E1 "$1"; ( item_E2 "$1" ); }
 item_BCD(){ setsave BCD_$1; leg_begin BCD_$1 "$1" "$(SEEDS $1)"; boot_hub; body_B; body_T afterB; body_C; body_T NPgameover; body_D; body_T SAgameover; leg_end; }
 
 # ---------------------------------------------------------------------------------------------------- dispatch
-run_item(){ ( case "$1" in A) item_A;; B) item_B "$2";; C) item_C "$2";; BCD) item_BCD "$2";; T2) item_T2 "$2";; E1) item_E1 "$2";; E2) item_E2 "$2";; E0) item_E0 "$2";; D) item_D "$2";; E) ( item_E1 "$2" ); rc1=$?; ( item_E2 "$2" ); exit $(( rc1 | $? ));; *) echo "unknown item $1"; exit 2;; esac ); [ $? = 0 ] || OVERALL=1; }
+run_item(){ ( case "$1" in A) item_A;; B) item_B "$2";; C) item_C "$2";; CX) item_CX "$2";; SM) item_SM;; SM2) item_SM2;; BCD) item_BCD "$2";; T2) item_T2 "$2";; E1) item_E1 "$2";; E2) item_E2 "$2";; E0) item_E0 "$2";; D) item_D "$2";; E) ( item_E1 "$2" ); rc1=$?; ( item_E2 "$2" ); exit $(( rc1 | $? ));; *) echo "unknown item $1"; exit 2;; esac ); [ $? = 0 ] || OVERALL=1; }
 modes(){ [ -n "$ONLYMODE" ] && echo "$ONLYMODE" || echo "arcade x360"; }
 case "$ITEM" in
   A) run_item A;;
+  SM|SM2) run_item "$ITEM";;
   all) run_item A; for it in B C D E; do for m in $(modes); do run_item "$it" "$m"; done; done;;
-  E1|E2|E0|T2|BCD|B|C|D|E) for m in $(modes); do run_item "$ITEM" "$m"; done;;
-  *) echo "usage: rc_chain_mac.sh <tag> <bin> A|B|C|D|E|all [arcade|x360]"; exit 2;;
+  E1|E2|E0|T2|CX|BCD|B|C|D|E) for m in $(modes); do run_item "$ITEM" "$m"; done;;
+  *) echo "usage: rc_chain_mac.sh <tag> <bin> A|B|C|CX|D|E|T2|SM|SM2|all [arcade|x360]"; exit 2;;
 esac
 exit $OVERALL

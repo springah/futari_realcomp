@@ -3949,6 +3949,22 @@ PPC_FUNC(sub_821C69F0){
   // [modegate] (2026-07-23 mode-menu leg): periodic + on-change log of the dispatch-gate fields
   // (+124==4 && +120==0 && +244!=0) plus mode index +0x78 and mode-record[0..4]+68 — the skip
   // condition hunt for the missing Normal Play/Score Attack menu (user-oracle: unconditional on HW).
+  // [pauseprobe] RT_PAUSEPROBE (RC1 DC-2, 2026-10-12, HARNESS-ONLY, default off): the in-stage pause trigger in this
+  // tick (loc 821C6D00..821C6DAC) opens PAUSE for player i only while the game's status byte st[1+i] == 0
+  // (st = *(driver+180) = the module's 0x887AD544 block; st[1]/st[2] = 0x887AD545/546 = the game's P1/P2
+  // CONTINUE-active mirror, written by FUN_88137708). Log st[0..6] + the player mask/users on every change.
+  if(mc){ static const bool pp=std::getenv("RT_PAUSEPROBE")!=nullptr;
+    if(pp){ uint32_t st=PPC_LOAD_U32(mc+180);
+      if(st){ uint64_t v=0; for(int k=0;k<7;k++) v=(v<<8)|PPC_LOAD_U8(st+k);
+        uint32_t act=PPC_LOAD_U32(mc+136); static uint64_t lv=~0ull; static uint32_t la=~0u;
+        if(v!=lv||act!=la){ lv=v; la=act;
+          std::fprintf(stderr,"[pauseprobe] st@0x%X = %02X %02X %02X %02X %02X %02X %02X (st0 p1cont p2cont 547 phase 549 sub) act=0x%X users=%d,%d\n",
+            st,(unsigned)(v>>48)&0xFF,(unsigned)(v>>40)&0xFF,(unsigned)(v>>32)&0xFF,(unsigned)(v>>24)&0xFF,(unsigned)(v>>16)&0xFF,(unsigned)(v>>8)&0xFF,(unsigned)v&0xFF,
+            act,(int)PPC_LOAD_U32(mc+128),(int)PPC_LOAD_U32(mc+132)); }
+        { uint32_t G=PPC_LOAD_U32(0x821F8588u), m2=G?PPC_LOAD_U32(G+76):0, T=m2?PPC_LOAD_U32(m2+80):0;
+          uint32_t r0=T?PPC_LOAD_U32(T+68):0;   // user-0 processed EDGE word, the one the pause trigger tests (&0x8)
+          if(r0&0x8) std::fprintf(stderr,"[pauseprobe] 69F0#%ld rec0+68=0x%X (START edge) st=%02X %02X %02X act=0x%X\n",
+            i,r0,(unsigned)(v>>48)&0xFF,(unsigned)(v>>40)&0xFF,(unsigned)(v>>32)&0xFF,act); } } } }
   if(mc){
     uint32_t f120=PPC_LOAD_U32(mc+120), f124=PPC_LOAD_U32(mc+124), f244=PPC_LOAD_U32(mc+244), f78=PPC_LOAD_U32(mc+0x78);
     uint32_t G=PPC_LOAD_U32(0x821F8588u), m2=G?PPC_LOAD_U32(G+76):0, T=m2?PPC_LOAD_U32(m2+80):0;
@@ -4013,6 +4029,15 @@ PPC_FUNC(sub_821C69F0){
     } }
   }
   __imp__sub_821C69F0(ctx,base);
+  // DC-2 (RC1): this tick has now made its pause decision for the current START edge (user-0 processed edge word
+  // rec+68 & 0x8, the bit the in-stage pause trigger tests) -- only from here on may the port's START wire hand the
+  // press to the game (shell/gen/stubs.cpp g_rt_startedge), so the game never acts on START before the shell did.
+  if(mc){ uint32_t G=PPC_LOAD_U32(0x821F8588u), m2=G?PPC_LOAD_U32(G+76):0, T=m2?PPC_LOAD_U32(m2+80):0;
+    if(T && (PPC_LOAD_U32(T+68) & 0x8u)){
+      extern std::atomic<int> g_rt_startedge, g_rt_startheld, g_rt_startline;
+      if(!g_rt_startedge.exchange(1, std::memory_order_relaxed) && g_rt_startheld.load(std::memory_order_relaxed))
+        g_rt_startline.store(1, std::memory_order_relaxed);
+    } }
   // [engpump] RT_ENGPUMP: the menu engine's +0x48 state fn is never pumped by the port (root
   // gap, d528701 — sibling 0x37E530 gets pumped, engine doesn't). Diagnostic: tick it ourselves
   // once per 69F0 tick. r3=engine; the d50/d70 thunks dispatch engine->vt[0x30]/[0x34]; r4=0.
@@ -4164,6 +4189,8 @@ PPC_FUNC(sub_821915C0){
   static uint32_t lastmask=0xDEAD;
   if(i<=8 || ctx.r3.u32!=lastmask){ lastmask=ctx.r3.u32;
     std::fprintf(stderr,"[pidx] arr=0x%X user=%u rawbtn=0x%04X -> mask=0x%X\n",arr,user,rawbtn,ctx.r3.u32); }
+  { static const bool pp=std::getenv("RT_PAUSEPROBE")!=nullptr;   // DC-2 harness: every START-edge read, with the caller
+    if(pp && (ctx.r3.u32&0x8)) std::fprintf(stderr,"[pauseprobe] pidx#%ld user=%u mask=0x%X lr=0x%X\n",i,user,ctx.r3.u32,(uint32_t)ctx.lr); }
 }
 static void tprobe_tick(const char* state, uint32_t t, uint8_t* base);   // RVK_TITLEPROBE, defined below
 // [cbf58] the title item's 30-frame-timer state. Counts this+124 to 30 then advances to
