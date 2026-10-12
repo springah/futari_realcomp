@@ -16,6 +16,17 @@
   for history only.
 
 ## 2026-10-12 — ADDED: iOS / iPadOS VERSION (post-RC1 follow-on, user-requested)
+- **SCOPE RULING 2026-10-12 (user): iPad ONLY, "nothing fancy at all", touch controls NOT wanted (deferred).**
+  Shape: landscape, the 720p frame letterboxed into 4:3; input = BT/MFi pad or a keyboard via SDL3's existing
+  GameController + keyboard paths (zero new input code; no pad → a one-line "connect a controller" screen);
+  the game's own TATE option covers portrait. Memory: a modern iPad's per-app limit holds the ~720 MB plateau,
+  so the Darwin page-release fix becomes nice-to-have, not a prerequisite. New work, by risk: SDL3 + MoltenVK
+  iOS static builds (CMake iOS toolchain), the COMBINED single-binary link (FUTARI_COMBINED=1), UIKit lifecycle
+  around our main loop (SDL3 callback mode), saves in the app Documents dir, codesign. Distribution for one
+  person: an ad-hoc developer-account build on the user's own iPad (1 year), no TrollStore. Skip: touch,
+  portrait UI, haptics, iCloud, Game Center, App Store. Revised cost ≈ 3 design + 3 measurement windows.
+  Option 0 (no engineering): Sunshine (Mac) + Moonlight (iPad) + a BT pad — tells us whether iPad Futari is
+  wanted before any port work.
 - **iOS/iPadOS port of the realcomp** (user 2026-10-12: "add an iOS version to the todo"). Viability was
   assessed for the recomp on 2026-06-29 and carries over: the port is AOT static recompilation (no JIT),
   so iOS's W^X ban does not apply; SDL3 and MoltenVK both ship iOS targets; perf is a non-issue on A17+/M-series.
@@ -49,6 +60,8 @@ consecutive ship-nothing legs ⇒ back here for re-ranking, not another leg.
 
 ## NOW — the gate path (menus/shell → F&F build)
 - ✅ **G-START (RC1, 2026-10-12) FIXED**: START in the hub / a hub submenu no longer starts the ARCADE game behind the shell -- RT_STARTWIRE now obeys the shell's own game-input gate (cb3 0x821C5618 *(ctx+152)); host-only, default ON, `RT_STARTWIRE_NOGATE=1` = old path. NOTE_fnf_shell_defects.md 2026-10-12. .app needs a rebuild to carry it.
+- ✅ **DC-2 (RC1, 2026-10-12) FIXED**: ARCADE START at 「CONTINUE?」 no longer opens PAUSE -- the RT_STARTWIRE line now reaches the game only after the shell's driver tick has evaluated the same START edge (g_rt_startedge; the game used to take the continue first, then the shell paused); ARCADE CX 8/8, 360 3/3; RT_STARTWIRE_RAWLEVEL=1 = old timing. Host-only, .app rebuild carries it.
+- ✅ **DC-1 (RC1, 2026-10-12) NOT A DEFECT**: "second TRAINING start dead in-process" was rc_chain gating on the per-process-capped `[dclose]` log line; repeated training starts work (T2+T3 PASS x2 per mode); script fixed.
 - ✅ **KSTUB-OVERCLEAR (RC1, 2026-10-12) FIXED**: XGetVideoMode / VdQueryVideoMode wrote 0x50 bytes into 0x30-byte guest buffers (clobbered callers' saved r26-r28/f31, f30/f31/r14) -> exactly sizeof(X_VIDEO_MODE); no screen changed; audit docs/AUDIT_kstub_sizes.md leaves 5 READ-UNDER stubs (VdGetCurrentDisplayInformation, VdGetCurrentDisplayGamma, VdGetSystemCommandBuffer, ExGetXConfigSetting tz names, XamUserGetXUID) for their own A/B windows; .app rebuild to ship.
 
 0. **SHELL COMPOSE 1:1 (decomp-grounded) — THE flicker lane (re-rank 07-28 ~02:05).**
