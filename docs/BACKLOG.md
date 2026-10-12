@@ -27,6 +27,13 @@
   portrait UI, haptics, iCloud, Game Center, App Store. Revised cost ≈ 3 design + 3 measurement windows.
   Option 0 (no engineering): Sunshine (Mac) + Moonlight (iPad) + a BT pad — tells us whether iPad Futari is
   wanted before any port work.
+- **PORTRAIT TOO (user 2026-10-12).** The game has its own TATE/rotation option in Screen Setting, which draws the
+  vertical playfield rotated inside the 1280x720 frame; the port only needs a HOST-SIDE 90-degree present
+  rotation so that 720p frame's long edge maps to the iPad's long edge (16:9 inside 3:4 portrait = small
+  top/bottom bars). Implement it as a renderer lever `RT_ROTATE=90|270` (final-blit rotation or swapchain
+  pre-transform where MoltenVK allows) on the MAC build FIRST — testable today in a tall window / a rotated
+  monitor, no iOS toolchain needed — then the iPad build inherits it and follows device orientation (or a
+  setting). Pad-only input makes portrait trivial. Cost: +1 design window on the Mac, ~0 on iPad.
 - **iOS/iPadOS port of the realcomp** (user 2026-10-12: "add an iOS version to the todo"). Viability was
   assessed for the recomp on 2026-06-29 and carries over: the port is AOT static recompilation (no JIT),
   so iOS's W^X ban does not apply; SDL3 and MoltenVK both ship iOS targets; perf is a non-issue on A17+/M-series.
