@@ -2,6 +2,8 @@ KNOWN ISSUES (release candidate; each is documented, not new)
   - A single frame of a menu element can be missing, always at the same moment: the PRESS START text for about half a second after you press START
     on the title, and one card-panel graphic when you press LEFT on the XBOX 360 card screen. The original game does this too (authentic, not a port
     bug). docs/NOTE_fnf_shell_defects.md, entry "RC1 Q9/G11".
+  - XBOX 360 MODE "Now Loading" screen: for some button timings one kind of drifting ring sparkle is briefly absent (2-3 frames) between bursts;
+    that is the original loading effect, not a missing element. docs/NOTE_fnf_shell_defects.md, entry "360 NOW-LOADING ring particles".
   - Menu flicker you can see in play but that the frame census cannot (a present-timing effect on some displays) is still an eyes-only item: if you
     see it, say WHERE (title, top menu, hub, in play) and on which display. docs/NOTE_fnf_shell_defects.md, 2026-07-28 flicker arc.
   - ARCADE mode memory grows to about 720 MB over the first ~20 minutes of a session and then stays flat (bounded, no crash seen in a 60-minute run).
