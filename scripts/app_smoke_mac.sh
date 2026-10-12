@@ -5,13 +5,19 @@
 # landed in ~/Library/Application Support, both modules bound, no FATAL; relaunches and checks the save is read back.
 # The pad FIFO reaches a LaunchServices-started process through launchctl setenv (cleared again at the end).
 #   bash scripts/app_smoke_mac.sh "$HOME/Desktop/projects/Futari Realcomp.app"
+# TWO bundles can be on disk (the desktop dev .app and an _rc/<ver> bundle, same CFBundleIdentifier): everything here targets $APP BY PATH --
+# `open -a "$APP"`, quit through `tell application "<path>"`, and kill/wait only engines whose command line is inside $APP (never the other
+# bundle's futari_merged). The caller (scripts/rc_cut_mac.sh) holds /tmp/futari_drive.lock and has checked no other futari_merged runs.
 set -u
 cd "$(dirname "$0")/.."
 APP="${1:-$HOME/Desktop/projects/Futari Realcomp.app}"
 [ -x "$APP/Contents/MacOS/Futari Realcomp" ] || { echo "no launcher in $APP"; exit 2; }
 LOGS="$HOME/Library/Logs/Futari Realcomp"; SAVE="$HOME/Library/Application Support/Futari Realcomp/save"
 FIFO=/tmp/futari_pad_app; echo 0 > "$FIFO"
-pkill -f "Contents/MacOS/futari_merged" 2>/dev/null; sleep 1
+trap 'launchctl unsetenv RT_PAD_HOST_FIFO' EXIT   # the one sanctioned launchctl use: always cleared, also on an early exit
+ENG="$(cd "$APP" && pwd -P)/Contents/MacOS/futari_merged"   # the launcher execs the realpath
+mine(){ local p; for p in $(pgrep -f -- "$ENG" 2>/dev/null); do ps -o command= -p "$p" 2>/dev/null | grep -qF -- "$ENG" && echo "$p"; done; }
+if [ -n "$(mine)" ]; then kill $(mine) 2>/dev/null; sleep 2; fi   # a stale engine of THIS bundle only
 FAIL=0; say(){ echo "[app] $*"; }
 press(){ echo "$1" > "$FIFO"; sleep 0.25; echo 0 > "$FIFO"; say "pad $1"; }
 waitlog(){ local pat="$1" n="${2:-40}" i; for ((i=0;i<n;i++)); do grep -q "$pat" "$LOG" 2>/dev/null && { say "marker: $pat"; return 0; }; sleep 0.5; done; say "TIMEOUT: $pat"; FAIL=1; return 1; }
@@ -24,8 +30,8 @@ launch(){ # $1 = tag
   say "$1: log $LOG"
   waitlog "name='motion/title.lzx'" 120; sleep 4
 }
-quit(){ osascript -e 'tell application "Futari Realcomp" to quit' >/dev/null 2>&1; for ((i=0;i<20;i++)); do pgrep -f "Contents/MacOS/futari_merged" >/dev/null || break; sleep 0.5; done
-  if pgrep -f "Contents/MacOS/futari_merged" >/dev/null; then say "FAIL: engine still running after Quit"; FAIL=1; pkill -f "Contents/MacOS/futari_merged"; else say "quit clean (no process left)"; fi; }
+quit(){ osascript -e "tell application \"$APP\" to quit" >/dev/null 2>&1; for ((i=0;i<20;i++)); do [ -z "$(mine)" ] && break; sleep 0.5; done
+  if [ -n "$(mine)" ]; then say "FAIL: engine still running after Quit (path-targeted AppleScript quit)"; FAIL=1; kill $(mine) 2>/dev/null; sleep 2; else say "quit clean (no process left)"; fi; }
 
 say "== launch 1: fresh"
 launch first || exit 1

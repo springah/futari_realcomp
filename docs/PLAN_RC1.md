@@ -380,6 +380,7 @@ the first drive, and serialize GPU drives with any decomp gate window. **[S]** =
 | 10-12 05:20-06:30 | KSTUB-OVERCLEAR (Opus) | 2 OVER stubs fixed (d3c9b23); 5 READ-UNDER listed; no screen changed | `_local/kstub/`, docs/AUDIT_kstub_sizes.md |
 | 10-12 06:45-09:57 | Q3-sweep Maniac + Ultra, both modes | 20/20 cells PASS: stages 1-5 + boss + stage end, 0 errors, d3c9b23 (R4b both modes PASS) | `_local/rc1/q3s/` |
 | 10-12 10:00-14:10 | Q5 rc_chain (Sonnet, build/q5c_probe d3c9b23 + decomp 6fc61986) | A swap x5 PASS (#2..#10, residue 0 x9, RSS plateau 703 MB); B RESTART PASS x2; C 360 continue PASS, ARCADE START-at-CONTINUE flaky (opens PAUSE 3/4) + second death not reached; D SA decline chain PASS x2 (ends on module TITLE); E remap round-trip PASS x2; stagepix PASS; plate NO-VERDICT (lockstep); audits: constpool 0 DRIFT, regcontract 11 MISSING (compose_frame_walks); DC-1 second TRAINING start dead | `_local/rc1/q5c/REPORT_q5c.md` |
+| 10-12 16:05 | RC-cut prep (Fable seat) | `scripts/rc_cut_mac.sh <version>` written (preflight, versioned bundle in `_rc/<version>/`, frozen-bundle smoke -> `SMOKE.md`, tag, zip); `docs/RC_KNOWN_ISSUES.md`, `docs/RC1_HANDS_CHECKLIST.md`; dry run result in the commit message and §6.8 | `_rc/0.3.0-rc1-dry/SMOKE.md` |
 
 | 10-12 14:05-15:25 | DC-1/DC-2 (Opus defect seat, build/dc_probe = a2d535b + fix, decomp f5b9cac3) | DC-1 NOT A DEFECT (per-process `[dclose]` log cap; T2+T3 PASS x2 per mode); DC-2 FIXED (START wire ordering): ARCADE CONTINUE 16/16 vs old timing 5/21 paused, 360 3/3; non-regression G-START 0 leaks x3, nav360 PASS, rc_chain B/D x2 modes PASS, SM/SM2 PASS, boss1 PASS | `_local/rc1/dc/`, NOTE_fnf_shell_defects.md DC-1/DC-2 |
 | 10-12 10:10-10:50 | Q7v 360 visual gate + Q9/G11 quad census + positive control | stagepix360 PASS, 360 boss plate PASS (46/46 lockstep), CENSUSTEST 60/60 + 60/60, card-LEFT quad + w136 pair AUTHENTIC, no engine change (d3c9b23) | `_local/rc1/q7v/` |
@@ -635,3 +636,24 @@ The **SHARED release share on the NAS** (nginx :8088 + cloudflared, see the arch
 ### 6.7 RC1 -> RC2 versus RC1 -> 1.0
 - **RC1 -> RC2:** any FATAL or hang in tester use; any new defect class not in §1's allowed list (save loss, missing menu rows, wrong-mode substitution, sprite/texture defect, missing audio, non-60 pacing); any regression of a §0 PASS found on the frozen bundle; any engine change after the tag (even a fix).
 - **RC1 -> 1.0:** a tester round (agree the length with the user) with no new defect class and no FATAL, all §0.3 items closed, the post-RC1 list triaged (G5-fix, the five UNDER stubs, the 360 START-wire address, Deck/Linux follow-on), and the public form still ships zero game content. 1.0 is a re-cut with `VER=1.0.0` from a new tagged pair, not a rename of rc1.
+
+### 6.8 The cut, as one command (written 2026-10-12, `scripts/rc_cut_mac.sh`)
+Order of operations once the freeze rule (§6.2) is met -- engine/decomp fixes committed AND pushed in both repos, both worktrees clean:
+```
+cd ~/Desktop/projects/futari_realcomp
+git pull --ff-only origin main            # nothing local that is not pushed
+DRY=1 bash scripts/rc_cut_mac.sh 0.3.0-rc1-dry   # optional rehearsal: warns instead of refusing, runs every smoke step, tags/zips nothing
+bash scripts/rc_cut_mac.sh 0.3.0-rc1             # the cut; ~1.5-2 h incl. the build; stops at the first FAIL naming the step
+```
+What it does: (a) refuses unless both repos are clean, on main, and HEAD == origin/main, recording both hashes; (b) builds `~/Desktop/projects/_rc/<version>/Futari Realcomp.app`
+(`RC_OUTDIR=build/rc_app RC_OBJSFX=_rc`, decomp compiled from a `git archive` snapshot of the recorded hash; never touches the desktop `.app` or `build/app`), README = Build block (version,
+date, both hashes, decomp TU count, engine flags) + `docs/RC_KNOWN_ISSUES.md`; (c) smoke on that bundle, each step PASS/FAIL in `_rc/<version>/SMOKE.md`: `app_smoke` (the .app via LaunchServices, under the
+drive lock) -> `gstart` (ARCADE hub+OPTION, and 360) -> `q1_ctest` (RVK_CENSUSTEST positive control 60/60) -> `q1_census` (one launch per mode; only the named AUTHENTIC dropout classes allowed) ->
+`rc_chain` (`all` both modes + T2/DC-1 + CX/DC-2); steps 2-5 run a byte-identical copy of the bundle's engine (`smoke_engine/MacOS/rcut_eng`, cmp-checked) because they need a per-run pad FIFO and seeded saves, which a
+LaunchServices launch cannot take; (d) only on all-PASS with both HEADs unchanged: annotated tags `v<version>` (futari_realcomp) and `realcomp-v<version>` (futari_decomp), pushed; `ditto -c -k --keepParent` zip
+`_rc/Futari-Realcomp-macOS-v<version>.zip` (beta-3 naming and wrapping) + `.sha256` + `.md5`; symlink into `~/Desktop/projects/_serve/`; the sign-off block.
+
+The sign-off block the user sees (values filled in): bundle path; zip path, size, sha256, md5; both tags and hashes (pushed); smoke table location; then **by hand**: (1) play the bundle with
+`docs/RC1_HANDS_CHECKLIST.md` (7 steps; evidence lands in `~/Library/Logs/Futari Realcomp/` and `~/Library/Application Support/Futari Realcomp/save`); (2) say "RC1 signed off" -- the next seat then adds the
+hash line to `STATUS.md` and copies the zip to the SHARED share when the NAS is back (otherwise the `_serve` quick tunnel for named testers); (3) if anything is broken, any fix makes the next candidate rc2 (§6.7).
+F&F only: the zip contains the game data. Locks/kills: the drive lock is taken per game launch, only `rcut_eng` or processes inside the `_rc` bundle are ever killed.

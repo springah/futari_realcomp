@@ -6,6 +6,13 @@
 #   ASSETS_SRC=/path/to/assets                      -> which extracted dump to ship (default: ./assets)
 #   REUSE_OBJ=1                                     -> skip the compile, relink the app object dirs as they are
 #   VER=0.2.0-beta3                                 -> the version string (Info.plist + README)
+#   RC_OUTDIR=build/rc_app RC_OBJSFX=_rc            -> engine output dir / object-dir suffix (default build/app + _app = the desktop .app's;
+#                                                      scripts/rc_cut_mac.sh uses build/rc_app + _rc so it never touches those). The launcher
+#                                                      and the build log follow RC_OUTDIR (<RC_OUTDIR>_launcher, <RC_OUTDIR>_build.log).
+#   DECOMP_DIR=/path/decomp                         -> passed through to build_mac_dll.sh (rc_cut_mac.sh builds from a `git archive` snapshot)
+#   RC_LABEL="RELEASE CANDIDATE 1"                  -> README headline label (default "BETA 3", and then the beta-3 "Not a release" line)
+#   RC_KNOWN_ISSUES_FILE=docs/RC_KNOWN_ISSUES.md    -> replaces the README's KNOWN ISSUES block with this file's text
+#   RC_BUILD_BLOCK_FILE=/path/build_block.txt       -> appended to the README as a BUILD block (versions, hashes, TU count, flags)
 #
 # What the bundle is (beta 3, 2026-10-04: TWO MODES): the COMBINED host (build_mac_dll.sh: shell + kernel +
 # renderer + bridge, -DFUTARI_COMBINED=1) plus the two per-mode module dylibs (futari_game_normal.dylib =
@@ -30,6 +37,7 @@ cd "$(dirname "$0")/.."
 APP="${APP:-$HOME/Desktop/projects/Futari Realcomp.app}"
 ASSETS_SRC="${ASSETS_SRC:-$PWD/assets}"
 VER="${VER:-0.2.0-beta3}"
+RC_OUTDIR="${RC_OUTDIR:-build/app}"; RC_OBJSFX="${RC_OBJSFX:-_app}"
 export MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-13.0}"
 C="$APP/Contents"
 BREW="$(brew --prefix 2>/dev/null || echo /opt/homebrew)"
@@ -37,30 +45,30 @@ CXX="${CXX:-$BREW/opt/llvm/bin/clang++}"; [ -x "$CXX" ] || CXX=clang++
 INT="$BREW/opt/llvm/bin/llvm-install-name-tool"; [ -x "$INT" ] || INT=install_name_tool
 
 echo "[1/8] engine: combined host + 2 module dylibs (self-contained link: no libavcodec, SDL told to dlopen the bundled MoltenVK)"
-# build_mac_dll.sh with OUTDIR=build/app OBJSFX=_app: the bundle's engine (MoltenVK path @executable_path-relative, no
+# build_mac_dll.sh with OUTDIR="$RC_OUTDIR" OBJSFX="$RC_OBJSFX": the bundle's engine (MoltenVK path @executable_path-relative, no
 # libavcodec) lives apart from the drive/gate binaries under build/, which keep running from the checkout.
-if [ "${REUSE_OBJ:-0}" = "1" ] && [ -d build/obj_mac_host_app ]; then
-  FFM=/nonexistent MVK_LOADPATH="@executable_path/../Frameworks/libMoltenVK.dylib" OUTDIR=build/app OBJSFX=_app LINK_ONLY=1 bash build_mac_dll.sh > build/app_build.log 2>&1 || { tail -30 build/app_build.log; exit 1; }
+if [ "${REUSE_OBJ:-0}" = "1" ] && [ -d "build/obj_mac_host$RC_OBJSFX" ]; then
+  FFM=/nonexistent MVK_LOADPATH="@executable_path/../Frameworks/libMoltenVK.dylib" OUTDIR="$RC_OUTDIR" OBJSFX="$RC_OBJSFX" LINK_ONLY=1 bash build_mac_dll.sh > "${RC_OUTDIR}_build.log" 2>&1 || { tail -30 "${RC_OUTDIR}_build.log"; exit 1; }
 else
-  FFM=/nonexistent MVK_LOADPATH="@executable_path/../Frameworks/libMoltenVK.dylib" OUTDIR=build/app OBJSFX=_app bash build_mac_dll.sh > build/app_build.log 2>&1 || { tail -30 build/app_build.log; exit 1; }
+  FFM=/nonexistent MVK_LOADPATH="@executable_path/../Frameworks/libMoltenVK.dylib" OUTDIR="$RC_OUTDIR" OBJSFX="$RC_OBJSFX" bash build_mac_dll.sh > "${RC_OUTDIR}_build.log" 2>&1 || { tail -30 "${RC_OUTDIR}_build.log"; exit 1; }
 fi
-grep -q "BUILD_OK" build/app_build.log || { echo "engine build not OK"; tail -20 build/app_build.log; exit 1; }
-OUT=build/app/futari_combined
+grep -q "BUILD_OK" "${RC_OUTDIR}_build.log" || { echo "engine build not OK"; tail -20 "${RC_OUTDIR}_build.log"; exit 1; }
+OUT="$RC_OUTDIR/futari_combined"
 otool -L "$OUT" | grep -q avcodec && { echo "ERROR: engine still links libavcodec"; exit 1; }
-for f in "$OUT" build/app/futari_game_normal.dylib build/app/futari_game_abn.dylib; do
+for f in "$OUT" "$RC_OUTDIR/futari_game_normal.dylib" "$RC_OUTDIR/futari_game_abn.dylib"; do
   m=$(otool -l "$f" | awk '/LC_BUILD_VERSION/{f=1} f&&/minos/{print $2; exit}'); echo "   $(basename "$f"): minos $m"
   [ "$m" = "$MACOSX_DEPLOYMENT_TARGET" ] || { echo "ERROR: $f built for macOS $m, want $MACOSX_DEPLOYMENT_TARGET"; exit 1; }
 done
 
 echo "[2/8] launcher"
 mkdir -p build
-"$CXX" -std=c++17 -O2 -o build/app_launcher mac-build/launcher.c
+"$CXX" -std=c++17 -O2 -o "${RC_OUTDIR}_launcher" mac-build/launcher.c
 
 echo "[3/8] bundle skeleton"
 rm -rf "$APP"; mkdir -p "$C/MacOS" "$C/Frameworks" "$C/Resources"
-cp build/app_launcher "$C/MacOS/Futari Realcomp"
+cp "${RC_OUTDIR}_launcher" "$C/MacOS/Futari Realcomp"
 cp "$OUT" "$C/MacOS/futari_merged"            # the engine keeps its historical name inside the bundle (launcher.c execs it)
-cp build/app/futari_game_normal.dylib build/app/futari_game_abn.dylib "$C/MacOS/"
+cp "$RC_OUTDIR/futari_game_normal.dylib" "$RC_OUTDIR/futari_game_abn.dylib" "$C/MacOS/"
 
 echo "[4/8] dylibs -> Contents/Frameworks, load commands rewritten"
 SDL_DYLIB=$(ls external/SDL/build/libSDL3.*.dylib | head -1)
@@ -81,9 +89,18 @@ echo "[5/8] licences + README"
 MVK_LIC="$(dirname "$MVK_REAL")/../share/doc/molten-vk/LICENSE"; [ -f "$MVK_LIC" ] || MVK_LIC="$(brew --prefix molten-vk)/LICENSE"
 cp "$MVK_LIC" "$C/Resources/LICENSE-MoltenVK.txt"
 cp external/SDL/LICENSE.txt "$C/Resources/LICENSE-SDL3.txt" 2>/dev/null || true
+RC_LABEL="${RC_LABEL:-BETA 3}"
+if [ "$RC_LABEL" = "BETA 3" ]; then RC_LINE2="Not a release."; else RC_LINE2="Release candidate, not a final release."; fi
+KI_DEFAULT='KNOWN ISSUES (beta 3)
+  - Some shell/menu elements (the top-menu circles, PRESS START, the title logo) can flicker briefly.
+    This is known and being worked on; please say WHERE you see it and whether it was in a menu or in play.
+  - FrameDelay 2V/3V (OPTIONS > GAME) now paces correctly on macOS; 1V is the default and recommended.
+  - If the window goes black mid-play and the app quits, it was a GPU device loss: send the log.'
+if [ -n "${RC_KNOWN_ISSUES_FILE:-}" ]; then [ -f "$RC_KNOWN_ISSUES_FILE" ] || { echo "ERROR: $RC_KNOWN_ISSUES_FILE missing"; exit 1; }; KI_TEXT="$(cat "$RC_KNOWN_ISSUES_FILE")"; else KI_TEXT="$KI_DEFAULT"; fi
+BUILD_TEXT=""; if [ -n "${RC_BUILD_BLOCK_FILE:-}" ]; then [ -f "$RC_BUILD_BLOCK_FILE" ] || { echo "ERROR: $RC_BUILD_BLOCK_FILE missing"; exit 1; }; BUILD_TEXT="$(cat "$RC_BUILD_BLOCK_FILE")"; fi
 cat > "$C/Resources/README.txt" <<EOF
-Mushihimesama Futari Ver 1.5 -- futari_realcomp, native macOS build $VER (BETA 3, family-and-friends).
-Not a release. Engine build id: $(git rev-parse --short HEAD 2>/dev/null)$(git diff --quiet 2>/dev/null || echo -dirty)
+Mushihimesama Futari Ver 1.5 -- futari_realcomp, native macOS build $VER ($RC_LABEL, family-and-friends).
+$RC_LINE2 Engine build id: $(git rev-parse --short HEAD 2>/dev/null)$(git diff --quiet 2>/dev/null || echo -dirty)
 
 REQUIREMENTS
   Apple silicon Mac (M1 or later) running macOS 13 Ventura or newer. No Intel build.
@@ -108,11 +125,7 @@ FIRST LAUNCH ON A NEW MAC
   or open it, dismiss the warning, then System Settings > Privacy & Security > scroll down > "Open Anyway".
   (On macOS 13 and 14, right-click > Open also works.)
 
-KNOWN ISSUES (beta 3)
-  - Some shell/menu elements (the top-menu circles, PRESS START, the title logo) can flicker briefly.
-    This is known and being worked on; please say WHERE you see it and whether it was in a menu or in play.
-  - FrameDelay 2V/3V (OPTIONS > GAME) now paces correctly on macOS; 1V is the default and recommended.
-  - If the window goes black mid-play and the app quits, it was a GPU device loss: send the log.
+$KI_TEXT
 
 SAVES AND LOGS
   Saves:  ~/Library/Application Support/Futari Realcomp/save    (back this up to keep settings + scores)
@@ -120,6 +133,8 @@ SAVES AND LOGS
 
 BUG REPORTS
   Attach the newest log file, say which mode (ARCADE or XBOX 360), keyboard or pad, and what you were doing.
+${BUILD_TEXT:+
+$BUILD_TEXT}
 EOF
 
 echo "[6/8] icon"
