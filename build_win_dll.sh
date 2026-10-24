@@ -429,7 +429,7 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
       # they read only owner/state pointers recovered at their hook sites (famk28census
       # keeps its ONE .data read behind RT_FAMK28CENSUS_SCENE, set on the reco_normal leg
       # only) -- the same reasoning as the famk1/famk9/famk11/famk12/famk30 census cases.
-      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw|class233_236_draw|actor3pose_draw|objnode_park|objnode_parkcensus|famk1|famk9|pagescene|famk2|famk11|famk12|famk30|famk5|famk28) continue;; esac
+      case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw|class233_236_draw|actor3pose_draw|objnode_park|objnode_parkcensus|famk1|famk9|pagescene|famk2|famk11|famk12|famk30|famk5|famk28|bossscript_w165|classes_w165|cutscene_w165|encounter_w165|famk21_w165|famk4_7_w165|famk8_10_w165|frontend_w162|objects_w162|pagetrans_w162|pump_w162|results_w162|scene_w165|select_w165|ship_w162|tracking_w165) continue;; esac
     fi
     cc "decomp_$n" "$f" $GI -I . $RT $MAP
   done
