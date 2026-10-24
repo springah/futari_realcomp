@@ -1,5 +1,7 @@
 # STATUS — futari_realcomp (pointer, 2026-10-12)
 
+**RC pointer (2026-10-24):** `0.3.0-rc2` CUT, scripted smoke ALL-PASS (app_smoke, gstart, q1_ctest, q1_census, rc_chain), awaiting hands sign-off. futari_realcomp `e3ccb8a5f633` (tag `v0.3.0-rc2`) + futari_decomp `1d79e20871bc` (tag `realcomp-v0.3.0-rc2`); bundle `~/Desktop/projects/_rc/0.3.0-rc2/Futari Realcomp.app`; zip `_rc/Futari-Realcomp-macOS-v0.3.0-rc2.zip` sha256 `10e652009c16ae42644762edf44ea87325f3a23cbaf546a28ed5e90f67f354a9`. (0.3.0-rc1 = realcomp `9aed8d4` + decomp `0ff2927d`, superseded.) Never edit or re-zip a cut bundle; a fix means rc3.
+
 **RC1 state (2026-10-12):** the release-candidate state for the two hosted modes (ARCADE 1.5 Original + XBOX 360 MODE) is
 `docs/PLAN_RC1.md` **§0 RC1 SCORECARD** (per-criterion status, what is left, rulings recorded/open); the proposed cut is
 §6 FREEZE & SHIP PLAN (version `0.3.0-rc1`; tag `v0.3.0-rc1` plus both repos' hashes recorded here and in the bundle README
