@@ -83,8 +83,9 @@ else step 1000 '\[modeidx\] .*ARCADE' 20 2; fi
 SAMPLES="$B/rss.csv"; echo "t_s,rss_mb,frame" > "$SAMPLES"
 samp(){ local rss f; rss=$(ps -o rss= -p "$PID" 2>/dev/null | tr -d ' '); [ -n "$rss" ] || return 1; f=$(grep -a -o "submit f[0-9]*" "$L" | tail -1 | tr -dc 0-9); echo "$(( $(date +%s)-T0 )),$((rss/1024)),$f" >> "$SAMPLES"; RSSNOW=$((rss/1024)); FNOW=$f; return 0; }
 say "mode decided; HANDS OFF ${MIN} min"; samp
-for ((m=1; m<=MIN; m++)); do
-  sleep 60; samp || { say "t+${m}m: PROCESS GONE"; fin; verdict "engine died during the hands-off phase"; exit 1; }
+TS0=$(date +%s)   # sample on an ALIGNED minute grid: the frame criterion (3600 +-10 per 60 s) needs the sampling interval itself to be 60 s, so the
+for ((m=1; m<=MIN; m++)); do   # sleep is "until TS0 + 60*m", not "60 s after the previous sample" (a slow RSS probe -- 2 s on Windows -- would stretch it)
+  sleep $(( TS0 + 60*m - $(date +%s) > 0 ? TS0 + 60*m - $(date +%s) : 0 )); samp || { say "t+${m}m: PROCESS GONE"; fin; verdict "engine died during the hands-off phase"; exit 1; }
   say "t+${m}m rss=${RSSNOW}MB frames=$FNOW fatal=$(cnt FATAL) slowframe=$(cnt '\[slowframe\]') dropout=$(cnt 'DROPOUT-CONFIRMED')"
 done
 fin; verdict ""

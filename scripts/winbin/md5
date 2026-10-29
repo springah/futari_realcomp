@@ -1,0 +1,6 @@
+#!/bin/bash
+# md5 -r <files>  -- BSD md5 for Git Bash, as an EXECUTABLE (not only the win_shim.sh function) because rc_chain's save snapshot
+# runs it through `find -exec`, which cannot see bash functions. Output "hash path" per line, like `md5 -r`.
+[ "${1:-}" = -r ] && shift
+[ "${1:-}" = -q ] && { shift; md5sum "$@" | cut -c1-32; exit; }
+md5sum "$@" | sed 's/ \*/ /;s/  / /'

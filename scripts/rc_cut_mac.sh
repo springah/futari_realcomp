@@ -142,7 +142,10 @@ s_gstart(){ local rc=0 m tag tbl
 
 s_q1_ctest(){ LOCKWAIT_MIN=$((LOCKWAIT/60)) bash scripts/q7v_run.sh "rc_$SAFE" "$ENG" ctest 240 1; local o="_local/rc1/q7v/rc_$SAFE/steps.txt" e
   e=$(grep -a 'END ' "$o" | tail -1); echo "$e"
-  if echo "$e" | grep -q 'dropout=60 testmarks=60' && echo "$e" | grep -q 'fatal=0 vkerr=0'; then DETAIL="positive control 60 DROPOUT-CONFIRMED for 60 INJECT"; return 0; fi
+  # PASS = every injected dropout confirmed (dropout == testmarks) and at least 60 in the 240 s window; the count itself is not fixed at 60 --
+  # the injector arms per guest frame from the title load, so a run that reaches the title a little earlier arms 61 (Windows rc2 twin, 2026-10-29).
+  local d t; d=$(echo "$e" | grep -o 'dropout=[0-9]*' | tr -dc 0-9); t=$(echo "$e" | grep -o 'testmarks=[0-9]*' | tr -dc 0-9)
+  if [ -n "$d" ] && [ "$d" = "$t" ] && [ "$d" -ge 60 ] && echo "$e" | grep -q 'fatal=0 vkerr=0'; then DETAIL="positive control $d DROPOUT-CONFIRMED for $t INJECT"; return 0; fi
   DETAIL="control off: ${e#*END }"; return 1; }
 
 s_q1_census(){ local rc=0 m
