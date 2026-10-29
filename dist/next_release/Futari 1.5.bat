@@ -56,8 +56,11 @@ if not exist "%HERE%\save" (
   xcopy /E /I /Q /Y "%HERE%\save_freshcard" "%HERE%\save" >nul
 )
 if not exist "%HERE%\logs" mkdir "%HERE%\logs"
-for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set DT=%%I
-set "STAMP=%DT:~0,8%_%DT:~8,6%"
+REM 2026-10-29: wmic is gone from Windows 11 24H2+, so the old `wmic os get localdatetime` stamp came back empty and
+REM every session overwrote logsutari__.log. PowerShell is always present; fall back to %RANDOM% if even that fails.
+set "STAMP="
+for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "Get-Date -Format yyyyMMdd_HHmmss"`) do set "STAMP=%%I"
+if not defined STAMP set "STAMP=session_%RANDOM%%RANDOM%"
 set "LOG=%HERE%\logs\futari_%STAMP%.log"
 set "RT_SAVE=save"
 set RT_BOOT_SHELL=1
