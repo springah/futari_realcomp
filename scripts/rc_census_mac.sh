@@ -44,6 +44,7 @@ export RT_NAVREAL=1 RT_STARTWIRE=1 RT_SNDQFREE=1 RT_RESCACHE=1 RT_HEAPLOCK=1
 export RT_PAD_HOST=1 RT_PAD_HOST_FIFO="$FIFO" RT_SAMPLES=0 RT_AUDIOSTARVE=1
 export RT_NVKPNG=300 RVK_DUMPDIR="$PWD/$B/png"
 export RVK_DRAWCENSUS=2 RVK_TITLEPROBE=1
+[ "${TICKLOG:-0}" = 1 ] && export RT_TICKLOG=1   # opt-in (Windows gates pass TICKLOG=1): one [tick] p<N> line per present, an EXACT frame count for the sampler below
 [ "$MODE" = x360 ] && export RT_NAV360=1
 "$BIN" 8208A2B8 0 "$XR_SHELL_XEX" 2>"$L" &
 PID=$!
@@ -78,10 +79,17 @@ step 1000 'SYS_SE cue1 (SE_OK01)' 3
 if [ "$MODE" = x360 ]; then
   mark; press 4; sleep 3.6; press 1000
   waitnew '\[modeidx\] .*XBOX-360' 20 || die "no modeidx XBOX-360"
-  MARK=0; mark; waitnew '\[modswap\] #2 DONE' 240 || die "no modswap #2"; say "module swap #2 DONE"
+  # keep the mark from BEFORE the card press: on Windows the DLL swap completes within a few lines of [modeidx], so a fresh mark here
+  # could land after the DONE line and the wait would time out (seen once, 2026-10-29); the DONE line can only ever follow the press
+  waitnew '\[modswap\] #2 DONE' 240 || die "no modswap #2"; say "module swap #2 DONE"
 else step 1000 '\[modeidx\] .*ARCADE' 20 2; fi
 SAMPLES="$B/rss.csv"; echo "t_s,rss_mb,frame" > "$SAMPLES"
-samp(){ local rss f; rss=$(ps -o rss= -p "$PID" 2>/dev/null | tr -d ' '); [ -n "$rss" ] || return 1; f=$(grep -a -o "submit f[0-9]*" "$L" | tail -1 | tr -dc 0-9); echo "$(( $(date +%s)-T0 )),$((rss/1024)),$f" >> "$SAMPLES"; RSSNOW=$((rss/1024)); FNOW=$f; return 0; }
+samp(){ local rss f; rss=$(ps -o rss= -p "$PID" 2>/dev/null | tr -d ' '); [ -n "$rss" ] || return 1
+  # frame = the last [tick] p<N> when RT_TICKLOG is on (exact, per present), else the last "submit f<N>" (quantised to 300 frames: with a
+  # sampling interval that is not exactly 60 s the 3600 +-10 criterion then reads 3300/3900 -- the Windows twin's finding, 2026-10-29)
+  if [ -n "${RT_TICKLOG:-}" ]; then f=$(tail -c 20000 "$L" | grep -a -o '^\[tick\] p[0-9]*' | tail -1 | tr -dc 0-9); fi
+  [ -n "${f:-}" ] || f=$(grep -a -o "submit f[0-9]*" "$L" | tail -1 | tr -dc 0-9)
+  echo "$(( $(date +%s)-T0 )),$((rss/1024)),$f" >> "$SAMPLES"; RSSNOW=$((rss/1024)); FNOW=$f; return 0; }
 say "mode decided; HANDS OFF ${MIN} min"; samp
 TS0=$(date +%s)   # sample on an ALIGNED minute grid: the frame criterion (3600 +-10 per 60 s) needs the sampling interval itself to be 60 s, so the
 for ((m=1; m<=MIN; m++)); do   # sleep is "until TS0 + 60*m", not "60 s after the previous sample" (a slow RSS probe -- 2 s on Windows -- would stretch it)

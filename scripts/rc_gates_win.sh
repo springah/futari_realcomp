@@ -81,17 +81,19 @@ s_q1_ctest(){ LOCKWAIT_MIN=$((LOCKWAIT/60)) bash scripts/q7v_run_win.sh "rc_$SAF
   DETAIL="control off: ${e#*END }"; return 1; }
 
 s_q1_census(){ local rc=0 m
-  for m in arcade x360; do LOCKWAIT="$LOCKWAIT" RCC_ROOT="$BANK/census" SHELL_SECS="${SHELL_SECS:-120}" bash scripts/rc_census_win.sh "$m" "$ENG" "$m" "${CENSUS_MIN:-6}"; local r=$?
+  for m in arcade x360; do TICKLOG=1 LOCKWAIT="$LOCKWAIT" RCC_ROOT="$BANK/census" SHELL_SECS="${SHELL_SECS:-120}" bash scripts/rc_census_win.sh "$m" "$ENG" "$m" "${CENSUS_MIN:-6}"; local r=$?
     local v="$BANK/census/$m/VERDICT.txt"; DETAIL="$DETAIL $m: $(grep -a '^RESULT' "$v" 2>/dev/null | tail -1) ($(grep -a '^INFO named' "$v" 2>/dev/null | sed 's/INFO named-class dropouts: //;s/ (.*//') named, $(grep -a 'outside the named' "$v" 2>/dev/null | sed 's/.*: //') other; $(grep -a '^FATAL' "$v" | sed 's/FATAL=0 VKERR=0 SLOW=0 //'); fpm-off $(grep -a 'off 3600' "$v" | sed 's/.*: //'));"
     [ $r = 0 ] || rc=1; done; return $rc; }
 
-s_rc_chain(){ local rc=0 root="$BANK/chain" bad it
-  run_chain(){ local tg="$1" item="$2"; shift 2; env "$@" RCC_ROOT="$root" SAVEPFX="rc_$SAFE" LOCKWAIT="$LOCKWAIT" bash scripts/rc_chain_win.sh "$tg" "$ENG" "$item"; return $?; }
+s_rc_chain(){ local rc=0 root="$BANK/chain" bad it TAGS="" V=""
+  run_chain(){ local tg="$1" item="$2"; shift 2; TAGS="$TAGS $tg"; env "$@" RCC_ROOT="$root" SAVEPFX="rc_$SAFE" LOCKWAIT="$LOCKWAIT" bash scripts/rc_chain_win.sh "$tg" "$ENG" "$item"; return $?; }
   for it in $CHAIN_ITEMS; do case "$it" in
     all) run_chain rc all X=1 || rc=1;; T2) run_chain rc_t2 T2 X=1 || rc=1;; CX) run_chain rc_cx CX RT_PAUSEPROBE=1 || rc=1;;
     *) run_chain "rc_$(echo "$it" | tr 'A-Z' 'a-z')" "$it" X=1 || rc=1;; esac; done
-  bad=$(grep -a -H '^FAIL' "$root"/rc*_*/VERDICT.txt 2>/dev/null)
-  local npass; npass=$(cat "$root"/rc*_*/VERDICT.txt 2>/dev/null | grep -a -c '^PASS')
+  # score ONLY the legs this invocation ran (tag-prefixed dirs); a re-run must not re-read an earlier run's VERDICT files
+  for it in $TAGS; do V="$V $(ls -d "$root"/${it}_*/VERDICT.txt 2>/dev/null)"; done   # newline-separated; $V is used unquoted
+  bad=$(grep -a -H '^FAIL' $V 2>/dev/null)
+  local npass; npass=$(cat $V 2>/dev/null | grep -a -c '^PASS')
   if [ -n "$bad" ]; then echo "FAIL lines:"; echo "$bad"; rc=1; fi
   DETAIL="items: $CHAIN_ITEMS; $npass PASS lines; FAIL: $(echo "$bad" | grep -c . | tr -d ' ')$( [ -n "$bad" ] && echo " -- $(echo "$bad" | sed 's|.*/rc[a-z0-9_]*_\([A-Za-z0-9_]*\)/VERDICT.txt:FAIL |\1: |' | cut -c1-110 | head -6 | tr '\n' ';')");$DETAIL"
   return $rc; }
