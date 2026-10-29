@@ -2580,7 +2580,7 @@ q1_ctest PASS (60/60; a 61/61 first run exposed the literal 60/60 rule, now conf
 the re-run E legs PASS: remap persisted b07c47.. -> fe4dbb.., read back on relaunch, both modes). Four harness defects fixed on the way (ctest rule, the
 census sampler's 60 s grid + the 300-frame quantisation of `submit f` -> TICKLOG=1 exact counts + ms-timestamped rate, the 360 modswap-wait mark race,
 re-run scoring of stale VERDICT files). All of them were in the MAC scripts too; the Mac got away with them by timing.
-**THE FINDING. ARCADE hands-off demo loop: audio ring underruns, in bursts, on every Windows leg; 0 on the Mac rc2 census; 2 on the 360 leg (startup).**
+**THE FINDING. Hands-off demo loop: audio ring underruns, in bursts, on every ARCADE leg (6/6) and on 1 of 3 XBOX 360 legs; 0 on the Mac rc2 census.**
 | leg (ARCADE census route, 6 min hands-off, same engine copy) | underruns | nonzero 1 s windows | note |
 |---|---|---|---|
 | census #1, SDL3 sink (default) | 3,507 | 77 / 522 | first run, bursts up to 153/s |
@@ -2588,7 +2588,8 @@ re-run scoring of stale VERDICT files). All of them were in the MAC scripts too;
 | pilot2, SDL3 | 129 | 20 / 529 | |
 | control, `RT_SINKWASAPI=1` (the sink the ear-signed Windows beta 2 shipped with) | 5,618 | 35 / 536 | WORSE; bursts at the SAME seconds |
 | control, `RT_VBSLEEP=0` (the guest's own vsync spin, as beta 2) | 206 | 21 / 523 | same timepoints |
-| XBOX 360 census (default) | 2 | 1 (startup) | the 360 module's demo loop is clean |
+| XBOX 360 census (default), legs 1 + 2 | 2 / 2 | 1 (startup) | clean twice ... |
+| XBOX 360 census (default), leg 3 (20:24) | 311 | 31 / 507 | ... then the SAME cadence (windows 215-233, 294-318, 369-400, 454-475) -> both modules, intermittent on the 360 side |
 | 240 s shell-title idle (ctest), gstart, boot smoke | 3 / n.a. / n.a. | | shell-only phases are clean |
 * **Timing.** Bursts of 20-30 s about every 75 s once the demo loop runs (windows 209-231, 286-309, 361-388, 440-463, 516-521 of census #1; the same
   seconds in every leg) = the attract loop's scene cadence. Each burst start sits just after a cluster of `[epochinval] ... freed-since-decode -> re-decode`
@@ -2599,7 +2600,8 @@ re-run scoring of stale VERDICT files). All of them were in the MAC scripts too;
   RT_AUDIOPUMP=1) stalling for 11+ blocks while the inline RT_NVK=2 path re-decodes textures. The Mac absorbs the same storms (M3 Max; a different
   thread picture); the PC does not. Whether beta 2 (08-14, 3827d81) already did this was never measured -- the Windows audio sign-off was by ear, and
   no Windows demo-loop census with RT_AUDIOSTARVE exists before today.
-* **Rulings owed (user):** (1) does audible crackle appear in the ARCADE attract loop on the PC (the hands checklist's eyes/ears pass)? (2) if yes, is it an
+* **Final subset (20:24, all harness fixes in): pacing 0 minutes off in both modes (exact counts, rate rule); rc_chain E both modes PASS; census ARCADE 276 / XBOX 360 311 underruns.**
+* **Rulings owed (user):** (1) does audible crackle appear in the attract loop on the PC (either mode) (the hands checklist's eyes/ears pass)? (2) if yes, is it an
   rc3 blocker for the Windows bundle or a known issue? (3) the investigation window: beta-2 engine vs rc2 on this route first (regression or pre-existing),
   then the storm itself (why textures are freed-since-decode every scene, and whether the re-decode can leave the present path).
 * **Engine state:** unchanged by this entry; the Windows bundle stays STAGED, untagged.
