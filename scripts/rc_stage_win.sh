@@ -36,7 +36,7 @@ TU_SH=$(ls "$DECOMP_REPO"/decomp/shell/*.cpp | wc -l | tr -d ' '); TU_G=$(ls "$D
 rm -rf "$RD"; mkdir -p "$ST/docs" "$ST/shell" "$ST/logs"
 cp build/futari_combined.exe build/futari_game_normal.dll build/futari_game_abn.dll "$ST/"
 # the launcher ships CRLF whatever the checkout has (git autocrlf vs tool-written LF): cmd.exe parses LF-only .bat files with known quirks
-tr -d '' < "dist/next_release/Futari 1.5.bat" | sed 's/$//' > "$ST/Futari 1.5.bat"
+tr -d '\r' < "dist/next_release/Futari 1.5.bat" | sed 's/$/\r/' > "$ST/Futari 1.5.bat"
 cp shell/default.xex "$ST/shell/"
 cp -r save_freshcard "$ST/save_freshcard"
 cp docs/RC_KNOWN_ISSUES.md docs/RC1_HANDS_CHECKLIST.md "$ST/docs/"
