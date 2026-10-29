@@ -58,7 +58,10 @@ verdict(){ # $1 = abort reason or empty
   u=$(grep -a -o 'underruns=[0-9]*' "$L" | awk -F= '{x+=$2} END{print x+0}'); st=$(cnt 'live sink stalled')
   named=$(grep -a 'DROPOUT-CONFIRMED' "$L" | grep -a -c 'base=0x2530000\|base=0x34E0000\|base=0x49C4000\|len=1 base=0x34[0-9A-F]0000 .*v0=(41.5,-284.5)\|base=0x2[0-9A-F]*0000 .*v0=(-190.5,181.5)\|len=3 base=0x1C[0-9A-F]4000 .*v0=(253.5,273.6)\|len=2 base=0x1C[0-9A-F]4000 .*v0=(251.0,-5.4)')
   bad=$(grep -a 'DROPOUT-CONFIRMED' "$L" | grep -a -vc 'base=0x2530000\|base=0x34E0000\|base=0x49C4000\|len=1 base=0x34[0-9A-F]0000 .*v0=(41.5,-284.5)\|base=0x2[0-9A-F]*0000 .*v0=(-190.5,181.5)\|len=3 base=0x1C[0-9A-F]4000 .*v0=(253.5,273.6)\|len=2 base=0x1C[0-9A-F]4000 .*v0=(251.0,-5.4)')
-  local fr; fr=$(awk -F, 'NR>1&&$3!=""{ if(p!=""){d=$3-p; if(d<3590||d>3610) n++} p=$3 } END{print n+0}' "$B/rss.csv" 2>/dev/null)
+  local fr
+  if [ -n "${RT_TICKLOG:-}" ]; then   # exact per-present counts + ms timestamps: score the RATE per interval, 59.94 +-0.2 fps (= the +-10/3600 band)
+    fr=$(awk -F, 'NR>1&&$3!=""&&$4!=""{ if(p!=""){r=($3-p)*1000/($4-pt); if(r<59.74||r>60.14) n++} p=$3; pt=$4 } END{print n+0}' "$B/rss.csv" 2>/dev/null)
+  else fr=$(awk -F, 'NR>1&&$3!=""{ if(p!=""){d=$3-p; if(d<3590||d>3610) n++} p=$3 } END{print n+0}' "$B/rss.csv" 2>/dev/null); fi
   local pr=0; [ -s "$B/rss.csv" ] || pr=1
   { echo "census $TAG mode=$MODE minutes=$MIN"; echo "FATAL=$f VKERR=$v SLOW=$s UNDERRUN=$u SINKSTALL=$st"
     echo "INFO named-class dropouts: $named (0x2530000 strobe / 0x34E0000 card-LEFT / 0x49C4000 pair / 0x1C?4000 360 loading rings)"
@@ -83,13 +86,13 @@ if [ "$MODE" = x360 ]; then
   # could land after the DONE line and the wait would time out (seen once, 2026-10-29); the DONE line can only ever follow the press
   waitnew '\[modswap\] #2 DONE' 240 || die "no modswap #2"; say "module swap #2 DONE"
 else step 1000 '\[modeidx\] .*ARCADE' 20 2; fi
-SAMPLES="$B/rss.csv"; echo "t_s,rss_mb,frame" > "$SAMPLES"
+SAMPLES="$B/rss.csv"; echo "t_s,rss_mb,frame,t_ms" > "$SAMPLES"
 samp(){ local rss f; rss=$(ps -o rss= -p "$PID" 2>/dev/null | tr -d ' '); [ -n "$rss" ] || return 1
   # frame = the last [tick] p<N> when RT_TICKLOG is on (exact, per present), else the last "submit f<N>" (quantised to 300 frames: with a
   # sampling interval that is not exactly 60 s the 3600 +-10 criterion then reads 3300/3900 -- the Windows twin's finding, 2026-10-29)
   if [ -n "${RT_TICKLOG:-}" ]; then f=$(tail -c 20000 "$L" | grep -a -o '^\[tick\] p[0-9]*' | tail -1 | tr -dc 0-9); fi
   [ -n "${f:-}" ] || f=$(grep -a -o "submit f[0-9]*" "$L" | tail -1 | tr -dc 0-9)
-  echo "$(( $(date +%s)-T0 )),$((rss/1024)),$f" >> "$SAMPLES"; RSSNOW=$((rss/1024)); FNOW=$f; return 0; }
+  echo "$(( $(date +%s)-T0 )),$((rss/1024)),$f,$(date +%s%3N)" >> "$SAMPLES"; RSSNOW=$((rss/1024)); FNOW=$f; return 0; }
 say "mode decided; HANDS OFF ${MIN} min"; samp
 TS0=$(date +%s)   # sample on an ALIGNED minute grid: the frame criterion (3600 +-10 per 60 s) needs the sampling interval itself to be 60 s, so the
 for ((m=1; m<=MIN; m++)); do   # sleep is "until TS0 + 60*m", not "60 s after the previous sample" (a slow RSS probe -- 2 s on Windows -- would stretch it)
