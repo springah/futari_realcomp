@@ -104,7 +104,14 @@ cc(){ local n="$1" s="$2"; shift 2
 
 echo "-- decomp (shell only; decomp/game* rides into the DLLs)"
 # -I . : decomp TUs reference host/render headers realcomp-root-relative (repo split).
-for f in "$DECOMP_DIR"/shell/*.cpp; do n=$(basename "$f" .cpp); decomp_skipped "$n" && { echo "   [DECOMP_SKIP] shell/$n"; continue; }; cc "decomp_$n" "$f" $GI -I . $RT; done
+# $SI, not $GI (2026-10-29, Windows rc2): decomp/shell TUs call the SHELL image's generated bodies
+# (sub_82xxxxxx) through `#include "ppc_recomp_shared.h"`, which must resolve to
+# shell/gen/ppc_recomp_shared.h.  With -I out_reco first it resolved to the GAME tree's header
+# (sub_88xxxxxx only) and the 185 shell TUs linked since r23-w159 died with "use of undeclared
+# identifier 'sub_8207A630'".  build_mac_dll.sh has compiled this loop with $SI $XS since beta 3
+# (f416344); this brings the Windows loop back in step.  $XS = the _xstart rename every shell-tree
+# object carries, so a shell decomp TU that reaches _xstart names the shell copy, as on the Mac.
+for f in "$DECOMP_DIR"/shell/*.cpp; do n=$(basename "$f" .cpp); decomp_skipped "$n" && { echo "   [DECOMP_SKIP] shell/$n"; continue; }; cc "decomp_$n" "$f" $SI -I . $XS $RT; done
 
 echo "-- game-tree KERNEL (rt/stubs/harness only — the generated tree has left the exe)"
 # ORDER IS LOAD-BEARING (plan §4.3): 66 __imp__X are defined in BOTH out_reco/{rt,stubs}.cpp and
