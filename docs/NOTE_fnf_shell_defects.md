@@ -2566,3 +2566,40 @@ Finding of the 0.3.0-rc1 dry run (q1_census 360 FAIL, reproduced on its rerun): 
   | tick-scheduled presses | attr_nf x2, attr_nodecomp x2 | 4 | 4, identical lines | -- |
 * **Action.** Named AUTHENTIC class in `scripts/rc_census_mac.sh`, matched by length + v0 key + base pattern (`len=3 base=0x1C?4000 v0=(253.5,273.6)`, `len=2 base=0x1C?4000 v0=(251.0,-5.4)`); the 60 injected CENSUSTEST lines of the dry run still count as "other". One line in `docs/RC_KNOWN_ISSUES.md`. No renderer or engine change; no lever.
 
+
+## 2026-10-29 -- WINDOWS rc2 twin: the Mac RC gates ported and run on the PC; ARCADE demo-loop AUDIO RING UNDERRUNS found (OPEN, not a harness artefact, not the sink, not the vsync gate)
+Seat: Fable, PC (iacon, RTX 3080), unattended, drive lock per leg. Engine = realcomp adfaaf6 (= v0.3.0-rc2 e3ccb8a + the Windows build-loop fix 34a9402
++ the RT_PAD_HOST_FIFO Windows arm, host-only), decomp 1d79e208 (the rc2 pin). Staged folder `../_rc/0.3.0-rc2-win/`, gates on a cmp-checked copy
+`smoke_engine/rcwin_eng.exe`. Evidence `_local/rc/0_3_0_rc2/{census,chain,audio}/`, `_local/gstart/rc_0_3_0_rc2_*`, `_local/rc1/q7v/rc_0_3_0_rc2/`; table `../_rc/0.3.0-rc2-win/SMOKE.md`.
+**The port.** `scripts/rc_gates_win.sh` = rc_cut_mac.sh step (c) for the staged Windows folder: boot_smoke, gstart, q1_ctest, q1_census, rc_chain. The gate scripts
+are GENERATED from the Mac originals (`scripts/win_port.sh`; `win_shim.sh` shadows pkill/pgrep/ps/md5, `run_win.sh` is the launcher). One engine lever was
+missing: the file-driven host pad channel existed only under SDL; `rt_host_fifo_merge()` now serves the Windows GetAsyncKeyState arm too (inert unless set).
+**Results (first run 18:15-19:25 + re-runs):** boot_smoke PASS; gstart PASS (arcade 10 probes / x360 9, 0 leaks, every nav press marker-confirmed);
+q1_ctest PASS (60/60; a 61/61 first run exposed the literal 60/60 rule, now confirmed==injected>=60 in both twins); rc_chain 350 PASS lines over 15 legs
+(A swap x5, B, C, D, E, T2, CX, both modes) with the E1 remap FAIL traced to `find -exec md5` (a bash function is invisible there; winbin/md5 fixed it;
+the re-run E legs PASS: remap persisted b07c47.. -> fe4dbb.., read back on relaunch, both modes). Four harness defects fixed on the way (ctest rule, the
+census sampler's 60 s grid + the 300-frame quantisation of `submit f` -> TICKLOG=1 exact counts + ms-timestamped rate, the 360 modswap-wait mark race,
+re-run scoring of stale VERDICT files). All of them were in the MAC scripts too; the Mac got away with them by timing.
+**THE FINDING. ARCADE hands-off demo loop: audio ring underruns, in bursts, on every Windows leg; 0 on the Mac rc2 census; 2 on the 360 leg (startup).**
+| leg (ARCADE census route, 6 min hands-off, same engine copy) | underruns | nonzero 1 s windows | note |
+|---|---|---|---|
+| census #1, SDL3 sink (default) | 3,507 | 77 / 522 | first run, bursts up to 153/s |
+| census #2, SDL3 | 205 | 20 / 529 | same timepoints |
+| pilot2, SDL3 | 129 | 20 / 529 | |
+| control, `RT_SINKWASAPI=1` (the sink the ear-signed Windows beta 2 shipped with) | 5,618 | 35 / 536 | WORSE; bursts at the SAME seconds |
+| control, `RT_VBSLEEP=0` (the guest's own vsync spin, as beta 2) | 206 | 21 / 523 | same timepoints |
+| XBOX 360 census (default) | 2 | 1 (startup) | the 360 module's demo loop is clean |
+| 240 s shell-title idle (ctest), gstart, boot smoke | 3 / n.a. / n.a. | | shell-only phases are clean |
+* **Timing.** Bursts of 20-30 s about every 75 s once the demo loop runs (windows 209-231, 286-309, 361-388, 440-463, 516-521 of census #1; the same
+  seconds in every leg) = the attract loop's scene cadence. Each burst start sits just after a cluster of `[epochinval] ... freed-since-decode -> re-decode`
+  and `[texreval3] ... re-decoded` lines (texture re-decode storms at the scene changes; e.g. 7368-7568 -> burst 7571, 9084-9289 -> 9222,
+  10840-11113 -> 11035, 12536-12555 -> 12735 in the WASAPI leg). `[slowframe]` (>100 ms) = 0 on every leg; `[vblank] pacing 59.94 Hz`; 0 FATAL/VK_ERROR.
+* **Excluded by control:** the output sink (SDL3 vs WASAPI, both starve, WASAPI more), the RT_VBSLEEP gate (10-05), the renderer's present pacing
+  (3600/min on every leg). Not excluded: everything upstream of the ring -- the audio worker losing the CPU, or the guest thread (RT_THREADS=1,
+  RT_AUDIOPUMP=1) stalling for 11+ blocks while the inline RT_NVK=2 path re-decodes textures. The Mac absorbs the same storms (M3 Max; a different
+  thread picture); the PC does not. Whether beta 2 (08-14, 3827d81) already did this was never measured -- the Windows audio sign-off was by ear, and
+  no Windows demo-loop census with RT_AUDIOSTARVE exists before today.
+* **Rulings owed (user):** (1) does audible crackle appear in the ARCADE attract loop on the PC (the hands checklist's eyes/ears pass)? (2) if yes, is it an
+  rc3 blocker for the Windows bundle or a known issue? (3) the investigation window: beta-2 engine vs rc2 on this route first (regression or pre-existing),
+  then the storm itself (why textures are freed-since-decode every scene, and whether the re-decode can leave the present path).
+* **Engine state:** unchanged by this entry; the Windows bundle stays STAGED, untagged.

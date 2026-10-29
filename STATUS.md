@@ -2,14 +2,17 @@
 
 **RC pointer (2026-10-24):** `0.3.0-rc2` CUT, scripted smoke ALL-PASS (app_smoke, gstart, q1_ctest, q1_census, rc_chain), awaiting hands sign-off. futari_realcomp `e3ccb8a5f633` (tag `v0.3.0-rc2`) + futari_decomp `1d79e20871bc` (tag `realcomp-v0.3.0-rc2`); bundle `~/Desktop/projects/_rc/0.3.0-rc2/Futari Realcomp.app`; zip `_rc/Futari-Realcomp-macOS-v0.3.0-rc2.zip` sha256 `10e652009c16ae42644762edf44ea87325f3a23cbaf546a28ed5e90f67f354a9`. (0.3.0-rc1 = realcomp `9aed8d4` + decomp `0ff2927d`, superseded.) Never edit or re-zip a cut bundle; a fix means rc3.
 
-**Windows rc2 (2026-10-29, PC seat):** the Windows twin of 0.3.0-rc2 is STAGED, not cut: `scripts/rc_stage_win.sh 0.3.0-rc2` from
-realcomp `f1a9d73` (= e3ccb8a + the Windows build-loop fix 34a9402 + launcher/stage scripts; no engine source changed) against the same
-futari_decomp `1d79e208` -> `../_rc/0.3.0-rc2-win/Futari-Realcomp-Windows-v0.3.0-rc2/` + `../_rc/Futari-Realcomp-Windows-v0.3.0-rc2.zip`
-(915 MB, sha256 7eb5f82d...fe b224, assets inside: F&F only). Decomp objects shell 244 / arcade 55 / 360 9, identical to the Mac cut.
-Boot smoke PASS (`scripts/rc_smoke_win.sh`: 2/2 modules bound, 0 FATAL, 0 VK_ERROR, build id f1a9d73; log `_local/rc/smoke_win_20261029_175740/`).
-NOT run on Windows: gstart / census / rc_chain (Mac-only drive scripts) and the hands checklist. No `v0.3.0-rc2-win` tag yet: tag when the
-user signs the Windows bundle off, or fold into rc3 if a fix lands first. Why the Windows build had been broken since w159: build_win_dll.sh
-compiled decomp/shell TUs with the game tree's include set (34a9402).
+**Windows rc2 (2026-10-29, PC seat) -- STAGED + GATED, untagged:** `scripts/rc_stage_win.sh 0.3.0-rc2` from realcomp `adfaaf6` (= e3ccb8a + the
+Windows build-loop fix 34a9402 + the RT_PAD_HOST_FIFO Windows arm, host-only, inert by default) against the same futari_decomp `1d79e208` ->
+`../_rc/0.3.0-rc2-win/Futari-Realcomp-Windows-v0.3.0-rc2/` + `../_rc/Futari-Realcomp-Windows-v0.3.0-rc2.zip` (915 MB, assets inside: F&F only).
+Decomp objects shell 244 / arcade 55 / 360 9, identical to the Mac cut. **The Mac RC gates now run on Windows** (`scripts/rc_gates_win.sh <ver>`;
+`*_win.sh` generated from the Mac originals by `scripts/win_port.sh`; table `../_rc/0.3.0-rc2-win/SMOKE.md`): boot_smoke PASS, gstart PASS (10 + 9
+probes, 0 leaks), q1_ctest PASS (60/60), rc_chain PASS on every leg once the harness shim gaps were fixed (A swap x5, B, C, D, E remap, T2, CX, both
+modes; 350+ PASS lines), q1_census: XBOX 360 PASS, **ARCADE FAIL on AUDIO RING UNDERRUNS** (3,507 / 205 / 129 per 6-min demo loop; WASAPI sink 5,618;
+RT_VBSLEEP=0 206; Mac 0) -- an OPEN engine finding, bursts at the attract loop's scene changes coinciding with texture re-decode storms:
+docs/NOTE_fnf_shell_defects.md 2026-10-29. Rulings owed: audible on the PC? rc3 blocker or known issue? Investigation window (beta-2 engine control
+first). No `v0.3.0-rc2-win` tag until the user signs the Windows bundle off; a fix is rc3. Why the Windows build had been broken since w159:
+build_win_dll.sh compiled decomp/shell TUs with the game tree's include set (34a9402).
 
 **RC1 state (2026-10-12):** the release-candidate state for the two hosted modes (ARCADE 1.5 Original + XBOX 360 MODE) is
 `docs/PLAN_RC1.md` **§0 RC1 SCORECARD** (per-criterion status, what is left, rulings recorded/open); the proposed cut is
