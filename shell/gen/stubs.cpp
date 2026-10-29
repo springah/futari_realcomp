@@ -739,6 +739,23 @@ static uint16_t rt_sched_buttons(){
 }
 static std::atomic<int16_t>  g_host_lx{0}, g_host_ly{0};
 static bool rt_pad_host_on(){ static bool on=getenv("RT_PAD_HOST")!=nullptr; return on; }
+// RT_PAD_HOST_FIFO=<file> token reader, shared by every host-poll arm (2026-10-29: the Windows arm joins -- until then the
+// file-driven host channel existed only under SDL, so the Mac's gstart / census / rc_chain gates could not run on Windows).
+// Whitespace-separated tokens: "<hex>" plain word OR'd into the host channel · "<frame>:<hex>" press at renderer frame ·
+// "t<tick>:<hex>" press at guest present #tick (r23-w136 S18) · "d<tick>" tick-tagged one-shot PNG dump (rt.cpp Present hook ->
+// vk_render). Same edge/level semantics as a human on the keyboard; no RT_PAD synthetic timeline, no g_syn_quiet silencer.
+// Distinct from RT_PAD_FIFO, which rides the SYNTHETIC channel. Harness-only; inert unless the variable is set.
+static void rt_host_fifo_merge(const char* hf, uint16_t& b){
+  if(!hf) return;
+  FILE* f=std::fopen(hf,"r"); if(!f) return;
+  char tok[64];
+  while(std::fscanf(f,"%63s",tok)==1){ long fr=-1; unsigned v=0;
+    if(tok[0]=='t' && std::sscanf(tok+1,"%ld:%x",&fr,&v)==2 && fr>=0){ g_sched_pad.store((uint16_t)v,std::memory_order_relaxed); g_sched_by_tick.store(true,std::memory_order_relaxed); g_sched_frame.store(fr,std::memory_order_relaxed); }
+    else if(tok[0]=='d' && std::sscanf(tok+1,"%ld",&fr)==1 && fr>=0){ static long lastDump=-1; if(fr!=lastDump){ lastDump=fr; g_rt_dumpTick=fr; } }   // arm ONCE per distinct tick (the token stays in the file; the hook consumes the arm)
+    else if(std::sscanf(tok,"%ld:%x",&fr,&v)==2 && fr>=0){ g_sched_pad.store((uint16_t)v,std::memory_order_relaxed); g_sched_by_tick.store(false,std::memory_order_relaxed); g_sched_frame.store(fr,std::memory_order_relaxed); }
+    else if(std::sscanf(tok,"%x",&v)==1) b|=(uint16_t)v; }
+  std::fclose(f);
+}
 static void rt_host_poll_thread(){
 #ifdef _WIN32
   struct KM{ int vk; uint16_t btn; const char* name; };
@@ -750,10 +767,13 @@ static void rt_host_poll_thread(){
     {VK_RETURN,0x0010,"Enter=START"},   {VK_RSHIFT,0x0020,"RShift=BACK"},
   };
   enum{ NKM=(int)(sizeof(km)/sizeof(km[0])) };
-  std::fprintf(stderr,"[padhost] ACTIVE (GetAsyncKeyState) -- arrows+ZXCV+Enter+RShift (Esc ignored)\n");
+  const char* hf=getenv("RT_PAD_HOST_FIFO");   // the Windows arm of the file-driven host channel (see rt_host_fifo_merge)
+  std::fprintf(stderr,"[padhost] ACTIVE (GetAsyncKeyState) -- arrows+ZXCV+Enter+RShift (Esc ignored)%s%s\n",
+    hf?" + host FIFO ":"", hf?hf:"");
   for(;;){
     uint16_t b=0;
     for(int i=0;i<NKM;i++) if(GetAsyncKeyState(km[i].vk)&0x8000) b|=km[i].btn;
+    rt_host_fifo_merge(hf,b);
     g_host_buttons.store(b,std::memory_order_relaxed);
     int16_t lx=0,ly=0;
     if(b&0x0004) lx=-32767; else if(b&0x0008) lx=32767;
@@ -771,15 +791,7 @@ static void rt_host_poll_thread(){
       hf?" + host FIFO ":"", hf?hf:"");
     for(;;){
       uint16_t b=rvk_sdl_host_buttons();
-      if(hf){ if(FILE* f=std::fopen(hf,"r")){ char tok[64];
-                // whitespace-separated tokens: "<hex>" plain word · "<frame>:<hex>" press at renderer frame · "t<tick>:<hex>" press at
-                // guest present #tick (r23-w136 S18) · "d<tick>" tick-tagged one-shot PNG dump (rt.cpp Present hook -> vk_render)
-                while(std::fscanf(f,"%63s",tok)==1){ long fr=-1; unsigned v=0;
-                  if(tok[0]=='t' && std::sscanf(tok+1,"%ld:%x",&fr,&v)==2 && fr>=0){ g_sched_pad.store((uint16_t)v,std::memory_order_relaxed); g_sched_by_tick.store(true,std::memory_order_relaxed); g_sched_frame.store(fr,std::memory_order_relaxed); }
-                  else if(tok[0]=='d' && std::sscanf(tok+1,"%ld",&fr)==1 && fr>=0){ static long lastDump=-1; if(fr!=lastDump){ lastDump=fr; g_rt_dumpTick=fr; } }   // arm ONCE per distinct tick (the token stays in the file; the hook consumes the arm)
-                  else if(std::sscanf(tok,"%ld:%x",&fr,&v)==2 && fr>=0){ g_sched_pad.store((uint16_t)v,std::memory_order_relaxed); g_sched_by_tick.store(false,std::memory_order_relaxed); g_sched_frame.store(fr,std::memory_order_relaxed); }
-                  else if(std::sscanf(tok,"%x",&v)==1) b|=(uint16_t)v; }
-                std::fclose(f); } }
+      rt_host_fifo_merge(hf,b);   // token grammar: see rt_host_fifo_merge above (unchanged behaviour, now shared with the Windows arm)
       g_host_buttons.store(b,std::memory_order_relaxed);
       int16_t lx=0,ly=0;                       // arrows also drive the left stick, full deflection
       if(b&0x0004) lx=-32767; else if(b&0x0008) lx=32767;
