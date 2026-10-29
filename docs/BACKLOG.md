@@ -15,6 +15,14 @@
   music + SE natively, levels reference-exact, user-ear-signed and deployed. Entry kept below
   for history only.
 
+## 2026-10-29 — PARKED: WIN-AUDIO-1 demo-loop audio ring underruns on the PC (user: not audible)
+- The Windows rc2 census legs log audio ring underruns in 20-30 s bursts about every 75 s in the hands-off attract loop (ARCADE 6/6 legs,
+  XBOX 360 1/3; Mac 0), each burst right after an `[epochinval]`/`[texreval3]` texture re-decode cluster at a scene change. Controls excluded
+  the sink (WASAPI worse) and the RT_VBSLEEP gate. User listened 2026-10-29: clean. Known issue in RC_KNOWN_ISSUES.md; evidence
+  `_local/rc/0_3_0_rc2/{census,audio}/`, defect note 2026-10-29. When re-opened: (1) beta-2 engine (3827d81) on `scripts/rc_census_win.sh arcade 6`
+  = regression-or-preexisting; (2) why textures are freed-since-decode every scene and whether the re-decode can leave the present path;
+  (3) the audio worker's CPU during the storm (RT_AUDIOSTARVE + per-frame ms).
+
 ## 2026-10-12 — ADDED: iOS / iPadOS VERSION (post-RC1 follow-on, user-requested)
 - **SCOPE RULING 2026-10-12 (user): iPad ONLY, "nothing fancy at all", touch controls NOT wanted (deferred).**
   Shape: landscape, the 720p frame letterboxed into 4:3; input = BT/MFi pad or a keyboard via SDL3's existing

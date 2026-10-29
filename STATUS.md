@@ -10,8 +10,8 @@ Decomp objects shell 244 / arcade 55 / 360 9, identical to the Mac cut. **The Ma
 probes, 0 leaks), q1_ctest PASS (60/60), rc_chain PASS on every leg once the harness shim gaps were fixed (A swap x5, B, C, D, E remap, T2, CX, both
 modes; 350+ PASS lines), q1_census: **FAIL on AUDIO RING UNDERRUNS in the hands-off demo loop** (ARCADE 6/6 legs: 3,507 / 205 / 129 / 276; WASAPI sink 5,618;
 RT_VBSLEEP=0 206; XBOX 360 1/3 legs: 311; Mac 0; pacing/dropouts clean) -- an OPEN engine finding, bursts at the attract loop's scene changes coinciding with texture re-decode storms:
-docs/NOTE_fnf_shell_defects.md 2026-10-29. Rulings owed: audible on the PC? rc3 blocker or known issue? Investigation window (beta-2 engine control
-first). No `v0.3.0-rc2-win` tag until the user signs the Windows bundle off; a fix is rc3. Why the Windows build had been broken since w159:
+docs/NOTE_fnf_shell_defects.md 2026-10-29. USER RULING 10-29: not audible -> KNOWN ISSUE (docs/RC_KNOWN_ISSUES.md, Windows-only line), investigation
+PARKED (BACKLOG WIN-AUDIO-1). No `v0.3.0-rc2-win` tag until the user signs the Windows bundle off; a fix is rc3. Why the Windows build had been broken since w159:
 build_win_dll.sh compiled decomp/shell TUs with the game tree's include set (34a9402).
 
 **RC1 state (2026-10-12):** the release-candidate state for the two hosted modes (ARCADE 1.5 Original + XBOX 360 MODE) is

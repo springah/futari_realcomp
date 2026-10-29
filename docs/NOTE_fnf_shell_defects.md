@@ -2604,4 +2604,6 @@ re-run scoring of stale VERDICT files). All of them were in the MAC scripts too;
 * **Rulings owed (user):** (1) does audible crackle appear in the attract loop on the PC (either mode) (the hands checklist's eyes/ears pass)? (2) if yes, is it an
   rc3 blocker for the Windows bundle or a known issue? (3) the investigation window: beta-2 engine vs rc2 on this route first (regression or pre-existing),
   then the storm itself (why textures are freed-since-decode every scene, and whether the re-decode can leave the present path).
+* **USER RULING 2026-10-29 ("audio seems good"):** not audible on the PC -> recorded as a Windows-only KNOWN ISSUE (docs/RC_KNOWN_ISSUES.md), the
+  investigation window PARKED (BACKLOG WIN-AUDIO-1: beta-2 engine 3827d81 on the census route as the regression control first, then the storm).
 * **Engine state:** unchanged by this entry; the Windows bundle stays STAGED, untagged.

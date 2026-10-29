@@ -28,7 +28,18 @@ DIRTY=$(git status --porcelain | grep -v '^?? ')
 # the exe carries FUTARI_BUILD_ID as a string literal (build_win_dll.sh BUILD_ID = short sha [+ -dirty]); it must be HEAD, clean
 if grep -a -q "$HRS-dirty" build/futari_combined.exe; then BID="$HRS-dirty"; elif grep -a -q "$HRS" build/futari_combined.exe; then BID="$HRS"; else BID=""; fi
 log "exe build id: ${BID:-NOT HEAD}  HEAD: $HRS  decomp: ${HD:0:12}"
-case "$BID" in "$HRS") ;; "$HRS-dirty") [ "${ALLOW_DIRTY:-0}" = 1 ] || die "exe stamped -dirty: commit, rebuild";; *) [ "${ALLOW_DIRTY:-0}" = 1 ] || die "exe does not carry HEAD's build id ($HRS): rebuild";; esac
+# A build id that is an ANCESTOR of HEAD is accepted when every commit between it and HEAD touches only docs/, scripts/, dist/, STATUS.md,
+# README.md (text the gates do not run): the gated bytes stay the gated bytes, and the README records both the engine commit and the tree.
+ENGINE_COMMIT="$HRS"
+if [ -z "$BID" ]; then for c in $(git rev-list --max-count=40 HEAD~1 2>/dev/null); do cs=$(git rev-parse --short "$c"); if grep -a -q "$cs" build/futari_combined.exe; then BID="$cs"; break; fi; done; fi
+case "$BID" in
+  "$HRS") ;;
+  "$HRS-dirty") [ "${ALLOW_DIRTY:-0}" = 1 ] || die "exe stamped -dirty: commit, rebuild";;
+  "") [ "${ALLOW_DIRTY:-0}" = 1 ] || die "exe carries no recent commit's build id: rebuild";;
+  *) if git merge-base --is-ancestor "$BID" HEAD 2>/dev/null && [ -z "$(git diff --name-only "$BID" HEAD | grep -v -E '^(docs/|scripts/|dist/|STATUS\.md$|README\.md$)')" ]; then
+       ENGINE_COMMIT="$BID"; log "exe build id $BID is an ancestor of HEAD $HRS with docs/scripts-only changes between: accepted (engine commit $BID)"
+     else [ "${ALLOW_DIRTY:-0}" = 1 ] || die "exe build id ($BID) is not HEAD ($HRS) and engine sources changed since: rebuild"; fi;;
+esac
 TAGV="v$VER"; TAGC=$(git rev-list -n1 "$TAGV" 2>/dev/null || echo none)
 TU_SH=$(ls "$DECOMP_REPO"/decomp/shell/*.cpp | wc -l | tr -d ' '); TU_G=$(ls "$DECOMP_REPO"/decomp/game/*.cpp | wc -l | tr -d ' '); TU_A=$(ls "$DECOMP_REPO"/decomp/game_abn/*.cpp 2>/dev/null | wc -l | tr -d ' ')
 
@@ -79,7 +90,7 @@ BUG REPORTS
 BUILD (docs/PLAN_RC1.md section 6; Windows twin of the macOS $VER cut)
   Version:            $VER (Windows)
   Built:              $(date '+%Y-%m-%d %H:%M %Z')
-  futari_realcomp:    $HR   (tag $TAGV @ ${TAGC:0:12})
+  futari_realcomp:    $HR   (tree at staging; engine built at $ENGINE_COMMIT; tag $TAGV @ ${TAGC:0:12})
   futari_decomp:      $HD
   Decomp TUs:         shell $TU_SH, game/ARCADE $TU_G, game_abn/360 $TU_A source TUs in the sibling tree at build time
   Engine:             combined host exe (shell + kernel + renderer + bridge) + 2 module DLLs, Win32 window + XInput,
@@ -89,7 +100,7 @@ cp "$ST/README.txt" "$RD/README.txt"
 
 # ---- hashes + build block
 ( cd "$ST" && md5sum futari_combined.exe futari_game_normal.dll futari_game_abn.dll "Futari 1.5.bat" shell/default.xex ) > "$ST/MD5.txt"
-{ echo "version=$VER platform=windows"; echo "realcomp=$HR"; echo "decomp=$HD"; echo "exe_build_id=$BID"; echo "tag=$TAGV@$TAGC"; echo "staged=$(date -Iseconds)"; } > "$ST/BUILD.txt"
+{ echo "version=$VER platform=windows"; echo "realcomp=$HR"; echo "engine_commit=$ENGINE_COMMIT"; echo "decomp=$HD"; echo "exe_build_id=$BID"; echo "tag=$TAGV@$TAGC"; echo "staged=$(date -Iseconds)"; } > "$ST/BUILD.txt"
 cp "$ST/MD5.txt" "$RD/MD5.txt"; cp "$ST/BUILD.txt" "$RD/BUILD.txt"
 cat "$ST/MD5.txt"
 
