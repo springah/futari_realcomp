@@ -491,13 +491,19 @@ PPC_FUNC(sub_880EE880){
 extern std::atomic<int> g_rt_startline;   // stubs.cpp — START (wButton 0x10) LEVEL for P1
 #endif                                    // (in a DLL it is a macro over the bound host pointer)
 extern "C" void __imp__sub_8808F2C0(PPCContext& __restrict, uint8_t*);
+// 2026-10-30 (PLAN_RC1 s0.5 item 2, post-RC1): the EXCH byte lives in the game's .data cluster, which sits
+// at +dshift in a sibling module (0x60 in reco_abnormal: its encoder FUN_8808e7d8 reads `addi r8,r11,-26380`
+// where reco_normal reads -26476, out_reco_abn/ppc_recomp.4.cpp). The literal reco_normal address made the
+// wire inert in XBOX 360 MODE (NOTE_fnf_shell_defects.md 2026-10-12 "Note / open"); the module's own
+// futari_desc()->dshift (0 in ARCADE = byte-identical to before) fixes it the way RT_NAV360 reads its cluster.
 PPC_FUNC(sub_8808F2C0){
   static bool on = std::getenv("RT_STARTWIRE")!=nullptr;
   if(on && g_rt_startline.load(std::memory_order_relaxed)){
-    uint32_t ex=PPC_LOAD_U32(0x88699894u);
-    if((ex & 0x08u)==0){ PPC_STORE_U32(0x88699894u, ex | 0x08u);
+    const uint32_t EXCH=0x88699894u+futari_desc()->dshift;
+    uint32_t ex=PPC_LOAD_U32(EXCH);
+    if((ex & 0x08u)==0){ PPC_STORE_U32(EXCH, ex | 0x08u);
       static std::atomic<int> z{0}; int q=z.fetch_add(1);
-      if(q<8) std::fprintf(stderr,"[startwire] OR host-0x08 into EXCH 0x88699894 (was 0x%08X) -> game 0x8000 (1P-START)\n",ex); }
+      if(q<8) std::fprintf(stderr,"[startwire] OR host-0x08 into EXCH 0x%08X (dshift 0x%X; was 0x%08X) -> game 0x8000 (1P-START)\n",EXCH,futari_desc()->dshift,ex); }
   }
   __imp__sub_8808F2C0(ctx,base);
 }

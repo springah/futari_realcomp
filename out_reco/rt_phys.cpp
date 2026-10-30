@@ -27,6 +27,7 @@
 #include <cstdio>
 #include <cstdint>
 #include <cstdlib>
+#include <cerrno>
 #include <cstring>
 #include <map>
 #include <mutex>
@@ -34,6 +35,9 @@
 #include <vector>
 #ifdef _WIN32
 #include "win_compat.h"
+#else
+#include <sys/mman.h>
+#include <unistd.h>
 #endif
 
 namespace {
@@ -46,7 +50,7 @@ uint32_t g_heap = 0x00300000;                // bump frontier
 uint32_t g_bumpHigh = 0;                     // historic max frontier: bumps below it re-cover old bytes
 std::mutex g_mu;
 std::map<uint32_t, uint32_t> g_live;         // addr -> aligned size
-struct FreeEnt { uint32_t addr; uint64_t freedMs; };
+struct FreeEnt { uint32_t addr; uint64_t freedMs; bool released; };   // released: pages handed back (RT_POOLRELEASE)
 std::multimap<uint32_t, FreeEnt> g_pool;     // size -> entries; freedMs feeds only the retreat settle floor
 
 uint64_t nowMs(){ return (uint64_t)std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -90,7 +94,7 @@ static void poolInsert(uint32_t addr, uint32_t sz, uint64_t freedMs){
         g_pool.erase(it); merged = true; break; }
     }
   }
-  g_pool.emplace(sz, FreeEnt{addr, freedMs});
+  g_pool.emplace(sz, FreeEnt{addr, freedMs, false});   // a merged/new entry is re-released after its own quarantine
 }
 
 // Align-carve inside a candidate block: the block need not START aligned. Front pad re-pools
@@ -229,7 +233,66 @@ extern "C" void rt_free(uint32_t addr){ rt_free_ex(addr, 0); }
 struct DecomEnt { uint32_t addr, size; uint64_t t; };
 static std::vector<DecomEnt> g_decomQ;
 static bool decommitOn(){ static int v = [](){ const char* e = getenv("RT_DECOMMIT"); return e ? atoi(e) : 0; }(); return v != 0; }
+
+// ===== POOL PAGE RELEASE (G5-fix, 2026-10-30; PLAN_RC1 Q5/Q6, BACKLOG post-RC1) ==============
+// Q5 (10-11) bisected the ARCADE RSS ramp to THIS allocator: each demo cycle frees blocks that
+// law 2 keeps in g_pool (freed, retained, instantly reusable), the next cycle's sizes miss them,
+// the frontier bumps into fresh pages, and nothing on macOS/Linux ever hands the pooled pages
+// back (rt_decomSweep below is _WIN32-only and serves a different queue). Plateau ~720 MB RSS at
+// the 512 MB line (Q6). This arm returns the page-aligned interior of every pool entry that has
+// sat unreused for RT_POOLRELEASE milliseconds, and keeps the ALLOCATOR SPEC intact:
+//   law 2 (persistence): a block is released only after the quarantine (default 10 s); the hot
+//     rotation reuses its own block within a frame, so it is never touched; a just-freed block a
+//     deferred guest reader still looks at keeps its bytes for the whole quarantine.
+//   law 1 (no kernel zeroing): a released block comes back ZERO-FILLED (fresh anonymous pages),
+//     which is what law 1 already allows for fresh bump territory ("OS-zeroed"); only re-bumped
+//     retreated territory carried old bytes, and a released block is exactly that case made
+//     deterministic. The zeroing-semantics memset for rt_alloc callers is unchanged.
+//   laws 3-5 untouched: pool membership, coalescing, LIFO/exact-fit/split, the LINE defense.
+// Mechanism: Darwin/Linux mmap(MAP_FIXED|MAP_ANONYMOUS|MAP_PRIVATE|MAP_NORESERVE) over the interior
+// (deterministic zeros, pages non-resident until touched, RSS drops at once; the arena is itself
+// such a mapping, harness.cpp). RT_POOLRELEASE_MODE=1 uses madvise instead (Darwin
+// MADV_FREE_REUSABLE / Linux MADV_DONTNEED) for A/B. Windows: no-op (its decommit lever exists).
+// Lever: RT_POOLRELEASE=<quarantine ms> (0/unset = OFF, today's behaviour byte-for-byte).
+// Oracle (PREREG_q5): 12-min ARCADE demo-loop RSS@10 - RSS@2, control +133 MB (GROWING > 60,
+// FLAT < 25); stage pixel gate + boss plate gate re-run on the arm. Log: [poolrelease].
+static uint32_t poolReleaseMs(){ static uint32_t v = [](){ const char* e = getenv("RT_POOLRELEASE"); return e ? (uint32_t)atoi(e) : 0u; }(); return v; }
+static int poolReleaseMode(){ static int v = [](){ const char* e = getenv("RT_POOLRELEASE_MODE"); return e ? atoi(e) : 0; }(); return v; }
+static void rt_poolReleaseSweep(uint64_t now){   // caller holds g_mu
+  const uint32_t quar = poolReleaseMs(); if (!quar || !g_base) return;
+  static uint64_t lastSweep = 0; if (now - lastSweep < 1000) return; lastSweep = now;
+#ifdef _WIN32
+  (void)now;
+#else
+  static const uint32_t PG = (uint32_t)sysconf(_SC_PAGESIZE);
+  static long rn = 0, rfail = 0; static double rMB = 0.0;
+  for (auto& kv : g_pool){
+    FreeEnt& e = kv.second;
+    if (e.released || now - e.freedMs < quar) continue;
+    uint32_t a = (e.addr + PG - 1) & ~(PG - 1), end = (e.addr + kv.first) & ~(PG - 1);
+    e.released = true;                        // small/unaligned interiors: nothing to release, never retried
+    if (end <= a) continue;
+    bool ok;
+    if (poolReleaseMode() == 1){
+#ifdef __APPLE__
+      ok = madvise(g_base + a, end - a, MADV_FREE_REUSABLE) == 0;
+#else
+      ok = madvise(g_base + a, end - a, MADV_DONTNEED) == 0;
+#endif
+    } else {
+      void* r = mmap(g_base + a, end - a, PROT_READ | PROT_WRITE, MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
+      ok = (r == (void*)(g_base + a));
+    }
+    if (!ok){ if (rfail++ < 8) std::fprintf(stderr, "[poolrelease] FAILED 0x%X..0x%X errno=%d\n", a, end, errno); continue; }
+    rMB += (end - a)/(1024.0*1024.0);
+    if ((++rn % 32) == 1) std::fprintf(stderr, "[poolrelease] #%ld 0x%X..0x%X (%.1fMB) cum=%.0fMB pooled=%zu mode=%d quar=%ums\n",
+      rn, a, end, (end - a)/(1024.0*1024.0), rMB, g_pool.size(), poolReleaseMode(), quar);
+  }
+#endif
+}
+
 static void rt_decomSweep(uint64_t now){     // caller holds g_mu
+  rt_poolReleaseSweep(now);
   static uint32_t quar = [](){ const char* e = getenv("RT_DECOMMIT_QUAR_MS"); return e ? (uint32_t)atoi(e) : 10000u; }();
   size_t w = 0;
   for (size_t i = 0; i < g_decomQ.size(); ++i){ DecomEnt e = g_decomQ[i];
