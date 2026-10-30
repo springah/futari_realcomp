@@ -4,10 +4,9 @@
 - ✅ **G5-fix (Darwin/Linux page release) LANDED as `RT_POOLRELEASE=<ms>`** (098809f, 08fce44; NOTE_fnf_shell_defects.md 2026-10-30):
   the PREREG_q5 oracle went from +139 MB (control) to +9 / +6 MB (two pilots) over the 12-min ARCADE demo loop, 210-233 MB of
   pooled pages returned per run, heap trajectory identical, stagepix PASS, boss plate PASS (46/46 lockstep, identical push sets), 6 same-binary A/B legs dropout-free.
-  Plus x360 soak +8 MB FLAT and rc_chain A swap x5 PASS with the lever on. **Ships OPT-IN (default OFF); RULING OWED:** a
-  deterministic title-screen dropout mode (7 frames, one element) showed in 3/11 lever-on vs 0/9 lever-off runs, always before
-  the first release -- unexplained, flicker-class, so the default stays off until the user looks at the title with
-  `RT_POOLRELEASE=10000` and rules. Flip = one default in `poolReleaseMs()` (rt_phys.cpp).
+  Plus x360 soak +8 MB FLAT and rc_chain A swap x5 PASS with the lever on. **DEFAULT ON for macOS/Linux -- USER RULING
+  2026-10-30 "flip it on"** (`RT_POOLRELEASE=0` reverts). Known residual for the rc3 eyes pass: a deterministic title-screen
+  dropout mode (7 frames, one element) in 3/11 lever-on vs 0/9 lever-off runs, always before the first release.
 - ✅ **360 START-wire address CLOSED** (PLAN_RC1 §0.5 item 2): `0x88699894 + futari_desc()->dshift`; G-START x360 9/9 no leak, rc_chain B x360 PASS.
 - **Black Label (kiniro) bring-up steps 0-2 DONE, static** (4013f33, docs/PLAN_kiniro_bringup.md): mulhdu + xex-size fix in the eqv
   patch, out_kiniro/ + out_kiniro_abn/ regenerate in ~4 s with 0 dropped instructions (8,375 functions, 33 TUs each), 62+62 jump

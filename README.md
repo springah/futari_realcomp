@@ -138,7 +138,7 @@ porter will meet:
 |---|---|
 | `RVK_WINSIZE=WxH`, F11 | window size / fullscreen; the 1280x720 compose is aspect-fit into it |
 | `RT_ROTATE=90\|270` | rotated (portrait) present through a small shader pass — the Mac-first half of an iPad build (2026-10-30) |
-| `RT_POOLRELEASE=<ms>` | macOS/Linux: long-pooled guest pages are returned after this quarantine (opt-in, e.g. `10000`; unset = never). Cuts the ARCADE demo-loop RSS plateau from ~720 MB to ~400 MB; default-on ruling pending |
+| `RT_POOLRELEASE=<ms>` | macOS/Linux: long-pooled guest pages are returned after this quarantine (default 10000 since 2026-10-30; `0` = never, the earlier allocator). Cuts the ARCADE demo-loop RSS plateau from ~720 MB to ~400 MB |
 | `RT_SAVE=<dir>` | save directory (the `.app` uses `~/Library/Application Support/Futari Realcomp/save`) |
 | `RT_PAD_HOST=1` | host keyboard as a pad (arrows, Z=A, X=B, C=X, V=Y, Enter=START, RShift=BACK) |
 | `RVK_PRESENTDUMP=<png>` | debug: dump what the window actually shows (the finished swapchain image) |
