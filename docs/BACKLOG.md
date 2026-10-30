@@ -13,12 +13,14 @@
   tables from a recogniser that reproduces the reco pair's 57+57 exactly. Next = step 3 (indirect-only harvest loop, needs step 4a
   first) and step 4 (symbol map 210 unique / 35 ambiguous / 52 no-match hooks; descriptor data -- NOTE: the kiniro twin's data side is
   PIECEWISE (+0x100 / +0xF0 / -0x28), not one dshift; START EXCH candidate 0x8868F6AC / 0x8868F7AC needs a live positive control).
-  The shared external/xr-derisk recompiler still carries the OLD patch (the agent used a private copy); re-apply + rebuild it with
-  `scripts/regen_kiniro_mac.sh` when no game build is running.
+  ✅ The shared external/xr-derisk recompiler on the Mac now carries the full patch (re-applied + rebuilt 10-30 evening via
+  `scripts/regen_kiniro_mac.sh`): kiniro regenerates identically through it, `regen_abn_mac.sh` reproduces out_reco_abn
+  BYTE-IDENTICAL (33/33 TUs by md5), and a relink against the rebuilt libXenonUtils boots clean.
 - **RT_ROTATE=90|270** (b737e13, 3097d95; see the PORTRAIT TOO bullet below for the lane's own entry).
 - Not touched tonight: the 5 UNDER kernel stubs (§0.5 item 1, still "one per window with a pixel gate"), WIN-AUDIO-1 (parked by
   the user), Deck re-cut (the Deck was offline), the two decomp harness leads 881C11A0 / 880E60C0 (decomp-campaign route items).
-- Harness landmine: Homebrew `python3` → 3.15 without numpy; the stagepix / boss-plate scorers need `python3.13` (see the NOTE entry).
+- ✅ Harness landmine CLOSED (42ce68c): Homebrew `python3` → 3.15 without numpy; the gate scripts now source `scripts/pymac.sh`, which
+  picks a python that imports numpy + Pillow (`PYTHON=` overrides).
 
 ## 2026-08-03 — USER-RULING CLOSURE SWEEP (attended session after the tid-fix ship)
 - ✅ **Magenta-block corruption — RESOLVED-UNTIL-RECURRENCE** (user: "only happened once...

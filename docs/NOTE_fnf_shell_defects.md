@@ -55,12 +55,21 @@ Unattended Mac seat (user away, "go nuts"); engine commits 098809f + 08fce44 on 
   clean. Not significant, and every instance precedes the first `[poolrelease]` line, so the remap is not the mechanism; but it is
   biased toward lever-on, unexplained, and sits in the flicker class that failed user acceptance twice (BACKLOG #0). Banker call:
   ship OPT-IN and ask. **USER RULING 2026-10-30 (same evening): "Flip it on."** The non-Windows default in `poolReleaseMs()` is
-  10000u again (commit after 8e81c8a); `RT_POOLRELEASE=0` reverts. The title dropout mode is recorded as a known residual to look
-  for in the rc3 eyes pass; the rc2 bundle is unaffected (the default reaches a bundle only at the next cut).
+  10000u again (55a052f); `RT_POOLRELEASE=0` reverts. The title dropout mode is recorded as a known residual to look
+  for in the rc3 eyes pass; the rc2 bundle is unaffected (the default reaches a bundle only at the next cut). Running tally after
+  two more default-on boot legs later the same evening (lm2, lm3: both in the mode, 7 dropouts each, 0 underruns on an idle
+  machine): lever ON 5 of 13, lever OFF 0 of 9. (lm2's 87 underruns were Spotlight indexing the 2.3 M freshly regenerated
+  kiniro lines -- mdworker at load 3.3; the idle rerun had 0.)
 - **Harness landmine (10-30):** Homebrew `python3` on the Mac now resolves to 3.15 without numpy/PIL, so `stagepix_mac.py`
   and `boss_plate_gate.py` crash under the gate scripts' bare `python3`; `python3.13` (numpy 2.2.2, PIL 11.3) scores the
-  already-banked shots correctly. The ladder scripts still say `python3`; fix them (PYTHON=... or `python3.13`) before the
-  next gate run.
+  already-banked shots correctly. FIXED the same evening (42ce68c): `scripts/pymac.sh` resolves `$PYTHON` to the first of
+  python3.13 / 3.14 / 3.12 / 3.11 / python3 / python that imports numpy and PIL, and the five scripts that score (stagepix_mac,
+  rc_plate_dll_mac, boss1/boss_plate_gate, fdpace_check_mac, q7v_w136_route) source it.
+- **Shared recompiler brought up to the patch (10-30 evening):** the Black Label agent had patched a private xr-derisk copy; the
+  shared `external/xr-derisk` on the Mac (mulhdu 0, xex-size fix 0) was re-patched and rebuilt by `scripts/regen_kiniro_mac.sh`
+  (both hunks present, XenonRecomp rebuilt 19:52). Proof: kiniro regenerates with the same counts (33 TUs / 8,375 functions /
+  62 tables / 0 dropped), `regen_abn_mac.sh` reproduces out_reco_abn byte-identical (md5 of all 33 generated TUs unchanged),
+  `LINK_ONLY=1` relink of build/g5def against the rebuilt libXenonUtils = BUILD_OK and boots.
 - **360 START-wire (PLAN_RC1 §0.5 item 2, NOTE 2026-10-12 "Note / open").** `sub_8808F2C0`'s RT_STARTWIRE hook wrote the
   reco_normal EXCH address 0x88699894 literally; reco_abnormal's encoder reads it at +0x60 (`addi r8,r11,-26380` vs -26476,
   out_reco_abn/ppc_recomp.4.cpp), so the wire was inert in XBOX 360 MODE. Now `0x88699894 + futari_desc()->dshift` (RT_NAV360's
