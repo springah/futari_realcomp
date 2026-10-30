@@ -16,6 +16,7 @@
   ✅ The shared external/xr-derisk recompiler on the Mac now carries the full patch (re-applied + rebuilt 10-30 evening via
   `scripts/regen_kiniro_mac.sh`): kiniro regenerates identically through it, `regen_abn_mac.sh` reproduces out_reco_abn
   BYTE-IDENTICAL (33/33 TUs by md5), and a relink against the rebuilt libXenonUtils boots clean.
+  ✅ **Step 4a DONE (bind, not run)**: `MODULES="normal abn kiniro"` builds futari_game_kiniro.dylib (modeIdx 4) and the host binds 3/3, mask=0x13; the Black Label row un-greys (with RT_DLCFORCE=1); 167/219 hooks mapped, 52 dropped; descriptor values UNVERIFIED -- docs/PLAN_kiniro_bringup.md "Step 4a".
 - **RT_ROTATE=90|270** (b737e13, 3097d95; see the PORTRAIT TOO bullet below for the lane's own entry).
 - Not touched tonight: the 5 UNDER kernel stubs (§0.5 item 1, still "one per window with a pixel gate"), WIN-AUDIO-1 (parked by
   the user), Deck re-cut (the Deck was offline), the two decomp harness leads 881C11A0 / 880E60C0 (decomp-campaign route items).
