@@ -4891,6 +4891,65 @@ static bool rvkRotRecord(VkCommandBuffer cb, uint32_t idx, VkImage src) {
   return true;
 }
 
+// RVK_PRESENTDUMP=<path> (2026-10-30, debug lever written for the RT_ROTATE acceptance: screencapture over ssh
+// cannot see the window). Copies the FINISHED swapchain image -- exactly what the window shows, bars and
+// rotation included -- to a host buffer and writes it as a PNG. RVK_PRESENTDUMP_AT=<n> = first window present
+// to dump (default 900), RVK_PRESENTDUMP_EVERY=<m> = repeat every m presents (default 0 = once); a "%ld" in the
+// path takes the present number. The swapchain gains TRANSFER_SRC usage only while it is set; the dumped
+// present waits its own fence. Unset = inert.
+static const char* rvkPresentDumpPath() {
+  static const char* p = [] { const char* e = std::getenv("RVK_PRESENTDUMP"); return (e && *e) ? e : (const char*)nullptr; }();
+  return p;
+}
+struct RvkPDump {
+  VkBuffer buf = VK_NULL_HANDLE; VkDeviceMemory mem = VK_NULL_HANDLE; void* map = nullptr; VkDeviceSize size = 0;
+  uint32_t w = 0, h = 0; long n = 0; bool scSrcOk = false, failed = false;
+} gpd;
+// Records the copy of swapchain image `img` (PRESENT_SRC_KHR on entry AND exit) when present #n is due.
+static bool rvkPresentDumpRecord(VkCommandBuffer cb, VkImage img, long n) {
+  if (gpd.failed) return false;
+  static const long at = std::getenv("RVK_PRESENTDUMP_AT") ? std::atol(std::getenv("RVK_PRESENTDUMP_AT")) : 900;
+  static const long every = std::getenv("RVK_PRESENTDUMP_EVERY") ? std::atol(std::getenv("RVK_PRESENTDUMP_EVERY")) : 0;
+  if (!((n == at) || (every > 0 && n > at && (n - at) % every == 0))) return false;
+  if (!gpd.scSrcOk) { std::fprintf(stderr, "[rvk][pdump] swapchain lacks TRANSFER_SRC usage -- RVK_PRESENTDUMP off\n"); gpd.failed = true; return false; }
+  const uint32_t w = gw.scExtent.width, h = gw.scExtent.height;
+  const VkDeviceSize need = (VkDeviceSize)w * h * 4;
+  if (gpd.size < need) {
+    if (gpd.buf) { vkDestroyBuffer(g.dev, gpd.buf, nullptr); vkFreeMemory(g.dev, gpd.mem, nullptr); gpd.buf = VK_NULL_HANDLE; gpd.size = 0; }
+    if (!makeBuffer(need, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                    &gpd.buf, &gpd.mem, &gpd.map) || !gpd.map) {
+      std::fprintf(stderr, "[rvk][pdump] readback buffer FAILED -- RVK_PRESENTDUMP off\n"); gpd.failed = true; return false;
+    }
+    gpd.size = need;
+  }
+  VkImageMemoryBarrier b{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+  b.srcQueueFamilyIndex = b.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  b.image = img; b.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+  b.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; b.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+  b.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT; b.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+  vkCmdPipelineBarrier(cb, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &b);
+  VkBufferImageCopy r{}; r.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}; r.imageExtent = {w, h, 1};
+  vkCmdCopyImageToBuffer(cb, img, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, gpd.buf, 1, &r);
+  b.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL; b.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+  b.srcAccessMask = 0; b.dstAccessMask = 0;
+  VkMemoryBarrier hm{VK_STRUCTURE_TYPE_MEMORY_BARRIER}; hm.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; hm.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+  vkCmdPipelineBarrier(cb, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT | VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                       0, 1, &hm, 0, nullptr, 1, &b);
+  gpd.w = w; gpd.h = h; gpd.n = n;
+  return true;
+}
+// After the fence covering the recorded copy has signalled: swizzle BGRA swapchains to RGBA, write the PNG.
+static void rvkPresentDumpWrite() {
+  const uint32_t w = gpd.w, h = gpd.h;
+  std::vector<uint8_t> px((size_t)w * h * 4);
+  std::memcpy(px.data(), gpd.map, px.size());
+  const bool bgra = gw.scFormat == VK_FORMAT_B8G8R8A8_UNORM || gw.scFormat == VK_FORMAT_B8G8R8A8_SRGB;
+  if (bgra) for (size_t i = 0; i < px.size(); i += 4) std::swap(px[i], px[i + 2]);
+  char path[1024]; std::snprintf(path, sizeof path, rvkPresentDumpPath(), gpd.n);
+  std::fprintf(stderr, "[rvk][pdump] window present #%ld (%ux%u fmt=%d, rotate=%d) -> %s\n", gpd.n, w, h, (int)gw.scFormat, rvkRotateDeg(), path);
+  writePngSync(path, px.data(), w, h);
+}
+
 bool rvkWindowCreateSwapchain() {
   VkSurfaceCapabilitiesKHR caps{};
   if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(g.phys, gw.surface, &caps) != VK_SUCCESS) return false;
@@ -4926,6 +4985,9 @@ bool rvkWindowCreateSwapchain() {
   sci.imageFormat = pick.format; sci.imageColorSpace = pick.colorSpace;
   sci.imageExtent = ext; sci.imageArrayLayers = 1;
   sci.imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+  if (rvkPresentDumpPath() && (caps.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT)) {   // RVK_PRESENTDUMP only
+    sci.imageUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT; gpd.scSrcOk = true;
+  }
   sci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
   sci.preTransform = caps.currentTransform; sci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
   // Present mode (2026-07-16). The guest's frame clock is now the synthetic 59.94Hz vblank pump
@@ -5389,6 +5451,8 @@ void rvkWindowPresent(bool asyncShow = false) {
   toPresent.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; toPresent.dstAccessMask = 0;
   if (!rotPresent)   // the rotate render pass's finalLayout already did this transition
   vkCmdPipelineBarrier(gw.cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &toPresent);
+  static long pdN = 0;   // RVK_PRESENTDUMP (debug): copy the finished swapchain image when due
+  const bool pdNow = rvkPresentDumpPath() && rvkPresentDumpRecord(gw.cmd, gw.scImages[idx], ++pdN);
   vkEndCommandBuffer(gw.cmd);
   VkPipelineStageFlags waitStage = rotPresent ? VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT : VK_PIPELINE_STAGE_TRANSFER_BIT;
   VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};
@@ -5408,6 +5472,7 @@ void rvkWindowPresent(bool asyncShow = false) {
   }
   if (asyncShow) gwFencePending = true;   // wait deferred to the next present (see above)
   else rvkWaitFences(g.dev, 1, &gw.fence, VK_TRUE, 1000000000ull);  // sync mode: serialize with the renderer's own submits
+  if (pdNow) { rvkWaitFences(g.dev, 1, &gw.fence, VK_TRUE, 1000000000ull); rvkPresentDumpWrite(); }
 }
 
 // ============================================================================
