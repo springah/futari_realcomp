@@ -87,6 +87,11 @@ ModuleSlot g_slots[] = {
 #if defined(FUTARI_HOST_KINIRO) && FUTARI_HOST_KINIRO
     { "futari_game_kiniro" FUTARI_MODULE_EXT, "kiniro_normal", 4u, nullptr, nullptr, 0 },
 #endif
+#if defined(FUTARI_HOST_KINIRO_ABN) && FUTARI_HOST_KINIRO_ABN
+    // Black Label XBOX 360 MODE (modeIdx 5, step 4c 2026-10-31): its own opt-in flag, so a MODULES list with
+    // `kiniro` but not `kiniro_abn` still gets a 3-row table and no "NOT FOUND" row.
+    { "futari_game_kiniro_abn" FUTARI_MODULE_EXT, "kiniro_abnormal", 5u, nullptr, nullptr, 0 },
+#endif
 };
 constexpr int NSLOT = (int)(sizeof(g_slots) / sizeof(g_slots[0]));
 

@@ -195,6 +195,35 @@ constexpr FutariModuleDesc g_futari_desc_kiniro_normal = {
     nullptr, 0u                     // mappings/mapping_count: DLL-only (see the field comment)
 };
 
+// kiniro_abnormal = Black Label XBOX 360 MODE (title 2 / sub 1 = modeIdx 5), step 4c 2026-10-31. The +8 TWIN of
+// kiniro_normal (PLAN_kiniro_bringup §4: one 2-instruction insertion in sub_880E1B68; code +8 at/above 0x880E1C60,
+// 8243/8243 function starts pair). Its .data does NOT follow one shift (+0x100 dominant, +0xF0 in a sub-range,
+// -0x28 in .rdata), so every address below is kiniro_normal's candidate TRANSLATED BY TWIN VOTE
+// (out_kiniro/tools_kiniro/derive_desc_abn.py: the +8-paired function names the address at the same instruction;
+// positive control reco_normal -> reco_abnormal reproduces the +0x60 law 13/13 fields, 0 disagreements). All eight
+// came out +0x100 with unanimous votes (field_active 15/15, gm_frame_gate 1/1, asset_commit 5/5, mb_reload 15/15,
+// mb_credited 5/5, mb_mode64 9/9, START EXCH 2/2, callback slot 6/6). They inherit kiniro_normal's status: the
+// entry, START EXCH, field_active, gm_frame_gate and mb_credited of kiniro_normal are LIVE-CONTROLLED (step 3b);
+// asset_commit / mb_reload / mb_mode64 are structural only. Nothing here has run yet.
+constexpr FutariModuleDesc g_futari_desc_kiniro_abnormal = {
+    FUTARI_MODULE_ABI, (uint32_t)sizeof(FutariModuleDesc),
+    "kiniro_abnormal",
+    0x88000000u, 0x7B0000u,
+    0x88070000u, 0x1DDEACu,         // code +8 (out_kiniro_abn/ppc_config.h PPC_CODE_SIZE)
+    0x887B0000u,
+    0x88070588u,                    // xstart: below the split, unchanged (like reco_abnormal's)
+    0x8824D680u,                    // entry_ord1 = kiniro_normal's 0x8824D678 + 8 (above the split); UNVERIFIED
+    5u,                             // hosted_mode_idx: title 2 (Black Label) / sub 1 (XBOX 360 MODE)
+    0xFFFF5F18u,                    // dshift = -0xA0E8: START EXCH twin delta only (0x88699894 -> 0x8868F7AC) -- UNVERIFIED
+    { 0x885B7938u,                  // field_active   kiniro +0x100 (twin vote 15/15)
+      0x887A2870u,                  // gm_frame_gate  +0x100 (1/1)
+      0x887A288Bu,                  // asset_commit   +0x100 (5/5)
+      0x887A34B4u,                  // mb_reload      +0x100 (15/15)
+      0x887A346Fu,                  // mb_credited    +0x100 (5/5)
+      0x887A34ACu },                // mb_mode64      +0x100 (9/9)
+    nullptr, 0u
+};
+
 // The +0x60 law, asserted rather than trusted.
 static_assert(g_futari_desc_reco_abnormal.addrs.field_active  == g_futari_desc_reco_normal.addrs.field_active  + 0x60u, "abn dshift");
 static_assert(g_futari_desc_reco_abnormal.addrs.gm_frame_gate == g_futari_desc_reco_normal.addrs.gm_frame_gate + 0x60u, "abn dshift");
@@ -225,6 +254,20 @@ static_assert(g_futari_desc_reco_normal.hosted_mode_idx < 8u && g_futari_desc_re
 static_assert(g_futari_desc_kiniro_normal.hosted_mode_idx != g_futari_desc_reco_normal.hosted_mode_idx &&
               g_futari_desc_kiniro_normal.hosted_mode_idx != g_futari_desc_reco_abnormal.hosted_mode_idx, "hosted mode collision");
 static_assert(g_futari_desc_kiniro_normal.hosted_mode_idx == 4u, "kiniro_normal is title 2 (Black Label) / sub 0 (ARCADE) = modeIdx 4");
+// The kiniro pair: same title (2), different sub; code +8; .data +0x100 for every descriptor field (twin vote, see above).
+static_assert(g_futari_desc_kiniro_abnormal.hosted_mode_idx == 5u, "kiniro_abnormal is title 2 (Black Label) / sub 1 (XBOX 360) = modeIdx 5");
+static_assert(g_futari_desc_kiniro_abnormal.hosted_mode_idx / 2u == g_futari_desc_kiniro_normal.hosted_mode_idx / 2u, "the kiniro pair is one title");
+static_assert(g_futari_desc_kiniro_abnormal.table_base == g_futari_desc_kiniro_abnormal.image_base + g_futari_desc_kiniro_abnormal.image_size, "table window");
+static_assert(g_futari_desc_kiniro_abnormal.image_base == g_futari_desc_reco_normal.image_base &&
+              g_futari_desc_kiniro_abnormal.image_size == g_futari_desc_reco_normal.image_size, "kiniro_abn shares reco's image window");
+static_assert(g_futari_desc_kiniro_abnormal.code_size == g_futari_desc_kiniro_normal.code_size + 8u, "kiniro twin: code +8");
+static_assert(g_futari_desc_kiniro_abnormal.entry_ord1 == g_futari_desc_kiniro_normal.entry_ord1 + 8u, "kiniro twin: GameEntry +8");
+static_assert(g_futari_desc_kiniro_abnormal.addrs.field_active  == g_futari_desc_kiniro_normal.addrs.field_active  + 0x100u, "kiniro twin .data +0x100");
+static_assert(g_futari_desc_kiniro_abnormal.addrs.gm_frame_gate == g_futari_desc_kiniro_normal.addrs.gm_frame_gate + 0x100u, "kiniro twin .data +0x100");
+static_assert(g_futari_desc_kiniro_abnormal.addrs.asset_commit  == g_futari_desc_kiniro_normal.addrs.asset_commit  + 0x100u, "kiniro twin .data +0x100");
+static_assert(g_futari_desc_kiniro_abnormal.addrs.mb_reload     == g_futari_desc_kiniro_normal.addrs.mb_reload     + 0x100u, "kiniro twin .data +0x100");
+static_assert(g_futari_desc_kiniro_abnormal.addrs.mb_credited   == g_futari_desc_kiniro_normal.addrs.mb_credited   + 0x100u, "kiniro twin .data +0x100");
+static_assert(g_futari_desc_kiniro_abnormal.addrs.mb_mode64     == g_futari_desc_kiniro_normal.addrs.mb_mode64     + 0x100u, "kiniro twin .data +0x100");
 
 // ---- THE ACCESSOR.  Every module-specific value in the host goes through this. -----------
 // THREE BUILD SHAPES, ONE SIGNATURE:
@@ -254,8 +297,10 @@ constexpr const FutariModuleDesc* futari_desc() {
     return &g_futari_desc_reco_abnormal;
 #elif FUTARI_MODULE == 4
     return &g_futari_desc_kiniro_normal;
+#elif FUTARI_MODULE == 5
+    return &g_futari_desc_kiniro_abnormal;
 #elif FUTARI_MODULE != 0
-#error "FUTARI_MODULE must be 0 (reco_normal), 1 (reco_abnormal) or 4 (kiniro_normal)"
+#error "FUTARI_MODULE must be 0 (reco_normal), 1 (reco_abnormal), 4 (kiniro_normal) or 5 (kiniro_abnormal)"
 #else
     return &g_futari_desc_reco_normal;
 #endif

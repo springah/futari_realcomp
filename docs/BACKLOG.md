@@ -11,12 +11,17 @@
   reco_normal .data literals when the module is not reco-layout (the audit found no other literal writer among the 93 installed hooks).
 - Non-regression on the default build: arcade leg clean, x360 leg's single dropout is the pre-swap title residual. No `[kgate]`
   on the reco pair.
-- ⏳ **Owed next for Black Label** (none blocks rc3; all opt-in): positive-control the descriptor fields (field_active /
-  gm_frame_gate / asset_commit / mailboxes: candidates only); a nav/observer set for kiniro (RT_NAVREAL lives in a dropped hook);
-  a quality gate (stagepix/boss plate/q-census assume reco data); triage of the 52 dropped hooks; step 4c kiniro_abnormal (+8 law,
-  `harvest_unmapped.py --apply` already ports rows); the Ver 1.01 DLC root (same type-2 path, untested); how a USER gets the
-  DLC in: `tools/extract/futari_extract.py <dlc folder> --out <private root>` exists, the app needs an "extra game root" story
-  before Black Label can be offered (data NEVER in assets/ -> never in the bundle).
+- ✅ **Step 3b + 4c (same day, unattended):** RT_DESCPROBE positive controls (field_active / gm_frame_gate / mb_credited move identically
+  on the reco control and on both kiniro modules at the same drive points; asset_commit / mb_reload / mb_mode64 flat on the control too,
+  so still structural) · `scripts/kiniro_gate_mac.sh` regression gate (13 asserts; first runs 13/13 on both modes) · **kiniro_abnormal =
+  Black Label XBOX 360 MODE boots and plays first try** (+8-law symbol map 8243/8243, twin-vote descriptor all +0x100 with a 0-disagreement
+  reco control, 4/4 host mask 0x33). PLAN_kiniro_bringup "Step 3b" / "Step 4c".
+- ⏳ **Owed next for Black Label** (none blocks rc3; all opt-in): a nav/observer set for kiniro (RT_NAVREAL lives in a dropped hook);
+  a QUALITY gate (stagepix/boss plate/q-census assume reco data; no reference pixels for BL); triage of the 52 dropped hooks; a drive that
+  makes asset_commit / mb_reload / mb_mode64 move on the control, to judge those three candidates; the Ver 1.01 DLC root (same type-2
+  path, untested); how a USER gets the DLC in: `tools/extract/futari_extract.py <dlc folder> --out <private root>` exists, the app needs
+  an "extra game root" story before Black Label can be offered (data NEVER in assets/ -> never in the bundle); Windows build arms for
+  modules 4/5 (build_win_dll.sh has none).
 
 ## 2026-10-30 — POST-RC1 QUEUE, unattended Mac seat ("go nuts"): G5-fix LANDED · 360 START-wire CLOSED · Black Label steps 0-2 · RT_ROTATE
 - ✅ **G5-fix (Darwin/Linux page release) LANDED as `RT_POOLRELEASE=<ms>`** (098809f, 08fce44; NOTE_fnf_shell_defects.md 2026-10-30):

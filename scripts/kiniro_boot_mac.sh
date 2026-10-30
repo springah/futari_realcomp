@@ -37,11 +37,18 @@ for ((i=0;i<n;i++)); do HOLDSTEPS+=('s:15' shot 'log:\[indirect\] UNMAPPED\|\[kd
 # KIN_STEPS: whitespace-split, "\ " = a literal space inside one step
 EXTRA=(); if [ -n "${KIN_STEPS:-}" ]; then
   _s="${KIN_STEPS//\\ /$'\x01'}"; for w in $_s; do EXTRA+=("${w//$'\x01'/ }"); done; fi
+# Control arm (KIN_MODEIDX=0): the same drive on Ver 1.5 ARCADE = title row 0 (no DOWNs), decide = modeIdx 0, and no
+# module swap to wait for (reco_normal is the boot module). Same KIN_STEPS, same harvest greps -> an A/B pair.
+KIN_MODEIDX="${KIN_MODEIDX:-4}"
+ROWSTEPS=(2 's:1.5' 2 's:2.5'); SWAPSTEPS=('W:\[modswap\] #[0-9]* DONE' 's:5')
+if [ "$KIN_MODEIDX" = 0 ]; then ROWSTEPS=('s:2'); SWAPSTEPS=('s:8'); fi
+# odd modeIdx = the XBOX 360 MODE card: LEFT on the arcade_front panel first (the panel honours no decide for 3 s)
+SUBSTEPS=(); case "$KIN_MODEIDX" in 1|3|5|7) SUBSTEPS=(4 's:3.6');; esac
 RT_GAME_ROOT="$KIN_ROOT" RT_SAVE="$SAVE" RUN_SECS="${RUN_SECS:-$(( 260 + HOLD ))}" bash scripts/nav_mac.sh "$TAG" "$BIN" -- \
-  10 'w:SYS_BGM cue0 (mushifuta_Menu02)' 's:4' 2 's:1.5' 2 's:2.5' shot \
-  1000 'w:SYS_SE cue1 (SE_OK01)' 's:3' shot \
-  1000 'w:\[modeidx\] sub_821C3F38 modeIdx=4' 's:2' \
-  'W:\[modswap\] #[0-9]* DONE' 's:5' shot 'log:\[modswap\]\|\[loadgame\]\|\[xenum\] DLC gate' \
+  10 'w:SYS_BGM cue0 (mushifuta_Menu02)' 's:4' "${ROWSTEPS[@]}" shot \
+  1000 'w:SYS_SE cue1 (SE_OK01)' 's:3' "${SUBSTEPS[@]}" shot \
+  1000 "w:\\[modeidx\\] sub_821C3F38 modeIdx=$KIN_MODEIDX" 's:2' \
+  "${SWAPSTEPS[@]}" shot 'log:\[modswap\]\|\[loadgame\]\|\[xenum\] DLC gate' \
   "${EXTRA[@]}" \
   "${HOLDSTEPS[@]}"
 B="_local/nav_mac/$TAG"
@@ -57,6 +64,10 @@ B="_local/nav_mac/$TAG"
   grep -E '\[kdrop\]|\[kgate\]|IS THE WRONG MODULE|FATAL' "$B/guest.log" | cut -c1-200 | sort | uniq -c | sort -rn | head -40
   echo "-- module lines --"
   grep -E '\[modreg\]|\[modswap\]|\[modeidx\]|\[loadgame\]|\[xenum\] DLC gate|\[startwire\]' "$B/guest.log" | cut -c1-220 | head -40
+  echo "-- [descprobe] (RT_DESCPROBE=1: the six descriptor fields, edge-logged by the pump hook) --"
+  grep '\[descprobe\]' "$B/guest.log" | cut -c1-260 | head -60
+  echo "-- BGM / hub markers --"
+  grep -E '\[cue\] BGM|\[p0build\] menu_game_title|\[mcur\]|\[decide\]' "$B/guest.log" | grep -v native | cut -c1-160 | head -30
   echo "-- engine exit --"; tail -5 "$B/run_out.txt" 2>/dev/null
 } > "$B/harvest.txt"
 cat "$B/harvest.txt"

@@ -1522,6 +1522,32 @@ PPC_FUNC(sub_88090480){
   long long n=g_pump480.fetch_add(1)+1;
   if(n<=5 || (n%1000)==0)
     std::fprintf(stderr,"[pump] sub_88090480 (game service cb) call#%lld\n",n);
+  // RT_DESCPROBE=1 (Black Label step 3b, 2026-10-31): POSITIVE CONTROL for the descriptor's six .data fields.
+  // This service callback runs on every module (reco pair and kiniro) a few hundred times a second, so it is the
+  // one probe point that sees the same drive on both; it reads the six GA_ fields THROUGH futari_desc() (so on
+  // module 4 it reads the kiniro CANDIDATES) and logs an edge line whenever one of the five slow fields changes,
+  // plus the gm_frame_gate toggle count every 5000 calls (that field flips every frame, so edges would spam).
+  // Control = the same drive on reco_normal (modeIdx 0), whose addresses are proven: a kiniro candidate that
+  // shows the same transition pattern at the same drive points is positively controlled; one that stays flat
+  // while reco's moves is refuted (or unreferenced). Log-only; default OFF.
+  { static const bool dp = std::getenv("RT_DESCPROBE")!=nullptr;
+    if(dp){
+      static uint32_t last[6]={0xFFFFFFFFu,0xFFFFFFFFu,0xFFFFFFFFu,0xFFFFFFFFu,0xFFFFFFFFu,0xFFFFFFFFu};
+      static long tog=0, nlog=0; static auto t0=std::chrono::steady_clock::now();
+      const uint32_t v[6]={ PPC_LOAD_U32(GA_FIELD_ACTIVE), PPC_LOAD_U32(GA_GM_FRAME_GATE), (uint32_t)PPC_LOAD_U8(GA_ASSET_COMMIT),
+                            PPC_LOAD_U32(GA_MB_RELOAD), (uint32_t)PPC_LOAD_U8(GA_MB_CREDITED), PPC_LOAD_U32(GA_MB_MODE64) };
+      if(last[1]!=0xFFFFFFFFu && v[1]!=last[1]) tog++;
+      bool ch=false; for(int k=0;k<6;k++) if(k!=1 && v[k]!=last[k]) ch=true;
+      unsigned long long ms=(unsigned long long)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()-t0).count();
+      if(ch && nlog++<400)
+        std::fprintf(stderr,"[descprobe] %s pump#%lld t+%llums field_active=%u asset_commit=0x%02X mb_reload=%u mb_credited=%u mb_mode64=0x%X | gm_gate=%u toggles=%ld | @%08X %08X %08X %08X %08X %08X\n",
+          futari_desc()->module_basename,n,ms,v[0],v[2],v[3],v[4],v[5],v[1],tog,
+          (unsigned)GA_FIELD_ACTIVE,(unsigned)GA_ASSET_COMMIT,(unsigned)GA_MB_RELOAD,(unsigned)GA_MB_CREDITED,(unsigned)GA_MB_MODE64,(unsigned)GA_GM_FRAME_GATE);
+      else if((n%5000)==0)
+        std::fprintf(stderr,"[descprobe] %s pump#%lld t+%llums gm_gate=%u toggles=%ld (field_active=%u asset_commit=0x%02X mb_reload=%u)\n",
+          futari_desc()->module_basename,n,ms,v[1],tog,v[0],v[2],v[3]);
+      for(int k=0;k<6;k++) last[k]=v[k];
+    } }
   // [gmstage] sampler print (this cb thread survives the game-main freeze): odd stage = the
   // main is INSIDE that callee. 1/2=A738 3/4=91448 5/6=138F00 7/8=93950 9/10=93418.
   if(std::getenv("RT_JOINP") && (n%2000)==0)

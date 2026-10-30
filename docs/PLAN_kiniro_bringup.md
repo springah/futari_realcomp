@@ -466,3 +466,64 @@ OUTDIR=build/kinnr OBJSFX=_kinnr bash build_mac_dll.sh                          
 BIN=build/kinnr/futari_combined bash _local/g5/g5_run.sh kin3_nr arcade 1
 BIN=build/kinnr/futari_combined bash _local/g5/g5_run.sh kin3_nr360 x360 1
 ```
+
+## Step 3b (2026-10-31, Mac): descriptor POSITIVE CONTROLS and the Black Label SMOKE GATE
+
+### RT_DESCPROBE: the six fields, same drive on both modules
+
+`merged_game.cpp` sub_88090480 (the game service callback, live on every module, ~700 calls/s) reads the six
+`GA_*` fields through `futari_desc()` and edge-logs them (`[descprobe]`, gm_frame_gate as a toggle count). The
+same drive (`scripts/kiniro_boot_mac.sh`, `KIN_MODEIDX=0` = the Ver 1.5 ARCADE control, `4` = Black Label):
+hub -> DOWN -> NORMAL PLAY -> A x5 -> stage 1 -> idle death -> GAME OVER, 120 s. Drives `k3b_ctl` / `k3b_kin`.
+
+| Field | reco_normal (proven addresses) | kiniro_normal (candidates) | Verdict |
+|---|---|---|---|
+| field_active | 0 -> 1 at t+23.2 s (stage entry), stays 1 | 0 -> 1 at t+19.6 s (stage entry), stays 1 | **CONTROLLED** |
+| gm_frame_gate | toggles every frame (1,235 by t+82 s), then FROZEN through game over | toggles every frame (1,337 by t+74 s), then frozen | **CONTROLLED** |
+| mb_credited | 0->1 at hub entry (t+10.5), 1->0 in the stage (t+42), 0->1 at game over (t+74) | 0->1 (t+7.0), 1->0 (t+33), 0->1 (t+64): the same three edges | **CONTROLLED** |
+| asset_commit | 0x00 throughout | 0x00 throughout | not discriminated (flat on the control too) |
+| mb_reload | 0 throughout; also 0 on the hub-B -> confirm -> A return route (`k3c_ctl`) | 0 throughout (`k3c_kin` the same) | not discriminated |
+| mb_mode64 | 0 throughout (both routes) | 0 throughout | not discriminated |
+
+Plus the two that the first boot already answered: `entry_ord1 0x8824D678` (the loader resolved it and the module
+booted through it) and the START EXCH word 0x8868F6AC (the 1P-START OR fired 6x and the title went into the flow).
+So 5 of the 8 descriptor values are LIVE-CONTROLLED; asset_commit / mb_reload / mb_mode64 stay structural candidates
+(no drive so far makes them move on the control either; a drive that does is what would judge them).
+
+### The gate: `scripts/kiniro_gate_mac.sh <tag> <host>` -- a REGRESSION gate, not a quality gate
+
+Runs the play drive with the dropout census armed and asserts: decide (modeIdx 4) · swap to kiniro_normal · hub after
+the swap · stage (BGM m02_stg1) · game over (BGM m05_govr) · >= 150 draws/frame in the stage · 0 FATAL · 0 VK_ERROR ·
+0 UNMAPPED · 0 kdrop · 0 wrong-module · 0 DROPOUT-CONFIRMED after the swap (the pre-swap shell-title dropouts are the
+known RT_POOLRELEASE residual, reported as a NOTE) · every `[kgate]` lever is one of the eight the audit listed.
+First run `k3gate1`: **13 PASS / 0 FAIL** (max 304 draws/frame in the stage; 8 pre-swap title dropouts noted).
+No reference pixels exist for this module, so there is no stagepix/boss-plate analogue yet.
+
+## Step 4c (2026-10-31, Mac): kiniro_abnormal = Black Label XBOX 360 MODE (modeIdx 5) BOOTS AND PLAYS, first try
+
+Everything mechanical off kiniro_normal, as §4 predicted:
+- **Symbol map by the +8 law**: `out_kiniro/tools_kiniro/gen_symbol_map_abn.py` composes kiniro_symbol_map.h with
+  "at or below 0x880E1B68 keep, at or above 0x880E1C60 +8" -> `out_kiniro_abn/kiniro_abn_symbol_map.h` (119 renamed,
+  48 same, 52 DROPPED = the same set; `kiniro_hook_stubs.cpp` copied). The law's own control: **8243/8243**
+  kiniro_normal function starts land on a kiniro_abnormal function start, none inside the window.
+- **Descriptor by twin vote**: `derive_desc_abn.py` (derive_desc.py's refs/translate, source kiniro_normal, target
+  kiniro_abnormal, pairs = the +8 law). Control reco_normal -> reco_abnormal reproduces the +0x60 law for all 13
+  fields, 0 disagreements. Result: every kiniro field is **+0x100** with unanimous votes (field_active 15/15,
+  gm_frame_gate 1/1, asset_commit 5/5, mb_reload 15/15, mb_credited 5/5, mb_mode64 9/9, START EXCH 2/2, callback
+  slot 6/6); entry_ord1 = 0x8824D680 (+8); code size 0x1DDEAC (+8). `g_futari_desc_kiniro_abnormal`, static_asserts
+  pin the pair's +8 / +0x100 relations and the accessor gained `FUTARI_MODULE == 5`.
+- **Build/registry**: `MODULES=... kiniro_abn` arm (tree out_kiniro_abn, modeIdx 5, dylib futari_game_kiniro_abn),
+  its own opt-in host flag `-DFUTARI_HOST_KINIRO_ABN=1` (fourth `g_slots[]` row), shim
+  `moduleshim/module_shim_kiniro_abnormal.cpp` (by copy, like kiniro_normal's), gen_host_abi MODNAMES row 5, the
+  out_kiniro support headers copied into out_kiniro_abn. `kiniro_boot_mac.sh` presses LEFT on the arcade_front panel
+  for an odd `KIN_MODEIDX`; the gate takes `KIN_MODEIDX=5`.
+- **First boot `k4c_boot1`** (host build/kin4, `MODULES="normal abn kiniro kiniro_abn"`): `[modreg] 4/4 ... mask=0x33`,
+  `[modeidx] modeIdx=5 (XBOX-360 MODE, title=2)`, `[modswap] #2 DONE -- live module is now kiniro_abnormal (entry
+  ord1=0x8824D680, code 0x88070000+0x1DDEAC)`, `bldata:\Rom\cg_blackhi.bin` opened through the read-only DLC mount,
+  legal -> title -> hub -> Mode Select -> Character Select -> **stage 1 in the 360-mode HD field with its own HUD
+  (bomb counter, "PRESS 2P START")** -> idle death -> GAME OVER. 0 FATAL / 0 UNMAPPED / 0 kdrop / 0 VK_ERROR.
+  `[descprobe]` on the +0x100 candidates shows the SAME pattern as kiniro_normal and the reco control (field_active
+  0->1 at t+19.7 s, mb_credited three edges, gm_frame_gate toggling then frozen at game over): field_active,
+  gm_frame_gate, mb_credited, entry and START EXCH are live-controlled for this module too; asset_commit / mb_reload /
+  mb_mode64 remain structural.
+- Shots: `_local/nav_mac/k4c_boot1/shot_{3,7,8,9,10}.png` on the Mac.

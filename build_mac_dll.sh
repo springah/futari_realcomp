@@ -51,7 +51,7 @@ if [ -f "$FFM/include/libavcodec/avcodec.h" ] && ls "$FFM"/lib/libavcodec.*.dyli
   XWMA_FLAGS="-DRT_XWMA_AVCODEC -I $FFM/include"; XWMA_LIBS=( -L"$FFM/lib" -lavcodec -lavutil -Wl,-rpath,"$FFM/lib" ); echo "xWMA: libavcodec from $FFM"
 else XWMA_FLAGS=""; XWMA_LIBS=(); echo "xWMA: NO libavcodec -- the shipping audio path is guest-native, nothing lost"; fi
 MODULES="${MODULES:-normal abn}"
-HAS_KINIRO=0; for m in $MODULES; do [ "$m" = kiniro ] && HAS_KINIRO=1; done
+HAS_KINIRO=0; HAS_KINIRO_ABN=0; for m in $MODULES; do [ "$m" = kiniro ] && HAS_KINIRO=1; [ "$m" = kiniro_abn ] && HAS_KINIRO_ABN=1; done
 OUTDIR="${OUTDIR:-build}"; OBJSFX="${OBJSFX:-}"; mkdir -p "$OUTDIR"     # which module dylibs to build (MODULES="normal" while the abn tree is absent)
 for need in "$DERISK/XenonUtils/image.h" "$DERISK_BUILD/XenonUtils/libXenonUtils.a" "$SDL_SRC/include/SDL3/SDL.h" "$MVK_DYLIB" "$VKH/vulkan/vulkan.h" "$OBJCOPY" \
             out_reco/ppc_recomp.0.cpp moduleshim/module_shim_reco_normal.cpp; do
@@ -111,6 +111,7 @@ if [ "${LINK_ONLY:-0}" != "1" ]; then
   cc "game_rt_phys" "out_reco/rt_phys.cpp" $GI $RT
   echo "-- module registry (load / bind / activate / swap)"
   KIN_HOST=""; [ "$HAS_KINIRO" = 1 ] && KIN_HOST="-DFUTARI_HOST_KINIRO=1"   # the opt-in third g_slots[] row
+  [ "$HAS_KINIRO_ABN" = 1 ] && KIN_HOST="$KIN_HOST -DFUTARI_HOST_KINIRO_ABN=1"   # ... and the fourth (Black Label XBOX 360, modeIdx 5)
   cc "host_module_registry" "host/module_registry.cpp" $GI $RT $KIN_HOST
   echo "-- merged host halves (bridge + shell; merged_game.cpp is module-side)"
   cc "merged_bridge" "out_reco/merged/merged_bridge.cpp" $GI $RT
@@ -147,6 +148,7 @@ build_module(){   # $1 name  $2 tree  $3 modidx  $4 out
   local GI="-I $TREE -I $DERISK/XenonUtils -I $DERISK/thirdparty/simde" RT="-include $TREE/rt_indirect.h" MAP=""
   [ "$MIDX" = "1" ] && MAP="-include $TREE/abn_symbol_map.h"
   [ "$MIDX" = "4" ] && MAP="-include $TREE/kiniro_symbol_map.h"
+  [ "$MIDX" = "5" ] && MAP="-include $TREE/kiniro_abn_symbol_map.h"   # kiniro_normal's map composed with the +8 law (gen_symbol_map_abn.py)
   if [ "${LINK_ONLY:-0}" != "1" ]; then
     rm -f "$OBJ"/*.o "$OBJ"/*.err; i=0
     echo "-- generated tree"
@@ -168,13 +170,13 @@ build_module(){   # $1 name  $2 tree  $3 modidx  $4 out
       # bridge nvk_game_hooks, which every module needs (w186 LAW 1: never skip it for a module build). Its hook
       # addresses ride through kiniro_symbol_map.h like merged_game's (two of its taps, G_BatchQuadRectlist and
       # G_SpriteEmit, have no kiniro twin and are dropped there; neither name is consumed by the renderer).
-      if [ "$MIDX" = "4" ] && [ "$n" != nvk_game_hooks ]; then continue; fi
+      if { [ "$MIDX" = "4" ] || [ "$MIDX" = "5" ]; } && [ "$n" != nvk_game_hooks ]; then continue; fi
       cc "decomp_$n" "$f" $GI -I . $RT $MAP
     done
     if [ "$MIDX" = "1" ]; then
       for f in "$DECOMP_DIR"/game_abn/*.cpp; do n=$(basename "$f" .cpp); decomp_skipped "$n" && { echo "   [DECOMP_SKIP] game_abn/$n"; continue; }; cc "decomp_$n" "$f" $GI -I . $RT; done
     fi
-    if [ "$MIDX" = "4" ]; then
+    if [ "$MIDX" = "4" ] || [ "$MIDX" = "5" ]; then
       echo "-- dropped-hook stubs (GENERATED with kiniro_symbol_map.h: loud weak sub_X_KDROP definitions)"
       cc "modstub_kiniro_hook_stubs" "$TREE/kiniro_hook_stubs.cpp" $GI $RT
     fi
@@ -198,6 +200,9 @@ if [ "${HOST_ONLY:-0}" != "1" ]; then
     kiniro) [ -f out_kiniro/ppc_recomp.0.cpp ] || { echo "MISSING: out_kiniro generated tree (bash scripts/regen_kiniro_mac.sh)"; fail=1; continue; }
             [ -f out_kiniro/kiniro_symbol_map.h ] || { echo "MISSING: out_kiniro/kiniro_symbol_map.h"; fail=1; continue; }
             build_module kiniro_normal out_kiniro 4 "$OUTDIR/futari_game_kiniro.dylib";;
+    kiniro_abn) [ -f out_kiniro_abn/ppc_recomp.0.cpp ] || { echo "MISSING: out_kiniro_abn generated tree (bash scripts/regen_kiniro_mac.sh)"; fail=1; continue; }
+            [ -f out_kiniro_abn/kiniro_abn_symbol_map.h ] || { echo "MISSING: out_kiniro_abn/kiniro_abn_symbol_map.h (python3 out_kiniro/tools_kiniro/gen_symbol_map_abn.py)"; fail=1; continue; }
+            build_module kiniro_abnormal out_kiniro_abn 5 "$OUTDIR/futari_game_kiniro_abn.dylib";;
     *)      echo "UNKNOWN MODULE '$m' (normal|abn|kiniro)"; fail=1;;
   esac; done
 fi

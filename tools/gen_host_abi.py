@@ -336,7 +336,8 @@ def emit_fill(path, kernel, helpers, globs):
 
 # FUTARI_MODULE index (== the shell's modeIdx) -> (descriptor basename, DLL stem).  4 = kiniro_normal
 # (Black Label ARCADE, 2026-10-30 step 4a; Mac-only arm today, so its shim was emitted by copy).
-MODNAMES = {0: ("reco_normal", "normal"), 1: ("reco_abnormal", "abn"), 4: ("kiniro_normal", "kiniro")}
+MODNAMES = {0: ("reco_normal", "normal"), 1: ("reco_abnormal", "abn"), 4: ("kiniro_normal", "kiniro"),
+            5: ("kiniro_abnormal", "kiniro_abn")}   # 5 = Black Label XBOX 360 MODE (2026-10-31 step 4c; shim emitted by copy, like 4)
 
 
 def emit_shim(path, moddir, module_idx, kernel, helpers, globs):
