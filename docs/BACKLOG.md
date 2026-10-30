@@ -1,5 +1,23 @@
 # BACKLOG.md — ranked open work (re-rank of 2026-07-27, the long-queued t3)
 
+## 2026-10-31 — 🎉 BLACK LABEL (kiniro_normal, modeIdx 4) BOOTS AND PLAYS TO GAME OVER (step 3; opt-in build; Mac)
+- ✅ **Step 3 landed** (77644df + docs): on the 3-slot host (`MODULES="normal abn kiniro"`) with a PRIVATE game root holding the
+  user-extracted DLC, a no-input drive went title -> hub -> Mode Select (Original/Maniac/God) -> Character Select (Reco & Kiniro)
+  -> stage 1 -> GAME OVER -> replay prompt with **0 FATAL / 0 `[indirect] UNMAPPED` / 0 `[kdrop]`** (3 drives). The harvest loop
+  therefore has nothing to add yet. Full write-up: docs/PLAN_kiniro_bringup.md "Step 3".
+- Two fixes made it run: (1) the shell mounts the DLC as root `bldata:` and opens `bldata:\Rom\cg_black.bin` -> the type-2
+  XamContentCreateEx branch now registers that root READ-ONLY onto `<RT_GAME_ROOT>/media` (boot 1 had MISSed it and shown the
+  shell's "DLC cannot be read" dialog); (2) `rt_kgate()` (merged_common.h) refuses the eight RT_ levers whose stores go through
+  reco_normal .data literals when the module is not reco-layout (the audit found no other literal writer among the 93 installed hooks).
+- Non-regression on the default build: arcade leg clean, x360 leg's single dropout is the pre-swap title residual. No `[kgate]`
+  on the reco pair.
+- ⏳ **Owed next for Black Label** (none blocks rc3; all opt-in): positive-control the descriptor fields (field_active /
+  gm_frame_gate / asset_commit / mailboxes: candidates only); a nav/observer set for kiniro (RT_NAVREAL lives in a dropped hook);
+  a quality gate (stagepix/boss plate/q-census assume reco data); triage of the 52 dropped hooks; step 4c kiniro_abnormal (+8 law,
+  `harvest_unmapped.py --apply` already ports rows); the Ver 1.01 DLC root (same type-2 path, untested); how a USER gets the
+  DLC in: `tools/extract/futari_extract.py <dlc folder> --out <private root>` exists, the app needs an "extra game root" story
+  before Black Label can be offered (data NEVER in assets/ -> never in the bundle).
+
 ## 2026-10-30 — POST-RC1 QUEUE, unattended Mac seat ("go nuts"): G5-fix LANDED · 360 START-wire CLOSED · Black Label steps 0-2 · RT_ROTATE
 - ✅ **G5-fix (Darwin/Linux page release) LANDED as `RT_POOLRELEASE=<ms>`** (098809f, 08fce44; NOTE_fnf_shell_defects.md 2026-10-30):
   the PREREG_q5 oracle went from +139 MB (control) to +9 / +6 MB (two pilots) over the 12-min ARCADE demo loop, 210-233 MB of

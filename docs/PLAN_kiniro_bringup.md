@@ -387,3 +387,82 @@ BIN=build/kinnr/futari_combined bash _local/g5/g5_run.sh kin_nr360 x360 1
    target=0x88...`, `[kdrop]` and FATAL lines, add the functions to config/futari_kiniro.toml, run
    regen_kiniro_mac.sh, rerun gen_symbol_map.py (the function extents change), rebuild, and repeat.
 4. **Positive-control the descriptor.** Check field_active and the mailbox writes on the first live boot.
+
+## Step 3 (2026-10-31, Mac): FIRST BLACK LABEL BOOT -- title, hub, Mode Select, Character Select, stage 1, GAME OVER
+
+Commit 77644df (+ the docs/script follow-up). Host `build/kin` (3-slot, `MODULES="normal abn kiniro" OUTDIR=build/kin
+OBJSFX=_kin`), private game root `_local/blroot` on the Mac. **The module runs.** Three drives, none with a FATAL, an
+`[indirect] UNMAPPED`, a `[kdrop]`, a `VK_ERROR` or an `IS THE WRONG MODULE` line:
+
+| Drive | What happened | Shots (`_local/nav_mac/<tag>/`) |
+|---|---|---|
+| `k3_boot1` (90 s hold) | Decide reached the arcade_front panel ("Black Label Arcade" card, "アーケード版をプレイします。"); the second A gave the shell's **"the DLC on the storage device cannot be read, download it again"** dialog. Cause in the log: `[file] open "bldata:\Rom\cg_black.bin" ... -> MISS`. | shot_2 panel, shot_3 dialog |
+| `k3_boot2` (120 s hold, mount fix in) | `[modeidx] modeIdx=4 (ARCADE, title=2)` -> `[modswap] #2 DONE -- live module is now kiniro_normal`; DllMain, `XexGetProcedureAddress(ord 1) -> 0x8824D678`, the game-main spawn chain (`[gm]` 87F88 -> F798 -> 168D48), pump ticking (87,000 `[pump]` calls in 120 s), **legal screen (2007/12/11), then the Black Label title** (ブラックレーベル logo, hi-score table, ©2007,2009 CAVE), ~270 draws/frame, SE bank (70 cues) + VOICE cues playing. 64 `[kgate] RT_SNDQFREE REFUSED` (the cap). | shot_3 legal, shot_6/11 title |
+| `k3_play1` (START, A x4, 120 s hold) | START -> **hub** (`[p0build] menu_game_title`: SCORE ATTACK / NORMAL PLAY / TRAINING / ... / RETURN TO TOP MENU; A on SCORE ATTACK gives the "sign in to Xbox LIVE for the ranking" dialog) -> **Mode Select (Original / Maniac / God, timer)** -> **Character Select (Reco & Kiniro, 1P)** -> BGM `m01_slct` -> `m02_stg1` (**stage 1**) -> `m05_govr` -> **GAME OVER (HIGH 53837836, Original Mode)** -> "save the replay?" dialog, parked there to the end. `[startwire]` fired 6x at the candidate EXCH 0x8868F6AC. | shot_5 hub+dialog, shot_7 mode, shot_8 chara, shot_9 stage, shot_10 game over, shot_12 replay prompt |
+
+### What had to change (all byte-inert for the reco pair; non-regression below)
+
+1. **Literal audit, then a compile-time gate** (`merged_common.h` `FUTARI_RECO_DATA` / `rt_kgate(lever)`). merged_game.cpp
+   has 131 hooks and 464 lines with a `0x88……` reco_normal .data literal. kiniro_symbol_map.h DROPS 38 of the hooks
+   (never installed, their literal stores cannot run) and installs 93; 51 of those carry literals, **but every literal
+   STORE and every literal-driven register/call override among them sits behind one of eight `RT_` levers**:
+   RT_SNDQFREE (the only one the drive scripts set), RT_PUMPFIX, RT_CLEAR312, RT_NOPAUSE, RT_TICKGP, RT_FIXSPAWN,
+   RT_FORCEPLAYER(2), RT_JOINMARK. Each is now also gated on `rt_kgate("<lever>")`: a constant `true` on modules 0/1,
+   a once-per-lever `[kgate] ... REFUSED` on module 4. Everything else is a READ, harmless under the flat 4 GB guest
+   arena (instruments log garbage). RT_STARTWIRE stays live on purpose: it stores through `futari_desc()->dshift`,
+   i.e. the descriptor's EXCH candidate, and the log names the address it hit.
+2. **The DLC is a real mount.** The shell passes the root name `bldata` to XamContentCreateEx(type 2) and then opens
+   `bldata:\Rom\cg_black.bin` / `bldata:\Rom\dropprm.bl`. The stub now registers that root **read-only** onto
+   `<RT_GAME_ROOT>/media` (`rt_content_register_root_ro`; fopen "rb" only, never create/truncate whatever the
+   disposition), because tools/extract relocates the package's `Rom/` there. Nothing in the reco pair opens a
+   `<dlcroot>:\` path.
+3. **Distinct-target logging** for the harvest loop (`[indirect] UNMAPPED NEW #k target=... (lr=...)`, 256 max) and
+   `harvest_unmapped.py` (log -> `futari_kiniro.toml` rows, size = next function start; +8-law port to the abn toml).
+   **Harvest result so far: 0 targets** through title, hub, mode/character select, stage 1 and game over.
+4. **Drive**: `scripts/kiniro_boot_mac.sh <tag> <host> [hold] ` with `KIN_STEPS` for the post-swap inputs;
+   `scripts/run_mac.sh` honours a preset `RT_GAME_ROOT`.
+
+### Private game root (never assets/)
+
+`_local/blroot/` = symlinks to every entry of `assets/` (media/ and media/Rom/ as real directories of symlinks) plus
+the three DLC files from `python3 tools/extract/futari_extract.py dlc --out _local/bl_extract --no-verify`
+(cg_black.bin 57,743,518 / cg_blackhi.bin 216,869,269 / dropprm.bl 3,184). The bundle copies `assets/`, so the DLC
+stays out of it; the drives pass `RT_GAME_ROOT=$PWD/_local/blroot`.
+
+### Non-regression (default `MODULES`, `OUTDIR=build/kinnr OBJSFX=_kinnr`, same tree): BUILD_OK host + 2 dylibs
+
+- `kin3_nr arcade 1`: `[modreg] 2/2 ... mask=0x03`, ARCADE decided, demo started (`demo_go=1`),
+  `END fatal=0 vkerr=0 slowframe=0 dropout=0 audio_stall=0 underruns=0`.
+- `kin3_nr360 x360 1`: `[modswap] #2 DONE -- live module is now reco_abnormal`, `END fatal=0 vkerr=0 slowframe=0
+  dropout=1 audio_stall=0 underruns=0`; the one dropout is at f1384 on the shell title (log line 1473), BEFORE the
+  swap (line 1557): the known RT_POOLRELEASE title residual (NOTE_fnf_shell_defects 2026-10-30), unchanged.
+- No `[kgate]` and no `UNMAPPED NEW` line in either reco leg (as designed).
+
+### Still UNVERIFIED / owed after step 3
+
+- **Descriptor values** are still candidates. Evidence for two of them now: `entry_ord1 0x8824D678` is what the
+  loader resolved and the module booted through it; the START EXCH word 0x8868F6AC took the 1P-START OR and the game
+  went from the title into the hub/select flow. field_active / gm_frame_gate / asset_commit / the three mailboxes have
+  NOT been positive-controlled (step-7-style probes).
+- **The nav set** (RT_NAV360 reads) is wrong under kiniro (piecewise shifts); the RT_NAVREAL observer lives in a
+  DROPPED hook (sub_88138F00), so no `[navreal]` lines exist for Black Label yet.
+- **Gameplay quality**: one no-input run to game over; nothing about pacing, pixels or audio has been gated for this
+  module (stagepix / boss plate / q-census all assume reco_normal's data). The 52 dropped hooks are OFF; which of
+  them Black Label needs is the step-3+ triage.
+- **kiniro_abnormal (step 4c)**: not started; `harvest_unmapped.py --apply` already ports rows by the +8 law.
+- Ver 1.01 DLC root name: the same type-2 path will register whatever root the shell names; untested.
+
+### Exact commands
+
+```bash
+python3 tools/extract/futari_extract.py dlc --out _local/bl_extract --no-verify     # the 3 DLC files, private
+#  ... build _local/blroot as above (symlinks into assets/ + the 3 files)
+MODULES="normal abn kiniro" OUTDIR=build/kin OBJSFX=_kin bash build_mac_dll.sh      # 3-slot host + 3 dylibs
+bash scripts/kiniro_boot_mac.sh k3_boot2 build/kin/futari_combined 120               # title only
+KIN_STEPS='10 w:\[p0build\]\ menu_game_title s:3 shot 1000 s:4 shot 1000 s:4 shot 1000 s:4 shot 1000 s:4 shot' \
+  bash scripts/kiniro_boot_mac.sh k3_play1 build/kin/futari_combined 120             # hub -> stage 1 -> game over
+python3 out_kiniro/tools_kiniro/harvest_unmapped.py _local/nav_mac/k3_play1/guest.log [--apply]
+OUTDIR=build/kinnr OBJSFX=_kinnr bash build_mac_dll.sh                                # default (rc) shape
+BIN=build/kinnr/futari_combined bash _local/g5/g5_run.sh kin3_nr arcade 1
+BIN=build/kinnr/futari_combined bash _local/g5/g5_run.sh kin3_nr360 x360 1
+```

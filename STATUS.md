@@ -1,5 +1,11 @@
 # STATUS — futari_realcomp (pointer, 2026-10-12)
 
+**🎉 BLACK LABEL RUNS (2026-10-31, Mac, opt-in build):** kiniro_normal (Black Label ARCADE, modeIdx 4) boots as a third module dylib
+and plays: title -> hub -> Mode Select (Original/Maniac/God) -> Character Select (Reco & Kiniro) -> stage 1 -> GAME OVER -> replay prompt,
+0 FATAL / 0 UNMAPPED / 0 kdrop. Needs `MODULES="normal abn kiniro"` and a PRIVATE game root with the user-extracted DLC (never assets/).
+Descriptor fields beyond entry/START are still unverified candidates; no quality gate exists for it yet. docs/PLAN_kiniro_bringup.md "Step 3".
+Not in any cut.
+
 **Engine after rc2 (2026-10-30, unattended Mac seat):** G5-fix landed (`RT_POOLRELEASE`, ARCADE RSS ramp FLAT; DEFAULT ON for macOS/Linux by user ruling 10-30, `=0` reverts),
 360 START-wire dshift fix (PLAN_RC1 §0.5 item 2 closed), RT_ROTATE=90|270 rotated present (iPad half 1), Black Label kiniro trees
 regenerated (steps 0-2, docs/PLAN_kiniro_bringup.md). Evidence: NOTE_fnf_shell_defects.md 2026-10-30, BACKLOG.md 2026-10-30. None of

@@ -14,6 +14,10 @@
 #   FATAL / IS THE WRONG MODULE / [modswap] / [modeidx] / [xenum] DLC gate / [loadgame] / [startwire]
 #   bash scripts/kiniro_boot_mac.sh k3_boot1 build/kin/futari_combined 90
 #   RT_KDROP_CONT=1 bash scripts/kiniro_boot_mac.sh k3_cont1 build/kin/futari_combined 120
+#   KIN_STEPS="10 w:\[p0build\]\ menu_game_title s:3 shot 1000 s:4 shot" bash scripts/kiniro_boot_mac.sh k3_play1 build/kin/futari_combined 120
+# KIN_STEPS = extra nav_mac.sh steps run AFTER the module swap (whitespace-split; escape spaces inside a step with
+# a backslash), i.e. the inputs that take the Black Label module past its title: START -> hub -> A ... The hold
+# with its shots and harvest greps follows them.
 # Bank: _local/nav_mac/<tag>/{shot_N.png, guest.log, steps.txt, harvest.txt}. Private save copy per tag.
 set -u
 cd "$(dirname "$0")/.."
@@ -30,11 +34,15 @@ SAVE="_local/saves/save_kin_$TAG"; rm -rf "$SAVE"; cp -R _local/saves/save_mac "
 # hold = N x (15 s + shot); the module's cold boot is inside the W: ceiling (240 s)
 HOLDSTEPS=(); n=$(( HOLD / 15 )); [ "$n" -lt 1 ] && n=1
 for ((i=0;i<n;i++)); do HOLDSTEPS+=('s:15' shot 'log:\[indirect\] UNMAPPED\|\[kdrop\]\|\[kgate\]\|FATAL\|IS THE WRONG MODULE\|\[startwire\]'); done
-RT_GAME_ROOT="$KIN_ROOT" RT_SAVE="$SAVE" RUN_SECS="${RUN_SECS:-$(( 200 + HOLD ))}" bash scripts/nav_mac.sh "$TAG" "$BIN" -- \
+# KIN_STEPS: whitespace-split, "\ " = a literal space inside one step
+EXTRA=(); if [ -n "${KIN_STEPS:-}" ]; then
+  _s="${KIN_STEPS//\\ /$'\x01'}"; for w in $_s; do EXTRA+=("${w//$'\x01'/ }"); done; fi
+RT_GAME_ROOT="$KIN_ROOT" RT_SAVE="$SAVE" RUN_SECS="${RUN_SECS:-$(( 260 + HOLD ))}" bash scripts/nav_mac.sh "$TAG" "$BIN" -- \
   10 'w:SYS_BGM cue0 (mushifuta_Menu02)' 's:4' 2 's:1.5' 2 's:2.5' shot \
   1000 'w:SYS_SE cue1 (SE_OK01)' 's:3' shot \
   1000 'w:\[modeidx\] sub_821C3F38 modeIdx=4' 's:2' \
   'W:\[modswap\] #[0-9]* DONE' 's:5' shot 'log:\[modswap\]\|\[loadgame\]\|\[xenum\] DLC gate' \
+  "${EXTRA[@]}" \
   "${HOLDSTEPS[@]}"
 B="_local/nav_mac/$TAG"
 {
