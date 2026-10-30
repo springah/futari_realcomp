@@ -47,11 +47,16 @@ Unattended Mac seat (user away, "go nuts"); engine commits 098809f + 08fce44 on 
   swaps. Honest residual: the 7-frame title streak (base 0x2530000, v0 (-190.5,181.5)) appeared in 2 of 4 lever-on soaks and in
   0 of 1 lever-off soak + 0 of 3 lever-off legs + 0 of 3 lever-on legs; every instance precedes the first page release in its own
   log, so it cannot be a release effect, but it is logged here so a later eyes pass on the title can look for it.
-- **DEFAULT FLIPPED (banker call under the 09-06 "recs accepted by default" ruling, FLAGGED for the user):** `RT_POOLRELEASE`
-  now defaults to 10000 ms on macOS/Linux (commit after 08fce44; Windows stays off); `RT_POOLRELEASE=0` restores the pre-10-30
-  allocator byte-for-byte. Nothing is cut: rc2 is untouched and the flip reaches a bundle only at rc3 / the next cut, after the
-  full RC chain (PLAN_RC1 §4 Q1) on that pair. If the user would rather keep it opt-in until the hands checklist, revert the
-  default line in rt_phys.cpp (one `#else` branch).
+- **DEFAULT: flipped ON in 968ccde, then REVERTED TO OFF the same evening (ruling owed to the user).** The default-on build
+  (build/g5def) arms without env (7 release lines in 90 s) and `RT_POOLRELEASE=0` silences it, as designed. But its first
+  lever-on leg reproduced the pilot soak's dropout set FRAME-FOR-FRAME (f837–f861 title streak, f1535, f1580): a deterministic
+  boot mode, not noise. Final tally over the evening, same route, same first 90 s: lever ON 3 of 11 runs in that mode (pil, pilX,
+  def_on) vs lever OFF 0 of 9 (ctl, off1-3, def_off, d4_off1-4); 8 further interleaved legs on the default build (d4_*) were all
+  clean. Not significant, and every instance precedes the first `[poolrelease]` line, so the remap is not the mechanism; but it is
+  biased toward lever-on, unexplained, and sits in the flicker class that failed user acceptance twice (BACKLOG #0). Banker call:
+  ship OPT-IN. The user flips it by changing the non-Windows default in `poolReleaseMs()` to 10000u, ideally after one eyes pass on
+  the title with `RT_POOLRELEASE=10000` set in run_mac.sh. The RSS win is Mac-cosmetic today (36 GB machine) and only becomes a
+  prerequisite on iOS, so nothing is lost by waiting for the ruling.
 - **Harness landmine (10-30):** Homebrew `python3` on the Mac now resolves to 3.15 without numpy/PIL, so `stagepix_mac.py`
   and `boss_plate_gate.py` crash under the gate scripts' bare `python3`; `python3.13` (numpy 2.2.2, PIL 11.3) scores the
   already-banked shots correctly. The ladder scripts still say `python3`; fix them (PYTHON=... or `python3.13`) before the
