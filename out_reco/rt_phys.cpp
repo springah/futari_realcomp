@@ -256,8 +256,11 @@ static bool decommitOn(){ static int v = [](){ const char* e = getenv("RT_DECOMM
 // Lever: RT_POOLRELEASE=<quarantine ms> (0/unset = OFF, today's behaviour byte-for-byte).
 // Oracle (PREREG_q5): 12-min ARCADE demo-loop RSS@10 - RSS@2, control +133 MB (GROWING > 60,
 // FLAT < 25); stage pixel gate + boss plate gate re-run on the arm. Log: [poolrelease].
+// RT_POOLRELEASE_MIN=<bytes> (default 0): only pool entries at least this large are released. The RSS lives in the
+// big asset blocks; a floor keeps the small, frequently recycled granule entries untouched (A/B lever, 10-30).
 static uint32_t poolReleaseMs(){ static uint32_t v = [](){ const char* e = getenv("RT_POOLRELEASE"); return e ? (uint32_t)atoi(e) : 0u; }(); return v; }
 static int poolReleaseMode(){ static int v = [](){ const char* e = getenv("RT_POOLRELEASE_MODE"); return e ? atoi(e) : 0; }(); return v; }
+static uint32_t poolReleaseMin(){ static uint32_t v = [](){ const char* e = getenv("RT_POOLRELEASE_MIN"); return e ? (uint32_t)strtoul(e, nullptr, 0) : 0u; }(); return v; }
 static void rt_poolReleaseSweep(uint64_t now){   // caller holds g_mu
   const uint32_t quar = poolReleaseMs(); if (!quar || !g_base) return;
   static uint64_t lastSweep = 0; if (now - lastSweep < 1000) return; lastSweep = now;
@@ -270,8 +273,8 @@ static void rt_poolReleaseSweep(uint64_t now){   // caller holds g_mu
     FreeEnt& e = kv.second;
     if (e.released || now - e.freedMs < quar) continue;
     uint32_t a = (e.addr + PG - 1) & ~(PG - 1), end = (e.addr + kv.first) & ~(PG - 1);
-    e.released = true;                        // small/unaligned interiors: nothing to release, never retried
-    if (end <= a) continue;
+    e.released = true;                        // small/unaligned/under-floor entries: nothing to release, never retried
+    if (end <= a || kv.first < poolReleaseMin()) continue;
     bool ok;
     if (poolReleaseMode() == 1){
 #ifdef __APPLE__
@@ -285,8 +288,9 @@ static void rt_poolReleaseSweep(uint64_t now){   // caller holds g_mu
     }
     if (!ok){ if (rfail++ < 8) std::fprintf(stderr, "[poolrelease] FAILED 0x%X..0x%X errno=%d\n", a, end, errno); continue; }
     rMB += (end - a)/(1024.0*1024.0);
-    if ((++rn % 32) == 1) std::fprintf(stderr, "[poolrelease] #%ld 0x%X..0x%X (%.1fMB) cum=%.0fMB pooled=%zu mode=%d quar=%ums\n",
-      rn, a, end, (end - a)/(1024.0*1024.0), rMB, g_pool.size(), poolReleaseMode(), quar);
+    if ((++rn % 32) == 1 || end - a >= 0x100000u)   // every 32nd, plus every block of 1 MB or more (the size histogram)
+      std::fprintf(stderr, "[poolrelease] #%ld 0x%X..0x%X (%.1fMB) cum=%.0fMB pooled=%zu mode=%d quar=%ums min=0x%X\n",
+        rn, a, end, (end - a)/(1024.0*1024.0), rMB, g_pool.size(), poolReleaseMode(), quar, poolReleaseMin());
   }
 #endif
 }
