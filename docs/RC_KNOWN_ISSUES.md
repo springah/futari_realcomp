@@ -11,7 +11,7 @@ KNOWN ISSUES (release candidate; each is documented, not new)
   - Five Xbox 360 system calls the game asks about (display info, display gamma, the system command buffer, the console config settings, the Xbox
     LIVE user id) are stand-ins, so the game reads placeholder values (time-zone names, display size). Nothing visible is known to depend on it.
     docs/AUDIT_kstub_sizes.md, PLAN_RC1 section 0.5.
-  - XBOX 360 MODE: the host START shortcut is wired to the ARCADE module's memory address, so it is inert there; START still works through the
+  - (rc2 and earlier only; FIXED in the engine 2026-10-30, ships with the next cut) XBOX 360 MODE: the host START shortcut is wired to the ARCADE module's memory address, so it is inert there; START still works through the
     normal pad path, and no leak behind a menu was observed. PLAN_RC1 section 0.5 item 2.
   - WINDOWS ONLY: in the attract (demo) loop the audio ring buffer logs short bursts of underruns at scene changes (texture reloads). The user
     listened on 2026-10-29 and heard nothing; it is instrumented, not audible, and parked as a known issue. docs/NOTE_fnf_shell_defects.md,

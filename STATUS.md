@@ -1,5 +1,10 @@
 # STATUS — futari_realcomp (pointer, 2026-10-12)
 
+**Engine after rc2 (2026-10-30, unattended Mac seat):** G5-fix landed (`RT_POOLRELEASE`, ARCADE RSS ramp FLAT; DEFAULT ON for macOS/Linux, `=0` reverts -- flagged),
+360 START-wire dshift fix (PLAN_RC1 §0.5 item 2 closed), RT_ROTATE=90|270 rotated present (iPad half 1), Black Label kiniro trees
+regenerated (steps 0-2, docs/PLAN_kiniro_bringup.md). Evidence: NOTE_fnf_shell_defects.md 2026-10-30, BACKLOG.md 2026-10-30. None of
+it is in a cut; rc2 stays the RC pointer below until the user signs it off; these ship with rc3 / the next cut.
+
 **RC pointer (2026-10-24):** `0.3.0-rc2` CUT, scripted smoke ALL-PASS (app_smoke, gstart, q1_ctest, q1_census, rc_chain), awaiting hands sign-off. futari_realcomp `e3ccb8a5f633` (tag `v0.3.0-rc2`) + futari_decomp `1d79e20871bc` (tag `realcomp-v0.3.0-rc2`); bundle `~/Desktop/projects/_rc/0.3.0-rc2/Futari Realcomp.app`; zip `_rc/Futari-Realcomp-macOS-v0.3.0-rc2.zip` sha256 `10e652009c16ae42644762edf44ea87325f3a23cbaf546a28ed5e90f67f354a9`. (0.3.0-rc1 = realcomp `9aed8d4` + decomp `0ff2927d`, superseded.) Never edit or re-zip a cut bundle; a fix means rc3.
 
 **Windows rc2 (2026-10-29, PC seat) -- STAGED + GATED, untagged:** `scripts/rc_stage_win.sh 0.3.0-rc2` from realcomp `adfaaf6` (= e3ccb8a + the

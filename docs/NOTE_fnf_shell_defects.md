@@ -5,6 +5,65 @@ friends & family and collect their logs. This note is the running defect ledger 
 Method per doctrine: ship-path first, oracle in hand before theorizing, instruments presumed
 lying until positive-controlled, texel-diff acceptance.
 
+## 2026-10-30 — G5-fix LANDED: RT_POOLRELEASE returns long-pooled guest pages on macOS/Linux (ARCADE RSS ramp FLAT) · 360 START-wire reads the EXCH byte at the module's dshift (PLAN_RC1 §0.5 item 2 CLOSED)
+Unattended Mac seat (user away, "go nuts"); engine commits 098809f + 08fce44 on main; nothing cut, rc2 bundle untouched.
+- **G5-fix (PLAN_RC1 Q5/Q6, BACKLOG post-RC1).** Q5 bisected the ARCADE demo-loop RSS ramp to out_reco/rt_phys.cpp: freed blocks sit in
+  g_pool (law 2) and macOS never gets the pages back (rt_decomSweep was `_WIN32`-only). New `rt_poolReleaseSweep` (once per second
+  under g_mu, from rt_decomSweep): every pool entry unreused for `RT_POOLRELEASE` ms has its page-aligned interior remapped
+  (mmap MAP_FIXED|MAP_ANONYMOUS|MAP_PRIVATE|MAP_NORESERVE = deterministic zeros, RSS drops at once; `RT_POOLRELEASE_MODE=1` =
+  madvise MADV_FREE_REUSABLE / MADV_DONTNEED for A/B; `RT_POOLRELEASE_MIN=<bytes>` size floor, default 0). Each FreeEnt carries a
+  `released` flag; merged/carved remainders re-enter unreleased and are released again after their own quarantine. The allocator
+  spec is untouched: pool membership, coalescing, LIFO/exact-fit/split and the 512 MB LINE defense are byte-identical; a released
+  block comes back zero-filled, which law 1 already allows for fresh territory. Windows: no-op.
+- **Oracle (PREREG_q5 verbatim recipe via `_local/g5/g5_run.sh`, same pad FIFO route, hands-off ARCADE demo loop, RSS@10 − RSS@2):**
+
+  | arm | binary | lever | RSS@2 | RSS@10 | delta | verdict | dropouts | heap high-water @12 min |
+  |---|---|---|---|---|---|---|---|---|
+  | ctl | build/g5ctl (098809f^ = 90bf5c7) | off | 432 | 571 | **+139** | GROWING (= Q5 control +133) | 0 | 384 MB, pooled 186 MB |
+  | pil | build/g5pil (098809f) | RT_POOLRELEASE=10000 | 393 | 402 | **+9** | **FLAT** | 9 (see below) | 384 MB, pooled 182 MB |
+  | pilB | build/g5pil | RT_POOLRELEASE=10000 | 394 | 400 | **+6** | **FLAT** | 0 | — (233 MB released cumulative) |
+
+  The heap trajectory (high-water, live, pooled) is the same in all three arms: the allocator behaves identically, only the
+  pages behind the pool are returned (210–233 MB per 12 min; RSS oscillates 390–425 MB with the demo cycle instead of
+  climbing). 0 FATAL / VK_ERROR / slowframe in every arm; the 1–2 audio underruns seen tonight appeared in BOTH arms and only
+  while other builds were compiling on the machine (Q6 had 0; load, not the lever).
+- **Dropouts (RVK_DRAWCENSUS=2):** the first pilot soak logged 9 DROPOUT-CONFIRMED where the control logged 0. 7 of them (f837–f861,
+  title scene, base 0x2530000) are logged BEFORE the first `[poolrelease]` line, so no released page can have caused them; the
+  other 2 (f1535 base 0x1C14000, f1580 base 0x1C54000) sit at the card→module transition, 0x1C14000 being the page after the
+  first released block. Same-binary A/B (`_local/g5/queue2.sh`: 3 legs lever OFF, 3 legs lever ON, same route, 90 s each) =
+  **0 dropouts in all 6**, and the second 12-min pilot soak = 0 dropouts with 233 MB released. Verdict: run-to-run variance
+  of the boot scenes (RC1 itself is bimodal there, w186), not a lever effect; the demo loop, where all the releasing happens,
+  was dropout-free for 23 minutes across the two pilots. Not re-opened as a defect; the `RT_POOLRELEASE_MIN` floor exists if
+  a lever-dependent dropout ever reproduces.
+- **Pixel gates on the arm (lever on) vs control:** stage pixel gate (`rc_stagepix_lock_mac.sh g5`) **PASS** — pilot colours
+  23,278 / edges 29.0 vs control 24,440 / 29.0, black 0.000 both, 0 invalid frames. Boss plate gate (boss1_drive_mac.sh per arm,
+  boss_plate_gate.py compare): first pair NO-VERDICT (lockstep 2 frames = the documented drive coin flip), control re-driven →
+  **PASS**: lockstep 46/46, IDENTICAL push sets over 46 compared frames (11,834 emit + 426 dcd70 keys), pixel plate pilot sym
+  p50 0.855 / p90 0.916 vs control 0.867 / 0.918, skin 0.28 / 0.29.
+- **XBOX 360 MODE + swaps with the lever on (`_local/g5/queue3.sh`):** x360 demo soak 12 min (g5_run.sh pilX x360) RSS 538 → 546
+  (+8, FLAT; 300 MB released; 0 FATAL/VK_ERROR/underruns; 8 dropouts = the same title-scene streak as above at f869–f893, again
+  before any release, plus f1387 base 0x34E0000 len=1 = the Q9-attributed AUTHENTIC card-LEFT quad). `rc_chain_mac.sh g5on ... A`
+  (mode swap x5) VERDICT PASS: 10 [modswap] DONE, residue=0 on every swap, RSS 458 MB after cycle 5, 32 release lines across the
+  swaps. Honest residual: the 7-frame title streak (base 0x2530000, v0 (-190.5,181.5)) appeared in 2 of 4 lever-on soaks and in
+  0 of 1 lever-off soak + 0 of 3 lever-off legs + 0 of 3 lever-on legs; every instance precedes the first page release in its own
+  log, so it cannot be a release effect, but it is logged here so a later eyes pass on the title can look for it.
+- **DEFAULT FLIPPED (banker call under the 09-06 "recs accepted by default" ruling, FLAGGED for the user):** `RT_POOLRELEASE`
+  now defaults to 10000 ms on macOS/Linux (commit after 08fce44; Windows stays off); `RT_POOLRELEASE=0` restores the pre-10-30
+  allocator byte-for-byte. Nothing is cut: rc2 is untouched and the flip reaches a bundle only at rc3 / the next cut, after the
+  full RC chain (PLAN_RC1 §4 Q1) on that pair. If the user would rather keep it opt-in until the hands checklist, revert the
+  default line in rt_phys.cpp (one `#else` branch).
+- **Harness landmine (10-30):** Homebrew `python3` on the Mac now resolves to 3.15 without numpy/PIL, so `stagepix_mac.py`
+  and `boss_plate_gate.py` crash under the gate scripts' bare `python3`; `python3.13` (numpy 2.2.2, PIL 11.3) scores the
+  already-banked shots correctly. The ladder scripts still say `python3`; fix them (PYTHON=... or `python3.13`) before the
+  next gate run.
+- **360 START-wire (PLAN_RC1 §0.5 item 2, NOTE 2026-10-12 "Note / open").** `sub_8808F2C0`'s RT_STARTWIRE hook wrote the
+  reco_normal EXCH address 0x88699894 literally; reco_abnormal's encoder reads it at +0x60 (`addi r8,r11,-26380` vs -26476,
+  out_reco_abn/ppc_recomp.4.cpp), so the wire was inert in XBOX 360 MODE. Now `0x88699894 + futari_desc()->dshift` (RT_NAV360's
+  accessor; ARCADE unchanged). Proof on the pilot: `gstart_mac.sh g5sw ... x360` = LEAK=NO on all 9 probes (hub DOWN/UP, option
+  START/DOWN/A/B, hub2 START/A, sub B) with the wire live in 360 — the cb3 game-input gate holds in both modules; `rc_chain_mac.sh g5
+  ... B x360` = VERDICT PASS (RESTART chain + T after-restart training), 6 × `[startwire] OR host-0x08 into EXCH 0x886998F4 (dshift
+  0x60 ...)`. The RC_KNOWN_ISSUES line about the inert 360 shortcut applies to rc2 only; the fix ships with the next cut.
+
 ## 2026-10-12 — KSTUB-OVERCLEAR: XGetVideoMode / VdQueryVideoMode zero-filled 0x50 bytes into 0x30-byte guest buffers (engine bug, latent since the port began)
 - Finding (futari_decomp r23-w156H, differential-harness debt D1, `docs/PLAN_diffharness.md` §9.1): the host import
   `__imp__XGetVideoMode` (shell/gen/rt.cpp) cleared 0x50 bytes at r3, but the out struct is the XDK XVIDEO_MODE = the

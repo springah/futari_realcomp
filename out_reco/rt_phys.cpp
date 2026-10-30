@@ -253,12 +253,21 @@ static bool decommitOn(){ static int v = [](){ const char* e = getenv("RT_DECOMM
 // (deterministic zeros, pages non-resident until touched, RSS drops at once; the arena is itself
 // such a mapping, harness.cpp). RT_POOLRELEASE_MODE=1 uses madvise instead (Darwin
 // MADV_FREE_REUSABLE / Linux MADV_DONTNEED) for A/B. Windows: no-op (its decommit lever exists).
-// Lever: RT_POOLRELEASE=<quarantine ms> (0/unset = OFF, today's behaviour byte-for-byte).
-// Oracle (PREREG_q5): 12-min ARCADE demo-loop RSS@10 - RSS@2, control +133 MB (GROWING > 60,
-// FLAT < 25); stage pixel gate + boss plate gate re-run on the arm. Log: [poolrelease].
+// Lever: RT_POOLRELEASE=<quarantine ms>. DEFAULT ON (10000 ms) on macOS/Linux since 2026-10-30, after the gate
+// set passed with the lever armed; RT_POOLRELEASE=0 = the pre-10-30 allocator byte-for-byte. Windows: always off.
+// Evidence (NOTE_fnf_shell_defects.md 2026-10-30): PREREG_q5 oracle (12-min ARCADE demo-loop RSS@10 - RSS@2,
+// GROWING > 60 / FLAT < 25) control +139 MB vs pilots +9 / +6 MB; x360 demo soak +8 MB; stagepix PASS; boss plate
+// PASS (46/46 lockstep, identical push sets); rc_chain A swap x5 residue=0; 6 same-binary A/B legs dropout-free.
+// Log: [poolrelease].
 // RT_POOLRELEASE_MIN=<bytes> (default 0): only pool entries at least this large are released. The RSS lives in the
 // big asset blocks; a floor keeps the small, frequently recycled granule entries untouched (A/B lever, 10-30).
-static uint32_t poolReleaseMs(){ static uint32_t v = [](){ const char* e = getenv("RT_POOLRELEASE"); return e ? (uint32_t)atoi(e) : 0u; }(); return v; }
+static uint32_t poolReleaseMs(){ static uint32_t v = [](){ const char* e = getenv("RT_POOLRELEASE");
+#ifdef _WIN32
+    return e ? (uint32_t)atoi(e) : 0u;
+#else
+    return e ? (uint32_t)atoi(e) : 10000u;
+#endif
+  }(); return v; }
 static int poolReleaseMode(){ static int v = [](){ const char* e = getenv("RT_POOLRELEASE_MODE"); return e ? atoi(e) : 0; }(); return v; }
 static uint32_t poolReleaseMin(){ static uint32_t v = [](){ const char* e = getenv("RT_POOLRELEASE_MIN"); return e ? (uint32_t)strtoul(e, nullptr, 0) : 0u; }(); return v; }
 static void rt_poolReleaseSweep(uint64_t now){   // caller holds g_mu

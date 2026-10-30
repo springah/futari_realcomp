@@ -1,5 +1,24 @@
 # BACKLOG.md — ranked open work (re-rank of 2026-07-27, the long-queued t3)
 
+## 2026-10-30 — POST-RC1 QUEUE, unattended Mac seat ("go nuts"): G5-fix LANDED · 360 START-wire CLOSED · Black Label steps 0-2 · RT_ROTATE
+- ✅ **G5-fix (Darwin/Linux page release) LANDED as `RT_POOLRELEASE=<ms>`** (098809f, 08fce44; NOTE_fnf_shell_defects.md 2026-10-30):
+  the PREREG_q5 oracle went from +139 MB (control) to +9 / +6 MB (two pilots) over the 12-min ARCADE demo loop, 210-233 MB of
+  pooled pages returned per run, heap trajectory identical, stagepix PASS, boss plate PASS (46/46 lockstep, identical push sets), 6 same-binary A/B legs dropout-free.
+  Plus x360 soak +8 MB FLAT and rc_chain A swap x5 PASS with the lever on. **DEFAULT ON (10 s quarantine) on macOS/Linux
+  from this commit; `RT_POOLRELEASE=0` reverts** -- flagged for the user's veto; reaches a bundle only at rc3 / the next cut.
+- ✅ **360 START-wire address CLOSED** (PLAN_RC1 §0.5 item 2): `0x88699894 + futari_desc()->dshift`; G-START x360 9/9 no leak, rc_chain B x360 PASS.
+- **Black Label (kiniro) bring-up steps 0-2 DONE, static** (4013f33, docs/PLAN_kiniro_bringup.md): mulhdu + xex-size fix in the eqv
+  patch, out_kiniro/ + out_kiniro_abn/ regenerate in ~4 s with 0 dropped instructions (8,375 functions, 33 TUs each), 62+62 jump
+  tables from a recogniser that reproduces the reco pair's 57+57 exactly. Next = step 3 (indirect-only harvest loop, needs step 4a
+  first) and step 4 (symbol map 210 unique / 35 ambiguous / 52 no-match hooks; descriptor data -- NOTE: the kiniro twin's data side is
+  PIECEWISE (+0x100 / +0xF0 / -0x28), not one dshift; START EXCH candidate 0x8868F6AC / 0x8868F7AC needs a live positive control).
+  The shared external/xr-derisk recompiler still carries the OLD patch (the agent used a private copy); re-apply + rebuild it with
+  `scripts/regen_kiniro_mac.sh` when no game build is running.
+- **RT_ROTATE=90|270** (b737e13, 3097d95; see the PORTRAIT TOO bullet below for the lane's own entry).
+- Not touched tonight: the 5 UNDER kernel stubs (§0.5 item 1, still "one per window with a pixel gate"), WIN-AUDIO-1 (parked by
+  the user), Deck re-cut (the Deck was offline), the two decomp harness leads 881C11A0 / 880E60C0 (decomp-campaign route items).
+- Harness landmine: Homebrew `python3` → 3.15 without numpy; the stagepix / boss-plate scorers need `python3.13` (see the NOTE entry).
+
 ## 2026-08-03 — USER-RULING CLOSURE SWEEP (attended session after the tid-fix ship)
 - ✅ **Magenta-block corruption — RESOLVED-UNTIL-RECURRENCE** (user: "only happened once...
   we 'resolve' it for now, until it shows up again anyway"). No capture rig built. Re-open
