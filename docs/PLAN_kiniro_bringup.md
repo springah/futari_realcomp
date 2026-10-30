@@ -579,7 +579,42 @@ AMBIGUOUS; store / return-override / getenv per body):
 So the port's one default-on game-side repair that Black Label lacks is the divide guard; everything else dropped is
 instrumentation or an opt-in lever.
 
-## Open for the USER: how Black Label reaches a player (nothing below is decided)
+## The three calls, taken 2026-10-31 (user: "all three if we can do unattended") -- revert any of them by ruling
+
+1. **Data path = a SECOND ROOT, the player's DLC folder.** `RT_DLC_ROOT`, default `<save dir>/../dlc`: on the Mac
+   bundle `~/Library/Application Support/Futari Realcomp/dlc`, on the Deck `~/.local/share/futari-realcomp/dlc`, on the
+   PC folder layout `./dlc`, in the developer checkout `./dlc` (cwd). Laid out as `tools/extract/futari_extract.py
+   <package folder> --out <that dlc root>` writes it (`media/Rom/cg_black.bin`, `cg_blackhi.bin`, `dropprm.bl`). The
+   shell's DLC gate (`rt_dlc_owned`) looks there FIRST, then in the game root (the developer's private-root shape);
+   the type-2 mount maps `bldata:` onto whichever root had every required file. Nothing is ever written into assets/.
+   The bundle README gained a BLACK LABEL section with the exact command. `[xenum] DLC gate` names the root it used.
+2. **Build shape = the Black Label modules ship by default when their trees exist.** `build_mac_dll.sh`'s default
+   `MODULES` adds `kiniro` and `kiniro_abn` when `out_kiniro*/ppc_recomp.0.cpp` and the symbol maps are present (a
+   machine without them builds the 2-module shape unchanged; `MODULES="normal abn"` forces it). `build_mac_app.sh`
+   copies whatever module dylibs the build produced and says so. Without DLC data the row is greyed by the shell's
+   own gate (step 4a `k4a_nodlc`), so shipping the engine is inert. Linux/Deck: `build_linux_dll.sh` has NO arms for
+   modules 4/5 yet (owed; the Deck image keeps the 2-module shape).
+3. **Quality bar = the scorecard below.** Modelled on PLAN_RC1 §0; the gate enforces the mechanical rows.
+
+### Black Label scorecard
+
+| # | Criterion | Mechanism | Status 2026-10-31 |
+|---|---|---|---|
+| Q1 | boots, decides, swaps, reaches the hub, stage 1, game over; no FATAL / VK_ERROR / UNMAPPED / kdrop / wrong-module | `kiniro_gate_mac.sh` (13 asserts) | **PASS 6/6** runs (3 per mode) |
+| Q2 | no renderer dropouts after the swap | gate (`DROPOUT-CONFIRMED` after `[modswap] #2`) | **PASS 6/6** (pre-swap title dropouts = the Ver 1.5 residual, noted) |
+| Q3 | a textured stage frame exists | gate pixel rung `PIX-RICH` (stagepix control floor: colours >= 15000, edges >= 15 on the richest post-hub frame) | **PASS** both modes on the default build (`k5gate4` 31,528 colours / 21.4 edges; `k5gate5` 30,642 / 21.6; the Ver 1.5 stage reads ~24k / ~29) |
+| Q4 | the hub frame does not drift between builds | gate pixel rung `PIX-REGRESS` (hub shot vs a banked per-mode reference, < 6 % pixels differing by > 40) | references BANKED from `k5gate4/5` (`_local/kiniro/ref/mode{4,5}/hub.png`); reruns `k5gate4b/5b` **PASS** at 0.00 % (ARCADE) and 2.41 % (XBOX 360 MODE, an animated hub element), which is why the tolerance is 6 % and not the 3 % first tried |
+| Q5 | memory flat over the attract loop (G5 oracle shape) | `kiniro_boot_mac.sh` soak, `rss.csv` 2 -> 10 min | **FLAT** +7 MB (kiniro_normal); kiniro_abnormal not soaked |
+| Q6 | descriptor and nav fields are the module's own | RT_DESCPROBE / RT_NAVMOD vs the reco control | 5/8 descriptor + 4/5 nav live-controlled; asset_commit / mb_reload / mb_mode64 / death structural |
+| Q7 | the DLC path works for a PLAYER (second root) and stays grey without data | `k3e_dlcroot` (RT_DLC_ROOT, stock assets root) / `k3e_nodlc` (no data) | **PASS**: with the stock assets root and `RT_DLC_ROOT=_local/bl_extract`, `[xenum] DLC gate: entry 0 -> OWNED (data present in .../bl_extract)`, `mount 'BLDATA:' -> .../bl_extract/media (READ-ONLY)`, cg_black.bin opened from there, swap to kiniro_normal, hub reached; with `RT_DLC_ROOT=/nonexistent` and no data in assets: `MISSING (stays grey; ... looked in RT_DLC_ROOT '/nonexistent' and the game root)` on the 4-module host. The Ver 1.01 DLC mounts under its own root name `TEMP_DLC:` through the same path. |
+| Q8 | the port's default-on game-side fixes are present | dropped-hook triage | **1 missing**: RT_DIVGUARD (sub_882272E8) has no kiniro twin; no FPE seen |
+| Q9 | audio: SE/BGM/VOICE banks resolve, no underruns | gate log counts (`underruns=`, `[cue]`) | banks resolve (70-cue SE bank, VOICE, BGM m01/m02/m05); underrun count not yet asserted |
+| Q10 | hands-on: a human plays both modes, pads and keyboard, TATE, replay save, continue, ranking dialogs | the owner | **not done** (same as RC1's hands checklist) |
+| Q11 | Ver 1.5 unaffected by the 4-module default build | g5 legs + the rc gates on the default build | legs on the auto-4-module `build/kinnr`: ARCADE fatal 0 / dropout 0 but **31 audio underruns** in the leg that started 75 s after the build finished (load 3.1: the post-build indexing landmine of 2026-10-30); x360 clean. The underruns sat in the shell-title boot window (log lines 1311-2400, before the decide at 1499-2400 region's `[modeidx]`), and the repeat ARCADE leg 60 s later (`kin5_nr2`) is clean: fatal 0, dropout 0, **underruns 0** -- the build-indexing landmine, not the 4-module shape. The full rc ladder (app_smoke, gstart, q1_ctest, q1_census, rc_chain) is NOT rerun on the 4-module shape yet |
+
+Rows Q3/Q4/Q7 and Q11's ladder are what the next unattended pass fills; Q10 is the owner's.
+
+## Why these three were owner calls (kept for the record)
 
 Black Label runs, but only from a developer build with a private game root. Before it can be offered, three calls
 are the owner's, not the engine's:

@@ -51,5 +51,13 @@ DC=$(tail -n +"$SW" "$G" | grep -c 'DROPOUT-CONFIRMED'); [ "$DC" = 0 ] && ok "dr
 PRE=$(head -n "$SW" "$G" | grep -c 'DROPOUT-CONFIRMED'); echo "NOTE dropouts before the swap (shell title residual): $PRE" | tee -a "$V"
 UNK=$(grep -o '\[kgate\] [A-Z0-9_]* REFUSED' "$G" | awk '{print $2}' | sort -u | grep -v -x -e RT_SNDQFREE -e RT_PUMPFIX -e RT_CLEAR312 -e RT_NOPAUSE -e RT_TICKGP -e RT_FIXSPAWN -e RT_FORCEPLAYER -e RT_JOINMARK || true)
 [ -z "$UNK" ] && ok "kgate levers known" || bad "kgate unknown lever(s): $(echo $UNK)"
-echo "== $TAG: $(grep -c '^PASS' "$V") PASS / $(grep -c '^FAIL' "$V") FAIL  ($(date '+%F %T'))" | tee -a "$V"
+# ---- pixel rungs (scripts/kiniro_pix.py; PLAN "Quality bar") ----
+#   richness: the richest post-hub frame (shot_5 onward = select screens and the stage) must clear stagepix's control
+#   floor (colours >= 15000, edges >= 15) -- a textured stage frame exists.
+#   regress:  the hub frame (shot_4, 3 s after START at the module title) against a banked reference per mode; the first
+#   run BANKS it (_local/kiniro/ref/mode<K>/hub.png), later runs must stay within 6 % differing pixels.
+source "$(dirname "$0")/pymac.sh"
+R=$("$PYTHON" scripts/kiniro_pix.py richness "$TAG" 5 2>&1 | tail -1); echo "$R" | tee -a "$V"; echo "$R" | grep -q "PIX-RICH PASS" || FAIL=1
+R=$("$PYTHON" scripts/kiniro_pix.py regress "$TAG" 4 "_local/kiniro/ref/mode$KIN_MODEIDX/hub.png" 2>&1 | tail -1); echo "$R" | tee -a "$V"; echo "$R" | grep -q "PIX-REGRESS \(PASS\|BANKED\)" || FAIL=1
+echo "== $TAG: $(grep -c '^PASS\|PIX-[A-Z]* \(PASS\|BANKED\)' "$V") PASS / $(grep -c '^FAIL\|PIX-[A-Z]* FAIL\|PIX-[A-Z]* NO-' "$V") FAIL  ($(date '+%F %T'))" | tee -a "$V"
 exit $FAIL

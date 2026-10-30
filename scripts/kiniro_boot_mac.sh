@@ -23,9 +23,16 @@ set -u
 cd "$(dirname "$0")/.."
 TAG="${1:?tag}"; BIN="${2:?host binary}"; HOLD="${3:-90}"
 KIN_ROOT="${KIN_ROOT:-$PWD/_local/blroot}"
-for f in media/Rom/cg_black.bin media/Rom/cg_blackhi.bin media/Rom/dropprm.bl media/Module/kiniro_normal.xex default.xex; do
-  [ -r "$KIN_ROOT/$f" ] || { echo "KIN_ROOT=$KIN_ROOT lacks $f (extract the DLC into a private root first)"; exit 2; }
+for f in media/Module/kiniro_normal.xex default.xex; do
+  [ -r "$KIN_ROOT/$f" ] || { echo "KIN_ROOT=$KIN_ROOT lacks $f"; exit 2; }
 done
+# The DLC files may sit in the game root (the private-root shape) OR in RT_DLC_ROOT (the player shape, 2026-10-31
+# data-path decision: <save dir>/../dlc by default). KIN_NODLC=1 skips the check on purpose (the stays-grey control).
+if [ "${KIN_NODLC:-0}" != 1 ]; then
+  for f in media/Rom/cg_black.bin media/Rom/cg_blackhi.bin media/Rom/dropprm.bl; do
+    [ -r "$KIN_ROOT/$f" ] || [ -r "${RT_DLC_ROOT:-/nonexistent}/$f" ] || { echo "neither KIN_ROOT=$KIN_ROOT nor RT_DLC_ROOT=${RT_DLC_ROOT:-unset} has $f"; exit 2; }
+  done
+fi
 LOCK=/tmp/futari_drive.lock
 until mkdir "$LOCK" 2>/dev/null; do sleep 20; done
 trap 'rmdir "$LOCK" 2>/dev/null' EXIT

@@ -50,7 +50,16 @@ FFM="${FFM:-$BREW/opt/ffmpeg}"
 if [ -f "$FFM/include/libavcodec/avcodec.h" ] && ls "$FFM"/lib/libavcodec.*.dylib >/dev/null 2>&1; then
   XWMA_FLAGS="-DRT_XWMA_AVCODEC -I $FFM/include"; XWMA_LIBS=( -L"$FFM/lib" -lavcodec -lavutil -Wl,-rpath,"$FFM/lib" ); echo "xWMA: libavcodec from $FFM"
 else XWMA_FLAGS=""; XWMA_LIBS=(); echo "xWMA: NO libavcodec -- the shipping audio path is guest-native, nothing lost"; fi
-MODULES="${MODULES:-normal abn}"
+# Default MODULES (2026-10-31, Black Label build-shape decision): the Ver 1.5 pair, PLUS the two Black Label modules
+# whenever their regenerated trees and symbol maps are present (scripts/regen_kiniro_mac.sh + gen_symbol_map{,_abn}.py).
+# A machine without the trees builds the old 2-module shape unchanged. The shell's own DLC gate keeps the Black Label
+# row grey until the player's DLC data is found (RT_DLC_ROOT / <game root>/media/Rom), so shipping the modules is inert
+# without data. MODULES="normal abn" still forces the 2-module shape.
+if [ -z "${MODULES:-}" ]; then
+  MODULES="normal abn"
+  [ -f out_kiniro/ppc_recomp.0.cpp ] && [ -f out_kiniro/kiniro_symbol_map.h ] && MODULES="$MODULES kiniro"
+  [ -f out_kiniro_abn/ppc_recomp.0.cpp ] && [ -f out_kiniro_abn/kiniro_abn_symbol_map.h ] && MODULES="$MODULES kiniro_abn"
+fi
 HAS_KINIRO=0; HAS_KINIRO_ABN=0; for m in $MODULES; do [ "$m" = kiniro ] && HAS_KINIRO=1; [ "$m" = kiniro_abn ] && HAS_KINIRO_ABN=1; done
 OUTDIR="${OUTDIR:-build}"; OBJSFX="${OBJSFX:-}"; mkdir -p "$OUTDIR"     # which module dylibs to build (MODULES="normal" while the abn tree is absent)
 for need in "$DERISK/XenonUtils/image.h" "$DERISK_BUILD/XenonUtils/libXenonUtils.a" "$SDL_SRC/include/SDL3/SDL.h" "$MVK_DYLIB" "$VKH/vulkan/vulkan.h" "$OBJCOPY" \

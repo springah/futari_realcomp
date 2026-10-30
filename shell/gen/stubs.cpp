@@ -300,21 +300,48 @@ static const int g_ndlc = 2;
 // Ver1.01's archives are DISC-sourced, so it stays owned on any full dump. Black Label also
 // ships Rom/dropprm.bl; the two cg archives are the load-bearing check. RT_DLCFORCE=1 restores
 // the old unconditional behaviour (revert arm).
+// The player's DLC folder (second root; see rt_dlc_owned). RT_DLC_ROOT wins; otherwise "<RT_SAVE>/../dlc" when a save
+// dir is set (the bundle puts saves in ~/Library/Application Support/Futari Realcomp/save, so the DLC goes beside them
+// in .../Futari Realcomp/dlc); otherwise "dlc" in the cwd (the developer shape).
+static const char* rt_dlc_root(){
+  static std::string d=[]{
+    const char* e=std::getenv("RT_DLC_ROOT"); if(e&&*e) return std::string(e);
+    const char* s=std::getenv("RT_SAVE");
+    if(s&&*s){ std::string p(s); while(p.size()>1 && (p.back()=='/'||p.back()=='\\')) p.pop_back();
+      size_t k=p.find_last_of("/\\"); return (k==std::string::npos? std::string(".") : p.substr(0,k)) + "/dlc"; }
+    return std::string("dlc");
+  }();
+  return d.c_str();
+}
+static std::string g_dlc_dir[8];   // the root rt_dlc_owned found entry ci in ("" = forced / not found)
 static bool rt_dlc_owned(int ci){
   static int owned[8] = {-1,-1,-1,-1,-1,-1,-1,-1};
   if(owned[ci]<0){
     const char* e=std::getenv("RT_DLCFORCE");
     if(e && e[0]=='1' && !e[1]){ owned[ci]=1; }
     else {
-      const char* root=std::getenv("RT_GAME_ROOT"); if(!root||!*root) root="assets"; // mirrors rt_game_root()
-      owned[ci]=1;
-      for(int f=0; f<2 && g_dlc[ci].req[f]; ++f){
-        char p[1024]; std::snprintf(p,sizeof p,"%s/%s",root,g_dlc[ci].req[f]);
-        FILE* fp=std::fopen(p,"rb"); if(!fp){ owned[ci]=0; break; } std::fclose(fp);
+      // 2026-10-31 (Black Label data-path decision): the DLC's files may live in a SECOND root, the player's DLC
+      // folder (RT_DLC_ROOT, default <save dir>/../dlc -- beside the saves, outside the app bundle / assets tree),
+      // laid out exactly as tools/extract writes it (<root>/media/Rom/cg_black.bin ...). It is searched FIRST; the
+      // game root second (a developer's private root). The first root that has EVERY required file wins and is the
+      // one the type-2 mount below maps "<dlcroot>:\" onto. Nothing is ever copied into assets/.
+      owned[ci]=0;
+      const char* roots[2]={ rt_dlc_root(), nullptr };
+      { const char* groot=std::getenv("RT_GAME_ROOT"); if(!groot||!*groot) groot="assets"; roots[1]=groot; }
+      for(int r=0; r<2 && !owned[ci]; ++r){
+        if(!roots[r]||!*roots[r]) continue;
+        bool all=true;
+        for(int f=0; f<2 && g_dlc[ci].req[f]; ++f){
+          char p[1024]; std::snprintf(p,sizeof p,"%s/%s",roots[r],g_dlc[ci].req[f]);
+          FILE* fp=std::fopen(p,"rb"); if(!fp){ all=false; break; } std::fclose(fp);
+        }
+        if(all){ owned[ci]=1; g_dlc_dir[ci]=roots[r]; }
       }
     }
-    std::fprintf(stderr,"[xenum] DLC gate: entry %d ('%.8s...') -> %s\n",ci,g_dlc[ci].file_name,
-                 owned[ci] ? "OWNED (data present)" : "MISSING (stays grey; RT_DLCFORCE=1 overrides)");
+    std::fprintf(stderr,"[xenum] DLC gate: entry %d ('%.8s...') -> %s%s%s\n",ci,g_dlc[ci].file_name,
+                 owned[ci] ? "OWNED (data present" : "MISSING (stays grey; RT_DLCFORCE=1 overrides; looked in RT_DLC_ROOT '",
+                 owned[ci] ? (g_dlc_dir[ci].empty()? ", forced)" : (" in " + g_dlc_dir[ci] + ")").c_str()) : rt_dlc_root(),
+                 owned[ci] ? "" : "' and the game root)");
   }
   return owned[ci]==1;
 }
@@ -370,8 +397,16 @@ PPC_FUNC_IMPL(__imp__XamContentCreateEx){static bool o=false;if(!o){o=true;std::
       char root_name[64]={0};
       if(rnp && rnp<0xF0000000u){ const char* s=(const char*)(base+rnp); size_t i=0; for(;i<63&&s[i];++i) root_name[i]=s[i]; }
       if(root_name[0]){
+        // Which root holds this package's files: the one rt_dlc_owned found (RT_DLC_ROOT first, then the game root);
+        // with RT_DLCFORCE or an unknown root name, fall back to the game root (the old behaviour).
         const char* groot=std::getenv("RT_GAME_ROOT"); if(!groot||!*groot) groot="assets";   // mirrors rt_game_root()
-        char hostdir[1100]; std::snprintf(hostdir,sizeof hostdir,"%s/media",groot);
+        const char* dir=groot;
+        for(int ci=0; ci<g_ndlc; ++ci) if(rt_dlc_owned(ci) && !g_dlc_dir[ci].empty()){
+          // match the package by its content-id file_name when the shell passes it in XCONTENT_DATA (cdp+0x108)
+          char fn[43]={0}; if(cdp){ for(int i=0;i<42;++i){ uint8_t b=PPC_LOAD_U8(cdp+0x108+i); if(!b) break; fn[i]=(char)b; } }
+          if(!fn[0] || !std::strncmp(fn,g_dlc[ci].file_name,42)){ dir=g_dlc_dir[ci].c_str(); break; }
+        }
+        char hostdir[1100]; std::snprintf(hostdir,sizeof hostdir,"%s/media",dir);
         rt_content_register_root_ro(root_name, hostdir);
       }
     }

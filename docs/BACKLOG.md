@@ -18,7 +18,13 @@
   reco control, 4/4 host mask 0x33). PLAN_kiniro_bringup "Step 3b" / "Step 4c".
 - ✅ **Step 3c:** `RT_NAVMOD` nav observer set per module (scene_fsm / select_d76 / slot0 / credit) live-controlled on both kiniro modules
   (identical 17-edge sequence vs the reco control; select_d76 = the -0xA748 candidate). Gate repeatability 6/6. PLAN "Step 3c".
-- ⏳ **Owed next for Black Label** (none blocks rc3; all opt-in; three USER calls listed in PLAN "Open for the USER"): a QUALITY gate (stagepix/boss plate/q-census assume reco data; no reference pixels for BL); triage of the 52 dropped hooks; a drive that
+- ✅ **The three calls taken 2026-10-31 (user: "all three if we can do unattended"; revertable by ruling):** DATA PATH = second root
+  `RT_DLC_ROOT` (default `<save dir>/../dlc`, searched before the game root; bundle README tells the player the exact extractor
+  command) · BUILD SHAPE = `build_mac_dll.sh` default MODULES auto-includes kiniro + kiniro_abn when their trees exist, bundle copies
+  whatever dylibs exist (row stays grey without data) · QUALITY BAR = the 11-row Black Label scorecard in PLAN_kiniro_bringup, with
+  two new pixel rungs in the gate (PIX-RICH stage richness floor, PIX-REGRESS hub frame vs banked reference). Linux/Deck build arms
+  for modules 4/5 still owed (Deck image keeps the 2-module shape).
+- ⏳ **Owed next for Black Label**: Q10 hands-on (owner) · Q11 full rc ladder on the 4-module default build · kiniro_abnormal soak · a drive (stagepix/boss plate/q-census assume reco data; no reference pixels for BL); triage of the 52 dropped hooks; a drive that
   makes asset_commit / mb_reload / mb_mode64 move on the control, to judge those three candidates; the Ver 1.01 DLC root (same type-2
   path, untested); how a USER gets the DLC in: `tools/extract/futari_extract.py <dlc folder> --out <private root>` exists, the app needs
   an "extra game root" story before Black Label can be offered (data NEVER in assets/ -> never in the bundle); Windows build arms for

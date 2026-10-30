@@ -21,7 +21,8 @@ OUTDIR="${OUTDIR:-build/linux}"; mkdir -p "$OUTDIR"
 CXX="${CXX:-clang++}"
 DERISK="${DERISK:-external/xr-derisk}"; DERISK_BUILD="${DERISK_BUILD:-$DERISK/build-linux}"
 SDL_SRC="${SDL_SRC:-external/SDL}"; SDL_BUILD="${SDL_BUILD:-$SDL_SRC/build-linux}"
-MODULES="${MODULES:-normal abn}"
+MODULES="${MODULES:-normal abn}"   # Black Label arms (kiniro, kiniro_abn) exist below but are NOT in the Linux default yet: untested in the Deck container (2026-10-31)
+HAS_KINIRO=0; HAS_KINIRO_ABN=0; for m in $MODULES; do [ "$m" = kiniro ] && HAS_KINIRO=1; [ "$m" = kiniro_abn ] && HAS_KINIRO_ABN=1; done
 for need in "$DERISK/XenonUtils/image.h" "$DERISK_BUILD/XenonUtils/libXenonUtils.a" "$SDL_BUILD/libSDL3.a" "$SDL_SRC/include/SDL3/SDL.h" \
             out_reco/ppc_recomp.0.cpp moduleshim/module_shim_reco_normal.cpp; do
   [ -e "$need" ] || { echo "MISSING DEPENDENCY: $need"; exit 2; }
@@ -57,7 +58,8 @@ if [ "${LINK_ONLY:-0}" != "1" ]; then
   cc "game_stubs"   "out_reco/stubs.cpp"   $GI $RT
   cc "game_harness" "out_reco/harness.cpp" $GI $RT
   cc "game_rt_phys" "out_reco/rt_phys.cpp" $GI $RT
-  cc "host_module_registry" "host/module_registry.cpp" $GI $RT
+  KIN_HOST=""; [ "$HAS_KINIRO" = 1 ] && KIN_HOST="-DFUTARI_HOST_KINIRO=1"; [ "$HAS_KINIRO_ABN" = 1 ] && KIN_HOST="$KIN_HOST -DFUTARI_HOST_KINIRO_ABN=1"
+  cc "host_module_registry" "host/module_registry.cpp" $GI $RT $KIN_HOST
   cc "merged_bridge" "out_reco/merged/merged_bridge.cpp" $GI $RT
   cc "merged_shell"  "out_reco/merged/merged_shell.cpp"  $GI $RT
   for f in shell/gen/ppc_recomp.*.cpp; do n=$(basename "$f" .cpp); cc "shell_$n" "$f" $SI $XS $RT; done
@@ -86,6 +88,8 @@ build_module(){   # $1 name  $2 tree  $3 modidx  $4 out
   STD="$BASE -fPIC -DFUTARI_MODULE=$MIDX -DFUTARI_IN_MODULE_DLL=1"
   local GI="-I $TREE -I $DERISK/XenonUtils -I $DERISK/thirdparty/simde" RT="-include $TREE/rt_indirect.h" MAP=""
   [ "$MIDX" = "1" ] && MAP="-include $TREE/abn_symbol_map.h"
+  [ "$MIDX" = "4" ] && MAP="-include $TREE/kiniro_symbol_map.h"        # Black Label ARCADE (mirrors build_mac_dll.sh)
+  [ "$MIDX" = "5" ] && MAP="-include $TREE/kiniro_abn_symbol_map.h"    # Black Label XBOX 360 MODE
   if [ "${LINK_ONLY:-0}" != "1" ]; then
     rm -f "$OBJ"/*.o "$OBJ"/*.err; i=0
     for f in $TREE/ppc_recomp.*.cpp; do n=$(basename "$f" .cpp); cc "gen_$n" "$f" $GI $RT; done
@@ -98,18 +102,21 @@ build_module(){   # $1 name  $2 tree  $3 modidx  $4 out
       if [ "$MIDX" = "1" ]; then
         case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw|class233_236_draw|actor3pose_draw|objnode_park|objnode_parkcensus|famk1|famk9|pagescene|famk2|famk11|famk12|famk30|famk5|famk28) continue;; esac
       fi
+      # NON-RECO MODULES (4/5): every decomp/game TU is reco_normal content; only the renderer bridge rides along (build_mac_dll.sh law)
+      if { [ "$MIDX" = "4" ] || [ "$MIDX" = "5" ]; } && [ "$n" != nvk_game_hooks ]; then continue; fi
       cc "decomp_$n" "$f" $GI -I . $RT $MAP
     done
     if [ "$MIDX" = "1" ]; then
       for f in "$DECOMP_DIR"/game_abn/*.cpp; do n=$(basename "$f" .cpp); decomp_skipped "$n" && continue; cc "decomp_$n" "$f" $GI -I . $RT; done
     fi
+    if [ "$MIDX" = "4" ] || [ "$MIDX" = "5" ]; then cc "modstub_kiniro_hook_stubs" "$TREE/kiniro_hook_stubs.cpp" $GI $RT; fi
     cc "module_shim" "moduleshim/module_shim_$NAME.cpp" $GI $RT
     wait
     check_errs || { echo "MODULE COMPILE_INCOMPLETE ($OUTM)"; fail=1; return; }
     echo "module objects: $(ls "$OBJ"/*.o | wc -l)"
   fi
   # --no-undefined: the shim is the module's ENTIRE host-facing surface; an undefined symbol = an ABI gap (the tripwire).
-  "$CXX" -fuse-ld=lld -O2 -std=c++20 -shared $(ls "$OBJ"/decomp_*.o 2>/dev/null) "$OBJ"/merged_game.o "$OBJ"/module_shim.o "$OBJ"/gen_*.o \
+  "$CXX" -fuse-ld=lld -O2 -std=c++20 -shared $(ls "$OBJ"/decomp_*.o 2>/dev/null) "$OBJ"/merged_game.o $(ls "$OBJ"/modstub_*.o 2>/dev/null) "$OBJ"/module_shim.o "$OBJ"/gen_*.o \
     -o "$OUTM" -Wl,--allow-multiple-definition -Wl,--no-undefined -Wl,-soname,"$(basename "$OUTM")" 2>"$OBJ/link.err" \
     && echo "LINK_OK -> $OUTM" || { echo "MODULE LINK_FAILED -> $OUTM"; grep -i "undefined" "$OBJ/link.err" | sort -u | head -20; tail -10 "$OBJ/link.err"; fail=1; }
 }
@@ -118,6 +125,10 @@ if [ "${HOST_ONLY:-0}" != "1" ]; then
     normal) build_module reco_normal   out_reco     0 "$OUTDIR/futari_game_normal.so";;
     abn)    [ -f out_reco_abn/ppc_recomp.0.cpp ] || { echo "MISSING: out_reco_abn generated tree (scripts/regen_abn_mac.sh)"; fail=1; continue; }
             build_module reco_abnormal out_reco_abn 1 "$OUTDIR/futari_game_abn.so";;
+    kiniro) [ -f out_kiniro/ppc_recomp.0.cpp ] && [ -f out_kiniro/kiniro_symbol_map.h ] || { echo "MISSING: out_kiniro tree / symbol map"; fail=1; continue; }
+            build_module kiniro_normal out_kiniro 4 "$OUTDIR/futari_game_kiniro.so";;
+    kiniro_abn) [ -f out_kiniro_abn/ppc_recomp.0.cpp ] && [ -f out_kiniro_abn/kiniro_abn_symbol_map.h ] || { echo "MISSING: out_kiniro_abn tree / symbol map"; fail=1; continue; }
+            build_module kiniro_abnormal out_kiniro_abn 5 "$OUTDIR/futari_game_kiniro_abn.so";;
   esac; done
 fi
 banner "SUMMARY"; ls -la "$OUTDIR"/futari_combined "$OUTDIR"/*.so 2>/dev/null

@@ -44,7 +44,7 @@ BREW="$(brew --prefix 2>/dev/null || echo /opt/homebrew)"
 CXX="${CXX:-$BREW/opt/llvm/bin/clang++}"; [ -x "$CXX" ] || CXX=clang++
 INT="$BREW/opt/llvm/bin/llvm-install-name-tool"; [ -x "$INT" ] || INT=install_name_tool
 
-echo "[1/8] engine: combined host + 2 module dylibs (self-contained link: no libavcodec, SDL told to dlopen the bundled MoltenVK)"
+echo "[1/8] engine: combined host + module dylibs (Ver 1.5 pair, plus Black Label when its trees exist; self-contained link: no libavcodec, SDL told to dlopen the bundled MoltenVK)"
 # build_mac_dll.sh with OUTDIR="$RC_OUTDIR" OBJSFX="$RC_OBJSFX": the bundle's engine (MoltenVK path @executable_path-relative, no
 # libavcodec) lives apart from the drive/gate binaries under build/, which keep running from the checkout.
 if [ "${REUSE_OBJ:-0}" = "1" ] && [ -d "build/obj_mac_host$RC_OBJSFX" ]; then
@@ -55,7 +55,12 @@ fi
 grep -q "BUILD_OK" "${RC_OUTDIR}_build.log" || { echo "engine build not OK"; tail -20 "${RC_OUTDIR}_build.log"; exit 1; }
 OUT="$RC_OUTDIR/futari_combined"
 otool -L "$OUT" | grep -q avcodec && { echo "ERROR: engine still links libavcodec"; exit 1; }
-for f in "$OUT" "$RC_OUTDIR/futari_game_normal.dylib" "$RC_OUTDIR/futari_game_abn.dylib"; do
+# Module dylibs: the Ver 1.5 pair always; the two Black Label modules when build_mac_dll.sh produced them (its default
+# MODULES includes them whenever the kiniro trees exist, 2026-10-31). They are inert without the player's DLC data.
+MODDYLIBS=("$RC_OUTDIR/futari_game_normal.dylib" "$RC_OUTDIR/futari_game_abn.dylib")
+for k in kiniro kiniro_abn; do [ -f "$RC_OUTDIR/futari_game_$k.dylib" ] && MODDYLIBS+=("$RC_OUTDIR/futari_game_$k.dylib"); done
+echo "   modules: ${#MODDYLIBS[@]} dylibs ($(for d in "${MODDYLIBS[@]}"; do basename "$d" .dylib | sed 's/futari_game_//'; done | tr '\n' ' '))"
+for f in "$OUT" "${MODDYLIBS[@]}"; do
   m=$(otool -l "$f" | awk '/LC_BUILD_VERSION/{f=1} f&&/minos/{print $2; exit}'); echo "   $(basename "$f"): minos $m"
   [ "$m" = "$MACOSX_DEPLOYMENT_TARGET" ] || { echo "ERROR: $f built for macOS $m, want $MACOSX_DEPLOYMENT_TARGET"; exit 1; }
 done
@@ -68,7 +73,7 @@ echo "[3/8] bundle skeleton"
 rm -rf "$APP"; mkdir -p "$C/MacOS" "$C/Frameworks" "$C/Resources"
 cp "${RC_OUTDIR}_launcher" "$C/MacOS/Futari Realcomp"
 cp "$OUT" "$C/MacOS/futari_merged"            # the engine keeps its historical name inside the bundle (launcher.c execs it)
-cp "$RC_OUTDIR/futari_game_normal.dylib" "$RC_OUTDIR/futari_game_abn.dylib" "$C/MacOS/"
+cp "${MODDYLIBS[@]}" "$C/MacOS/"
 
 echo "[4/8] dylibs -> Contents/Frameworks, load commands rewritten"
 SDL_DYLIB=$(ls external/SDL/build/libSDL3.*.dylib | head -1)
@@ -108,7 +113,19 @@ REQUIREMENTS
 MODES
   Both Ver 1.5 modes are in this build: ARCADE (1.5 Original) and XBOX 360 MODE. Pick one at the
   in-game title select; going back to the top menu and picking the other switches live, no relaunch.
-  Ver 1.01 and Black Label stay greyed (not included).
+  Ver 1.01 stays greyed (not included).
+$( [ ${#MODDYLIBS[@]} -ge 4 ] && cat <<'BL'
+
+BLACK LABEL (your own DLC)
+  This build also contains the Black Label engine (ARCADE and XBOX 360 MODE). The row stays greyed
+  until the game finds YOUR Black Label download content. No DLC data is included.
+  To add it: unpack the DLC package you own with the extractor from the futari_realcomp repository
+      python3 tools/extract/futari_extract.py <folder holding the 496F816D... package> --out "$HOME/Library/Application Support/Futari Realcomp/dlc"
+  so that this file exists:  ~/Library/Application Support/Futari Realcomp/dlc/media/Rom/cg_black.bin
+  (plus cg_blackhi.bin and dropprm.bl beside it). Relaunch; the Black Label row un-greys. The folder can be
+  moved anywhere by launching with RT_DLC_ROOT=/path/to/dlc. Black Label has had far less testing than Ver 1.5.
+BL
+)
 
 CONTROLS
   Keyboard: arrows = D-pad, Z = A (shot), X = B (bomb), C = X, V = Y, Enter = START, Right Shift = BACK,
