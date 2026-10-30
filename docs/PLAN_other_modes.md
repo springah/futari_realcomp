@@ -296,6 +296,8 @@ package from their console (DUMPING.md "Black Label DLC"). Nothing else is block
 **Timing: after the RC1 cut** (PLAN_RC1 §6). A third module changes the bundle, the hosted mask, the top menu, the
 modes drive and the swap gate, so it would invalidate RC1's measurements.
 
+**Bring-up log:** Black Label steps 0-2 (recompiler fixes, `out_kiniro*/` trees, 62+62 jump tables) are done statically, 2026-10-30: see `docs/PLAN_kiniro_bringup.md`.
+
 ---
 
 ## §5 DECISION SUMMARY (for the user)

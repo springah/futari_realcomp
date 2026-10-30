@@ -1,0 +1,36 @@
+# XenonRecomp config for kiniro_normal.xex
+#   = Mushihimesama Futari BLACK LABEL, ARCADE card / MODULE_BLACK / modeIdx 4
+#     (ROM Rom\cg_black.bin + Rom\dropprm.bl, both DLC-only -- PLAN_other_modes.md §1.1).
+#   Sibling: futari_kiniro_abn.toml (kiniro_abnormal, modeIdx 5, the +8 twin).
+#   Authored 2026-10-30 (Black Label bring-up steps 0-2, docs/PLAN_kiniro_bringup.md).
+#
+# Regenerate with:  bash scripts/regen_kiniro_mac.sh      (-> out_kiniro/ and out_kiniro_abn/)
+#
+# Section layout (out_kiniro/tools_kiniro/xexflat on the flat image, 2026-10-30; matches NOTE_other_modes §3):
+#   entry 0x88070588 | .text 0x88070000..0x8824DEA4 | .pdata 0x88063800..0x8806A850 (3,594 fns)
+#   .data 0x88250000..0x887A35D0 | image 0x7B0000
+#   BASIC-compression block sum is 0x7A8000, 0x8000 SHORT of security->imageSize: this module needs the
+#   futari xex-size-fix in tools/xenonrecomp_mac_eqv_fixes.patch (NOTE_other_modes §0). The missing 32 KB is the
+#   zero tail past .XBMOVIE (0x887A3608), so the fix (allocate the larger size, zero-filled) is exact.
+#
+# Millicode anchors: the SAME addresses as reco_normal (NOTE_other_modes §3), and VERIFIED 2026-10-30 by byte
+# comparison against reco_normal's image: the 20/19/19/19 words at each anchor are identical in reco_normal,
+# kiniro_normal and kiniro_abnormal (std r14,-152(r1) .. / ld r14,-152(r1) .. / stfd f14,-144(r12) .. /
+# lfd f14,-144(r12) ..).
+#
+# Jump tables: futari_switches_kiniro.toml, GENERATED from this module's own image by
+# out_kiniro/tools_kiniro/scan_switches.py (positive-controlled on the reco pair, 57/57 + 57/57 exact).
+#
+# Indirect-call-only functions: NONE yet. futari_reco.toml's 25 oracle-harvested entries are reco_normal
+# addresses and do not transfer; step 3 of the bring-up (PLAN_other_modes §2) harvests kiniro's own from
+# `[indirect] UNMAPPED` boot logs and adds them here as `functions = [ ... ]`.
+[main]
+file_path = "assets/media/Module/kiniro_normal.xex"
+out_directory_path = "out_kiniro"
+
+restgprlr_14_address = 0x88071170
+savegprlr_14_address = 0x88071120
+restfpr_14_address = 0x8808827C
+savefpr_14_address = 0x88088230
+
+switch_table_file_path = "futari_switches_kiniro.toml"

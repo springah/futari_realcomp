@@ -52,6 +52,11 @@ out_reco_abn/ppc_recomp.*.cpp
 !out_reco_abn/ppc_recomp.6.cpp
 !out_reco_abn/ppc_recomp.8.cpp
 !out_reco_abn/ppc_recomp.19.cpp
+# 2026-10-30 Black Label bring-up (docs/PLAN_kiniro_bringup.md): out_kiniro/ (kiniro_normal) and out_kiniro_abn/
+# (kiniro_abnormal) mirror out_reco_abn exactly -- the generated TUs are ignored (zero hand patches, regenerable by
+# scripts/regen_kiniro_mac.sh in ~4 s); the support files, postregen and tools_kiniro/ are tracked.
+out_kiniro/ppc_recomp.*.cpp
+out_kiniro_abn/ppc_recomp.*.cpp
 
 # --- Editor / OS noise ---
 .vs/

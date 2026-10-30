@@ -1,5 +1,5 @@
 diff --git a/XenonRecomp/recompiler.cpp b/XenonRecomp/recompiler.cpp
-index fa91527..ed6f142 100644
+index fa91527..f4abfa9 100644
 --- a/XenonRecomp/recompiler.cpp
 +++ b/XenonRecomp/recompiler.cpp
 @@ -531,6 +531,21 @@ bool Recompiler::Recompile(
@@ -98,7 +98,20 @@ index fa91527..ed6f142 100644
          break;
  
      case PPC_INST_MR:
-@@ -1671,6 +1709,20 @@ bool Recompiler::Recompile(
+@@ -1311,6 +1349,12 @@ bool Recompiler::Recompile(
+             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
+         break;
+ 
++    case PPC_INST_MULHDU: // futari eqv-fix: upstream had no case (silently dropped; M1 2026-10-12: kiniro_*/palm_normal, one site each)
++        println("\t{}.u64 = uint64_t((static_cast<unsigned __int128>({}.u64) * static_cast<unsigned __int128>({}.u64)) >> 64);", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
++        if (strchr(insn.opcode->name, '.'))
++            println("\t{}.compare<int64_t>({}.s64, 0, {});", cr(0), r(insn.operands[0]), xer());
++        break;
++
+     case PPC_INST_MULLD:
+         println("\t{}.s64 = {}.s64 * {}.s64;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
+         break;
+@@ -1671,6 +1715,20 @@ bool Recompiler::Recompile(
          println("\t{}.u32 = {};", r(insn.operands[2]), ea());
          break;
  
@@ -119,3 +132,25 @@ index fa91527..ed6f142 100644
      case PPC_INST_STWUX:
          println("\t{} = {}.u32 + {}.u32;", ea(), r(insn.operands[1]), r(insn.operands[2]));
          println("\tPPC_STORE_U32({}, {}.u32);", ea(), r(insn.operands[0]));
+diff --git a/XenonUtils/xex.cpp b/XenonUtils/xex.cpp
+index 4e79042..b5dc8b7 100644
+--- a/XenonUtils/xex.cpp
++++ b/XenonUtils/xex.cpp
+@@ -1,5 +1,6 @@
+ #include "xex.h"
+ #include "image.h"
++#include <algorithm>
+ #include <cassert>
+ #include <cstring>
+ #include <vector>
+@@ -180,7 +181,9 @@ Image Xex2LoadImage(const uint8_t* data, size_t dataSize)
+                 imageSize += blocks[i].dataSize + blocks[i].zeroSize;
+             }
+ 
+-            result = std::make_unique<uint8_t[]>(imageSize);
++            // futari xex-size-fix (NOTE_other_modes §0): kiniro_*/palm_normal's block sum is 0x8000 short of
++            // security->imageSize, which image.size is set to below -- allocate the larger, zero-filled tail.
++            result = std::make_unique<uint8_t[]>(std::max<size_t>(imageSize, security->imageSize));
+             auto* destData = result.get();
+ 
+             for (size_t i = 0; i < numBlocks; i++)

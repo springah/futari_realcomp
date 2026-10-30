@@ -1,0 +1,35 @@
+# XenonRecomp config for kiniro_abnormal.xex
+#   = Mushihimesama Futari BLACK LABEL, XBOX 360 card / MODULE_BLACK_HI / modeIdx 5
+#     (ROM Rom\cg_blackhi.bin + Rom\dropprm.bl, both DLC-only -- PLAN_other_modes.md §1.1).
+#   Sibling: futari_kiniro.toml (kiniro_normal, modeIdx 4).
+#   Authored 2026-10-30 (Black Label bring-up steps 0-2, docs/PLAN_kiniro_bringup.md).
+#
+# Regenerate with:  bash scripts/regen_kiniro_mac.sh      (-> out_kiniro/ and out_kiniro_abn/)
+#
+# Section layout (out_kiniro/tools_kiniro/xexflat, 2026-10-30):
+#   entry 0x88070588 | .text 0x88070000..0x8824DEAC | .pdata 0x88063800..0x8806A850 (3,594 fns)
+#   .data 0x88250000..0x887A36D0 | image 0x7B0000 (block sum 0x7A8000 -> needs the futari xex-size-fix too)
+#
+# ***** THE +8 TWIN LAW (the reco pair's split law, re-found for kiniro) *****
+# kiniro_abnormal is kiniro_normal with ONE 2-instruction insertion inside sub_880E1B68 (0xF8 -> 0x100 bytes;
+# first differing word 0x880E1B9C, a branch displacement that grows by 8). Measured on the .pdata starts:
+#   addr <= 0x880E1B68  -> same address      (1,031 functions)
+#   addr >= 0x880E1C60  -> address + 8       (2,563 functions)        = 3,594 / 3,594, zero exceptions.
+# The reco pair's insertion is in sub_880DEF88 (reco_normal) -- same shape, a different site.
+# The jump tables obey it too: 17 at the same address, 45 at exactly +8 (futari_switches_kiniro_abn.toml vs
+# futari_switches_kiniro.toml). The .data side is NOT yet measured (reco pair: +0x60); step 4 owes that census.
+#
+# Millicode anchors: identical to reco_normal and kiniro_normal (byte-verified 2026-10-30, see futari_kiniro.toml).
+#
+# Jump tables: futari_switches_kiniro_abn.toml, GENERATED from this module's own image (scan_switches.py).
+# Indirect-call-only functions: NONE yet (bring-up step 3; once kiniro_normal's are harvested they port by +8).
+[main]
+file_path = "assets/media/Module/kiniro_abnormal.xex"
+out_directory_path = "out_kiniro_abn"
+
+restgprlr_14_address = 0x88071170
+savegprlr_14_address = 0x88071120
+restfpr_14_address = 0x8808827C
+savefpr_14_address = 0x88088230
+
+switch_table_file_path = "futari_switches_kiniro_abn.toml"
