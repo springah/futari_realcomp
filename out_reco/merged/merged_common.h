@@ -135,6 +135,30 @@ static inline void rt_heapdump(uint8_t* base, const char* tag) {
 // GA_MB_MODE64     mode64 mailbox; msg-12 arm target, read by [msglog] and rt.cpp.
 #define GA_MB_MODE64     (futari_desc()->addrs.mb_mode64)   // L3: was (0x887AD584u + GA_DSHIFT)
 // ---- end guest .data parameterization ----
+// ---- RECO-LAYOUT GUARD for the sub_88 hooks (Black Label step 3, 2026-10-31) ----
+// FUTARI_RECO_DATA is 1 when this module's .data is laid out like reco_normal's (reco_normal itself and its
+// +0x60 twin reco_abnormal, where every literal is dshift-correct) and 0 for a DIFFERENT GAME BUILD
+// (kiniro_normal, modeIdx 4). merged_game.cpp carries ~460 reco_normal .data literals. Under the flat 4 GB
+// guest arena a READ of a wrong address is harmless (an instrument logs garbage), but a WRITE corrupts the
+// live module's own .data. The step-3 audit (docs/PLAN_kiniro_bringup.md "Step 3") found every literal
+// STORE and literal-driven register/call override inside a hook that kiniro_symbol_map.h INSTALLS sits
+// behind one of eight RT_ levers; each of those is now also gated on rt_kgate("<lever>"), which is a
+// constant `true` on the reco pair (byte-identical codegen) and on module 4 refuses once per lever with a
+// [kgate] line so the harvest log shows what was withheld. Hooks the map DROPS (sub_X_KDROP) are never
+// installed, so their literal stores cannot run. The RT_STARTWIRE store goes through futari_desc()->dshift
+// (the descriptor's candidate), not a literal, and stays live on purpose.
+#define FUTARI_RECO_DATA (FUTARI_MODULE == 0 || FUTARI_MODULE == 1)
+static inline bool rt_kgate(const char* lever){
+#if FUTARI_RECO_DATA
+  (void)lever; return true;
+#else
+  static std::atomic<int> shown{0};
+  if(shown.fetch_add(1) < 64)
+    std::fprintf(stderr,"[kgate] %s REFUSED on %s (modeIdx %u): it writes through reco_normal .data literals\n",
+                 lever, futari_desc()->module_basename, (unsigned)futari_desc()->hosted_mode_idx);
+  return false;
+#endif
+}
 // ---- [jankstate] / [janksum]: module -> host diagnostic calls (L3 stage 1) ----
 // The three g_js_* counters that L2 had to make `inline` variables are shell-PRIVATE statics
 // again (merged_shell.cpp).  The game half's per-frame [jank] block calls these two instead of

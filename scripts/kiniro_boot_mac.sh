@@ -1,0 +1,54 @@
+#!/bin/bash
+# kiniro_boot_mac.sh <tag> <host> [hold_secs]   -- Black Label step 3 FIRST-BOOT / HARVEST drive (docs/PLAN_kiniro_bringup.md "Step 3").
+#
+# Takes the drive lock, points the engine at a PRIVATE game root that holds the extracted Black Label DLC data
+# (KIN_ROOT, default _local/blroot: symlinks into assets/ plus media/Rom/{cg_black.bin,cg_blackhi.bin,dropprm.bl};
+# the data NEVER goes into assets/, which the bundle copies), then drives scripts/nav_mac.sh on <host> (a 3-slot
+# futari_combined): title -> START (top menu) -> DOWN, DOWN (cursor on the Black Label row) -> shot -> A (arcade_front
+# panel) -> A (decide Black Label ARCADE = modeIdx 4) -> wait for the module swap to kiniro_normal -> hold, shooting
+# every 15 s. Then the HARVEST lines are pulled out of the guest log into $B/harvest.txt:
+#   [indirect] UNMAPPED guest target=0x88...   -> functions XenonRecomp's analysis missed: add to config/futari_kiniro.toml
+#   [kdrop]                                     -> a live hook called a reco_normal hook symbol with no kiniro twin (exit 97
+#                                                  unless RT_KDROP_CONT=1)
+#   [kgate]                                     -> a reco-literal lever refused on module 4 (merged_common.h rt_kgate)
+#   FATAL / IS THE WRONG MODULE / [modswap] / [modeidx] / [xenum] DLC gate / [loadgame] / [startwire]
+#   bash scripts/kiniro_boot_mac.sh k3_boot1 build/kin/futari_combined 90
+#   RT_KDROP_CONT=1 bash scripts/kiniro_boot_mac.sh k3_cont1 build/kin/futari_combined 120
+# Bank: _local/nav_mac/<tag>/{shot_N.png, guest.log, steps.txt, harvest.txt}. Private save copy per tag.
+set -u
+cd "$(dirname "$0")/.."
+TAG="${1:?tag}"; BIN="${2:?host binary}"; HOLD="${3:-90}"
+KIN_ROOT="${KIN_ROOT:-$PWD/_local/blroot}"
+for f in media/Rom/cg_black.bin media/Rom/cg_blackhi.bin media/Rom/dropprm.bl media/Module/kiniro_normal.xex default.xex; do
+  [ -r "$KIN_ROOT/$f" ] || { echo "KIN_ROOT=$KIN_ROOT lacks $f (extract the DLC into a private root first)"; exit 2; }
+done
+LOCK=/tmp/futari_drive.lock
+until mkdir "$LOCK" 2>/dev/null; do sleep 20; done
+trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+while pgrep -x futari_combined >/dev/null || pgrep -x futari_merged >/dev/null; do sleep 30; done
+SAVE="_local/saves/save_kin_$TAG"; rm -rf "$SAVE"; cp -R _local/saves/save_mac "$SAVE"
+# hold = N x (15 s + shot); the module's cold boot is inside the W: ceiling (240 s)
+HOLDSTEPS=(); n=$(( HOLD / 15 )); [ "$n" -lt 1 ] && n=1
+for ((i=0;i<n;i++)); do HOLDSTEPS+=('s:15' shot 'log:\[indirect\] UNMAPPED\|\[kdrop\]\|\[kgate\]\|FATAL\|IS THE WRONG MODULE\|\[startwire\]'); done
+RT_GAME_ROOT="$KIN_ROOT" RT_SAVE="$SAVE" RUN_SECS="${RUN_SECS:-$(( 200 + HOLD ))}" bash scripts/nav_mac.sh "$TAG" "$BIN" -- \
+  10 'w:SYS_BGM cue0 (mushifuta_Menu02)' 's:4' 2 's:1.5' 2 's:2.5' shot \
+  1000 'w:SYS_SE cue1 (SE_OK01)' 's:3' shot \
+  1000 'w:\[modeidx\] sub_821C3F38 modeIdx=4' 's:2' \
+  'W:\[modswap\] #[0-9]* DONE' 's:5' shot 'log:\[modswap\]\|\[loadgame\]\|\[xenum\] DLC gate' \
+  "${HOLDSTEPS[@]}"
+B="_local/nav_mac/$TAG"
+{
+  echo "== kiniro step-3 harvest: $TAG  host=$BIN  root=$KIN_ROOT  hold=${HOLD}s  $(date '+%F %T') =="
+  echo "-- summary --"
+  for p in '\[modreg\]' '\[xenum\] DLC gate' '\[modeidx\]' '\[loadgame\]' '\[modswap\] #' 'IS THE WRONG MODULE' '\[kgate\]' '\[kdrop\]' '\[indirect\] UNMAPPED' 'FATAL' 'VK_ERROR\|VUID' '\[startwire\]'; do
+    printf '%6d  %s\n' "$(grep -c "$p" "$B/guest.log")" "$p"
+  done
+  echo "-- distinct UNMAPPED targets (count target first-lr) --"
+  grep -o 'UNMAPPED guest target=0x[0-9A-F]* (lr=0x[0-9A-F]*)' "$B/guest.log" | sed 's/UNMAPPED guest target=//' | awk '{c[$1]++; if(!($1 in l)) l[$1]=$2} END{for(k in c) printf "%6d  %s %s\n", c[k], k, l[k]}' | sort -k2
+  echo "-- [kdrop] / [kgate] / WRONG MODULE / FATAL lines --"
+  grep -E '\[kdrop\]|\[kgate\]|IS THE WRONG MODULE|FATAL' "$B/guest.log" | cut -c1-200 | sort | uniq -c | sort -rn | head -40
+  echo "-- module lines --"
+  grep -E '\[modreg\]|\[modswap\]|\[modeidx\]|\[loadgame\]|\[xenum\] DLC gate|\[startwire\]' "$B/guest.log" | cut -c1-220 | head -40
+  echo "-- engine exit --"; tail -5 "$B/run_out.txt" 2>/dev/null
+} > "$B/harvest.txt"
+cat "$B/harvest.txt"

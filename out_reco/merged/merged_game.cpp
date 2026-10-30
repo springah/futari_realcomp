@@ -104,7 +104,7 @@ PPC_FUNC(sub_88083200){
   // (mtctr r3;bctrl) calls garbage and the game main never runs. Force the correct fn ptr at THIS
   // exact spawn site (return addr lr=0x8808FF20) so sub_88168D48 runs. (Real fix = find the
   // clobbering callee; this proves the theory + unblocks downstream testing.)
-  if(std::getenv("RT_FIXSPAWN") && (uint32_t)ctx.lr==0x8808FF20u && ctx.r6.u32!=0x88168D48u){
+  if(std::getenv("RT_FIXSPAWN") && rt_kgate("RT_FIXSPAWN") && (uint32_t)ctx.lr==0x8808FF20u && ctx.r6.u32!=0x88168D48u){
     std::fprintf(stderr,"[fixspawn] forcing game-main ctx r6 0x%X -> 0x88168D48\n",ctx.r6.u32);
     ctx.r6.u32=0x88168D48u;
   }
@@ -122,7 +122,7 @@ PPC_FUNC(sub_88083200){
 extern "C" void __imp__sub_88092C28(PPCContext& __restrict, uint8_t*);
 extern "C" void __imp__NtCreateEvent(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_88092C28){
-  if(std::getenv("RT_PUMPFIX") && PPC_LOAD_U32(0x887ACD30u)==0){
+  if(std::getenv("RT_PUMPFIX") && rt_kgate("RT_PUMPFIX") && PPC_LOAD_U32(0x887ACD30u)==0){
     uint32_t scratch = ctx.r1.u32 - 64;   // transient guest scratch below the worker's SP
     uint32_t h[2]={0,0};
     for(int k=0;k<2;++k){
@@ -234,7 +234,7 @@ PPC_FUNC(sub_88227220){
   // RT_CLEAR312: zero +312 across the id46 factory so sub_880E3888 registers the scene.
   uint32_t p312_pre=PPC_LOAD_U32(0x884D6878u);
   static int clr = std::getenv("RT_CLEAR312")?atoi(std::getenv("RT_CLEAR312")):0;
-  if(clr) PPC_STORE_U32(0x884D6878u,0);
+  if(clr && rt_kgate("RT_CLEAR312")) PPC_STORE_U32(0x884D6878u,0);
   std::fprintf(stderr,"[gpfac] id46 factory CALL#%ld r3=0x%X r4=0x%X | +312(0x884D6878)=0x%X%s\n",
     i,ctx.r3.u32,ctx.r4.u32,p312_pre, clr?" (CLEARED)":"");
   __imp__sub_88227220(ctx,base);
@@ -265,7 +265,7 @@ PPC_FUNC(sub_88133DB0){
   // this writes the marker the join is supposed to write, then lets the game's OWN scan+arm run — so
   // the player is armed with the ranking slot's real data (its +158 field). Slot0 of the joining
   // side's row. Test-only: reveals whether the natural arm yields real lives.
-  if(std::getenv("RT_JOINMARK") && g_in_id47.load()>0 && jl_p1>=0x82000000u && jl_p1<0x8B000000u){
+  if(std::getenv("RT_JOINMARK") && rt_kgate("RT_JOINMARK") && g_in_id47.load()>0 && jl_p1>=0x82000000u && jl_p1<0x8B000000u){
     uint32_t side=PPC_LOAD_U8(jl_p1+1u), idx=PPC_LOAD_U8(jl_p1+8u), B=PPC_LOAD_U32(jl_p1+0x80u);
     if(side==0 && B>=0x82000000u && B<0x8B000000u){
       uint32_t F54=PPC_LOAD_U32(B+0x54u);
@@ -347,7 +347,7 @@ PPC_FUNC(sub_88133DB0){
       }
     }
   }
-  if(on && g_in_id47.load()>0 && ctx.r3.u64==0 && (both || PPC_LOAD_U8(0x884D95F1u)==0)){
+  if(on && rt_kgate("RT_FORCEPLAYER") && g_in_id47.load()>0 && ctx.r3.u64==0 && (both || PPC_LOAD_U8(0x884D95F1u)==0)){
     ctx.r3.u64=1;
     static int fp=0; if(fp++<8) std::fprintf(stderr,"[forceplayer] id47 slot-scan returned 0 -> forced slot live (r3 0->1, obj17_pre=%u)\n",PPC_LOAD_U8(0x884D95F1u));
   }
@@ -1081,7 +1081,7 @@ PPC_FUNC(sub_8808FB90){
   // 0->1 at submit and never clears in merged, so sub_8808FB90 skips the gate-clear -> game main
   // spins. Force it back to 0 so the game keeps advancing frames through the transition.
   static int nopause = std::getenv("RT_NOPAUSE")?atoi(std::getenv("RT_NOPAUSE")):0;
-  if(nopause && PPC_LOAD_U32(0x887AD534u)!=0){ PPC_STORE_U32(0x887AD534u,0);
+  if(nopause && rt_kgate("RT_NOPAUSE") && PPC_LOAD_U32(0x887AD534u)!=0){ PPC_STORE_U32(0x887AD534u,0);
     static std::atomic<long long> z{0}; long long zz=z.fetch_add(1)+1;
     if(zz<=3||zz%2000==0) std::fprintf(stderr,"[nopause] cleared A(0x887AD534) #%lld\n",zz); }
   __imp__sub_8808FB90(ctx,base);
@@ -1545,7 +1545,7 @@ PPC_FUNC(sub_88090480){
       if(e<=40 || (e%50)==0) std::fprintf(stderr,"[sndq] producer idx -> %u (consumer %u) pump#%lld\n",prod,cons,n); }
   }
   static bool sndqfree = std::getenv("RT_SNDQFREE")!=nullptr;
-  if(sndqfree && PPC_LOAD_U32(0x884EB394u)!=0){
+  if(sndqfree && rt_kgate("RT_SNDQFREE") && PPC_LOAD_U32(0x884EB394u)!=0){
     PPC_STORE_U32(0x884EB394u, 0);
     static std::atomic<long long> c{0}; long long i=c.fetch_add(1)+1;
     if(i<=8 || (i%200)==0)
@@ -1693,7 +1693,7 @@ PPC_FUNC(sub_88152CF0){
   // each pump frame with the pump's own args (r3=0x23 id46 handle, r4=0x884D6740 FSM block) — same
   // thread/frame-point the pump used. If it draws ~81, that's first gameplay pixels.
   static int tickgp = std::getenv("RT_TICKGP")?atoi(std::getenv("RT_TICKGP")):0;
-  if(tickgp){
+  if(tickgp && rt_kgate("RT_TICKGP")){
     static uint32_t h=(std::getenv("RT_TICKGP_H")?(uint32_t)strtoul(std::getenv("RT_TICKGP_H"),0,16):0x23u);
     PPCContext ic=ctx; ic.r3.u32=h; ic.r4.u32=0x884D6740u;
     __imp__sub_88226EB0(ic,base);

@@ -223,6 +223,7 @@ static std::string rt_save_dir(){ static std::string d=[]{ const char* e=getenv(
 // Implemented in out_reco/rt.cpp (owns the NT file layer + the root_name->host-dir map that
 // rt_open_host()/rt_create_common() consult for every NtCreateFile/NtOpenFile call).
 extern "C" void rt_content_register_root(const char* root_name, const char* host_dir);
+extern "C" void rt_content_register_root_ro(const char* root_name, const char* host_dir);   // DLC data: read-only mount (rt.cpp)
 extern "C" void rt_content_unregister_root(const char* root_name);
 // open device sessions (device ids currently valid per SAVE_DESIGN.md §4). Populated by
 // XamShowDeviceSelectorUI / XamContentCreateEx success, erased by XamContentClose — this is what
@@ -358,6 +359,22 @@ PPC_FUNC_IMPL(__imp__XamContentCreateEx){static bool o=false;if(!o){o=true;std::
     uint32_t ov = PPC_LOAD_U32(ctx.r1.u32 + 0x54);   // overlapped = stack arg9
     if(dispp) PPC_STORE_U32(dispp, 2u);              // XCONTENT_DISPOSITION = OPENED
     if(licp)  PPC_STORE_U32(licp, 1u);               // license mask = 1 (owned)
+    // Black Label step 3 (2026-10-31): the mount is REAL now. The shell names the DLC root ("bldata" for Black
+    // Label) and then opens "bldata:\Rom\cg_black.bin" (seen on the first kiniro boot: `[file] open
+    // "bldata:\Rom\cg_black.bin" ... -> MISS` and the shell's "DLC cannot be read, download again" dialog).
+    // tools/extract relocates a package's Rom/ under <asset root>/media/Rom/, so the root maps READ-ONLY onto
+    // <RT_GAME_ROOT>/media (rt.cpp rt_content_register_root_ro). Byte-inert for the reco pair: nothing ever
+    // opens a "<dlcroot>:\" path there. The DLC files themselves never live in assets/ (bundle law): the
+    // step-3 drives point RT_GAME_ROOT at a private root.
+    {
+      char root_name[64]={0};
+      if(rnp && rnp<0xF0000000u){ const char* s=(const char*)(base+rnp); size_t i=0; for(;i<63&&s[i];++i) root_name[i]=s[i]; }
+      if(root_name[0]){
+        const char* groot=std::getenv("RT_GAME_ROOT"); if(!groot||!*groot) groot="assets";   // mirrors rt_game_root()
+        char hostdir[1100]; std::snprintf(hostdir,sizeof hostdir,"%s/media",groot);
+        rt_content_register_root_ro(root_name, hostdir);
+      }
+    }
     static int n=0; if(n++<8) std::fprintf(stderr,"[content] DLC CreateEx (type2) ov=0x%X -> 997+complete (OWNED)\n",ov);
     if(ov>0x1000 && ov<0xFFFF0000){
       PPC_STORE_U32(ov+0x00,0); PPC_STORE_U32(ov+0x04,0); PPC_STORE_U32(ov+0x18,0);

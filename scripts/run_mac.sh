@@ -15,7 +15,7 @@ BIN="${BIN:-build/futari_merged}"   # control-arm executables (scripts/boss1/fnf
 [ -x "$BIN" ] || { echo "no $BIN -- bash build_mac.sh first"; exit 2; }
 [ -f assets/default.xex ] || { echo "no assets/default.xex -- see docs/DUMPING.md"; exit 2; }
 mkdir -p _local/logs _local/saves
-export RT_GAME_ROOT="$PWD/assets"
+export RT_GAME_ROOT="${RT_GAME_ROOT:-$PWD/assets}"   # overridable: Black Label step 3 drives point it at a PRIVATE root holding the DLC data (never assets/)
 export XR_SHELL_XEX="${XR_SHELL_XEX:-assets/default.xex}"
 export RT_SAVE="${RT_SAVE:-_local/saves/save_mac}"; mkdir -p "$RT_SAVE"
 STAMP=$(date +%Y%m%d_%H%M%S); LOG="_local/logs/mac_$STAMP.log"

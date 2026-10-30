@@ -976,6 +976,11 @@ extern "C" void rt_indirect_call(PPCContext& ctx, uint8_t* base, uint32_t target
   }
   static long miss=0;
   if(miss++<40) std::fprintf(stderr,"[indirect] UNMAPPED guest target=0x%08X (lr=0x%08X) -> skipped, r3=0\n",target,(uint32_t)ctx.lr);
+  // Black Label step 3 (2026-10-31): the harvest loop needs every DISTINCT missed target, not the first 40 calls
+  // (one hot target would hide the rest). First sighting of each distinct target, up to 256, with its lr.
+  { static uint32_t seen[256]; static int nseen=0; int k=0; for(;k<nseen;++k) if(seen[k]==target) break;
+    if(k==nseen && nseen<256){ seen[nseen++]=target;
+      std::fprintf(stderr,"[indirect] UNMAPPED NEW #%d target=0x%08X (lr=0x%08X)\n",nseen,target,(uint32_t)ctx.lr); } }
   ctx.r3.u64=0;
 }
 
@@ -1057,12 +1062,25 @@ static FILE* rt_open_host(const char* gp, char* hp, size_t cap){
 // registered a root, which only happens when RT_SAVE is set and a save mount succeeded).
 static std::mutex g_croot_m;
 static std::map<std::string,std::string> g_croots; // key: UPPERCASED "NAME:" -> host dir (no trailing slash)
+static std::set<std::string> g_croots_ro;            // keys of READ-ONLY mounts (DLC data): never created/truncated
 extern "C" void rt_content_register_root(const char* root_name, const char* host_dir){
   if(!root_name||!*root_name||!host_dir) return;
   std::string key(root_name); for(auto& c:key) c=(char)std::toupper((unsigned char)c); key+=":";
   std::lock_guard<std::mutex> l(g_croot_m);
-  g_croots[key]=host_dir;
+  g_croots[key]=host_dir; g_croots_ro.erase(key);
   std::fprintf(stderr,"  [content] mount '%s' -> host '%s'\n",key.c_str(),host_dir);
+}
+// Black Label step 3 (2026-10-31): the shell mounts a marketplace (type-2) DLC package under the root name it
+// passes to XamContentCreateEx ("bldata" for Black Label) and then opens "bldata:\Rom\cg_black.bin". Those files
+// live under <RT_GAME_ROOT>/media/ (tools/extract relocates the package's Rom/ there), so the type-2 branch of
+// the stub registers the root READ-ONLY onto that directory: resolved like a save mount, but opened "rb" only,
+// never created or truncated, whatever disposition the guest asks for.
+extern "C" void rt_content_register_root_ro(const char* root_name, const char* host_dir){
+  if(!root_name||!*root_name||!host_dir) return;
+  std::string key(root_name); for(auto& c:key) c=(char)std::toupper((unsigned char)c); key+=":";
+  std::lock_guard<std::mutex> l(g_croot_m);
+  g_croots[key]=host_dir; g_croots_ro.insert(key);
+  std::fprintf(stderr,"  [content] mount '%s' -> host '%s' (READ-ONLY, DLC data)\n",key.c_str(),host_dir);
 }
 extern "C" void rt_content_unregister_root(const char* root_name){
   if(!root_name) return;
@@ -1073,7 +1091,7 @@ extern "C" void rt_content_unregister_root(const char* root_name){
 // Resolve a guest path to a host path under a registered content-root mount. Returns false
 // (leaving hp untouched) if gp isn't under any registered root -- callers fall through to the
 // old rt_open_host()/RT_GAME_ROOT convention unchanged.
-static bool rt_content_path(const char* gp, char* hp, size_t cap){
+static bool rt_content_path(const char* gp, char* hp, size_t cap, bool* ro=nullptr){
   const char* p=gp; if(!strncasecmp(p,"\\??\\",4)) p+=4;
   std::lock_guard<std::mutex> l(g_croot_m);
   for(auto& kv: g_croots){
@@ -1083,6 +1101,7 @@ static bool rt_content_path(const char* gp, char* hp, size_t cap){
       for(auto& c: rel) if(c=='\\') c='/';
       if(!rel.empty() && rel[0]=='/') rel.erase(0,1);
       std::snprintf(hp,cap,"%s/%s",kv.second.c_str(),rel.c_str());
+      if(ro) *ro = g_croots_ro.count(kv.first)!=0;
       return true;
     }
   }
@@ -1098,8 +1117,13 @@ static void rt_create_common(PPCContext& ctx, uint8_t* base, uint32_t iosb_reg, 
   int idx=-1; for(int i=0;i<64;i++) if(!g_files[i].f){idx=i;break;}
   FILE* f=nullptr; bool is_content=false, created=false;
   if(idx>=0 && gp[0]){
-    is_content = rt_content_path(gp,hp,sizeof hp);
-    if(is_content){
+    bool ro=false;
+    is_content = rt_content_path(gp,hp,sizeof hp,&ro);
+    if(is_content && ro){
+      // READ-ONLY content mount (DLC data under the asset root): plain "rb", never create/truncate.
+      f=fopen(hp,"rb");
+      if(f && idx>=0){ g_fatomic_tmp[idx].clear(); g_fatomic_fin[idx].clear(); }
+    } else if(is_content){
       // RT_SAVE mount: real read/write, create-on-demand per NT disposition semantics.
       std::error_code mkec; std::filesystem::create_directories(std::filesystem::path(hp).parent_path(), mkec);
       bool exists = std::filesystem::exists(hp);
