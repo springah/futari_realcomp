@@ -497,7 +497,12 @@ the swap · stage (BGM m02_stg1) · game over (BGM m05_govr) · >= 150 draws/fra
 0 UNMAPPED · 0 kdrop · 0 wrong-module · 0 DROPOUT-CONFIRMED after the swap (the pre-swap shell-title dropouts are the
 known RT_POOLRELEASE residual, reported as a NOTE) · every `[kgate]` lever is one of the eight the audit listed.
 First run `k3gate1`: **13 PASS / 0 FAIL** (max 304 draws/frame in the stage; 8 pre-swap title dropouts noted).
-No reference pixels exist for this module, so there is no stagepix/boss-plate analogue yet.
+Repeatability the same morning: modeIdx 4 `k3gate{1,2,3}` 3/3 all-PASS, modeIdx 5 `k4cgate{1,2,3}` 3/3 all-PASS (pre-swap
+title dropouts 7-8 each time, 0 after the swap). No reference pixels exist for this module, so there is no
+stagepix/boss-plate analogue yet.
+Default-build (`build/kinnr`) non-regression after step 4c: ARCADE legs `kin4_nr{,2,3}` dropout 9 / 0 / 0 (the 9 = 7 on the
+shell title before the decide + 2 at the demo-start transition, f1535/f1580, not seen in the other two legs or in
+`kin3_nr`: the known intermittent RT_POOLRELEASE title mode), x360 leg 1 pre-swap title dropout; fatal/vkerr/underruns 0 everywhere.
 
 ## Step 4c (2026-10-31, Mac): kiniro_abnormal = Black Label XBOX 360 MODE (modeIdx 5) BOOTS AND PLAYS, first try
 
@@ -527,3 +532,42 @@ Everything mechanical off kiniro_normal, as §4 predicted:
   gm_frame_gate, mb_credited, entry and START EXCH are live-controlled for this module too; asset_commit / mb_reload /
   mb_mode64 remain structural.
 - Shots: `_local/nav_mac/k4c_boot1/shot_{3,7,8,9,10}.png` on the Mac.
+
+## Step 3c (2026-10-31, Mac): the NAV OBSERVER SET for both kiniro modules, live-controlled
+
+RT_NAVREAL/RT_NAV360 live in sub_88138F00, which the kiniro map DROPS, so Black Label had no `[navreal]` markers.
+`RT_NAVMOD=1` (merged_game.cpp, the same pump-hook probe point as RT_DESCPROBE) edge-logs a per-module nav set:
+scene_fsm, select_d76, death, slot0, credit. kiniro_normal's addresses come from derive_desc.py's twin votes
+(scene -0xA750 15/15, death -0xA748 8/8, slot0 -0xA64C 5/5; select_d76 had no referencing twin, so both shift
+candidates were read; credit = slot0+2), kiniro_abnormal's are +0x100 (derive_desc_abn.py, 44/44, 17/17, 7/7, d76
+candidates 2/2 and 3/3). Same play drive on all three modules (`k3d_nav0/4/5`), hold 100 s:
+
+| module | the 17 edges (pump-hook timeline) |
+|---|---|
+| reco_normal (control) | scene 0,1 (boot) -> 3,5 (hub, t+10.5 s) ; d76 1 -> 2 (t+23 s, slot0=1 cred=3) -> 3,4 (stage) ; cred 3,2,1,0 (deaths) ; slot0 0 -> d76 5,6,8 -> scene 2 (game over, t+80 s) |
+| kiniro_normal | the SAME sequence, same order, t+7.0 / 19.6 / 71 s |
+| kiniro_abnormal | the SAME sequence, same order, t+7.0 / 19.6 / 71 s |
+
+Verdict: **scene_fsm, select_d76, slot0 and credit are LIVE-CONTROLLED** for both Black Label modules. select_d76 is
+the -0xA748 candidate (kiniro 0x884CC044, abn 0x884CC144); the -0xA750 one (0x884CC03C) stayed 0 throughout and is
+refuted. `death` stayed 0 on the control as well (this route does not exercise it). So a marker-driven Black Label
+drive can now wait on `[navmod] ... d76=8` (real stage) / `scene=2` (teardown) exactly as the Ver 1.5 drives wait on
+`[navreal]`.
+
+## Open for the USER: how Black Label reaches a player (nothing below is decided)
+
+Black Label runs, but only from a developer build with a private game root. Before it can be offered, three calls
+are the owner's, not the engine's:
+1. **Data path.** The DLC package (`496F816D...`, 277 MB STFS) is the user's own purchase. `tools/extract/
+   futari_extract.py <folder with the package> --out <dir>` already unpacks its three files. The engine today finds
+   them only under `<RT_GAME_ROOT>/media/Rom/`, i.e. the SAME root as the disc assets. Options: (a) the extractor
+   writes into the user's existing assets root (simplest; the bundle law "assets/ is copied into the zip" is a
+   BUILD-side rule, a user's installed assets folder is theirs); (b) a second root (`RT_DLC_ROOT`, or a `dlc/`
+   folder beside the app) searched after the main one; (c) keep it developer-only.
+2. **Build shape.** The two Black Label modules add ~17 MB of dylibs and a fourth/fifth registry row. Ship them in
+   the default `MODULES` (rows un-grey only when the data is present, the shell's own gate), or keep them opt-in.
+3. **Quality bar.** The smoke gate is a regression gate. Black Label has no reference pixels, no boss plate, no
+   census baseline, no hands-on play. What must be true before a row is offered is the same question RC1 answered
+   for Ver 1.5 (PLAN_RC1.md §0), and it has not been asked for Black Label.
+The Ver 1.01 DLC (`9893A78C...`, 57 KB) is the same mechanism with a different root name; its data files are
+disc-sourced and already in assets/, so it is the cheaper second case once a module exists for it.

@@ -16,8 +16,9 @@
   so still structural) · `scripts/kiniro_gate_mac.sh` regression gate (13 asserts; first runs 13/13 on both modes) · **kiniro_abnormal =
   Black Label XBOX 360 MODE boots and plays first try** (+8-law symbol map 8243/8243, twin-vote descriptor all +0x100 with a 0-disagreement
   reco control, 4/4 host mask 0x33). PLAN_kiniro_bringup "Step 3b" / "Step 4c".
-- ⏳ **Owed next for Black Label** (none blocks rc3; all opt-in): a nav/observer set for kiniro (RT_NAVREAL lives in a dropped hook);
-  a QUALITY gate (stagepix/boss plate/q-census assume reco data; no reference pixels for BL); triage of the 52 dropped hooks; a drive that
+- ✅ **Step 3c:** `RT_NAVMOD` nav observer set per module (scene_fsm / select_d76 / slot0 / credit) live-controlled on both kiniro modules
+  (identical 17-edge sequence vs the reco control; select_d76 = the -0xA748 candidate). Gate repeatability 6/6. PLAN "Step 3c".
+- ⏳ **Owed next for Black Label** (none blocks rc3; all opt-in; three USER calls listed in PLAN "Open for the USER"): a QUALITY gate (stagepix/boss plate/q-census assume reco data; no reference pixels for BL); triage of the 52 dropped hooks; a drive that
   makes asset_commit / mb_reload / mb_mode64 move on the control, to judge those three candidates; the Ver 1.01 DLC root (same type-2
   path, untested); how a USER gets the DLC in: `tools/extract/futari_extract.py <dlc folder> --out <private root>` exists, the app needs
   an "extra game root" story before Black Label can be offered (data NEVER in assets/ -> never in the bundle); Windows build arms for

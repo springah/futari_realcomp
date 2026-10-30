@@ -66,6 +66,8 @@ B="_local/nav_mac/$TAG"
   grep -E '\[modreg\]|\[modswap\]|\[modeidx\]|\[loadgame\]|\[xenum\] DLC gate|\[startwire\]' "$B/guest.log" | cut -c1-220 | head -40
   echo "-- [descprobe] (RT_DESCPROBE=1: the six descriptor fields, edge-logged by the pump hook) --"
   grep '\[descprobe\]' "$B/guest.log" | cut -c1-260 | head -60
+  echo "-- [navmod] (RT_NAVMOD=1: the nav observer set, edge-logged by the pump hook) --"
+  grep '\[navmod\]' "$B/guest.log" | cut -c1-200 | head -80
   echo "-- BGM / hub markers --"
   grep -E '\[cue\] BGM|\[p0build\] menu_game_title|\[mcur\]|\[decide\]' "$B/guest.log" | grep -v native | cut -c1-160 | head -30
   echo "-- engine exit --"; tail -5 "$B/run_out.txt" 2>/dev/null

@@ -5,7 +5,9 @@
 Character Select (Reco & Kiniro) -> stage 1 -> GAME OVER -> replay prompt, 0 FATAL / 0 UNMAPPED / 0 kdrop on every drive. Needs
 `MODULES="normal abn kiniro kiniro_abn"` and a PRIVATE game root with the user-extracted DLC (never assets/). 5 of 8 descriptor values are
 live-controlled per module (entry, START EXCH, field_active, gm_frame_gate, mb_credited); asset_commit / mb_reload / mb_mode64 are structural.
-Regression gate `scripts/kiniro_gate_mac.sh` (13 asserts, `KIN_MODEIDX=4|5`). docs/PLAN_kiniro_bringup.md "Step 3", "3b", "4c". Not in any cut.
+Nav set (scene_fsm, select_d76, slot0, credit) live-controlled on both modules (`RT_NAVMOD`, identical 17-edge sequence vs the reco control).
+Regression gate `scripts/kiniro_gate_mac.sh` (13 asserts, `KIN_MODEIDX=4|5`; 6/6 runs PASS). docs/PLAN_kiniro_bringup.md "Step 3", "3b", "3c",
+"4c", and "Open for the USER" (data path, build shape, quality bar). Not in any cut.
 
 **Engine after rc2 (2026-10-30, unattended Mac seat):** G5-fix landed (`RT_POOLRELEASE`, ARCADE RSS ramp FLAT; DEFAULT ON for macOS/Linux by user ruling 10-30, `=0` reverts),
 360 START-wire dshift fix (PLAN_RC1 §0.5 item 2 closed), RT_ROTATE=90|270 rotated present (iPad half 1), Black Label kiniro trees

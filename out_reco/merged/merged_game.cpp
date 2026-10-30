@@ -1548,6 +1548,39 @@ PPC_FUNC(sub_88090480){
           futari_desc()->module_basename,n,ms,v[1],tog,v[0],v[2],v[3]);
       for(int k=0;k<6;k++) last[k]=v[k];
     } }
+  // RT_NAVMOD=1 (Black Label step 3c, 2026-10-31): the NAV OBSERVER SET per module, read-only, edge-logged from this
+  // callback. RT_NAVREAL/RT_NAV360 live in sub_88138F00, which kiniro_symbol_map.h DROPS (no twin), so Black Label
+  // had no [navreal] markers. The cluster moved PIECEWISE under kiniro (derive_desc.py: scene_fsm -0xA750 15/15,
+  // death -0xA748 8/8, slot0 -0xA64C 5/5; select_d76 had no referencing twin, so BOTH shift candidates were read and
+  // the live pattern decided; credit = slot0+2 by structure) and +0x100 again for kiniro_abnormal (derive_desc_abn.py,
+  // every row unanimous). Control = the same drive on reco_normal reading reco's cluster (+dshift), whose [navreal]
+  // semantics are known: d76 0->3 at demo, 5 at SUBMIT, >=8 in the real stage; scene 5 = gameplay, 2 = teardown.
+  // RESULT (drives k3d_nav0/4/5, 2026-10-31): all three modules log the IDENTICAL 17-edge sequence -- scene 0,1,3,5
+  // then 2 at game over; d76 0,1,2,3,4,5,6,8; slot0 1 with cred 3,2,1,0 (three lives) -- so scene_fsm, select_d76,
+  // slot0 and credit are LIVE-CONTROLLED for kiniro_normal and kiniro_abnormal. select_d76 is the -0xA748 candidate
+  // ("b", 0x884CC044 / 0x884CC144); the -0xA750 one ("a") stayed 0 throughout and is REFUTED; it is still read and
+  // logged so a future drive can see it. death stayed 0 on the control too (not discriminated by this route).
+  { static const bool nm = std::getenv("RT_NAVMOD")!=nullptr;
+    if(nm){
+#if FUTARI_MODULE == 4
+      constexpr uint32_t NV_SCENE=0x884CBF58u, NV_D76A=0x884CC03Cu, NV_D76B=0x884CC044u, NV_DEATH=0x884CC130u, NV_SLOT0=0x884CC69Cu, NV_CRED=0x884CC69Eu;
+#elif FUTARI_MODULE == 5
+      constexpr uint32_t NV_SCENE=0x884CC058u, NV_D76A=0x884CC13Cu, NV_D76B=0x884CC144u, NV_DEATH=0x884CC230u, NV_SLOT0=0x884CC79Cu, NV_CRED=0x884CC79Eu;
+#else
+      const uint32_t D=futari_desc()->dshift;   // reco pair: one shift (0 / +0x60), the RT_NAV360 cluster
+      const uint32_t NV_SCENE=0x884D66A8u+D, NV_D76A=0x884D678Cu+D, NV_D76B=0x884D678Cu+D, NV_DEATH=0x884D6878u+D, NV_SLOT0=0x884D6CE8u+D, NV_CRED=0x884D6CEAu+D;
+#endif
+      static uint32_t l[6]={0xFFFFFFFFu,0xFFFFFFFFu,0xFFFFFFFFu,0xFFFFFFFFu,0xFFFFFFFFu,0xFFFFFFFFu}; static long nlog=0;
+      static auto t0=std::chrono::steady_clock::now();
+      const uint32_t v[6]={ PPC_LOAD_U32(NV_SCENE), (uint32_t)PPC_LOAD_U16(NV_D76A), (uint32_t)PPC_LOAD_U16(NV_D76B),
+                            PPC_LOAD_U32(NV_DEATH), (uint32_t)PPC_LOAD_U8(NV_SLOT0), (uint32_t)PPC_LOAD_U16(NV_CRED) };
+      bool ch=false; for(int k=0;k<6;k++) if(v[k]!=l[k]) ch=true;
+      if(ch && nlog++<600){
+        unsigned long long ms=(unsigned long long)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()-t0).count();
+        std::fprintf(stderr,"[navmod] %s pump#%lld t+%llums scene=%u d76a=%u d76b=%u death=%u slot0=%u cred=%u | @%08X %08X %08X %08X %08X %08X\n",
+          futari_desc()->module_basename,n,ms,v[0],v[1],v[2],v[3],v[4],v[5],NV_SCENE,NV_D76A,NV_D76B,NV_DEATH,NV_SLOT0,NV_CRED);
+        for(int k=0;k<6;k++) l[k]=v[k]; }
+    } }
   // [gmstage] sampler print (this cb thread survives the game-main freeze): odd stage = the
   // main is INSIDE that callee. 1/2=A738 3/4=91448 5/6=138F00 7/8=93950 9/10=93418.
   if(std::getenv("RT_JOINP") && (n%2000)==0)

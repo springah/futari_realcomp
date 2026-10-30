@@ -24,6 +24,10 @@ KIN_TARGETS = [  # (name, kiniro_normal CANDIDATE)   -- g_futari_desc_kiniro_nor
     ('field_active', 0x885B7838), ('gm_frame_gate', 0x887A2770), ('asset_commit', 0x887A278B),
     ('mb_reload', 0x887A33B4), ('mb_credited', 0x887A336F), ('mb_mode64', 0x887A33AC),
     ('start.exch', 0x8868F6AC), ('start.cb_slot', 0x887A33D0),
+    # nav cluster (desc_candidates_kiniro.txt: scene_fsm -0xA750 15/15, death -0xA748 8/8, slot0 -0xA64C 5/5; select_d76 and
+    # credit had NO referencing twin from reco -> d76 carries BOTH shift candidates, credit = slot0 + 2 by structure)
+    ('nav.scene_fsm', 0x884CBF58), ('nav.d76_a', 0x884CC03C), ('nav.d76_b', 0x884CC044),
+    ('nav.death', 0x884CC130), ('nav.slot0', 0x884CC69C), ('nav.credit', 0x884CC69E),
 ]
 RECO_TARGETS = D.TARGETS
 
