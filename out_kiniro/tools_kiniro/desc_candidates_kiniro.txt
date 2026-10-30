@@ -1,0 +1,34 @@
+# desc_candidates_kiniro.txt - output of out_kiniro/tools_kiniro/derive_desc.py (2026-10-30, Mac; evidence for the
+# UNVERIFIED kiniro_normal row in host/futari_module_desc.h)
+== 1. XEX headers (control: reco_normal 0x88070588/0x8824E698, reco_abnormal ord1 0x8824E6A0)
+  reco_normal    entry=0x88070588  export_table=0x8824EE80  ordinal1=0x8824E698
+  reco_abnormal  entry=0x88070588  export_table=0x8824EE88  ordinal1=0x8824E6A0
+  kiniro_normal  entry=0x88070588  export_table=0x8824DE74  ordinal1=0x8824D678
+== 2. .data by twin: reco_normal -> reco_abnormal (3298 unique twins)  [control: +0x60 at/above 0x88351830]
+  field_active    0x885C1A20 -> 0x885C1A80 (+0x60) 10/10
+  gm_frame_gate   0x887AC958 -> 0x887AC9B8 (+0x60) 1/1
+  asset_commit    0x887AC973 -> 0x887AC9D3 (+0x60) 5/5
+  mb_reload       0x887AD58C -> 0x887AD5EC (+0x60) 12/12
+  mb_credited     0x887AD547 -> 0x887AD5A7 (+0x60) 5/5
+  mb_mode64       0x887AD584 -> 0x887AD5E4 (+0x60) 8/8
+  nav.scene_fsm   0x884D66A8 -> 0x884D6708 (+0x60) 33/33
+  nav.select_d76  0x884D678C -> 0x884D67EC (+0x60) 3/3
+  nav.death       0x884D6878 -> 0x884D68D8 (+0x60) 13/13
+  nav.slot0       0x884D6CE8 -> 0x884D6D48 (+0x60) 7/7
+  nav.credit      0x884D6CEA -> NO REFERENCING TWIN
+  start.exch      0x88699894 -> 0x886998F4 (+0x60) 2/2
+  start.cb_slot   0x887AD5A8 -> 0x887AD608 (+0x60) 5/5
+== 2. .data by twin: reco_normal -> kiniro_normal (2788 unique twins)
+  field_active    0x885C1A20 -> 0x885B7838 (-0xa1e8) 8/8
+  gm_frame_gate   0x887AC958 -> 0x887A2770 (-0xa1e8) 1/1
+  asset_commit    0x887AC973 -> 0x887A278B (-0xa1e8) 5/5
+  mb_reload       0x887AD58C -> NO REFERENCING TWIN
+  mb_credited     0x887AD547 -> 0x887A336F (-0xa1d8) 2/2
+  mb_mode64       0x887AD584 -> 0x887A33AC (-0xa1d8) 5/5
+  nav.scene_fsm   0x884D66A8 -> 0x884CBF58 (-0xa750) 15/15
+  nav.select_d76  0x884D678C -> NO REFERENCING TWIN
+  nav.death       0x884D6878 -> 0x884CC130 (-0xa748) 8/8
+  nav.slot0       0x884D6CE8 -> 0x884CC69C (-0xa64c) 5/5
+  nav.credit      0x884D6CEA -> NO REFERENCING TWIN
+  start.exch      0x88699894 -> 0x8868F6AC (-0xa1e8) 2/2
+  start.cb_slot   0x887AD5A8 -> 0x887A33D0 (-0xa1d8) 4/4

@@ -39,6 +39,10 @@
 // ---- module selection (compile-time at L3; runtime at L4) -------------------------------
 //   0 = reco_normal     (build_win.sh          -> futari_merged.exe)
 //   1 = reco_abnormal   (build_win_abn.sh      -> futari_merged_v154hi.exe, Ver 1.5 HI)
+//   4 = kiniro_normal   (build_mac_dll.sh MODULES="... kiniro" -> futari_game_kiniro.dylib, Black Label
+//                        ARCADE; 2026-10-30 step 4a, docs/PLAN_kiniro_bringup.md).  CONVENTION: the
+//                        FUTARI_MODULE index IS the shell's modeIdx (= hosted_mode_idx, see the field
+//                        comment), so the next modules are 5 kiniro_abnormal, 6/7 hirow, 2/3 palm.
 // DEFAULT IS 0, i.e. a TU that forgets the flag gets reco_normal — the SAME default-to-normal
 // fragility GA_DSHIFT had.  It is mitigated the same way: both build scripts pass the flag to
 // every TU that includes this header (see their headers), and the two arms' descriptors differ
@@ -100,7 +104,7 @@ struct FutariModuleDesc {
     // plain index, not a mask) because beta1's mode STUBS need it: the host must know which
     // menu rows this exe can honour.  Consumer: out_reco/merged/merged_shell.cpp [modestub]
     // L1/L2 (design: _tmpscripts/mode_stub_design.md).
-    uint32_t hosted_mode_idx;       // 0 = reco_normal (ARCADE), 1 = reco_abnormal (XBOX 360)
+    uint32_t hosted_mode_idx;       // 0 = reco_normal (ARCADE), 1 = reco_abnormal (XBOX 360), 4 = kiniro_normal (BL ARCADE)
     uint32_t dshift;                // audit only; `addrs` below are already absolute
     FutariModuleAddrs addrs;
     // ---- L4/E6 additions.  NULL/0 in the constexpr copies compiled into any EXE; filled by
@@ -152,6 +156,45 @@ constexpr FutariModuleDesc g_futari_desc_reco_abnormal = {
     nullptr, 0u                     // mappings/mapping_count: DLL-only (see the field comment)
 };
 
+// kiniro_normal — out_kiniro/, ppc_config.h PPC_CODE_SIZE 0x1DDEA4.  Black Label ARCADE (MODULE_BLACK,
+// modeIdx 4).  A DIFFERENT GAME BUILD, not a twin of reco_normal: there is no dshift law, so every value
+// below is an explicit literal.  ★ ALL OF THEM ARE STRUCTURAL CANDIDATES, UNVERIFIED AT RUNTIME (step 4a
+// binds the module; nothing has run it).  Source: out_kiniro/tools_kiniro/derive_desc.py, whose
+// positive controls reproduce reco_normal's xstart/ord1 and reco_abnormal's +0x60 for every field:
+//   image/code/table/xstart  ppc_config.h + the XEX entry header (0x88070588, same as reco)
+//   entry_ord1 0x8824D678    XEX export table, ordinal 1 (the security info's +0x160 table; reco's
+//                            GameEntry body has no whole-body twin in kiniro, it was rewritten)
+//   field_active  0x885B7838  twin vote 8/8   (reco 0x885C1A20, -0xA1E8)
+//   gm_frame_gate 0x887A2770  twin vote 1/1   (reco 0x887AC958, -0xA1E8)
+//   asset_commit  0x887A278B  twin vote 5/5   (reco 0x887AC973, -0xA1E8)
+//   mb_reload     0x887A33B4  ★ NO referencing twin: INTERPOLATED from its mailbox cluster
+//                             (mb_credited / mb_mode64 / the START callback slot all move -0xA1D8)
+//   mb_credited   0x887A336F  twin vote 2/2   (reco 0x887AD547, -0xA1D8)
+//   mb_mode64     0x887A33AC  twin vote 5/5   (reco 0x887AD584, -0xA1D8)
+// dshift = -0xA1E8 (as uint32): NOT a law here.  It is the START EXCH word's twin delta (0x88699894 ->
+// 0x8868F6AC, vote 2/2, = PLAN_kiniro_bringup §5.2's candidate), chosen so the one consumer that WRITES
+// through dshift (merged_game.cpp RT_STARTWIRE) lands on the candidate instead of on reco's address.
+// RT_NAV360's six reads through dshift are WRONG under kiniro (the nav cluster moved -0xA750/-0xA748/
+// -0xA64C, not -0xA1E8) -- log-only garbage until the step-7 RT_NAVMOD reads them from a descriptor.
+constexpr FutariModuleDesc g_futari_desc_kiniro_normal = {
+    FUTARI_MODULE_ABI, (uint32_t)sizeof(FutariModuleDesc),
+    "kiniro_normal",
+    0x88000000u, 0x7B0000u,
+    0x88070000u, 0x1DDEA4u,
+    0x887B0000u,
+    0x88070588u,
+    0x8824D678u,                    // UNVERIFIED (XEX export table)
+    4u,                             // hosted_mode_idx: title 2 (Black Label) / sub 0 (ARCADE)
+    0xFFFF5E18u,                    // dshift = -0xA1E8, START EXCH twin delta only (see above) -- UNVERIFIED
+    { 0x885B7838u,                  // field_active   UNVERIFIED
+      0x887A2770u,                  // gm_frame_gate  UNVERIFIED
+      0x887A278Bu,                  // asset_commit   UNVERIFIED
+      0x887A33B4u,                  // mb_reload      UNVERIFIED, interpolated (no twin reads it)
+      0x887A336Fu,                  // mb_credited    UNVERIFIED
+      0x887A33ACu },                // mb_mode64      UNVERIFIED
+    nullptr, 0u                     // mappings/mapping_count: DLL-only (see the field comment)
+};
+
 // The +0x60 law, asserted rather than trusted.
 static_assert(g_futari_desc_reco_abnormal.addrs.field_active  == g_futari_desc_reco_normal.addrs.field_active  + 0x60u, "abn dshift");
 static_assert(g_futari_desc_reco_abnormal.addrs.gm_frame_gate == g_futari_desc_reco_normal.addrs.gm_frame_gate + 0x60u, "abn dshift");
@@ -164,13 +207,24 @@ static_assert(g_futari_desc_reco_abnormal.addrs.mb_mode64     == g_futari_desc_r
 // at the end of the guest image for both modules.
 static_assert(g_futari_desc_reco_normal.table_base   == g_futari_desc_reco_normal.image_base   + g_futari_desc_reco_normal.image_size,   "table window");
 static_assert(g_futari_desc_reco_abnormal.table_base == g_futari_desc_reco_abnormal.image_base + g_futari_desc_reco_abnormal.image_size, "table window");
+static_assert(g_futari_desc_kiniro_normal.table_base == g_futari_desc_kiniro_normal.image_base + g_futari_desc_kiniro_normal.image_size, "table window");
+// module_registry.cpp's swap zeroes ONE image window and shares ONE table window (its header); that
+// is only safe while every hosted module has reco's image base and size (PLAN_other_modes §1.4: palm_*
+// break this and need the union-zero first).
+static_assert(g_futari_desc_kiniro_normal.image_base == g_futari_desc_reco_normal.image_base &&
+              g_futari_desc_kiniro_normal.image_size == g_futari_desc_reco_normal.image_size, "kiniro shares reco's image window");
 // The two exes must host DIFFERENT modes (that is the whole point of shipping two), and both are
 // the Ver 1.5 title (row 0) — an ARCADE/XBOX-360 pair, i.e. the SAME titleIdx and different sub.
-// If a third module is ever added, the second assert is the one that has to be relaxed, and the
-// [modestub] L1 loop in merged_shell.cpp is the code that has to learn about it.
+// 2026-10-30 (third module, kiniro_normal): the second assert did NOT need relaxing -- it is a
+// statement about the reco PAIR, which is still a title-0 ARCADE/XBOX-360 pair.  What a third module
+// needs is pairwise distinctness and the 0..7 range, added below; the [modestub] L1 loop in
+// merged_shell.cpp already greys by futari_title_hosted(row) over the whole mask, so it needed nothing.
 static_assert(g_futari_desc_reco_normal.hosted_mode_idx != g_futari_desc_reco_abnormal.hosted_mode_idx, "hosted mode collision");
 static_assert(g_futari_desc_reco_normal.hosted_mode_idx / 2u == g_futari_desc_reco_abnormal.hosted_mode_idx / 2u, "both arms are title 0 (Ver 1.5)");
 static_assert(g_futari_desc_reco_normal.hosted_mode_idx < 8u && g_futari_desc_reco_abnormal.hosted_mode_idx < 8u, "modeIdx is 0..7");
+static_assert(g_futari_desc_kiniro_normal.hosted_mode_idx != g_futari_desc_reco_normal.hosted_mode_idx &&
+              g_futari_desc_kiniro_normal.hosted_mode_idx != g_futari_desc_reco_abnormal.hosted_mode_idx, "hosted mode collision");
+static_assert(g_futari_desc_kiniro_normal.hosted_mode_idx == 4u, "kiniro_normal is title 2 (Black Label) / sub 0 (ARCADE) = modeIdx 4");
 
 // ---- THE ACCESSOR.  Every module-specific value in the host goes through this. -----------
 // THREE BUILD SHAPES, ONE SIGNATURE:
@@ -198,6 +252,10 @@ inline const FutariModuleDesc* futari_desc() { return g_futari_cur_desc; }
 constexpr const FutariModuleDesc* futari_desc() {
 #if FUTARI_MODULE == 1
     return &g_futari_desc_reco_abnormal;
+#elif FUTARI_MODULE == 4
+    return &g_futari_desc_kiniro_normal;
+#elif FUTARI_MODULE != 0
+#error "FUTARI_MODULE must be 0 (reco_normal), 1 (reco_abnormal) or 4 (kiniro_normal)"
 #else
     return &g_futari_desc_reco_normal;
 #endif

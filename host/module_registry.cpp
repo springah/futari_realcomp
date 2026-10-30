@@ -76,9 +76,17 @@ struct ModuleSlot {
 
 // The build's module inventory.  Adding a third module is one row plus its DLL — the mask, the
 // stub layers, the resolver and the swap all read this table and need no other edit.
+// (True for modules that share reco's image window -- futari_module_desc.h static_asserts it for
+// each one; palm_* will need the union-zero swap first, PLAN_other_modes §1.4.)
+// The kiniro_normal row (Black Label ARCADE, modeIdx 4, 2026-10-30 step 4a) is OPT-IN at compile time:
+// build_mac_dll.sh passes -DFUTARI_HOST_KINIRO=1 to the host only when MODULES names `kiniro`, so the
+// default two-module host (the rc path) keeps its 2-row table and its "[modreg] 2/2" line unchanged.
 ModuleSlot g_slots[] = {
     { "futari_game_normal" FUTARI_MODULE_EXT, "reco_normal",   0u, nullptr, nullptr, 0 },
     { "futari_game_abn"    FUTARI_MODULE_EXT, "reco_abnormal", 1u, nullptr, nullptr, 0 },
+#if defined(FUTARI_HOST_KINIRO) && FUTARI_HOST_KINIRO
+    { "futari_game_kiniro" FUTARI_MODULE_EXT, "kiniro_normal", 4u, nullptr, nullptr, 0 },
+#endif
 };
 constexpr int NSLOT = (int)(sizeof(g_slots) / sizeof(g_slots[0]));
 

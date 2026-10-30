@@ -334,11 +334,16 @@ def emit_fill(path, kernel, helpers, globs):
     open(path, "w", newline="\n", encoding="utf-8").write("\n".join(L) + "\n")
 
 
+# FUTARI_MODULE index (== the shell's modeIdx) -> (descriptor basename, DLL stem).  4 = kiniro_normal
+# (Black Label ARCADE, 2026-10-30 step 4a; Mac-only arm today, so its shim was emitted by copy).
+MODNAMES = {0: ("reco_normal", "normal"), 1: ("reco_abnormal", "abn"), 4: ("kiniro_normal", "kiniro")}
+
+
 def emit_shim(path, moddir, module_idx, kernel, helpers, globs):
-    modname = "reco_abnormal" if module_idx == 1 else "reco_normal"
+    modname, stem = MODNAMES[module_idx]
     L = [BANNER,
          f"// module_shim_{modname}.cpp — the ENTIRE host-facing surface of futari_game_"
-         f"{'abn' if module_idx else 'normal'}.dll.",
+         f"{stem}.dll.",
          "//",
          "// ############################################################################",
          "// # THIS FILE MUST ONLY EVER BE COMPILED INTO A MODULE DLL.                   #",
@@ -463,7 +468,7 @@ def main():
     # ★ The shim goes to moduleshim/, NEVER into out_reco*/ — those are swept by
     # `for f in out_reco/*.cpp` in build_win.sh AND build_merged.sh, and by `for f in $OUT/*.cpp`
     # in build_win_abn.sh.  See the banner emit_shim writes for the crash this caused.
-    modname = "reco_abnormal" if a.module == 1 else "reco_normal"
+    modname = MODNAMES[a.module][0]
     shimdir = os.path.join(ROOT, "moduleshim")
     os.makedirs(shimdir, exist_ok=True)
     shim = os.path.join(shimdir, f"module_shim_{modname}.cpp")
