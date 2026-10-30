@@ -7,6 +7,7 @@
 #   bash scripts/fdpace_check_mac.sh build/futari_combined
 set -u
 cd "$(dirname "$0")/.."
+source "$(dirname "${BASH_SOURCE[0]}")/pymac.sh"   # $PYTHON = a python with numpy + Pillow (10-30 landmine)
 BIN="${1:-build/futari_combined}"
 [ -d _local/saves/save_fd3 ] || { echo "no _local/saves/save_fd3 (the 3V card)"; exit 2; }
 arm(){ local tag="$1" save="$2"
@@ -19,5 +20,5 @@ arm(){ local tag="$1" save="$2"
 declare -A F
 arm 1V _local/saves/save_mac
 arm 3V _local/saves/save_fd3
-r=$(python3 -c "print(round(${F[3V]:-0}/max(${F[1V]:-1},1),2))")
-python3 -c "import sys; r=$r; print('ratio 3V/1V =', r, '->', 'PASS (paced)' if 0.8<=r<=1.3 else 'FAIL (3V un-paced or arm broken)'); sys.exit(0 if 0.8<=r<=1.3 else 1)"
+r=$("$PYTHON" -c "print(round(${F[3V]:-0}/max(${F[1V]:-1},1),2))")
+"$PYTHON" -c "import sys; r=$r; print('ratio 3V/1V =', r, '->', 'PASS (paced)' if 0.8<=r<=1.3 else 'FAIL (3V un-paced or arm broken)'); sys.exit(0 if 0.8<=r<=1.3 else 1)"

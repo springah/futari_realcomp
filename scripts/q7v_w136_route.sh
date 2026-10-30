@@ -14,6 +14,7 @@
 # Runs from futari_realcomp's root.
 set -u
 cd "$(dirname "$0")/.." || exit 1
+source "$(dirname "${BASH_SOURCE[0]}")/pymac.sh"   # $PYTHON = a python with numpy + Pillow (10-30 landmine)
 TAG="${1:?tag}"; BIN="${2:?bin}"; shift 2
 set --   "m:name='motion/title.lzx'" s:4 p:10    "m:SYS_BGM cue0 (mushifuta_Menu02)" s:4 p:1000    "m:SYS_SE cue1 (SE_OK01)" s:3 p:1000    "m:\\[modeidx\\] .*ARCADE" s:3 p:1000    "m:\\[p0build\\] menu_game_title" s:2    p:2 m:mcur s:1 p:2 m:mcur s:1 p:2 m:mcur s:1 p:2 m:mcur s:4 shot    p:1000 s:4 shot    p:1000 s:4 shot    p:2000 s:4 shot    p:2 s:1 p:1000 s:4 shot    p:8 s:4 shot p:4 s:4 shot    p:2 p:2 p:2 p:2 p:2 p:2 s:4 shot    p:1000 s:4 shot p:1000 s:4 shot p:1000 s:4 shot    p:2000 s:3 p:2 p:1000 s:4 shot    p:2000 s:3 p:2 p:1000 s:4 shot    p:2000 s:3 p:2 p:1000 s:3 p:1000 s:4 shot    p:2000 s:3 p:2000 s:3 p:2 p:2 p:1000 s:4 shot    p:2000 s:3 p:2000 s:4 shot 
 [ -x "$BIN" ] || { echo "no $BIN"; exit 2; }
@@ -57,7 +58,7 @@ for st in "$@"; do
     p:*) pad="${st#p:}"; f=$(waitframe "$CUR") || die "clock stalled waiting for f$CUR"; mark; echo "$pad" > "$FIFO"; sleep 0.2; echo 0 > "$FIFO"; say "pad $pad at f$f (sched f$CUR)"; CUR=$((CUR+48));;
     s:*) CUR=$((CUR + 60*${st#s:}));;
     shot) F=$(( CUR/5*5 )); waitframe $((F+10)) >/dev/null || die "clock stalled before shot f$F"; N=$((N+1)); ok=0
-          for d in 0 5 10; do src="$RVK_DUMPDIR/nvk_f$((F-d)).png"; [ -f "$src" ] && python3 -c "from PIL import Image; Image.open('$src').load()" 2>/dev/null && { cp "$src" "$B/shot_$N.png"; say "shot_$N = f$((F-d)) (sched f$F)"; ok=1; break; }; done
+          for d in 0 5 10; do src="$RVK_DUMPDIR/nvk_f$((F-d)).png"; [ -f "$src" ] && "$PYTHON" -c "from PIL import Image; Image.open('$src').load()" 2>/dev/null && { cp "$src" "$B/shot_$N.png"; say "shot_$N = f$((F-d)) (sched f$F)"; ok=1; break; }; done
           [ $ok = 1 ] || say "shot_$N MISSING at f$F"; CUR=$((CUR+6));;
     *) die "bad step $st";;
   esac

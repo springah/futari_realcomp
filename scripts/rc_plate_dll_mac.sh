@@ -7,6 +7,7 @@
 #   bash scripts/rc_plate_dll_mac.sh q5c famk1        env: RETRIES=3 DUR=100 PILOT_DIR=build/q5c_probe DECOMP_DIR=<decomp tree>
 set -u
 cd "$(dirname "$0")/.."
+source "$(dirname "${BASH_SOURCE[0]}")/pymac.sh"   # $PYTHON = a python with numpy + Pillow (10-30 landmine)
 TAG="${1:?tag}"; shift; TUS="$*"; [ -n "$TUS" ] || { echo "no TUs named"; exit 2; }
 DUR="${DUR:-100}"; PD="${PILOT_DIR:-build/q5c_probe}"; export QUIET="${QUIET:-10}"
 export RT_EMITTRACE="${RT_EMITTRACE:-lr:880DCD70-880DEE68}" RT_DCD70TRACE=1
@@ -23,11 +24,11 @@ drive(){ # arm bin  -- holds the lock for this drive only
   bash scripts/boss1/boss1_drive_mac.sh "plate_${TAG}_$1" "$2" "$DUR" | tail -2; local rc=$?
   pkill -x "$(basename "$2")" 2>/dev/null; sleep 1; rmdir "$LOCK" 2>/dev/null; return $rc; }
 drive control "$CD/$CH"; drive pilot "$PDIR/$PH"
-python3 scripts/boss1/boss_plate_gate.py compare "plate_${TAG}_pilot" "plate_${TAG}_control"; rc=$?
+"$PYTHON" scripts/boss1/boss_plate_gate.py compare "plate_${TAG}_pilot" "plate_${TAG}_control"; rc=$?
 for ((try=1; try<=${RETRIES:-3} && rc==2; try++)); do
   grep -q "lockstep frames" "_local/boss1_mac/plate_${TAG}_pilot/plate_verdict.txt" || break
   arm=$([ $((try%2)) -eq 1 ] && echo control || echo pilot); bin=$([ "$arm" = control ] && echo "$CD/$CH" || echo "$PDIR/$PH")
   echo "== retry $try: not in lockstep -- re-driving $arm"; drive "$arm" "$bin"
-  python3 scripts/boss1/boss_plate_gate.py compare "plate_${TAG}_pilot" "plate_${TAG}_control"; rc=$?
+  "$PYTHON" scripts/boss1/boss_plate_gate.py compare "plate_${TAG}_pilot" "plate_${TAG}_control"; rc=$?
 done
 exit $rc
