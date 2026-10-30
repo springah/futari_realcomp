@@ -42,6 +42,31 @@
   pre-transform where MoltenVK allows) on the MAC build FIRST — testable today in a tall window / a rotated
   monitor, no iOS toolchain needed — then the iPad build inherits it and follows device orientation (or a
   setting). Pad-only input makes portrait trivial. Cost: +1 design window on the Mac, ~0 on iPad.
+  **2026-10-30: Mac lever LANDED (b737e13 + debug dump 3097d95).** `RT_ROTATE=90` (clockwise: frame top on the
+  window's RIGHT) / `270` (counter-clockwise: top on the LEFT); unset/0 = the old present blit, untouched. Only
+  the window present changes (render/vk_render.cpp `rvkRot*`): vkCmdBlitImage cannot rotate, so under the lever
+  the present is a tiny graphics pass -- render pass on the swapchain format (UNDEFINED -> clear black ->
+  PRESENT_SRC_KHR; the clear is the bars), view + framebuffer per swapchain image rebuilt with the swapchain,
+  fullscreen-triangle pipeline (push constant = rotation), cached view + NEAREST/LINEAR sets per present source
+  (g.image / imageShow / imageLdr / FrameDelay ring slot), viewport = the rotated 720x1280 frame aspect-fit into
+  the swapchain, filter by the blit's RVK_UPFILTER rule. The source goes TRANSFER_SRC -> SHADER_READ_ONLY ->
+  TRANSFER_SRC around the pass, so compose, FrameDelay ring, readbacks and PNG dumps are unrotated and unchanged;
+  imageShow/imageLdr/ring gain SAMPLED usage only under the lever. Shaders: shaders/rotate_{vs,ps}.hlsl ->
+  render/rotate_spirv.h via `python -I tools/gen_rotate_spirv.py` (DXC on Windows; the Mac needs no compiler).
+  Debug lever `RVK_PRESENTDUMP=<path>` (+ `_AT=<n>` default 900, `_EVERY=<m>`, `%ld` = present #) reads the
+  FINISHED swapchain image back to a PNG, because `screencapture` over ssh fails ("could not create image from
+  display"). Verified on the M3 Max (build/rot, `OUTDIR=build/rot OBJSFX=_rot bash build_mac_dll.sh`), one 45 s
+  run each, title screen at window present #1800:
+  `BIN=build/rot/futari_combined RUN_SECS=45 RVK_WINSIZE=720x1280 RT_ROTATE=90|270 RVK_PRESENTDUMP=/tmp/rotpng/x_%05ld.png RVK_PRESENTDUMP_AT=600 RVK_PRESENTDUMP_EVERY=300 bash scripts/run_mac.sh`
+  -> 90 and 270 fill the 720x1280 window exactly (NEAREST, 1:1), mirror rotations of each other, no stretch;
+  `RVK_WINSIZE=768x1024 RT_ROTATE=90` (iPad-portrait 3:4) -> 576x1024 fit at x=96, black pillars left/right
+  (LINEAR); control (RT_ROTATE unset, 1280x720) -> title as before. VK_ERROR/VUID 0 in all four logs (0 in the
+  preceding soak logs too); no FAILED lines. Known gaps: F11 fullscreen with the lever was not exercised (the
+  fit is recomputed from the swapchain extent per present, so it should pillarbox); the default Mac run is
+  RVK_HDR=0 sync present (source = g.image) -- the HDR/async sources (imageLdr, imageShow, ring slots under
+  FrameDelay 2V/3V) are wired but unexercised; no live toggle or orientation-follow (iOS follow-up: drive
+  RT_ROTATE from device orientation / a setting, or use the surface preTransform where MoltenVK honours it);
+  input is not rotated (pad input needs none; touch would).
 - **iOS/iPadOS port of the realcomp** (user 2026-10-12: "add an iOS version to the todo"). Viability was
   assessed for the recomp on 2026-06-29 and carries over: the port is AOT static recompilation (no JIT),
   so iOS's W^X ban does not apply; SDL3 and MoltenVK both ship iOS targets; perf is a non-issue on A17+/M-series.
