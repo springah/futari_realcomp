@@ -44,6 +44,10 @@ ROWSTEPS=(2 's:1.5' 2 's:2.5'); SWAPSTEPS=('W:\[modswap\] #[0-9]* DONE' 's:5')
 if [ "$KIN_MODEIDX" = 0 ]; then ROWSTEPS=('s:2'); SWAPSTEPS=('s:8'); fi
 # odd modeIdx = the XBOX 360 MODE card: LEFT on the arcade_front panel first (the panel honours no decide for 3 s)
 SUBSTEPS=(); case "$KIN_MODEIDX" in 1|3|5|7) SUBSTEPS=(4 's:3.6');; esac
+# RSS sampler (G5-style soak figure for the module): one line per 30 s, "t_s,rss_mb", from the first engine process seen
+B="_local/nav_mac/$TAG"; mkdir -p "$B"; : > "$B/rss.csv"
+( T0=$(date +%s); for ((k=0;k<400;k++)); do P=$(pgrep -x "$(basename "$BIN")" | head -1); if [ -n "$P" ]; then R=$(ps -o rss= -p "$P" 2>/dev/null | tr -d ' '); [ -n "$R" ] && echo "$(( $(date +%s)-T0 )),$((R/1024))" >> "$B/rss.csv"; fi; sleep 30; done ) &
+SAMPLER=$!
 RT_GAME_ROOT="$KIN_ROOT" RT_SAVE="$SAVE" RUN_SECS="${RUN_SECS:-$(( 260 + HOLD ))}" bash scripts/nav_mac.sh "$TAG" "$BIN" -- \
   10 'w:SYS_BGM cue0 (mushifuta_Menu02)' 's:4' "${ROWSTEPS[@]}" shot \
   1000 'w:SYS_SE cue1 (SE_OK01)' 's:3' "${SUBSTEPS[@]}" shot \
@@ -51,9 +55,11 @@ RT_GAME_ROOT="$KIN_ROOT" RT_SAVE="$SAVE" RUN_SECS="${RUN_SECS:-$(( 260 + HOLD ))
   "${SWAPSTEPS[@]}" shot 'log:\[modswap\]\|\[loadgame\]\|\[xenum\] DLC gate' \
   "${EXTRA[@]}" \
   "${HOLDSTEPS[@]}"
-B="_local/nav_mac/$TAG"
+kill "$SAMPLER" 2>/dev/null
 {
   echo "== kiniro step-3 harvest: $TAG  host=$BIN  root=$KIN_ROOT  hold=${HOLD}s  $(date '+%F %T') =="
+  echo "-- rss (t_s,rss_mb; first / at 2 min / at 10 min / last) --"
+  head -1 "$B/rss.csv"; awk -F, '$1>=115&&$1<=125' "$B/rss.csv" | head -1; awk -F, '$1>=595&&$1<=605' "$B/rss.csv" | head -1; tail -1 "$B/rss.csv"
   echo "-- summary --"
   for p in '\[modreg\]' '\[xenum\] DLC gate' '\[modeidx\]' '\[loadgame\]' '\[modswap\] #' 'IS THE WRONG MODULE' '\[kgate\]' '\[kdrop\]' '\[indirect\] UNMAPPED' 'FATAL' 'VK_ERROR\|VUID' '\[startwire\]'; do
     printf '%6d  %s\n' "$(grep -c "$p" "$B/guest.log")" "$p"

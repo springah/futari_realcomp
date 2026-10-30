@@ -554,6 +554,31 @@ refuted. `death` stayed 0 on the control as well (this route does not exercise i
 drive can now wait on `[navmod] ... d76=8` (real stage) / `scene=2` (teardown) exactly as the Ver 1.5 drives wait on
 `[navreal]`.
 
+## Step 3e (2026-10-31): 12-minute Black Label ATTRACT SOAK (the G5 oracle shape) -- FLAT
+
+`k3soak1`: kiniro_normal decided, no inputs after the swap, 720 s hold, RSS sampled every 30 s (`kiniro_boot_mac.sh`
+now writes `rss.csv`). RSS 290 MB at boot -> 368 MB at 2 min -> 375 MB at 10 min -> 378 MB at the end: **+7 MB over
+the PREREG_q5 window = FLAT** (the Ver 1.5 ARCADE figure after the G5-fix was +9/+6, the pre-fix control +139).
+40 `[poolrelease]` sweeps after the swap, 0 DROPOUT-CONFIRMED after the swap, 0 FATAL / UNMAPPED / kdrop / VK_ERROR.
+
+## Step 3d (2026-10-31): the 52 DROPPED hooks, triaged statically
+
+What a dropped hook means: merged_game.cpp's override for a reco_normal symbol with no kiniro twin is never
+installed, so under Black Label the GAME'S OWN function runs unmodified. The question is whether any of them was a
+FIX the port needs rather than an instrument. Census over the 52 (`out_kiniro/kiniro_symbol_map.h` NOMATCH +
+AMBIGUOUS; store / return-override / getenv per body):
+
+| Class | Count | Members (abridged) | Under Black Label |
+|---|---|---|---|
+| no override body at all (nvk_game_hooks taps or `__imp__`-only references) | 14 | sub_880702B0, 8808E298, 880A0360/0478/0A10/0C48, 880F1448, 88133E30, 88134658, 881378A0, 881383A0, 88153BB0/D18/DF8 | nothing to lose |
+| log-only wrappers, no store, no return change | 29 | sub_8809BE18, 8809C220, 880A3CA8, 880A3F98, 880A4B20, 880EA968, 880EE880, 880FA720, 88100280, 88100588, 881025D0, 88104230, 881332E8, 88134048, 88135D20, 88137C28, 8813A5F0, 8814B930, 8814BF10, 8814D400, 8814F558, 8814FDF8, 881602F0, 88163CF0, 881EB1F0, 881F0BC8, 88226EB0, 8822BE60, 880A4628 | instruments silent (RT_S5 / RT_744P / RT_JOINP / RT_TRACERES / RT_CARDFSM / RT_WGATE families) |
+| env-gated LEVERS that store (default OFF, none drive-set) | 7 | sub_88103048 (RT_DECIDE/RT_744P), 88137498 (RT_START352/RT_MENUADV), 88137708 (RT_MENUADV), 88137ED8 (RT_CSHOLD*/RT_SLOTHOLD), 881F1968 (RT_F1968_POKE), 88168F98 (RT_SLOWCLAMP return clamp), 8824E698 (RT_TRAINSTAGE poke; also the `[msglog]` / `[gemsg]`-side GameEntry instrument) | levers unavailable; the GameEntry wrapper's logs are absent (no `[msglog]` for BL) |
+| the OBSERVER + its holds | 1 | sub_88138F00: RT_NAVREAL / RT_NAV360 observers, RT_NAVREAL>=2 holds, the msg-14 credited arm (GA_MB_RELOAD=2 / GA_MB_CREDITED) | replaced by RT_NAVMOD (step 3c) for the observer part; the holds/arms are levers, OFF by default |
+| **DEFAULT-ON FIX** | **1** | **sub_882272E8**: `RT_DIVGUARD` (default ON) repairs a zero divisor at 0x887ACE14 before the original divides (`[sfpe]`) | **absent under Black Label.** Its reco function has no kiniro twin, and the divisor's kiniro address is unknown. No FPE has been seen in any BL drive (title, hub, select, stage 1, game over, 12-min attract), so either Black Label never hits the zero or the crash is in a flow not yet driven. Candidate for the first BL-specific hook: find the twin by hand, re-derive the divisor address. |
+
+So the port's one default-on game-side repair that Black Label lacks is the divide guard; everything else dropped is
+instrumentation or an opt-in lever.
+
 ## Open for the USER: how Black Label reaches a player (nothing below is decided)
 
 Black Label runs, but only from a developer build with a private game root. Before it can be offered, three calls
