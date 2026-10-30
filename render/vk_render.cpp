@@ -12,6 +12,7 @@
 #include "vk_render.h"
 #include "shaders_spv.h"
 #include "xrgen_shaders.h"   // GENERATED (XenosRecomp glvl-d3d9) SPIR-V for the ROM shader set
+#include "rotate_spirv.h"    // GENERATED (tools/gen_rotate_spirv.py): RT_ROTATE present pass SPIR-V
 #include "shaders_futari.h"  // shader table — ROM entries 48/49/50 reference the xrgen blobs above;
                              // entries 45/47 are repointed at runtime in getOrCreateModule (FIX-A)
 #include <vulkan/vulkan.h>
@@ -552,6 +553,26 @@ struct Win {
   VkCommandBuffer cmd = VK_NULL_HANDLE;   // own cmdbuf so we never disturb g.cmd mid-frame
   VkFence fence = VK_NULL_HANDLE;
 } gw;
+
+// RT_ROTATE=90|270 (2026-10-30, BACKLOG "PORTRAIT TOO"; Mac-first half of the iPad port): the window
+// present shows the 1280x720 compose ROTATED (90 = clockwise, frame top on the window's RIGHT; 270 =
+// counter-clockwise, top on the LEFT), aspect-fit into whatever swapchain exists (black bars), so a
+// tall window (RVK_WINSIZE=720x1280) plays sideways with the frame's long edge on the window's long
+// edge. vkCmdBlitImage cannot rotate, so the present becomes a tiny graphics pass (rvkRot* below,
+// next to rvkWindowCreateSwapchain). Unset / 0 = the present blit, unchanged. Only the window present
+// differs: compose, FrameDelay ring contents, readbacks and PNG dumps never see the rotation. The
+// three present-source images that are pure transfer images today (imageShow, imageLdr, the FrameDelay
+// ring) gain SAMPLED usage only while the lever is on.
+static int rvkRotateDeg() {
+  static const int deg = [] {
+    const char* e = std::getenv("RT_ROTATE");
+    int v = e ? std::atoi(e) : 0;
+    if (v != 0 && v != 90 && v != 270) { std::fprintf(stderr, "[rvk][rot] RT_ROTATE=%s unsupported (90|270) -- off\n", e); v = 0; }
+    if (v) std::fprintf(stderr, "[rvk][rot] RT_ROTATE=%d: window present = rotated graphics pass (compose/readbacks unrotated)\n", v);
+    return v;
+  }();
+  return deg;
+}
 
 // ★ 2026-07-27 SURVIVABILITY (FNF-2 fallback + FNF-8 P1; F&F ship gate: renderer death must be
 // LOUD + nonzero exit, never a live guest behind a dead/hung window). Measured failure shape
@@ -1368,6 +1389,7 @@ bool initTonemap() {
   VkImageCreateInfo ii{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO}; ii.imageType = VK_IMAGE_TYPE_2D; ii.format = VK_FORMAT_R8G8B8A8_UNORM;
   ii.extent = {kW, kH, 1}; ii.mipLevels = 1; ii.arrayLayers = 1; ii.samples = VK_SAMPLE_COUNT_1_BIT; ii.tiling = VK_IMAGE_TILING_OPTIMAL;
   ii.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT; ii.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  if (rvkRotateDeg()) ii.usage |= VK_IMAGE_USAGE_SAMPLED_BIT;   // RT_ROTATE samples the present source
   VKC(vkCreateImage(g.dev, &ii, nullptr, &g.imageLdr), "tm image");
   VkMemoryRequirements mr{}; vkGetImageMemoryRequirements(g.dev, g.imageLdr, &mr);
   VkMemoryAllocateInfo ai{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO}; ai.allocationSize = mr.size; ai.memoryTypeIndex = findMem(mr.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -4326,6 +4348,7 @@ bool initVk() {
   // async-worker display image (same format/size; pure transfer target/source)
   VkImageCreateInfo imgS = img;
   imgS.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+  if (rvkRotateDeg()) imgS.usage |= VK_IMAGE_USAGE_SAMPLED_BIT;   // RT_ROTATE samples the present source
   VKC(vkCreateImage(g.dev, &imgS, nullptr, &g.imageShow), "vkCreateImage(show)");
   VkMemoryRequirements mrS{}; vkGetImageMemoryRequirements(g.dev, g.imageShow, &mrS);
   VkMemoryAllocateInfo maiS{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO}; maiS.allocationSize = mrS.size; maiS.memoryTypeIndex = findMem(mrS.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -4673,6 +4696,201 @@ extern "C" int rvk_run_on_main_thread(int (*fn)(int, char**), int argc, char** a
 }
 #endif  // _WIN32 (window platform arm 1: toggle + pump)
 
+// ---- RT_ROTATE present pass (2026-10-30; lever doc at rvkRotateDeg) ----
+// One render pass (swapchain format; UNDEFINED -> clear black -> PRESENT_SRC_KHR, so the bars are the
+// clear), a framebuffer + view per swapchain image (rebuilt by rvkWindowCreateSwapchain), one pipeline
+// (fullscreen triangle, rotation chosen by a push constant: shaders/rotate_{vs,ps}.hlsl), and per
+// present-source image (g.image / g.imageShow / g.imageLdr / FrameDelay ring slot) a cached view +
+// one descriptor set per sampler (NEAREST, LINEAR). Any bring-up failure logs once and the present
+// falls back to the unrotated blit (grot.failed).
+struct RvkRot {
+  bool failed = false;
+  VkRenderPass rp = VK_NULL_HANDLE; VkFormat rpFmt = VK_FORMAT_UNDEFINED;
+  VkPipeline pipe = VK_NULL_HANDLE; VkPipelineLayout layout = VK_NULL_HANDLE;
+  VkDescriptorSetLayout dsl = VK_NULL_HANDLE; VkDescriptorPool pool = VK_NULL_HANDLE;
+  VkSampler smp[2] = {VK_NULL_HANDLE, VK_NULL_HANDLE};   // [0] NEAREST, [1] LINEAR
+  std::vector<VkImageView> scViews; std::vector<VkFramebuffer> scFbs;
+  struct Src { VkImage img; VkImageView view; VkDescriptorSet set[2]; };
+  std::vector<Src> srcs;
+} grot;
+static constexpr uint32_t kRotMaxSrcs = 16;
+static bool rvkRotFail(const char* what) {
+  std::fprintf(stderr, "[rvk][rot] %s FAILED -- falling back to the unrotated present blit\n", what);
+  grot.failed = true; return false;
+}
+// Device-lifetime objects (samplers, set layout, pool, pipeline layout) once; render pass + pipeline
+// per swapchain format (rebuilt only if a recreate ever changes the format).
+static bool rvkRotBuildPipeline(VkFormat fmt) {
+  if (!grot.layout) {
+    for (int i = 0; i < 2; ++i) {
+      VkSamplerCreateInfo sc{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
+      sc.magFilter = sc.minFilter = i ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
+      sc.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+      sc.addressModeU = sc.addressModeV = sc.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+      sc.maxLod = 0.f;
+      if (vkCreateSampler(g.dev, &sc, nullptr, &grot.smp[i]) != VK_SUCCESS) return rvkRotFail("sampler");
+    }
+    VkDescriptorSetLayoutBinding b0{}; b0.binding = 0; b0.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    b0.descriptorCount = 1; b0.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    VkDescriptorSetLayoutCreateInfo dl{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO}; dl.bindingCount = 1; dl.pBindings = &b0;
+    if (vkCreateDescriptorSetLayout(g.dev, &dl, nullptr, &grot.dsl) != VK_SUCCESS) return rvkRotFail("set layout");
+    VkDescriptorPoolSize psz{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2 * kRotMaxSrcs};
+    VkDescriptorPoolCreateInfo dp{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO}; dp.maxSets = 2 * kRotMaxSrcs; dp.poolSizeCount = 1; dp.pPoolSizes = &psz;
+    if (vkCreateDescriptorPool(g.dev, &dp, nullptr, &grot.pool) != VK_SUCCESS) return rvkRotFail("descriptor pool");
+    VkPushConstantRange pcr{VK_SHADER_STAGE_VERTEX_BIT, 0, 4};
+    VkPipelineLayoutCreateInfo pl{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO}; pl.setLayoutCount = 1; pl.pSetLayouts = &grot.dsl;
+    pl.pushConstantRangeCount = 1; pl.pPushConstantRanges = &pcr;
+    if (vkCreatePipelineLayout(g.dev, &pl, nullptr, &grot.layout) != VK_SUCCESS) return rvkRotFail("pipeline layout");
+  }
+  if (grot.rp && grot.rpFmt == fmt) return true;
+  if (grot.pipe) { vkDestroyPipeline(g.dev, grot.pipe, nullptr); grot.pipe = VK_NULL_HANDLE; }
+  if (grot.rp) { vkDestroyRenderPass(g.dev, grot.rp, nullptr); grot.rp = VK_NULL_HANDLE; }
+  VkAttachmentDescription att{}; att.format = fmt; att.samples = VK_SAMPLE_COUNT_1_BIT;
+  att.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; att.storeOp = VK_ATTACHMENT_STORE_OP_STORE;   // clear = the black bars
+  att.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE; att.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  att.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; att.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+  VkAttachmentReference ref{0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+  VkSubpassDescription sub{}; sub.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS; sub.colorAttachmentCount = 1; sub.pColorAttachments = &ref;
+  // In: the UNDEFINED->COLOR_ATTACHMENT transition waits on the acquire semaphore (the submit waits it at
+  // COLOR_ATTACHMENT_OUTPUT on this path). Out: writes complete before the present semaphore signals.
+  VkSubpassDependency dep[2]{};
+  dep[0].srcSubpass = VK_SUBPASS_EXTERNAL; dep[0].dstSubpass = 0;
+  dep[0].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; dep[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  dep[0].srcAccessMask = 0; dep[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+  dep[1].srcSubpass = 0; dep[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+  dep[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; dep[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+  dep[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT; dep[1].dstAccessMask = 0;
+  VkRenderPassCreateInfo rpci{VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO}; rpci.attachmentCount = 1; rpci.pAttachments = &att;
+  rpci.subpassCount = 1; rpci.pSubpasses = &sub; rpci.dependencyCount = 2; rpci.pDependencies = dep;
+  if (vkCreateRenderPass(g.dev, &rpci, nullptr, &grot.rp) != VK_SUCCESS) return rvkRotFail("render pass");
+  grot.rpFmt = fmt;
+  VkShaderModule vs = makeShader(kRotateVertSpv, sizeof kRotateVertSpv);
+  VkShaderModule fs = makeShader(kRotateFragSpv, sizeof kRotateFragSpv);
+  if (!vs || !fs) return rvkRotFail("shader modules");
+  VkPipelineShaderStageCreateInfo stg[2] = {
+    {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_VERTEX_BIT, vs, "main", nullptr},
+    {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr, 0, VK_SHADER_STAGE_FRAGMENT_BIT, fs, "main", nullptr}};
+  VkPipelineVertexInputStateCreateInfo vin{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
+  VkPipelineInputAssemblyStateCreateInfo ia{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO}; ia.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+  VkPipelineViewportStateCreateInfo vps{VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO}; vps.viewportCount = 1; vps.scissorCount = 1;
+  VkPipelineRasterizationStateCreateInfo rs{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO}; rs.polygonMode = VK_POLYGON_MODE_FILL;
+  rs.cullMode = VK_CULL_MODE_NONE; rs.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE; rs.lineWidth = 1.f;
+  VkPipelineMultisampleStateCreateInfo msa{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO}; msa.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+  VkPipelineColorBlendAttachmentState cba{}; cba.blendEnable = VK_FALSE; cba.colorWriteMask = 0xF;
+  VkPipelineColorBlendStateCreateInfo cb{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO}; cb.attachmentCount = 1; cb.pAttachments = &cba;
+  VkDynamicState dyn[2] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+  VkPipelineDynamicStateCreateInfo ds{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO}; ds.dynamicStateCount = 2; ds.pDynamicStates = dyn;
+  VkGraphicsPipelineCreateInfo gp{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO}; gp.stageCount = 2; gp.pStages = stg;
+  gp.pVertexInputState = &vin; gp.pInputAssemblyState = &ia; gp.pViewportState = &vps; gp.pRasterizationState = &rs;
+  gp.pMultisampleState = &msa; gp.pColorBlendState = &cb; gp.pDynamicState = &ds; gp.layout = grot.layout; gp.renderPass = grot.rp; gp.subpass = 0;
+  VkResult pr = vkCreateGraphicsPipelines(g.dev, VK_NULL_HANDLE, 1, &gp, nullptr, &grot.pipe);
+  vkDestroyShaderModule(g.dev, vs, nullptr); vkDestroyShaderModule(g.dev, fs, nullptr);
+  if (pr != VK_SUCCESS) return rvkRotFail("graphics pipeline");
+  std::fprintf(stderr, "[rvk][rot] rotate pipeline ready (swapchain fmt=%d)\n", (int)fmt);
+  return true;
+}
+// Called by rvkWindowCreateSwapchain BEFORE it destroys the old swapchain (whose images our views
+// reference); every recreate caller vkQueueWaitIdle'd first, so no framebuffer is still in flight.
+static void rvkRotDropSwapchainTargets() {
+  for (VkFramebuffer f : grot.scFbs) if (f) vkDestroyFramebuffer(g.dev, f, nullptr);
+  for (VkImageView v : grot.scViews) if (v) vkDestroyImageView(g.dev, v, nullptr);
+  grot.scFbs.clear(); grot.scViews.clear();
+}
+// Called by rvkWindowCreateSwapchain AFTER gw.scImages / scExtent / scFormat are current.
+static void rvkRotOnSwapchain() {
+  if (grot.failed || !rvkRotBuildPipeline(gw.scFormat)) return;
+  rvkRotDropSwapchainTargets();
+  for (VkImage im : gw.scImages) {
+    VkImageViewCreateInfo iv{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO}; iv.image = im; iv.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    iv.format = gw.scFormat; iv.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    VkImageView v = VK_NULL_HANDLE;
+    if (vkCreateImageView(g.dev, &iv, nullptr, &v) != VK_SUCCESS) { rvkRotDropSwapchainTargets(); rvkRotFail("swapchain image view"); return; }
+    grot.scViews.push_back(v);
+    VkFramebufferCreateInfo fbi{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO}; fbi.renderPass = grot.rp; fbi.attachmentCount = 1;
+    fbi.pAttachments = &v; fbi.width = gw.scExtent.width; fbi.height = gw.scExtent.height; fbi.layers = 1;
+    VkFramebuffer f = VK_NULL_HANDLE;
+    if (vkCreateFramebuffer(g.dev, &fbi, nullptr, &f) != VK_SUCCESS) { rvkRotDropSwapchainTargets(); rvkRotFail("swapchain framebuffer"); return; }
+    grot.scFbs.push_back(f);
+  }
+  std::fprintf(stderr, "[rvk][rot] %zu swapchain framebuffers %ux%u (rotation %d)\n", grot.scFbs.size(),
+               gw.scExtent.width, gw.scExtent.height, rvkRotateDeg());
+}
+// Cached view + {NEAREST, LINEAR} descriptor sets for one present-source image (all are kW x kH; the
+// tonemap LDR image is UNORM8, every other source is g_rtFmt).
+static const RvkRot::Src* rvkRotSrc(VkImage img) {
+  for (const auto& s : grot.srcs) if (s.img == img) return &s;
+  if (grot.srcs.size() >= kRotMaxSrcs) { rvkRotFail("present-source cache (more than 16 distinct images)"); return nullptr; }
+  RvkRot::Src s{img, VK_NULL_HANDLE, {VK_NULL_HANDLE, VK_NULL_HANDLE}};
+  VkImageViewCreateInfo iv{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO}; iv.image = img; iv.viewType = VK_IMAGE_VIEW_TYPE_2D;
+  iv.format = (img == g.imageLdr) ? VK_FORMAT_R8G8B8A8_UNORM : g_rtFmt; iv.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+  if (vkCreateImageView(g.dev, &iv, nullptr, &s.view) != VK_SUCCESS) { rvkRotFail("present-source view"); return nullptr; }
+  VkDescriptorSetLayout l2[2] = {grot.dsl, grot.dsl};
+  VkDescriptorSetAllocateInfo da{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO}; da.descriptorPool = grot.pool; da.descriptorSetCount = 2; da.pSetLayouts = l2;
+  if (vkAllocateDescriptorSets(g.dev, &da, s.set) != VK_SUCCESS) { vkDestroyImageView(g.dev, s.view, nullptr); rvkRotFail("descriptor sets"); return nullptr; }
+  for (int i = 0; i < 2; ++i) {
+    VkDescriptorImageInfo dii{grot.smp[i], s.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    VkWriteDescriptorSet wr{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET}; wr.dstSet = s.set[i]; wr.dstBinding = 0; wr.descriptorCount = 1;
+    wr.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; wr.pImageInfo = &dii;
+    vkUpdateDescriptorSets(g.dev, 1, &wr, 0, nullptr);
+  }
+  grot.srcs.push_back(s);
+  std::fprintf(stderr, "[rvk][rot] present source #%zu cached (%s)\n", grot.srcs.size(),
+               img == g.image ? "g.image" : img == g.imageShow ? "imageShow" : img == g.imageLdr ? "imageLdr" : "FrameDelay ring slot");
+  return &grot.srcs.back();
+}
+// Records the rotated present of `src` (TRANSFER_SRC_OPTIMAL on entry AND on exit) into swapchain
+// image `idx` (UNDEFINED -> PRESENT_SRC_KHR via the render pass). Returns false having recorded
+// NOTHING when the rotate path is unavailable; the caller then records the ordinary blit.
+static bool rvkRotRecord(VkCommandBuffer cb, uint32_t idx, VkImage src) {
+  if (grot.failed || idx >= grot.scFbs.size() || !grot.pipe) return false;
+  const RvkRot::Src* s = rvkRotSrc(src);
+  if (!s) return false;
+  // Aspect fit of the ROTATED frame (kH wide x kW tall) into the swapchain, centred, black bars.
+  int32_t dW = (int32_t)gw.scExtent.width, dH = (int32_t)gw.scExtent.height;
+  int32_t fitW = dW, fitH = (int32_t)((int64_t)dW * kW / kH);
+  if (fitH > dH) { fitH = dH; fitW = (int32_t)((int64_t)dH * kH / kW); }
+  int32_t fx = (dW - fitW) / 2, fy = (dH - fitH) / 2;
+  // Filter: the present blit's RVK_UPFILTER rule (0 = NEAREST, 1 = LINEAR, unset = NEAREST only at an
+  // integer scale of the fit rect).
+  static const int upfEnv = std::getenv("RVK_UPFILTER") ? std::atoi(std::getenv("RVK_UPFILTER")) : -1;
+  const int lin = (upfEnv == 0) ? 0 : (upfEnv == 1) ? 1
+                : (((uint32_t)fitW % kH == 0 && (uint32_t)fitH % kW == 0) ? 0 : 1);
+  static VkExtent2D logged{};
+  if (logged.width != gw.scExtent.width || logged.height != gw.scExtent.height) {
+    logged = gw.scExtent;
+    std::fprintf(stderr, "[rvk][rot] present: swapchain %dx%d, rotated %ux%u frame fit %dx%d at (%d,%d), %s\n",
+                 dW, dH, kH, kW, fitW, fitH, fx, fy, lin ? "LINEAR" : "NEAREST");
+  }
+  VkImageMemoryBarrier b{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+  b.srcQueueFamilyIndex = b.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  b.image = src; b.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+  // The source was last written by a transfer (worker publish / FrameDelay ring write) or a colour pass
+  // (tonemap, compose) -- cover both writers; the shader read waits on them.
+  b.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL; b.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  b.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT; b.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+  vkCmdPipelineBarrier(cb, VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &b);
+  VkClearValue black{}; black.color = VkClearColorValue{{0.f, 0.f, 0.f, 1.f}};
+  VkRenderPassBeginInfo rbi{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO}; rbi.renderPass = grot.rp; rbi.framebuffer = grot.scFbs[idx];
+  rbi.renderArea = {{0, 0}, gw.scExtent}; rbi.clearValueCount = 1; rbi.pClearValues = &black;
+  vkCmdBeginRenderPass(cb, &rbi, VK_SUBPASS_CONTENTS_INLINE);
+  vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, grot.pipe);
+  VkViewport vp{(float)fx, (float)fy, (float)fitW, (float)fitH, 0.f, 1.f};
+  VkRect2D sc{{fx, fy}, {(uint32_t)fitW, (uint32_t)fitH}};
+  vkCmdSetViewport(cb, 0, 1, &vp); vkCmdSetScissor(cb, 0, 1, &sc);
+  vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, grot.layout, 0, 1, &s->set[lin], 0, nullptr);
+  const uint32_t rot = (uint32_t)rvkRotateDeg();
+  vkCmdPushConstants(cb, grot.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, 4, &rot);
+  vkCmdDraw(cb, 3, 1, 0, 0);
+  vkCmdEndRenderPass(cb);
+  // Hand the source back in TRANSFER_SRC_OPTIMAL (FrameDelay ring write, worker publish, readbacks all
+  // assume it); the next transfer on it waits for the shader read.
+  b.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; b.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+  b.srcAccessMask = VK_ACCESS_SHADER_READ_BIT; b.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+  vkCmdPipelineBarrier(cb, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &b);
+  return true;
+}
+
 bool rvkWindowCreateSwapchain() {
   VkSurfaceCapabilitiesKHR caps{};
   if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(g.phys, gw.surface, &caps) != VK_SUCCESS) return false;
@@ -4748,6 +4966,7 @@ bool rvkWindowCreateSwapchain() {
   sci.clipped = VK_TRUE; sci.oldSwapchain = gw.swapchain;
   VkSwapchainKHR ns = VK_NULL_HANDLE;
   if (vkCreateSwapchainKHR(g.dev, &sci, nullptr, &ns) != VK_SUCCESS) return false;
+  if (rvkRotateDeg()) rvkRotDropSwapchainTargets();   // RT_ROTATE: views of the old images go first
   if (gw.swapchain) vkDestroySwapchainKHR(g.dev, gw.swapchain, nullptr);
   gw.swapchain = ns; gw.scFormat = pick.format; gw.scExtent = sci.imageExtent;
   uint32_t ni = 0; vkGetSwapchainImagesKHR(g.dev, gw.swapchain, &ni, nullptr);
@@ -4759,6 +4978,7 @@ bool rvkWindowCreateSwapchain() {
   VkSemaphoreCreateInfo bsem{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
   for (uint32_t bi = 0; bi < ni; ++bi) vkCreateSemaphore(g.dev, &bsem, nullptr, &gw.semBlit[bi]);
   std::fprintf(stderr, "[rvk][win] swapchain %ux%u x%u fmt=%d\n", gw.scExtent.width, gw.scExtent.height, ni, (int)gw.scFormat);
+  if (rvkRotateDeg()) rvkRotOnSwapchain();   // RT_ROTATE: per-image framebuffers for the rotated present
   return true;
 }
 
@@ -5078,6 +5298,7 @@ void rvkWindowPresent(bool asyncShow = false) {
       ri.mipLevels = 1; ri.arrayLayers = 1; ri.samples = VK_SAMPLE_COUNT_1_BIT;
       ri.tiling = VK_IMAGE_TILING_OPTIMAL;
       ri.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+      if (rvkRotateDeg()) ri.usage |= VK_IMAGE_USAGE_SAMPLED_BIT;   // RT_ROTATE samples the present source
       ri.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
       for (int i = 0; i < 2; ++i) {
         if (vkCreateImage(g.dev, &ri, nullptr, &ring[i]) != VK_SUCCESS) { dead = true; break; }
@@ -5104,6 +5325,10 @@ void rvkWindowPresent(bool asyncShow = false) {
   toDst.image = gw.scImages[idx]; toDst.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
   toDst.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED; toDst.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
   toDst.srcAccessMask = 0; toDst.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+  // RT_ROTATE (rvkRotateDeg): the rotated graphics pass replaces the barrier + fit + clear + blit below
+  // and leaves the swapchain image in PRESENT_SRC_KHR itself; unset = the blit path exactly as before.
+  const bool rotPresent = rvkRotateDeg() && rvkRotRecord(gw.cmd, idx, presentSrc);
+  if (!rotPresent) {
   vkCmdPipelineBarrier(gw.cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &toDst);
   // ★ Aspect-preserving fit (2026-08-03, with the F11 toggle): center the 16:9 compose in the
   // swapchain and letterbox/pillarbox the remainder instead of stretching. Windowed mode is
@@ -5136,6 +5361,7 @@ void rvkWindowPresent(bool asyncShow = false) {
              ? VK_FILTER_NEAREST : VK_FILTER_LINEAR; }   // judge by the FIT rect, not the full extent
   vkCmdBlitImage(gw.cmd, presentSrc, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                  gw.scImages[idx], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, upf);
+  }  // !rotPresent
   if (fdSlot) {
     // FrameDelay ring write: this frame's compose goes into the slot just shown (or, during
     // warm-up, the still-empty slot), to come back out N presents from now. WAR on the shown
@@ -5161,9 +5387,10 @@ void rvkWindowPresent(bool asyncShow = false) {
   VkImageMemoryBarrier toPresent = toDst;
   toPresent.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; toPresent.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
   toPresent.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; toPresent.dstAccessMask = 0;
+  if (!rotPresent)   // the rotate render pass's finalLayout already did this transition
   vkCmdPipelineBarrier(gw.cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &toPresent);
   vkEndCommandBuffer(gw.cmd);
-  VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+  VkPipelineStageFlags waitStage = rotPresent ? VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT : VK_PIPELINE_STAGE_TRANSFER_BIT;
   VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};
   si.waitSemaphoreCount = 1; si.pWaitSemaphores = &gw.semAcquire; si.pWaitDstStageMask = &waitStage;
   si.commandBufferCount = 1; si.pCommandBuffers = &gw.cmd;
