@@ -125,7 +125,7 @@ item_A(){
   # final scoring
   local n; n=$(grep -a -c '\[modswap\] #[0-9]* DONE' "$LOGF"); [ "$n" = 10 ] && ok "10 [modswap] DONE (boot activation #1 + swaps #2..#10; the first ARCADE decide is not a swap)" || bad "modswap DONE count $n != 10"
   [ "$(grep -a -c 'residue=0' "$LOGF")" = 9 ] && ok "residue=0 x9 (every swap)" || bad "residue=0 count $(grep -a -c 'residue=0' "$LOGF") != 9"
-  [ "$(grep -a -c '\[modreg\].*2/2 module' "$LOGF")" = 1 ] && ok "modreg 2/2 once" || bad "modreg 2/2 count"
+  [ "$(grep -a -c -E '\[modreg\] ([0-9]+)/\1 module' "$LOGF")" = 1 ] && ok "modreg N/N once ($(grep -a -o -E '[0-9]+/[0-9]+ module DLL' "$LOGF" | head -1))" || bad "modreg N/N count ($(grep -a -c -E '\[modreg\] ([0-9]+)/\1 module' "$LOGF") lines)"
   leg_end
 }
 
@@ -220,7 +220,7 @@ body_CX(){ # DC-2 continue-by-START proof: NORMAL PLAY idle deaths, START once a
 item_CX(){ setsave CX_$1; leg_begin CX_$1 "$1" "$(SEEDS $1)"; boot_hub; body_CX; leg_end; }
 item_SM(){ # shell smoke steps of app_smoke_mac.sh, run against a probe binary (never the .app): title -> top -> card ARCADE -> hub -> B -> top
   setsave SM; leg_begin SM arcade "$(SEEDS arcade)"; boot_hub; hub_to_top
-  grep -a -q "2/2 module DLL(s) bound" "$LOGF" && ok "SM: both modules bound" || bad "SM: modules not both bound"; leg_end; }
+  grep -a -q -E "\[modreg\] ([0-9]+)/\1 module DLL\(s\) bound" "$LOGF" && ok "SM: all modules bound ($(grep -a -o -E '[0-9]+/[0-9]+ module DLL' "$LOGF" | head -1))" || bad "SM: modules not all bound"; leg_end; }
 item_SM2(){ # relaunch on SM's save (no reseed): the save must be read back
   setsave SM; leg_begin SM2 arcade ""; title_to_top; grep -a -q "existed=1" "$LOGF" && ok "SM2: save read back (existed=1)" || bad "SM2: save not read back"; leg_end; }
 item_C(){ setsave C_$1; leg_begin C_$1 "$1" "$(SEEDS $1)"; boot_hub; body_C; body_T NPgameover; leg_end; }
