@@ -103,6 +103,20 @@ KI_DEFAULT='KNOWN ISSUES (beta 3)
   - If the window goes black mid-play and the app quits, it was a GPU device loss: send the log.'
 if [ -n "${RC_KNOWN_ISSUES_FILE:-}" ]; then [ -f "$RC_KNOWN_ISSUES_FILE" ] || { echo "ERROR: $RC_KNOWN_ISSUES_FILE missing"; exit 1; }; KI_TEXT="$(cat "$RC_KNOWN_ISSUES_FILE")"; else KI_TEXT="$KI_DEFAULT"; fi
 BUILD_TEXT=""; if [ -n "${RC_BUILD_BLOCK_FILE:-}" ]; then [ -f "$RC_BUILD_BLOCK_FILE" ] || { echo "ERROR: $RC_BUILD_BLOCK_FILE missing"; exit 1; }; BUILD_TEXT="$(cat "$RC_BUILD_BLOCK_FILE")"; fi
+# Black Label paragraph only when the Black Label modules are in the bundle (built as a variable: a here-document inside a
+# command substitution inside the README here-document does not parse on macOS bash 3.2 -- the 2026-10-31 rc3 dry run).
+BL_TEXT=""
+if [ "${#MODDYLIBS[@]}" -ge 4 ]; then
+BL_TEXT="
+BLACK LABEL (your own DLC)
+  This build also contains the Black Label engine (ARCADE and XBOX 360 MODE). The row stays greyed
+  until the game finds YOUR Black Label download content. No DLC data is included.
+  To add it: unpack the DLC package you own with the extractor from the futari_realcomp repository
+      python3 tools/extract/futari_extract.py <folder holding the 496F816D... package> --out \"\$HOME/Library/Application Support/Futari Realcomp/dlc\"
+  so that this file exists:  ~/Library/Application Support/Futari Realcomp/dlc/media/Rom/cg_black.bin
+  (plus cg_blackhi.bin and dropprm.bl beside it). Relaunch; the Black Label row un-greys. The folder can be
+  moved anywhere by launching with RT_DLC_ROOT=/path/to/dlc. Black Label has had far less testing than Ver 1.5."
+fi
 cat > "$C/Resources/README.txt" <<EOF
 Mushihimesama Futari Ver 1.5 -- futari_realcomp, native macOS build $VER ($RC_LABEL, family-and-friends).
 $RC_LINE2 Engine build id: $(git rev-parse --short HEAD 2>/dev/null)$(git diff --quiet 2>/dev/null || echo -dirty)
@@ -114,18 +128,7 @@ MODES
   Both Ver 1.5 modes are in this build: ARCADE (1.5 Original) and XBOX 360 MODE. Pick one at the
   in-game title select; going back to the top menu and picking the other switches live, no relaunch.
   Ver 1.01 stays greyed (not included).
-$( [ ${#MODDYLIBS[@]} -ge 4 ] && cat <<'BL'
-
-BLACK LABEL (your own DLC)
-  This build also contains the Black Label engine (ARCADE and XBOX 360 MODE). The row stays greyed
-  until the game finds YOUR Black Label download content. No DLC data is included.
-  To add it: unpack the DLC package you own with the extractor from the futari_realcomp repository
-      python3 tools/extract/futari_extract.py <folder holding the 496F816D... package> --out "$HOME/Library/Application Support/Futari Realcomp/dlc"
-  so that this file exists:  ~/Library/Application Support/Futari Realcomp/dlc/media/Rom/cg_black.bin
-  (plus cg_blackhi.bin and dropprm.bl beside it). Relaunch; the Black Label row un-greys. The folder can be
-  moved anywhere by launching with RT_DLC_ROOT=/path/to/dlc. Black Label has had far less testing than Ver 1.5.
-BL
-)
+${BL_TEXT}
 
 CONTROLS
   Keyboard: arrows = D-pad, Z = A (shot), X = B (bomb), C = X, V = Y, Enter = START, Right Shift = BACK,
