@@ -4488,6 +4488,43 @@ PPC_FUNC(sub_882272E8){
   __imp__sub_882272E8(ctx,base);
 }
 
+// ★ 2026-10-31 BLACK LABEL TWIN of the SIGFPE guard (docs/PLAN_kiniro_bringup.md "Step 3f"). sub_882272E8 has no
+// whole-body twin in kiniro (gen_symbol_map: NOMATCH -> the hook above is DROPPED on modules 4/5), so the twin was
+// derived by hand from three routes that agree: (1) the ship constructor sub_8814DDC8 (UNIQUE twin sub_8814F2E0)
+// materialises the id-33 draw callback's address at the same instruction index (159) -> 0x88225C28; (2) the nearest
+// uniquely matched neighbours (sub_88227160 / sub_88227220, delta -0x16C0) land on 0x88225C28; (3) it is the only
+// kiniro function of that size (630 vs 607 insns, normalised-body similarity 0.95) with the lis/lwz -> divwu divisor
+// shape: insn 60 `lis r11,-30598 ; lwz r11,0x2C2C(r11)`, insn 61 `divwu r9,r10,r11`. The divisor is kiniro's own .data
+// word 0x887A2C2C (reco: 0x887ACE14); kiniro_abnormal's body is the +8 twin (0x88225C30) and reads 0x887A2D2C (the
+// +0x100 data law of derive_desc_abn). The .data INITIAL VALUE is 0 in all three images and the only writer (reco
+// sub_881378A0 -> kiniro sub_8813ABF0, which stores the mode-selected blink period, e.g. 2000) runs later, so the
+// zero -> host divide fault window has the same shape as Ver 1.5's: Black Label needs the guard too. Same lever
+// (RT_DIVGUARD, default ON), same repair (0 -> 1), same `[sfpe]` tag with the module name, plus a once-per-run
+// "hook entered" line (with the value read) so a drive can prove the override is installed and compare with the
+// reco control's `[sfpe]` line. The reco hook above is untouched; the symbol maps only rename reco names, so these
+// kiniro symbols pass through them as written (out_kiniro*/ppc_recomp_shared.h declares both).
+#if FUTARI_MODULE == 4 || FUTARI_MODULE == 5
+static inline void kin_divguard(uint8_t* base, const char* mod, uint32_t addr){
+  static const bool divGuard = [](){ const char* e=std::getenv("RT_DIVGUARD"); return !(e&&e[0]=='0'&&!e[1]); }();
+  static bool entered=false;
+  if(!entered){ entered=true;
+    std::fprintf(stderr,"[sfpe] %s hook entered (sub_%08X twin of sub_882272E8; divisor@0x%08X=%u; RT_DIVGUARD %s)\n",
+      mod, (unsigned)(FUTARI_MODULE==4?0x88225C28u:0x88225C30u), addr, (unsigned)PPC_LOAD_U32(addr), divGuard?"on":"off"); }
+  if(divGuard && PPC_LOAD_U32(addr)==0){
+    PPC_STORE_U32(addr, 1u);
+    static int lg=0; if(lg++<8)
+      std::fprintf(stderr,"[sfpe] %s divisor@0x%08X was 0 -> repaired to 1\n", mod, addr);
+  }
+}
+#endif
+#if FUTARI_MODULE == 4
+extern "C" void __imp__sub_88225C28(PPCContext& __restrict, uint8_t*);
+PPC_FUNC(sub_88225C28){ kin_divguard(base,"kiniro_normal",0x887A2C2Cu); __imp__sub_88225C28(ctx,base); }
+#elif FUTARI_MODULE == 5
+extern "C" void __imp__sub_88225C30(PPCContext& __restrict, uint8_t*);
+PPC_FUNC(sub_88225C30){ kin_divguard(base,"kiniro_abnormal",0x887A2D2Cu); __imp__sub_88225C30(ctx,base); }
+#endif
+
 // ★ 2026-08-02 GHOST-VOICE FORK INSTRUMENT (shot-level hunt). sub_880901B8 = the game's
 // STOP-SLOT (decomp reco_normal:21850-21878): zeroes the 0x18-byte active-voice slot, queues a
 // type-3 message to the engine (vtable+0x3C) and calls voice vtable+0xC (destroy). The digital
