@@ -9,7 +9,10 @@ Nav set (scene_fsm, select_d76, slot0, credit) live-controlled on both modules (
 Regression gate `scripts/kiniro_gate_mac.sh` (13 asserts + 2 pixel rungs, `KIN_MODEIDX=4|5`). The three calls were taken 2026-10-31 on
 the user's "all three unattended": DATA PATH = player DLC folder `RT_DLC_ROOT` (default beside the saves) · BUILD SHAPE = Black Label
 modules in the default Mac build when their trees exist (grey without data) · QUALITY BAR = the scorecard in PLAN_kiniro_bringup.md.
-Still not in any cut; the next Mac cut (rc3) would carry Black Label unless the user reverts the build-shape call.
+Still not in any cut; the next Mac cut (rc3) would carry Black Label unless the user reverts the build-shape call. **rc3 DRY RUN 2026-10-31
+(`DRY=1 rc_cut_mac.sh 0.3.0-rc3-dry`, 4-module bundle): ALL-PASS after two script fixes (app_smoke pad delivery via `open --env`; N/N module
+count in rc_chain/app_smoke) -- gstart, q1_ctest, q1_census both modes, rc_chain 15/15, app_smoke. Both Black Label attract soaks FLAT.
+A real `0.3.0-rc3` cut needs only the owner's go (the ladder is the cut's smoke) plus the hands checklist afterwards.**
 
 **Engine after rc2 (2026-10-30, unattended Mac seat):** G5-fix landed (`RT_POOLRELEASE`, ARCADE RSS ramp FLAT; DEFAULT ON for macOS/Linux by user ruling 10-30, `=0` reverts),
 360 START-wire dshift fix (PLAN_RC1 §0.5 item 2 closed), RT_ROTATE=90|270 rotated present (iPad half 1), Black Label kiniro trees

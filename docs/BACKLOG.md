@@ -24,7 +24,10 @@
   whatever dylibs exist (row stays grey without data) · QUALITY BAR = the 11-row Black Label scorecard in PLAN_kiniro_bringup, with
   two new pixel rungs in the gate (PIX-RICH stage richness floor, PIX-REGRESS hub frame vs banked reference). Linux/Deck build arms
   for modules 4/5 still owed (Deck image keeps the 2-module shape).
-- ⏳ **Owed next for Black Label**: Q10 hands-on (owner) · Q11 full rc ladder on the 4-module default build · kiniro_abnormal soak · a drive (stagepix/boss plate/q-census assume reco data; no reference pixels for BL); triage of the 52 dropped hooks; a drive that
+- ✅ **Q11 + soaks (2026-10-31 midday):** rc3 DRY RUN ladder ALL-PASS on the 4-module bundle (after fixing app_smoke's pad delivery and the
+  2/2 literals); kiniro_abnormal attract soak FLAT (+11 MB). Two user-requested sessions run in parallel: the divide-guard twin for Black Label
+  (`bl-divguard`) and the Deck AppImage with Black Label + on-device boot (`bl-deck`).
+- ⏳ **Owed next for Black Label**: Q10 hands-on (owner) · a drive (stagepix/boss plate/q-census assume reco data; no reference pixels for BL); triage of the 52 dropped hooks; a drive that
   makes asset_commit / mb_reload / mb_mode64 move on the control, to judge those three candidates; the Ver 1.01 DLC root (same type-2
   path, untested); how a USER gets the DLC in: `tools/extract/futari_extract.py <dlc folder> --out <private root>` exists, the app needs
   an "extra game root" story before Black Label can be offered (data NEVER in assets/ -> never in the bundle); Windows build arms for
