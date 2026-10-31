@@ -579,6 +579,117 @@ AMBIGUOUS; store / return-override / getenv per body):
 So the port's one default-on game-side repair that Black Label lacks is the divide guard; everything else dropped is
 instrumentation or an opt-in lever.
 
+## Step 3f (2026-10-31): the DIVIDE GUARD's Black Label twin -- found by hand, hooked, proved live
+
+The one default-on fix step 3d found missing. `PPC_FUNC(sub_882272E8)` in merged_game.cpp (`RT_DIVGUARD`, default
+ON, tag `[sfpe]`) repairs the player ship's blink-period divisor at 0x887ACE14 from 0 to 1 before the player-ship
+draw callback divides by it (`divwu`; the ucode's `twllei` trap is dropped by XenonRecomp, so a zero is a host
+integer-divide fault). gen_symbol_map.py found no whole-body twin (NOMATCH, "0 cand. no matched caller"), so under
+Black Label the hook was DROPPED and the game's own body ran unguarded.
+
+### The twin: `sub_88225C28` (kiniro_normal) / `sub_88225C30` (kiniro_abnormal, the +8 code law)
+
+Why the matcher could not see it: the body changed (reco 607 insns, kiniro 630; the normalised bodies are 95.2 %
+similar with a cluster of inserted words around insns 43-100 and one extra callee), and it has NO `bl` caller in
+either image -- it is registered by ADDRESS (the ship constructor passes it to the id-33 registrar), the class the
+callback census is blind to. Four independent routes agree on the candidate (`out_kiniro/tools_kiniro` matcher
+classes reused from a scratch script over the four flat images):
+
+1. **The registrar's argument.** The only reference to 0x882272E8 in reco_normal is `sub_8814DDC8` (ShipCtor) at
+   instruction index 159 (`lis/addi`, the id-33 registration). ShipCtor is UNIQUE -> `sub_8814F2E0` in kiniro, and
+   that body's lis-tracked reference at the SAME index 159 is **0x88225C28**.
+2. **Neighbour delta.** The nearest uniquely matched functions on both sides, `sub_88227160 -> 0x88225AA0` and
+   `sub_88227220 -> 0x88225B60`, both move by -0x16C0; 0x882272E8 - 0x16C0 = **0x88225C28**.
+3. **Callees.** The two reco callees with UNIQUE twins (`sub_881538C0 -> 0x88154BD8`, the sprite-emit helper called
+   18 times, and `sub_8814B0F0 -> 0x8814C6C0`) are both called by 0x88225C28; the three per-player notifies
+   (`sub_881E3100/6278/5198`) have no unique twin, kiniro's body calls `0x881E2D70/61F0/4FF0` in their place.
+4. **The divide itself.** Of the 5 kiniro_normal functions containing a lis-tracked `lwz` feeding a `divwu`,
+   exactly one is anywhere near this size: 0x88225C28 (630 insns). Same shape, two instructions earlier:
+
+| image | function | lis | lwz | divwu | divisor (.data) | initial value in the image |
+|---|---|---|---|---|---|---|
+| reco_normal | 0x882272E8 (607 insns) | insn 61 `lis r10,-30597` | insn 62 `lwz r10,-12780(r10)` | insn 63 `divwu r8,r11,r10` | **0x887ACE14** | 0 |
+| kiniro_normal | 0x88225C28 (630 insns) | insn 59 `lis r11,-30598` | insn 60 `lwz r11,11308(r11)` (0x2C2C) | insn 61 `divwu r9,r10,r11` | **0x887A2C2C** | 0 |
+| kiniro_abnormal | 0x88225C30 (630 insns, body identical to kiniro_normal after normalisation) | insn 59 `lis r11,-30598` | insn 60 `lwz r11,11564(r11)` (0x2D2C) | insn 61 `divwu r9,r10,r11` | **0x887A2D2C** (the +0x100 data law) | 0 |
+
+The divisor was READ from each body, not shifted: kiniro's .data moved the word by -0xA1E8 while the code moved by
+-0x16C0, and the abnormal twin's data sits +0x100 from kiniro_normal's as derive_desc_abn found for every other
+field. Both kiniro symbols are function starts (`ppc_func_mapping.cpp`, `PPC_EXTERN_FUNC` in `ppc_recomp_shared.h`),
+neither address is a reco_normal function start, and neither appears in either symbol map, so the maps pass the
+names through untouched.
+
+**What the divisor is** (`futari_decomp draft_882272E8.md`, r22): the ship's BLINK-PERIOD divisor;
+`(entity[164] / *(u32*)divisor) & 1` picks one of two packed tint words for the invulnerability blink. Its only
+writer is `sub_881378A0` (reco, `stw` at insn 142; the stored value is a mode-selected period, `li r11,500` /
+`li r11,2000` by a `cmpwi r8` chain) -> kiniro `sub_8813ABF0` (`stw` at insn 90; kiniro_abnormal `sub_8813ABF8`).
+Other readers: reco `sub_880F5438` (x2), `sub_88103338`, `sub_8815E208`; kiniro `sub_880F7D38` (x2), `sub_88106080`,
+`sub_8815FB20` and one reader with no reco counterpart, `sub_88148FA8`. **The guard is NOT moot for Black Label:**
+the word is 0 at load in all three images (the eight words around it are 0 too) and is only made non-zero by that
+writer, so a draw before the write divides by zero exactly as in Ver 1.5.
+
+### The hook (merged_game.cpp, right after the reco guard; reco hook untouched)
+
+`#if FUTARI_MODULE == 4` -> `PPC_FUNC(sub_88225C28)` guarding 0x887A2C2C; `#elif FUTARI_MODULE == 5` ->
+`PPC_FUNC(sub_88225C30)` guarding 0x887A2D2C; both through one `kin_divguard(base, module, addr)`: the same
+`RT_DIVGUARD` lever (default ON, `RT_DIVGUARD=0` reverts), the same 0 -> 1 repair, `[sfpe] <module> divisor@... was
+0 -> repaired to 1` (first 8), plus a once-per-run `[sfpe] <module> hook entered (sub_... twin of sub_882272E8;
+divisor@...=<value>; RT_DIVGUARD on|off)` so a drive proves the override is installed and shows the value it read.
+
+### Proof (Mac, kiniro/divguard worktree sharing the main checkout's generated trees, `_local` and `assets`)
+
+The rc3 dry run owned the Mac until 12:13; the proof ran after it from a `kiniro/divguard` worktree (main
+checkout untouched), module-only rebuild of all four modules into `build/kinnr` (BUILD_OK, 92 s; `nm` shows
+`___imp__sub_88225C28` / `___imp__sub_88225C30` in the two Black Label dylibs, i.e. the override is linked in).
+
+| run | mode | result | `[sfpe]` |
+|---|---|---|---|
+| `dg_gate4` | 4 kiniro_normal | 14 PASS / 1 FAIL -- the one FAIL is `PIX-REGRESS` (hub shot_4 vs the banked reference: 7.57 %, tolerance 6 %); every engine assert PASS (decide, swap, hub, stage, game over, draws 314/frame, 0 FATAL / VK / UNMAPPED / kdrop / wrong-module / post-swap dropout, kgate known, PIX-RICH 31,474 colours) | line 3246 `kiniro_normal hook entered (... divisor@0x887A2C2C=3000; RT_DIVGUARD on)`, 0 repairs |
+| `dg_gate5` | 5 kiniro_abnormal | **15 PASS / 0 FAIL** (draws 306/frame, PIX-RICH 30,649, PIX-REGRESS 2.28 %) | line 3341 `kiniro_abnormal hook entered (... divisor@0x887A2D2C=3000; RT_DIVGUARD on)`, 0 repairs |
+| `dg_gate4b` | 4 kiniro_normal, rerun | 14 PASS / 1 FAIL -- PIX-REGRESS now **PASS at 3.93 %** (the backdrop phase, as argued below); the one FAIL is `dropout after swap (1)`: ONE `DROPOUT-CONFIRMED` (f2068, len=3, surface vs=1/ps=2, log line 2596) between the swap (line 1766) and the hub (2681), i.e. on the Black Label module's own TITLE, the same vs=1/ps=2 title class as the 7 pre-swap ones, **before the hook's first entry (line 3279)**; first post-swap dropout in 25 Black Label banks | line 3279 `hook entered ... divisor=3000`, 0 repairs |
+| `dg_gate4c` | 4 kiniro_normal, third sample | **15 PASS / 0 FAIL** (draws 300/frame, PIX-RICH 31,485, PIX-REGRESS **0.00 %**, 0 post-swap dropouts) | line 3284 `hook entered ... divisor=3000`, two lines before the stage cue (3286), 0 repairs |
+| `dg_drive4` | 4, `RT_DIVGUARD=1`, the play route | title -> hub -> select -> stage 1 -> game over, 0 FATAL / kdrop / UNMAPPED | line 3023 `hook entered ... divisor=3000`, two lines BEFORE `BGM cue1 (m02_stg1)` = the first player-ship draw at stage entry; 0 repairs |
+| `dg_drive0` | 0 reco_normal control, `RT_DIVGUARD=1`, same route | same route, 0 FATAL | **none**: the reco guard only logs a REPAIR, and its divisor was already non-zero on this route too |
+
+**Drive point.** The hook is first entered at stage entry (the frame before the stage-1 BGM cue; shot_4 at the hub is
+18 s earlier), which is where the ship is first drawn, and it reads **3000**: kiniro's writer `sub_8813ABF0` (li-chain
+`3000` / `2000`; reco's chain is `500` / `2000`) has already run by then, in every run of both modes. So on the gate's
+route Black Label never divides by zero and the repair path never fires; the reco control logs no `[sfpe]` on the same
+route for the same reason (its guard was earned on a different route, the 2026-07-12 RT_SAVE options-menu recipe, and
+only logs when it repairs). The guard is LIVE (installed, entered, lever read) and has the same insurance value it has
+in Ver 1.5: the word is 0 at load and only that writer sets it.
+
+**The PIX-REGRESS miss on `dg_gate4` is not the hook.** (a) The hook's first entry (log line 3246) is after shot_4
+(taken at t+48 s, the hub); nothing of this change had executed when the frame was captured. (b) The differing pixels
+are confined to the menu-panel column (x 398-887); the panel itself is identical in geometry and brightness (panel
+mean RGB 90.7/76.9/68.0 vs 90.1/74.8/66.4, bright-pixel share 17.9 % vs 16.5 %, no translation improves the match);
+what differs is the animated backdrop seen THROUGH the translucent panel, i.e. the animation phase at capture, the
+same mechanism that already put XBOX 360 MODE at 2.41 % when its reference was banked (and 2.28 % here). (c) The engine
+built here differs from the build that banked the reference only by this hook (the two commits between are scripts
+and docs). The three ARCADE samples on this build read 7.57 / 3.93 / 0.00 %: the rung measures the backdrop's phase at
+capture, not the build. Owed: a phase-insensitive hub compare (mask the backdrop) or a tolerance from more samples.
+Likewise `dg_gate4b`'s single post-swap dropout sits on the Black Label module's own title screen (between the swap and
+the hub), is the vs=1/ps=2 title class every run shows 7-9 times before the swap, and precedes the hook's first
+execution by ~700 log lines; it is the known title residual showing up on the second title of the drive, not this
+change (0 post-swap in the other four Black Label runs of this build and in the 20 earlier banks).
+
+**Verdict: guard ADDED and LIVE in both Black Label modes; needed in principle (divisor 0 at load, same write-before-
+draw dependence as Ver 1.5), not exercised on the gate's route (3000 at first draw, 0 repairs, reco control also silent).**
+Owed: a Black Label pass over the route that made reco repair (the options-menu recipe) to see whether the kiniro
+writer order differs there.
+
+### Exact commands
+
+```
+# twin hunt (Windows, the four flat images copied from the Mac; gen_symbol_map.py's Tree/match reused)
+python -I hunt.py           # callers / callees / address refs / neighbour delta / lis-lwz-divwu scan
+# Mac proof, after the rc3 dry run released the machine
+MODULES_ONLY=1 MODULES="normal abn kiniro kiniro_abn" OUTDIR=build/kinnr OBJSFX=_kinnr bash build_mac_dll.sh
+KIN_MODEIDX=4 bash scripts/kiniro_gate_mac.sh dg_gate4 build/kinnr/futari_combined
+KIN_MODEIDX=5 bash scripts/kiniro_gate_mac.sh dg_gate5 build/kinnr/futari_combined
+RT_DIVGUARD=1 KIN_MODEIDX=4 KIN_STEPS='10 w:\[p0build\]\ menu_game_title s:3 shot 2 s:1.5 1000 s:4 shot 1000 s:4 shot 1000 s:4 shot 1000 s:4 shot 1000 s:4 shot' bash scripts/kiniro_boot_mac.sh dg_drive4 build/kinnr/futari_combined 120
+RT_DIVGUARD=1 KIN_MODEIDX=0 KIN_STEPS='...same...' bash scripts/kiniro_boot_mac.sh dg_drive0 build/kinnr/futari_combined 120   # reco control
+```
+
 ## The three calls, taken 2026-10-31 (user: "all three if we can do unattended") -- revert any of them by ruling
 
 1. **Data path = a SECOND ROOT, the player's DLC folder.** `RT_DLC_ROOT`, default `<save dir>/../dlc`: on the Mac
@@ -607,7 +718,7 @@ instrumentation or an opt-in lever.
 | Q5 | memory flat over the attract loop (G5 oracle shape) | `kiniro_boot_mac.sh` soak, `rss.csv` 2 -> 10 min | **FLAT both**: kiniro_normal +7 MB (`k3soak1`), kiniro_abnormal +11 MB (534 -> 545 MB, `k4soak1` on the 4-module default build; 29 pool sweeps, 0 post-swap dropouts) |
 | Q6 | descriptor and nav fields are the module's own | RT_DESCPROBE / RT_NAVMOD vs the reco control | 5/8 descriptor + 4/5 nav live-controlled; asset_commit / mb_reload / mb_mode64 / death structural |
 | Q7 | the DLC path works for a PLAYER (second root) and stays grey without data | `k3e_dlcroot` (RT_DLC_ROOT, stock assets root) / `k3e_nodlc` (no data) | **PASS**: with the stock assets root and `RT_DLC_ROOT=_local/bl_extract`, `[xenum] DLC gate: entry 0 -> OWNED (data present in .../bl_extract)`, `mount 'BLDATA:' -> .../bl_extract/media (READ-ONLY)`, cg_black.bin opened from there, swap to kiniro_normal, hub reached; with `RT_DLC_ROOT=/nonexistent` and no data in assets: `MISSING (stays grey; ... looked in RT_DLC_ROOT '/nonexistent' and the game root)` on the 4-module host. The Ver 1.01 DLC mounts under its own root name `TEMP_DLC:` through the same path. |
-| Q8 | the port's default-on game-side fixes are present | dropped-hook triage | **1 missing**: RT_DIVGUARD (sub_882272E8) has no kiniro twin; no FPE seen |
+| Q8 | the port's default-on game-side fixes are present | dropped-hook triage + step 3f | **PRESENT**: the one missing fix, RT_DIVGUARD, now has a Black Label hook (sub_88225C28 / sub_88225C30 guarding 0x887A2C2C / 0x887A2D2C, step 3f); gates dg_gate4c 15/15 and dg_gate5 15/15 (dg_gate4 PIX-REGRESS 7.57 % = backdrop phase, dg_gate4b one title-class dropout before the hook ever ran; see 3f), hook ENTERED in both modes at the first ship draw with divisor 3000, 0 repairs needed on the gate route; reco control silent on the same route |
 | Q9 | audio: SE/BGM/VOICE banks resolve, no underruns | gate log counts (`underruns=`, `[cue]`) | banks resolve (70-cue SE bank, VOICE, BGM m01/m02/m05); underrun count not yet asserted |
 | Q10 | hands-on: a human plays both modes, pads and keyboard, TATE, replay save, continue, ranking dialogs | the owner | **not done** (same as RC1's hands checklist) |
 | Q11 | Ver 1.5 unaffected by the 4-module default build | g5 legs + the rc gates on the default build | legs on the auto-4-module `build/kinnr`: ARCADE fatal 0 / dropout 0 but **31 audio underruns** in the leg that started 75 s after the build finished (load 3.1: the post-build indexing landmine of 2026-10-30); x360 clean. The underruns sat in the shell-title boot window (log lines 1311-2400, before the decide at 1499-2400 region's `[modeidx]`), and the repeat ARCADE leg 60 s later (`kin5_nr2`) is clean: fatal 0, dropout 0, **underruns 0** -- the build-indexing landmine, not the 4-module shape. The full rc ladder (app_smoke, gstart, q1_ctest, q1_census, rc_chain) is NOT rerun on the 4-module shape yet |
