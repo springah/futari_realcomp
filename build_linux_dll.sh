@@ -98,9 +98,12 @@ build_module(){   # $1 name  $2 tree  $3 modidx  $4 out
     for f in "$DECOMP_DIR"/game/*.cpp; do
       n=$(basename "$f" .cpp)
       decomp_skipped "$n" && { echo "   [DECOMP_SKIP] game/$n"; continue; }
-      # ABN-EXCLUDED TUs (reco_normal .data literals, +0x60 in the abn image): build_win_dll.sh's list, verbatim.
+      # ABN-EXCLUDED TUs (reco_normal .data literals, +0x60 in the abn image): build_mac_dll.sh / build_win_dll.sh's list,
+      # VERBATIM -- keep the three in sync. 2026-10-31: this list had fallen 16 TUs behind (the w162/w165 readable-C TUs);
+      # results_w162's literal 0x88103048 (a reco_normal callback; abn twin sub_88103050) then rode into futari_game_abn.so
+      # and the XBOX 360 character select spun on `[indirect] UNMAPPED 0x88103048` on the Deck (docs/DECK.md, Black Label).
       if [ "$MIDX" = "1" ]; then
-        case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw|class233_236_draw|actor3pose_draw|objnode_park|objnode_parkcensus|famk1|famk9|pagescene|famk2|famk11|famk12|famk30|famk5|famk28) continue;; esac
+        case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw|class233_236_draw|actor3pose_draw|objnode_park|objnode_parkcensus|famk1|famk9|pagescene|famk2|famk11|famk12|famk30|famk5|famk28|bossscript_w165|classes_w165|cutscene_w165|encounter_w165|famk21_w165|famk4_7_w165|famk8_10_w165|frontend_w162|objects_w162|pagetrans_w162|pump_w162|results_w162|scene_w165|select_w165|ship_w162|tracking_w165) continue;; esac
       fi
       # NON-RECO MODULES (4/5): every decomp/game TU is reco_normal content; only the renderer bridge rides along (build_mac_dll.sh law)
       if { [ "$MIDX" = "4" ] || [ "$MIDX" = "5" ]; } && [ "$n" != nvk_game_hooks ]; then continue; fi

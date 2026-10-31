@@ -10,7 +10,7 @@ STAGE=( 2 's:0.5' 1000 's:3' 1000 's:3' 1000 's:3' 1000 's:3' 1000 'W:m02_stg' '
 note "== modes_deck $TAG $(date '+%F %T') session=$(pgrep -x gamescope-wl >/dev/null && echo gaming || echo desktop)"
 note "-- 1. XBOX 360 MODE to stage 1"
 bash "$D/nav_deck.sh" "${TAG}_x360" -- 10 'w:SYS_BGM cue0 (mushifuta_Menu02)' 's:3' 1000 'w:SYS_SE cue1 (SE_OK01)' 's:2' 4 's:3.6' 1000 'w:\[modeidx\] .*XBOX-360' 'W:\[modswap\] #2 DONE' 's:45' 10 's:3' "${STAGE[@]}" 2>&1 | grep "\[nav\]" | cut -c1-110
-chk "${TAG}_x360" "both modules bound" '\[modreg\] .*BOUND' 2; chk "${TAG}_x360" "XBOX-360 decided" '\[modeidx\] .*XBOX-360'; chk "${TAG}_x360" "abn module loaded" 'XexLoadImage.*reco_abnormal'; chk "${TAG}_x360" "stage 1 reached" 'm02_stg'
+chk "${TAG}_x360" "all modules bound (N/N)" '\[modreg\] \([0-9]*\)/\1 module DLL(s) bound'; chk "${TAG}_x360" "reco pair bound" '\[modreg\] .*BOUND  reco_' 2; chk "${TAG}_x360" "XBOX-360 decided" '\[modeidx\] .*XBOX-360'; chk "${TAG}_x360" "abn module loaded" 'XexLoadImage.*reco_abnormal'; chk "${TAG}_x360" "stage 1 reached" 'm02_stg'
 [ "$(grep -c FATAL "$HOME/futari_nav/${TAG}_x360/guest.log")" = 0 ] && note "  PASS no FATAL" || { note "  FAIL FATAL"; FAIL=1; }
 note "-- 2. ARCADE to stage 1"
 bash "$D/nav_deck.sh" "${TAG}_arcade" -- hub "${STAGE[@]}" 2>&1 | grep "\[nav\]" | cut -c1-110

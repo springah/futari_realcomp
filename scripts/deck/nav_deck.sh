@@ -2,7 +2,7 @@
 # nav_deck.sh <tag> -- <step>...   marker-driven menu navigation ON THE STEAM DECK (runs on the Deck over ssh).
 # Port of scripts/nav_mac.sh: boots the extracted AppImage (~/squashfs-root/AppRun) as a transient user service with
 # the gamescope/plasma display env and the pad FIFO, waits for the title, then executes the steps:
-#   <pad> | w:<regex> | W:<regex> (120 s) | s:<secs> | log:<regex> | hub (TITLE -> HUB)
+#   <pad> | w:<regex> | W:<regex> (120 s) | s:<secs> | log:<regex> | hub (TITLE -> HUB)     NAV_ENV="VAR=val ..." = extra engine env
 # In Gaming Mode the window is INVISIBLE (no Steam focus; docs/DECK.md) -- the log is the witness, which is all a
 # drive needs. Bank: ~/futari_nav/<tag>/{guest.log,steps.txt}.
 set -u
@@ -15,6 +15,7 @@ if pgrep -x gamescope-wl >/dev/null; then ENV=(--setenv=XDG_RUNTIME_DIR=/run/use
 else P=$(pgrep -u deck -x plasmashell | head -1); ENV=(--setenv=XDG_RUNTIME_DIR=/run/user/1000 --setenv=DISPLAY=:0 --setenv=WAYLAND_DISPLAY=wayland-0)
      X=$(tr "\0" "\n" < /proc/$P/environ | grep "^XAUTHORITY=" | cut -d= -f2); [ -n "$X" ] && ENV+=(--setenv=XAUTHORITY=$X); fi
 PREV=$(ls -t "$LOGS"/*.log 2>/dev/null | head -1)
+for kv in ${NAV_ENV:-}; do ENV+=(--setenv="$kv"); done   # NAV_ENV="RVK_DRAWCENSUS=2 ..." = extra engine env (kiniro_deck.sh)
 systemd-run --user --unit=futari-nav --collect "${ENV[@]}" --setenv=RT_PAD_HOST=1 --setenv=RT_PAD_HOST_FIFO="$FIFO" --working-directory="$HOME" "$APPRUN" >/dev/null 2>&1
 T0=$(date +%s); LOGF=""
 for ((i=0;i<60;i++)); do L=$(ls -t "$LOGS"/*.log 2>/dev/null | head -1); [ -n "$L" ] && [ "$L" != "$PREV" ] && { LOGF="$L"; break; }; sleep 0.5; done

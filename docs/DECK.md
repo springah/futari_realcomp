@@ -1,7 +1,13 @@
 # DECK.md — running futari_realcomp on the Steam Deck (what actually works, 2026-10-05)
 
 Build: `bash mac-build/deck/build_deck.sh` on the Mac (Rosetta container) → `Futari-Realcomp-Deck/` + `make_appimage.sh`
-→ `Futari-Realcomp-x86_64.AppImage`. Both carry the same engine (`futari_combined` + the two module `.so`).
+→ `Futari-Realcomp-x86_64.AppImage`. Both carry the same engine (`futari_combined` + every module `.so` the
+container built: `futari_game_normal.so`, `futari_game_abn.so`, and since 2026-10-31 the Black Label pair
+`futari_game_kiniro.so`, `futari_game_kiniro_abn.so` when the build is run as
+`DECK_MODULES='normal abn kiniro kiniro_abn' bash mac-build/deck/build_deck.sh` -- the Linux default is still the
+Ver 1.5 pair). Black Label needs the player's DLC data at `~/.local/share/futari-realcomp/dlc/media/Rom/`
+(`cg_black.bin`, `cg_blackhi.bin`, `dropprm.bl`; `RT_DLC_ROOT` overrides); without it the row stays grey. See
+"Black Label on the Deck" below and docs/PLAN_kiniro_bringup.md.
 
 ## The two sessions, and why SSH launches look like success and are not
 SteamOS runs one of two sessions: **Gaming Mode = gamescope** (`gamescope-wl`, Wayland socket
@@ -86,6 +92,30 @@ thread 17%, GPU idling at 200 MHz between boosts, 0 errors -- then the Deck drop
 (ssh "closed by remote host", unreachable after): Gaming Mode's idle suspend, which an invisible ssh-launched client
 does not inhibit. Lesson: a Deck soak over ssh needs the suspend timer off (Settings > Power) or a Steam-launched run.
 
+## Black Label on the Deck (2026-10-31, Desktop Mode, invisible ssh drives; branch deck/black-label)
+The 4-module image (`DECK_MODULES='normal abn kiniro kiniro_abn'`, main 221c286) boots on the device with
+`[modreg] 4/4 module DLL(s) bound, hosted modeIdx mask=0x33`, finds the player's DLC in
+`~/.local/share/futari-realcomp/dlc/media/Rom/` (`[xenum] DLC gate: entry 0 -> OWNED (data present in .../dlc)`,
+`mount 'BLDATA:' -> .../dlc/media (READ-ONLY)`), and plays BOTH Black Label modes to GAME OVER unattended:
+`scripts/deck/kiniro_deck.sh <tag> 4|5` (title -> START -> DOWN DOWN -> A [LEFT for 5] -> A -> decide modeIdx 4|5 ->
+swap -> START -> hub -> DOWN -> A x5 -> `m02_stg1` -> idle death -> `m05_govr`; the Mac gate's log asserts, no pixel
+rungs). XBOX 360 flavour 16/16 PASS (twice); ARCADE flavour 15/16 (twice): two `DROPOUT-CONFIRMED` frames (f1962 len=3,
+f2007 len=2, identical in both runs) at the kiniro module's own title screen before START, none after the hub -- a
+Deck-only residual, the Mac counts 0 there. Full table + log excerpts: docs/PLAN_kiniro_bringup.md "Deck".
+
+The Ver 1.5 pair is unaffected by the 4-module shape (`modes_deck.sh bl3` VERDICT PASS), but only after a Linux-only
+landmine was fixed the same day: `build_linux_dll.sh`'s ABN-EXCLUDED list had fallen 16 TUs behind the Mac/Windows
+lists, so the Linux `futari_game_abn.so` linked the w162/w165 readable-C TUs and the XBOX 360 MODE character select
+spun on `[indirect] UNMAPPED guest target=0x88103048` (a reco_normal literal from `results_w162`). The three
+scripts' lists are one list; `modes_deck.sh` is the gate every Deck image must pass before it is called one.
+
+Device layout after the 10-31 deploy: `~/Desktop/Futari-Realcomp-x86_64.AppImage` (new; the 10-05 image beside it
+as `.bak`), `~/squashfs-root/` (extracted, what the scripts drive; 10-05 tree in `~/squashfs-root.prev/`),
+`~/scripts/*.sh`, DLC under `~/.local/share/futari-realcomp/dlc/`, banks in `~/futari_nav/bl3_*`, `bl6`, `bl7`.
+The Steam shortcut still points at `~/Downloads/Futari-Realcomp-x86_64.AppImage` = the 10-05 two-module image.
+
 ## Still owed
+A Steam-launched Gaming Mode run of Black Label with eyes on it (point the shortcut at the new AppImage first);
 A longer play session for a firm verdict; the pacing retest under RVK_DECOUPLE (BACKLOG #12) if "a little slower"
-ever comes back; the controller mapping check under Steam Input; Xbox 360 mode on the Deck (not yet selected there).
+ever comes back; the controller mapping check under Steam Input; the two kiniro module-title dropouts (PLAN "Deck").
+Xbox 360 mode on the Deck: selected and PASS since 10-31 (`modes_deck.sh bl3`).

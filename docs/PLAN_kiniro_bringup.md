@@ -592,8 +592,9 @@ instrumentation or an opt-in lever.
    `MODULES` adds `kiniro` and `kiniro_abn` when `out_kiniro*/ppc_recomp.0.cpp` and the symbol maps are present (a
    machine without them builds the 2-module shape unchanged; `MODULES="normal abn"` forces it). `build_mac_app.sh`
    copies whatever module dylibs the build produced and says so. Without DLC data the row is greyed by the shell's
-   own gate (step 4a `k4a_nodlc`), so shipping the engine is inert. Linux/Deck: `build_linux_dll.sh` has NO arms for
-   modules 4/5 yet (owed; the Deck image keeps the 2-module shape).
+   own gate (step 4a `k4a_nodlc`), so shipping the engine is inert. Linux/Deck: `build_linux_dll.sh` gained the
+   `kiniro` / `kiniro_abn` arms on 2026-10-31 (opt-in through `DECK_MODULES`, the Linux default is still the Ver 1.5
+   pair); the 4-module Deck image is built and proven below ("Deck").
 3. **Quality bar = the scorecard below.** Modelled on PLAN_RC1 §0; the gate enforces the mechanical rows.
 
 ### Black Label scorecard
@@ -613,6 +614,70 @@ instrumentation or an opt-in lever.
 | Q11 | Ver 1.5 unaffected by the 4-module default build | g5 legs + the rc gates on the default build | legs on the auto-4-module `build/kinnr`: ARCADE fatal 0 / dropout 0 but **31 audio underruns** in the leg that started 75 s after the build finished (load 3.1: the post-build indexing landmine of 2026-10-30); x360 clean. The underruns sat in the shell-title boot window, and the repeat ARCADE leg 60 s later (`kin5_nr2`) is clean: fatal 0, dropout 0, **underruns 0** -- the build-indexing landmine, not the 4-module shape. **The full rc ladder ran as `DRY=1 bash scripts/rc_cut_mac.sh 0.3.0-rc3-dry` on 2026-10-31 (bundle `~/Desktop/projects/_rc/0.3.0-rc3-dry/Futari Realcomp.app`, 4 module dylibs, README with the Black Label section): gstart PASS (arcade 10 probes / x360 9 probes, 0 leaks), q1_ctest PASS (60/60), q1_census PASS both modes (arcade 0 named 0 other; x360 3 named 0 other), rc_chain 14/15 legs PASS with the one FAIL being the hard-coded "2/2 modules" count in leg A (ten swaps, residue 0 every time, otherwise PASS), and app_smoke FAIL because the bundle never received the pad FIFO variable through launchctl. Both were script defects: `app_smoke_mac.sh` now also passes the FIFO with `open --env` and asserts the `[padhost]` line shows it, and the chain/smoke scripts accept N/N; reruns on the same bundle: app_smoke PASS (4/4 bound, save written and read back), chain A PASS (`rc_A2_A`, 10 swaps, residue 0 x9, modreg 4/4 once). So the ladder is ALL-PASS for the 4-module shape, pending the owner's hands.** The earlier wording about the ladder (app_smoke, gstart, q1_ctest, q1_census, rc_chain) is NOT rerun on the 4-module shape yet |
 
 Rows Q3/Q4/Q7 and Q11's ladder are what the next unattended pass fills; Q10 is the owner's.
+
+### Deck (2026-10-31): the 4-module Steam Deck image, Black Label boots and plays on the device
+
+**What was built.** On the Mac (colima `futari`, Rosetta container `futari-deck-build`), from main `221c286`:
+`DECK_MODULES='normal abn kiniro kiniro_abn' bash mac-build/deck/build_deck.sh` -- the Linux `kiniro` / `kiniro_abn`
+arms compiled and linked first try (`LINK_OK` x4, `BUILD_OK`, glibc floor 2.34) -- then `bash mac-build/deck/make_appimage.sh`.
+Staged folder `~/Desktop/projects/Futari-Realcomp-Deck/` and the AppImage `~/Desktop/projects/Futari-Realcomp-x86_64.AppImage`
+(759,228,920 bytes, md5 `687b6fc97dc1974509c9d4555fd8a208`) carry `futari_combined` + `futari_game_normal.so` (47.3 MB),
+`futari_game_abn.so` (9.7 MB), `futari_game_kiniro.so` (9.7 MB), `futari_game_kiniro_abn.so` (9.7 MB); the
+container-side headless boot of the AppImage does not run there (the bind-mounted x86_64 runtime is not exec'able in
+the container: `cannot create ...: Operation not permitted`), so the boot proof is the device's. The build id is
+`221c286-dirty`: the `build_linux_dll.sh` fix below was applied in the Mac working tree before the module was rebuilt.
+
+**The landmine the first image hit (Ver 1.5, not Black Label).** `build_linux_dll.sh`'s ABN-EXCLUDED case list had
+fallen 16 TUs behind `build_mac_dll.sh` / `build_win_dll.sh` (31 vs 47 entries: the w162/w165 readable-C TUs
+`bossscript_w165 classes_w165 cutscene_w165 encounter_w165 famk21_w165 famk4_7_w165 famk8_10_w165 frontend_w162
+objects_w162 pagetrans_w162 pump_w162 results_w162 scene_w165 select_w165 ship_w162 tracking_w165`), so the Linux
+`futari_game_abn.so` linked 25 decomp objects where the Mac's links 9. `results_w162` carries the reco_normal literal
+`0x88103048` (a results/select callback whose abn twin is `sub_88103050`, `abn_symbol_map.h`), and on the device the
+Ver 1.5 XBOX 360 MODE character select spun on `[indirect] UNMAPPED guest target=0x88103048 (lr=0x88135B94) -> skipped`
+(41 hits per run, `bl1_x360` cold and `bl2_x360` warm; 0 in every Mac x360 leg of the rc3 dry run and 0 in the 10-05
+Deck runs, which predate those TUs). Fix = the Mac's list verbatim (commit on `deck/black-label`); after it the Linux
+abn object set is byte-for-byte the Mac rc set (9 decomp objects, `ABN_OBJECT_SETS_IDENTICAL`), the `.so` has no
+`sub_88103048` / `0x88103048`, and the x360 leg passes (`bl3_x360`: `m01_slct` -> `se03a` x2 -> `m02_stg1` at t+97 s).
+Law: the three build scripts' ABN-EXCLUDED lists are one list; a Deck image is not a Deck image until `modes_deck.sh`
+passed on it.
+
+**Device paths.** AppImage `~/Desktop/Futari-Realcomp-x86_64.AppImage` (the 10-05 two-module image kept beside it as
+`Futari-Realcomp-x86_64.AppImage.bak`; the Steam shortcut still points at `~/Downloads/Futari-Realcomp-x86_64.AppImage`,
+the 10-05 image, untouched); extracted tree `~/squashfs-root/` (the drive scripts' `APPRUN`; the 10-05 tree kept as
+`~/squashfs-root.prev/`); drive scripts `~/scripts/{nav_deck,modes_deck,kiniro_deck,soak_deck}.sh` (from
+`scripts/deck/`); DLC data `~/.local/share/futari-realcomp/dlc/media/Rom/{cg_black.bin,cg_blackhi.bin,dropprm.bl}`
+(57,743,518 / 216,869,269 / 3,184 bytes, rsync'd from the Mac's `_local/bl_extract/media/Rom/`, md5 identical: the
+engine's default second root `<save dir>/../dlc`, nothing in the image); logs `~/.local/share/futari-realcomp/logs/`,
+banks `~/futari_nav/<tag>/{guest.log,steps.txt}` + `<tag>_VERDICT.txt`.
+
+**Device results** (Desktop Mode, `systemd-run --user` services driven through the pad FIFO, GPU idling at 200 MHz
+between boosts, 60 frames/s throughout; the window is on the Deck's screen but nobody watched it):
+
+| drive | image | verdict |
+|---|---|---|
+| `modes_deck.sh bl1` / `bl2` (Ver 1.5) | first image (stale abn list) | **FAIL**: x360 leg stuck at the character select (UNMAPPED above); ARCADE stage 1 PASS, swap cycle #2/#3 PASS residue=0 x2, hub ACTIVE, 0 FATAL / VK_ERROR |
+| `modes_deck.sh bl3` (Ver 1.5) | rebuilt image | **VERDICT PASS**: `[modreg] 4/4 module DLL(s) bound, hosted modeIdx mask=0x33`, XBOX 360 MODE to stage 1 (t+105 s), ARCADE to stage 1 (t+58 s), swap #2 / #3 DONE residue=0 x2, hub ACTIVE after #3, 0 FATAL / VK_ERROR, 0 UNMAPPED |
+| `kiniro_deck.sh bl4 4` / `bl6 4` (Black Label ARCADE, kiniro_normal) | both images (identical module) | **15/16 PASS** both runs: decide `modeIdx=4 (ARCADE, title=2)`, `[modswap] #2 DONE -- live module is now kiniro_normal`, hub, `BGM cue1 (m02_stg1)`, `BGM cue4 (m05_govr)`, draws max 378 / 428 per stage frame, 0 FATAL / VK_ERROR / UNMAPPED / kdrop / wrong-module; **FAIL dropout after swap (2)**: `f1962 len=3` and `f2007 len=2`, the same two frames in both runs, at the kiniro module's own title before START (between the swap and `menu_game_title`), **0 after the hub / in the stage**. The Mac's Q2 count is 0/6 for this window, so this is a Deck-only (RADV) module-title dropout, filed below |
+| `kiniro_deck.sh bl5 5` (Black Label XBOX 360 MODE, kiniro_abnormal) | first image | **VERDICT PASS 16/16**: decide `modeIdx=5 (XBOX-360 MODE, title=2)`, swap -> kiniro_abnormal, hub, stage, game over, draws max 431, dropout after swap 0 |
+| `kiniro_deck.sh bl7 5` (Black Label XBOX 360 MODE) | rebuilt image | **VERDICT PASS 16/16**: decide `modeIdx=5 (XBOX-360 MODE, title=2)`, `[modswap] #2 DONE -- live module is now kiniro_abnormal`, hub, `m02_stg1`, `m05_govr`, draws max 426, 0 FATAL / VK_ERROR / UNMAPPED / kdrop / wrong-module, dropout after swap 0 (0 at the module title, 0 after the hub) |
+
+The DLC gate and mount on the device, every run (the data lives beside the saves, the image carries none):
+```
+[modreg] 4/4 module DLL(s) bound, hosted modeIdx mask=0x33, boot module=reco_normal
+[xenum] DLC gate: entry 0 ('496F816D...') -> OWNED (data present in /home/deck/.local/share/futari-realcomp/dlc)
+  [content] mount 'BLDATA:' -> host '/home/deck/.local/share/futari-realcomp/dlc/media' (READ-ONLY, DLC data)
+[xenum] DLC gate: entry 1 ('9893A78C...') -> OWNED (data present in /home/deck/squashfs-root/usr/share/futari/assets)
+[modeidx] sub_821C3F38 modeIdx=4 (ARCADE, title=2) lr=0x821CE3C0
+[modswap] #2 DONE -- live module is now kiniro_normal (entry ord1=0x8824D678, code 0x88070000+0x1DDEA4)
+```
+`kiniro_deck.sh` is the Deck port of `kiniro_gate_mac.sh`'s log asserts (no pixel rungs: the Deck drive dumps no
+frames; PIX-RICH / PIX-REGRESS stay Mac-side). `nav_deck.sh` gained `NAV_ENV` (extra engine env, used for
+`RVK_DRAWCENSUS=2 RVK_TITLEPROBE=1`), `modes_deck.sh` asserts `N/N module DLL(s) bound` instead of a count of 2.
+
+**Not done on the Deck.** A Steam-launched, visible Gaming Mode run of Black Label (owner's eyes; the shortcut
+still launches the 10-05 image); the no-data control (Mac-proven, `k3e_nodlc`); a soak of the 4-module image; the
+two module-title dropouts above (same frames both runs, so a deterministic repro: `RVK_DRAWCENSUS=2` + a frame
+dump at f1962 / f2007 on the device is the next step); Q11's rc ladder on this shape.
 
 ## Why these three were owner calls (kept for the record)
 

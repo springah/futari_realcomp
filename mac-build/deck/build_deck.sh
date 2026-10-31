@@ -1,7 +1,7 @@
 #!/bin/bash
-# build_deck.sh -- build the Steam Deck (linux-amd64) two-mode engine from this Mac, inside the futari-deck-build
+# build_deck.sh -- build the Steam Deck (linux-amd64) multi-module engine from this Mac, inside the futari-deck-build
 # container (mac-build/deck/Dockerfile, run through colima with Rosetta), then stage the family-and-friends folder:
-#   ~/Desktop/projects/Futari-Realcomp-Deck/   futari_combined, futari_game_{normal,abn}.so, assets/ (lowercase module/),
+#   ~/Desktop/projects/Futari-Realcomp-Deck/   futari_combined, futari_game_{normal,abn}.so (+ _kiniro, _kiniro_abn with DECK_MODULES), assets/,
 #                                              futari-realcomp (the launcher script), README.txt, save/, logs/
 #   bash mac-build/deck/build_deck.sh            (DEPS_ONLY=1 builds just the container-side dependencies; STAGE_ONLY=1 skips the build)
 set -eu
