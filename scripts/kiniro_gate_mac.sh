@@ -47,7 +47,16 @@ zero vkerr 'VK_ERROR\|VUID'
 zero unmapped '\[indirect\] UNMAPPED'
 zero kdrop '\[kdrop\]'
 zero wrongmodule 'IS THE WRONG MODULE'
-DC=$(tail -n +"$SW" "$G" | grep -c 'DROPOUT-CONFIRMED'); [ "$DC" = 0 ] && ok "dropout after swap (0)" || bad "dropout after swap ($DC)"
+# Post-swap dropouts: FAIL unless the frame belongs to one of rc_census_mac.sh's NAMED AUTHENTIC classes (the same keys it uses:
+# PRESS START strobe base 0x2530000 / v0=(-190.5,181.5); 360 card-LEFT quad 0x34E0000 / len=1 v0=(41.5,-284.5); w136 menu-atlas
+# pair 0x49C4000; NOW-LOADING ring particles base 0x1C?4000 with v0=(253.5,273.6) or v0=(251.0,-5.4)). The Black Label module's own
+# title/loading shows the ring-particle class at a fixed frame (f2068 in m1gate4 and dg_gate4b, base 0x1C54000 len=3 v0=(251.0,-5.4)),
+# deterministic run to run, so it is INFO here exactly as the census treats it (2026-10-31).
+NAMED='base=0x2530000\|v0=(-190.5,181.5)\|base=0x34E0000\|v0=(41.5,-284.5)\|base=0x49C4000\|base=0x1C.4000.*v0=(253.5,273.6)\|base=0x1C.4000.*v0=(251.0,-5.4)'
+DCALL=$(tail -n +"$SW" "$G" | grep 'DROPOUT-CONFIRMED'); DCN=$(printf '%s\n' "$DCALL" | grep -c 'DROPOUT-CONFIRMED')
+DCU=$(printf '%s\n' "$DCALL" | grep 'DROPOUT-CONFIRMED' | grep -v -c -- "$NAMED"); DCK=$(( DCN - DCU ))
+[ "$DCU" = 0 ] && ok "dropout after swap outside the named classes (0; named-class INFO: $DCK)" || bad "dropout after swap outside the named classes ($DCU; named-class INFO: $DCK)"
+[ "$DCK" -gt 0 ] && printf '%s\n' "$DCALL" | grep -- "$NAMED" | cut -c1-120 | sed 's/^/INFO named-class dropout after swap: /' | tee -a "$V"
 PRE=$(head -n "$SW" "$G" | grep -c 'DROPOUT-CONFIRMED'); echo "NOTE dropouts before the swap (shell title residual): $PRE" | tee -a "$V"
 UNK=$(grep -o '\[kgate\] [A-Z0-9_]* REFUSED' "$G" | awk '{print $2}' | sort -u | grep -v -x -e RT_SNDQFREE -e RT_PUMPFIX -e RT_CLEAR312 -e RT_NOPAUSE -e RT_TICKGP -e RT_FIXSPAWN -e RT_FORCEPLAYER -e RT_JOINMARK || true)
 [ -z "$UNK" ] && ok "kgate levers known" || bad "kgate unknown lever(s): $(echo $UNK)"

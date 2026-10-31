@@ -8,7 +8,7 @@
       stage frame of real texture exists in the run. Menus read ~10k / ~10, a stage ~24k / ~29 (stagepix 10-05 sanity).
   regress <tag> <shot_index> <ref_png>
       self-reference regression: compare shot_<index>.png with a banked reference; if the reference does not exist it
-      is BANKED from this run (verdict BANKED). PASS if < KIN_PIX_TOL (6 %) of the pixels differ by > 40 in any
+      is BANKED from this run (verdict BANKED). PASS if < KIN_PIX_TOL (12 %) of the pixels differ by > 40 in any
       channel. Meant for the static hub frame (shot taken 3 s after START at the module title).
 Exit 0 on PASS/BANKED, 1 on FAIL, 2 on no frames. One line per verdict, greppable: PIX-RICH / PIX-REGRESS.
 """
@@ -18,9 +18,11 @@ import numpy as np
 from PIL import Image
 import stagepix_mac as S
 
-# 6 %: the ARCADE hub reproduces at 0.00 %, the XBOX 360 MODE hub at 2.41 % run to run (an animated element), so 3 % was
-# one flicker away from a false FAIL; a real drift of the frame reads far above 6 % (first compares 2026-10-31).
-TOL = float(os.environ.get('KIN_PIX_TOL', '0.06'))
+# 12 %: the hub sits on an animated, translucent backdrop whose phase differs run to run; same-build samples read 0.00 / 2.41 /
+# 3.93 / 4.46 / 5.16 / 7.57 % (2026-10-31, both modes), so 3 % and then 6 % were a flicker away from a false FAIL. A real drift
+# (a different screen, a missing panel) reads far above 12 %. A phase-insensitive rung (compare the panel's text/edges, or the min
+# over several frames) is owed; until then this is a coarse "same screen" check, not a pixel diff.
+TOL = float(os.environ.get('KIN_PIX_TOL', '0.12'))
 
 def shots(tag):
     d = os.path.join(S.BANK, tag)
