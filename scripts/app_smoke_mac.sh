@@ -23,12 +23,17 @@ press(){ echo "$1" > "$FIFO"; sleep 0.25; echo 0 > "$FIFO"; say "pad $1"; }
 waitlog(){ local pat="$1" n="${2:-40}" i; for ((i=0;i<n;i++)); do grep -q "$pat" "$LOG" 2>/dev/null && { say "marker: $pat"; return 0; }; sleep 0.5; done; say "TIMEOUT: $pat"; FAIL=1; return 1; }
 launch(){ # $1 = tag
   PREV=$(ls -t "$LOGS"/futari_*.log 2>/dev/null | head -1)
+  # 2026-10-31 (rc3 dry run): the launchctl route alone did NOT reach the bundle this time (the engine's [padhost] line came
+  # up without "+ host FIFO" and every press timed out), so the variable also rides on `open --env`, which hands it to the
+  # launched process directly (macOS 13+). launchctl stays for older `open`s; the trap still clears it.
   launchctl setenv RT_PAD_HOST_FIFO "$FIFO"
-  open -a "$APP" || { say "open failed"; exit 1; }
+  say "launchctl getenv RT_PAD_HOST_FIFO -> '$(launchctl getenv RT_PAD_HOST_FIFO)'"
+  open --env "RT_PAD_HOST_FIFO=$FIFO" -a "$APP" || open -a "$APP" || { say "open failed"; exit 1; }
   for ((i=0;i<40;i++)); do LOG=$(ls -t "$LOGS"/futari_*.log 2>/dev/null | head -1); [ -n "$LOG" ] && [ "$LOG" != "$PREV" ] && break; sleep 0.5; done
   [ -n "$LOG" ] && [ "$LOG" != "$PREV" ] || { say "no new log in $LOGS"; FAIL=1; return 1; }
   say "$1: log $LOG"
   waitlog "name='motion/title.lzx'" 120; sleep 4
+  grep -a -q "padhost\] ACTIVE.*host FIFO" "$LOG" && say "pad FIFO wired ($(grep -a -o 'host FIFO [^ ]*' "$LOG" | head -1))" || { say "FAIL pad FIFO NOT wired into the app (no '+ host FIFO' on the [padhost] line) -- every press below will time out"; FAIL=1; }
 }
 quit(){ osascript -e "tell application \"$APP\" to quit" >/dev/null 2>&1; for ((i=0;i<20;i++)); do [ -z "$(mine)" ] && break; sleep 0.5; done
   if [ -n "$(mine)" ]; then say "FAIL: engine still running after Quit (path-targeted AppleScript quit)"; FAIL=1; kill $(mine) 2>/dev/null; sleep 2; else say "quit clean (no process left)"; fi; }
@@ -41,7 +46,8 @@ press 1000; waitlog "\[modeidx\] .*ARCADE"; sleep 3
 press 1000; waitlog "\[p0build\] menu_game_title" 60; sleep 2
 press 2000; sleep 2; press 1000; waitlog "\[decide\].*item=-1\|vt=0x82050518" 30; sleep 4
 quit
-grep -q "2/2 module DLL(s) bound" "$LOG" && say "PASS both modules bound" || { say "FAIL modules not both bound"; FAIL=1; }
+# every module the bundle carries must bind: "N/N module DLL(s) bound" (2/2 for the Ver 1.5 pair, 4/4 with Black Label, 2026-10-31)
+grep -a -E "\[modreg\] ([0-9]+)/\1 module DLL\(s\) bound" "$LOG" | grep -q . && say "PASS all modules bound ($(grep -a -o -E '[0-9]+/[0-9]+ module DLL' "$LOG" | head -1))" || { say "FAIL modules not all bound ($(grep -a -o -E '[0-9]+/[0-9]+ module DLL' "$LOG" | head -1))"; FAIL=1; }
 [ "$(grep -c FATAL "$LOG")" = 0 ] && say "PASS no FATAL" || { say "FAIL FATAL in log"; FAIL=1; }
 grep -q "window closed by user\|SDL_EVENT_QUIT\|RETURNED" "$LOG" && say "PASS clean exit logged" || say "note: no exit marker in log"
 ls "$SAVE"/435A07D7/00000001/systemdata.bin/savegame.bin >/dev/null 2>&1 && say "PASS save written under Application Support" || { say "FAIL no savegame.bin under $SAVE"; FAIL=1; }

@@ -12,7 +12,12 @@ INSTALL
 
 MODES
   Both Ver 1.5 modes: ARCADE (1.5 Original) and XBOX 360 MODE, picked at the in-game title select; switching modes
-  from the top menu swaps live. Ver 1.01 and Black Label stay greyed (not included).
+  from the top menu swaps live. Ver 1.01 stays greyed (not included).
+  Black Label: if this build carries the Black Label engine (futari_game_kiniro.so beside the others), its row
+  un-greys once the game finds YOUR Black Label download content -- no DLC data is included. Unpack the DLC
+  package you own with the extractor from the futari_realcomp repository into
+      ~/.local/share/futari-realcomp/dlc        (so that .../dlc/media/Rom/cg_black.bin exists)
+  or point RT_DLC_ROOT at the folder. Black Label has had far less testing than Ver 1.5.
 
 CONTROLS
   The Deck's controller works through Steam Input / SDL (D-pad or stick = move, A = shot, B = bomb, Start, Select = BACK).

@@ -27,7 +27,9 @@ if [ "${STAGE_ONLY:-0}" != "1" ]; then
     ls -la external/xr-derisk/build-linux/XenonUtils/libXenonUtils.a external/SDL/build-linux/libSDL3.a'
   [ "${DEPS_ONLY:-0}" = "1" ] && exit 0
   echo "== [container] build_linux_dll.sh =="
-  run 'bash build_linux_dll.sh 2>&1 | grep -v "^\[" | tail -15'
+  # DECK_MODULES: which module .so files to build in the container (default = the Ver 1.5 pair; "normal abn kiniro kiniro_abn"
+  # adds Black Label -- 2026-10-31, needs the out_kiniro*/ trees + symbol maps in the checkout the container mounts).
+  run "MODULES='${DECK_MODULES:-normal abn}' bash build_linux_dll.sh 2>&1 | grep -v '^\[' | tail -15"
   run 'file build/linux/futari_combined build/linux/*.so | cut -c1-120; objdump -T build/linux/futari_combined | grep -o "GLIBC_[0-9.]*" | sort -Vu | tail -1'
   echo "== [container] headless smoke (no window): the harness must return cleanly with both modules bound =="
   run 'RT_GAME_ROOT=assets XR_SHELL_XEX=assets/default.xex RT_SAVE=/tmp/save RT_SAMPLES=0 timeout 60 build/linux/futari_combined 8208A2B8 0 assets/default.xex 2>&1 | grep -m6 "\[modreg\]\|RETURNED\|FATAL\|harness\]" | cut -c1-140' || true
@@ -35,6 +37,8 @@ fi
 echo "== stage $OUT =="
 rm -rf "$OUT"; mkdir -p "$OUT/save" "$OUT/logs"
 cp build/linux/futari_combined build/linux/futari_game_normal.so build/linux/futari_game_abn.so "$OUT/"
+for k in kiniro kiniro_abn; do [ -f "build/linux/futari_game_$k.so" ] && cp "build/linux/futari_game_$k.so" "$OUT/"; done   # Black Label, when built
+echo "   modules staged: $(ls "$OUT"/futari_game_*.so | xargs -n1 basename | tr '\n' ' ')"
 cp mac-build/deck/futari-realcomp "$OUT/"; chmod +x "$OUT/futari-realcomp"
 VER="${VER:-0.2.0-beta3}"
 sed -e "s/@VER@/$VER/" -e "s/@BUILD@/$(git rev-parse --short HEAD)$(git diff --quiet || echo -dirty)/" mac-build/deck/README.deck.txt > "$OUT/README.txt"

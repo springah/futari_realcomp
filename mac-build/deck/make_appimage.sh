@@ -9,7 +9,7 @@ cd "$(dirname "$0")/../.."
 STAGE="${STAGE:-$HOME/Desktop/projects/Futari-Realcomp-Deck}"; OUT="${OUT:-$HOME/Desktop/projects/Futari-Realcomp-x86_64.AppImage}"
 [ -x "$STAGE/futari_combined" ] || { echo "no staged Deck folder at $STAGE (bash mac-build/deck/build_deck.sh)"; exit 2; }
 A=build/appdir; rm -rf "$A"; mkdir -p "$A/usr/lib/futari" "$A/usr/share/futari" "$A/usr/share/icons/hicolor/256x256/apps"
-cp "$STAGE"/futari_combined "$STAGE"/futari_game_normal.so "$STAGE"/futari_game_abn.so "$A/usr/lib/futari/"
+cp "$STAGE"/futari_combined "$STAGE"/futari_game_*.so "$A/usr/lib/futari/"   # the Ver 1.5 pair, plus Black Label when staged (2026-10-31)
 cp mac-build/deck/AppRun "$A/AppRun"; chmod +x "$A/AppRun"
 cp mac-build/deck/futari-realcomp.desktop "$A/"; cp "$STAGE/README.txt" "$A/usr/share/futari/README.txt"
 ICNS="$HOME/Desktop/projects/Futari.app/Contents/Resources/AppIcon.icns"
