@@ -820,11 +820,26 @@ static void rt_host_poll_thread(){
   };
   enum{ NKM=(int)(sizeof(km)/sizeof(km[0])) };
   const char* hf=getenv("RT_PAD_HOST_FIFO");   // the Windows arm of the file-driven host channel (see rt_host_fifo_merge)
-  std::fprintf(stderr,"[padhost] ACTIVE (GetAsyncKeyState) -- arrows+ZXCV+Enter+RShift (Esc ignored)%s%s\n",
+  // 2026-11-01 (owner todo, BACKLOG "IGNORE INPUT WHEN THE WINDOW IS NOT FOCUSED"): GetAsyncKeyState reads the keyboard
+  // GLOBALLY, so a game parked behind a chat window or a terminal fired shots, bombs and menu moves off ordinary typing, and a
+  // parked game ate keystrokes meant for other apps. The keys now count only while a window of THIS process is the foreground
+  // window (GetForegroundWindow -> owning pid). The host FIFO below is merged REGARDLESS: it is the gates' injection path
+  // (gstart / census / rc_chain run with the window unfocused) and must keep working. RT_PAD_UNFOCUSED=1 restores the global
+  // read for a tester who drives from a second window. Focus edges are logged (first 16) so a drive can prove which state the
+  // keys were read in. XInput pads are per-process already and untouched.
+  static const bool anyFocus=getenv("RT_PAD_UNFOCUSED")!=nullptr;
+  std::fprintf(stderr,"[padhost] ACTIVE (GetAsyncKeyState, %s) -- arrows+ZXCV+Enter+RShift (Esc ignored)%s%s\n",
+    anyFocus?"RT_PAD_UNFOCUSED: keys read whatever window is in front":"keys read only while the game window is in front",
     hf?" + host FIFO ":"", hf?hf:"");
+  bool wasFocused=false; int focusEdges=0;
   for(;;){
     uint16_t b=0;
-    for(int i=0;i<NKM;i++) if(GetAsyncKeyState(km[i].vk)&0x8000) b|=km[i].btn;
+    DWORD fgPid=0; HWND fg=GetForegroundWindow(); if(fg) GetWindowThreadProcessId(fg,&fgPid);
+    const bool focused = anyFocus || (fg && fgPid==GetCurrentProcessId());
+    if(focused!=wasFocused){ wasFocused=focused;
+      if(focusEdges++<16) std::fprintf(stderr,"[padhost] window %s -- keyboard %s\n", focused?"FOCUSED":"UNFOCUSED",
+        focused?"live":"ignored (RT_PAD_UNFOCUSED=1 reads it anyway)"); }
+    if(focused) for(int i=0;i<NKM;i++) if(GetAsyncKeyState(km[i].vk)&0x8000) b|=km[i].btn;
     rt_host_fifo_merge(hf,b);
     g_host_buttons.store(b,std::memory_order_relaxed);
     int16_t lx=0,ly=0;
