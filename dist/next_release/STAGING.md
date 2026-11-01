@@ -19,3 +19,10 @@ folder/zip like so — **NO GAME DATA GOES IN**:
 
 Attended acceptance still owed before a PUBLIC bundle: one user-driven wizard run (B3-class)
 + the user's own play sign-off. Go-public remains the user's call.
+
+**2026-11-01: steps 1-6 + the game-data scan are scripted** -- `bash scripts/rc_stage_win_public.sh <version>` (the public twin of
+`rc_stage_win.sh`) builds `../_rc/<version>-win-public/Futari-Realcomp-Windows-v<version>/` + `../_rc/Futari-Realcomp-Windows-v<version>-public.zip`
+from the gated `build/` bytes and refuses any `.xex` / `media` / `assets` / `shell` path in the output. Step 7 recipe without a console dump:
+copy the staged folder, run `tools/extract/futari_extract.py <gated F&F assets folder> --out <copy>/assets --shell <copy>/shell` (the
+"already-extracted disc folder" input), expect `Done. assets/ matches the reference manifest.` (58 files) + `shell/default.xex`, then
+`bash scripts/rc_smoke_win.sh <copy>`. First public form: 0.3.0-rc3 (GitHub pre-release).
