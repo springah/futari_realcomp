@@ -114,6 +114,59 @@ def code_only(t):
     return '\n'.join(out)
 
 
+# This map serves ONE module: reco_abnormal, FUTARI_MODULE == 1 (build_win_dll.sh force-includes
+# it onto the module-1 DLL compile only).  merged_game.cpp also carries hooks compiled ONLY for the
+# Black Label modules 4/5 (`#if FUTARI_MODULE == 4 || FUTARI_MODULE == 5`, 2026-10-31 divide-guard
+# twin: sub_88225C28 / sub_88225C30).  Those names never reach the module-1 compiler, so they are
+# not demand here -- but a textual scan sees them, and the pair is exactly 8 apart, which the
+# CHAINED EXPANSION abort below (rightly) refuses.  This pass drops every preprocessor branch whose
+# condition is a pure disjunction of `FUTARI_MODULE == N` terms with no N == SERVED_MODULE.  Any
+# other condition (`#ifdef`, a `!=`, a mixed expression) is left alone: unknown = keep = the
+# conservative side, since an over-wide rename set is caught by the existence/chain checks while a
+# missing rename is a silent dead hook.  `#else` after a dropped `#if` is kept (it IS module 1's
+# branch).  Nesting is tracked so the matching #endif of a dropped region is found.
+SERVED_MODULE = 1
+_PP = re.compile(r'^\s*#\s*(if|ifdef|ifndef|elif|else|endif)\b(.*)$')
+_MODTERM = re.compile(r'^\s*FUTARI_MODULE\s*==\s*(\d+)\s*$')
+
+
+def _foreign(cond):
+    """True iff cond is `FUTARI_MODULE == a || FUTARI_MODULE == b ...` and SERVED_MODULE is absent."""
+    mods = []
+    for term in cond.split('||'):
+        m = _MODTERM.match(term.strip().strip('()'))
+        if not m:
+            return False
+        mods.append(int(m.group(1)))
+    return bool(mods) and SERVED_MODULE not in mods
+
+
+def strip_foreign_modules(code):
+    """Drop the lines of preprocessor branches that another module alone compiles (see above)."""
+    out, stack, dropped = [], [], 0      # stack: [skipping_this_branch, parent_skipping]
+    for line in code.split('\n'):
+        m = _PP.match(line)
+        skipping = stack[-1][0] if stack else False
+        if m:
+            d, rest = m.group(1), m.group(2)
+            if d in ('if', 'ifdef', 'ifndef'):
+                stack.append([skipping or (d == 'if' and _foreign(rest)), skipping])
+            elif d == 'elif' and stack:
+                stack[-1][0] = stack[-1][1] or _foreign(rest)
+            elif d == 'else' and stack:
+                stack[-1][0] = stack[-1][1]
+            elif d == 'endif' and stack:
+                stack.pop()
+            continue                      # directive lines carry no symbol demand
+        if skipping:
+            dropped += 1
+            continue
+        out.append(line)
+    strip_foreign_modules.dropped += dropped
+    return '\n'.join(out)
+strip_foreign_modules.dropped = 0
+
+
 def die(msg):
     sys.stderr.write('gen_symbol_map: FATAL: %s\n' % msg)
     sys.exit(2)
@@ -128,7 +181,7 @@ def main():
     bare = set()
     for f in SCAN:
         raw = open(f, encoding='utf-8', errors='replace').read()
-        code = code_only(raw)
+        code = strip_foreign_modules(code_only(raw))
         names = set(SYM.findall(code)) | set('sub_' + h.upper() for h in PASTE.findall(code))
         commentary |= (set(SYM.findall(raw)) - names)
         bare |= set(int(h, 16) for h in BARE.findall(code))
@@ -264,6 +317,8 @@ def main():
     print('  census-verified      : %d   novel-by-rule: %d' % (len(shifted) - len(novel), len(novel)))
     print('  dead below split     : %d %s' % (len(dead_same), ['0x%08X' % a for a in dead_same]))
     print('  chain collisions     : 0 (asserted)')
+    print('  other-module lines dropped from the scan (FUTARI_MODULE != %d branches): %d'
+          % (SERVED_MODULE, strip_foreign_modules.dropped))
     print('  comment-only mentions (NOT renamed): %d' % len(commentary))
 
 
