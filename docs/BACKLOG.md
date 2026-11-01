@@ -1,5 +1,20 @@
 # BACKLOG.md — ranked open work (re-rank of 2026-07-27, the long-queued t3)
 
+## 2026-11-01 — WINDOWS 0.3.0-rc3 F&F CUT (PC seat) + the four Desktop/NSP friends-and-family zips
+- ✅ **Desktop/NSP** holds Windows F&F zips WITH game data (never public): Futari-Realcomp-Windows-v0.3.0-rc3 (rc2 set moved to `_superseded_rc2/`),
+  Mushihimesama-Futari-PC-v1.5.3-FF (futari_recomp), Daytona-USA-PC-v1.1.5-FF, Zuma-PC-v0.1.0-FF (first zuma stage). Each smoke-booted before zipping.
+- ✅ **Windows build un-refused** (6638c00): gen_symbol_map.py `strip_foreign_modules()` -- the Black Label divide-guard twin under `#if FUTARI_MODULE == 4 || 5`
+  had tripped the +8 CHAINED EXPANSION tripwire of the module-1 abn map scan; Mac/Linux never regenerate that map so only Windows saw it. RULE: a hook that
+  only modules 4/5 compile is fine under that guard shape; a +8 pair under any OTHER guard shape trips it again (then extend `_foreign()`).
+- ✅ **rc3-win staged + gated** from b559e8c (STATUS.md "Windows rc3"): boot_smoke / gstart / q1_ctest / rc_chain PASS; q1_census FAIL on WIN-AUDIO-1
+  underruns only, pacing clean. 🔎 **Census finding CLOSED as contention:** the first gate run measured XBOX 360 MODE at ~52 fps for 6 minutes on the
+  6638c00 engine; the A/B (rc3 engine 58.3 -> 59.94 fps as the other game went away; rc2 engine 59.7-59.9 on the idle box; `_local/rc/ab_1101/AB_VERDICT.md`)
+  and the final run (59.9x both modes) show the engine paces nominally -- the user's futari_recomp F&F copy had been running on the same box.
+  LESSON: the Windows census +-10 frames/minute rule needs an idle box; check `tasklist` for other game exes before reading a pacing FAIL as a regression.
+- ⏳ Owed from the Windows seat: `v0.3.0-rc3` tag (owner, with the Mac cut) · hands checklist on the rc3-win zip (focus gate: type in another window
+  while the game is parked, nothing should fire; `[padhost] window UNFOCUSED` in the log) · CLEAN QUIT (10-31 todo) · WIN-AUDIO-1 · Windows build arms
+  for modules 4/5.
+
 ## 2026-10-31 — 🎉 BLACK LABEL (kiniro_normal, modeIdx 4) BOOTS AND PLAYS TO GAME OVER (step 3; opt-in build; Mac)
 - ✅ **Step 3 landed** (77644df + docs): on the 3-slot host (`MODULES="normal abn kiniro"`) with a PRIVATE game root holding the
   user-extracted DLC, a no-input drive went title -> hub -> Mode Select (Original/Maniac/God) -> Character Select (Reco & Kiniro)

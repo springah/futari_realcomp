@@ -33,6 +33,24 @@ docs/NOTE_fnf_shell_defects.md 2026-10-29. USER RULING 10-29: not audible -> KNO
 PARKED (BACKLOG WIN-AUDIO-1). No `v0.3.0-rc2-win` tag until the user signs the Windows bundle off; a fix is rc3. Why the Windows build had been broken since w159:
 build_win_dll.sh compiled decomp/shell TUs with the game tree's include set (34a9402).
 
+**Windows rc3 (2026-11-01, PC seat) -- STAGED + GATED, untagged, in Desktop/NSP as a friends-and-family zip:** `scripts/rc_stage_win.sh 0.3.0-rc3`
+from realcomp `b559e8c` against futari_decomp `1d79e208` (same decomp as rc2) -> `../_rc/0.3.0-rc3-win/Futari-Realcomp-Windows-v0.3.0-rc3/` +
+`../_rc/Futari-Realcomp-Windows-v0.3.0-rc3.zip` (915 MB, assets inside: F&F only; sha256 `32124b1c9dbb6cda645c96a7b308c3bd34a8515cf0e62d81faeadf2e8c6dab09`).
+Two-module shape (ARCADE + XBOX 360 MODE); Black Label is NOT in the Windows build (build_win_dll.sh has no module-4/5 arm). What rc3-win carries over
+rc2-win: the 360 START-wire fix, RT_ROTATE, the read-only DLC-root plumbing (inert without data), and two Windows-seat fixes: (1) **the Windows build had
+been REFUSED since the 10-31 Black Label divide-guard twin** -- `out_reco_abn/tools_abn/gen_symbol_map.py` scans merged_game.cpp textually and the
+`#if FUTARI_MODULE == 4 || 5` twin (sub_88225C28/30, +8 apart) tripped CHAINED EXPANSION; 6638c00 `strip_foreign_modules()` drops branches that only
+other modules compile (emitted map byte-identical to the checked-in one, negative control reproduces the abort); (2) **keyboard input is ignored while
+the game window is not in front** (user todo 11-01; b559e8c: GetAsyncKeyState is global, so a parked game fired on ordinary typing; host FIFO still merged,
+`RT_PAD_UNFOCUSED=1` restores the global read, focus edges logged). RT_POOLRELEASE is **always off on Windows** (rt_phys.cpp `#ifdef _WIN32`), so the
+ARCADE memory ramp known issue still applies there (RC_KNOWN_ISSUES says so). Gates `scripts/rc_gates_win.sh 0.3.0-rc3` on the final bytes
+(`../_rc/0.3.0-rc3-win/SMOKE.md`): boot_smoke PASS, gstart PASS (10 + 9 probes, 0 leaks), q1_ctest PASS (60/60), rc_chain PASS (all T2 CX, 418 PASS /
+0 FAIL), q1_census **FAIL on the Windows-only audio ring underruns only** (ARCADE 282, 360 345; pacing 59.7-59.97 fps every minute in both modes,
+0 dropouts outside the named classes) -- the same known-issue class rc2-win failed on (user ruling 10-29, WIN-AUDIO-1). A FIRST gate run on the
+6638c00 engine had shown XBOX 360 MODE at ~52 fps for six minutes: an A/B census (rc3 engine vs the rc2 engine, `_local/rc/ab_1101/AB_VERDICT.md`)
+and the final run put it down to MACHINE CONTENTION (the user's futari_recomp F&F copy was running alongside), not an rc3 regression. No `v0.3.0-rc3`
+tag (the owner's / the Mac cut's act). Still open from the Windows seat: CLEAN QUIT from the title (user todo 10-31), WIN-AUDIO-1.
+
 **RC1 state (2026-10-12):** the release-candidate state for the two hosted modes (ARCADE 1.5 Original + XBOX 360 MODE) is
 `docs/PLAN_RC1.md` **§0 RC1 SCORECARD** (per-criterion status, what is left, rulings recorded/open); the proposed cut is
 §6 FREEZE & SHIP PLAN (version `0.3.0-rc1`; tag `v0.3.0-rc1` plus both repos' hashes recorded here and in the bundle README
