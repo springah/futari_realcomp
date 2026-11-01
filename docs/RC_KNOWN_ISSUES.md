@@ -7,11 +7,12 @@ KNOWN ISSUES (release candidate; each is documented, not new)
   - Menu flicker you can see in play but that the frame census cannot (a present-timing effect on some displays) is still an eyes-only item: if you
     see it, say WHERE (title, top menu, hub, in play) and on which display. docs/NOTE_fnf_shell_defects.md, 2026-07-28 flicker arc.
   - ARCADE mode memory grows to about 720 MB over the first ~20 minutes of a session and then stays flat (bounded, no crash seen in a 60-minute run).
-    docs/PLAN_RC1.md section 2.1, Q5/Q6.
+    docs/PLAN_RC1.md section 2.1, Q5/Q6. From 0.3.0-rc3 on macOS/Linux the engine hands idle pool pages back and the ramp is flat (RT_POOLRELEASE,
+    default on there; =0 reverts). WINDOWS: still applies -- the lever is off by default on Windows; RT_POOLRELEASE=10000 opts in.
   - Five Xbox 360 system calls the game asks about (display info, display gamma, the system command buffer, the console config settings, the Xbox
     LIVE user id) are stand-ins, so the game reads placeholder values (time-zone names, display size). Nothing visible is known to depend on it.
     docs/AUDIT_kstub_sizes.md, PLAN_RC1 section 0.5.
-  - (rc2 and earlier only; FIXED in the engine 2026-10-30, ships with the next cut) XBOX 360 MODE: the host START shortcut is wired to the ARCADE module's memory address, so it is inert there; START still works through the
+  - (rc2 and earlier only; FIXED from 0.3.0-rc3) XBOX 360 MODE: the host START shortcut is wired to the ARCADE module's memory address, so it is inert there; START still works through the
     normal pad path, and no leak behind a menu was observed. PLAN_RC1 section 0.5 item 2.
   - WINDOWS ONLY: in the attract (demo) loop the audio ring buffer logs short bursts of underruns at scene changes (texture reloads). The user
     listened on 2026-10-29 and heard nothing; it is instrumented, not audible, and parked as a known issue. docs/NOTE_fnf_shell_defects.md,
