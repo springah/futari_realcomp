@@ -33,6 +33,8 @@ docs/NOTE_fnf_shell_defects.md 2026-10-29. USER RULING 10-29: not audible -> KNO
 PARKED (BACKLOG WIN-AUDIO-1). No `v0.3.0-rc2-win` tag until the user signs the Windows bundle off; a fix is rc3. Why the Windows build had been broken since w159:
 build_win_dll.sh compiled decomp/shell TUs with the game tree's include set (34a9402).
 
+**Windows rc3 PUBLIC PRE-RELEASE (2026-11-01 night):** tag `v0.3.0-rc3` @ 0484a3b (docs/scripts-only above engine b559e8c) -> https://github.com/springah/futari_realcomp/releases/tag/v0.3.0-rc3 -- asset-free zip `Futari-Realcomp-Windows-v0.3.0-rc3-public.zip` (28 MB, sha256 `95d07d7b53cf1c350cf1d2a06be8b2927996099d8ad324dacbe319218357fc58`) staged by `scripts/rc_stage_win_public.sh` (STAGING.md form: launcher + wizard extractor + manifest + docs + save template; NO assets/ or shell/). Wizard-smoked: extractor fed the gated F&F assets tree -> 58/58 manifest, shell/default.xex staged, `rc_smoke_win.sh` PASS (both modules bound, 0 FATAL, 0 VK_ERROR). Same engine bytes as the F&F zip below. macOS stays at rc2.
+
 **Windows rc3 (2026-11-01, PC seat) -- STAGED + GATED, untagged, in Desktop/NSP as a friends-and-family zip:** `scripts/rc_stage_win.sh 0.3.0-rc3`
 from realcomp `b559e8c` against futari_decomp `1d79e208` (same decomp as rc2) -> `../_rc/0.3.0-rc3-win/Futari-Realcomp-Windows-v0.3.0-rc3/` +
 `../_rc/Futari-Realcomp-Windows-v0.3.0-rc3.zip` (915 MB, assets inside: F&F only; sha256 `32124b1c9dbb6cda645c96a7b308c3bd34a8515cf0e62d81faeadf2e8c6dab09`).

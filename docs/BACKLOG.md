@@ -11,7 +11,8 @@
   6638c00 engine; the A/B (rc3 engine 58.3 -> 59.94 fps as the other game went away; rc2 engine 59.7-59.9 on the idle box; `_local/rc/ab_1101/AB_VERDICT.md`)
   and the final run (59.9x both modes) show the engine paces nominally -- the user's futari_recomp F&F copy had been running on the same box.
   LESSON: the Windows census +-10 frames/minute rule needs an idle box; check `tasklist` for other game exes before reading a pacing FAIL as a regression.
-- ⏳ Owed from the Windows seat: `v0.3.0-rc3` tag (owner, with the Mac cut) · hands checklist on the rc3-win zip (focus gate: type in another window
+- ✅ **PUBLIC PRE-RELEASE v0.3.0-rc3 (2026-11-01 night, user: "need testers")** -- tag @ 0484a3b, asset-free Windows zip on GitHub Releases (https://github.com/springah/futari_realcomp/releases/tag/v0.3.0-rc3), `scripts/rc_stage_win_public.sh`, wizard + boot smoke PASS. First public realcomp binary.
+- ⏳ Owed from the Windows seat: hands checklist on the rc3-win zip (focus gate: type in another window
   while the game is parked, nothing should fire; `[padhost] window UNFOCUSED` in the log) · CLEAN QUIT (10-31 todo) · WIN-AUDIO-1 · Windows build arms
   for modules 4/5.
 
