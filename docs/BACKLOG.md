@@ -1,5 +1,53 @@
 # BACKLOG.md — ranked open work (re-rank of 2026-07-27, the long-queued t3)
 
+## 2026-11-03 — 🎉 WIN-AUDIO-1 FIXED (0f23859): the engine-frame cost was a getenv() on EVERY indirect dispatch, not the DSP · SDL startup transient · RT_ENGSAMP sampler · 0.3.0-rc5 gated
+- ✅ **ROOT CAUSE (the real one).** `rt_indirect_call` (out_reco/rt.cpp, the checked indirect-call shim EVERY `bctrl` in both trees goes
+  through) evaluated `getenv("RT_WATCHS")` on every dispatch -- a 2025-era probe that was never cached. The MSVC CRT getenv takes the
+  environment lock and `_strnicmp`-scans the whole environment block per call (the new link map + `[engsamp]` named them: `common_getenv_nolock`
+  and `_strnicmp` were the ONLY host frames in the engine thread's samples). The SFX voices are xWMA (WAVE_FORMAT_WMAUDIO2 0x161: SE/VOICE
+  44.1 kHz mono 2230-byte packets, SYS_SE 48 kHz stereo 8192-byte packets -- rt_xwma.cpp's bank census), decoded by the XAudio SOFTWARE WMA
+  codec recompiled from the shell (creation sub_82122B58, codec state +0x1e4 = sub_821493E0; per-voice decoder object = voice+264,
+  vt[4] = sub_8210F868/sub_8210F288 -> sub_82122270 / sub_8211CC90 / sub_8211FB98), which dispatches through function pointers thousands
+  of times per packet -- so each packet paid thousands of getenv calls. Caching it (`rt_watchs_on()`): engine frame sub_82137218
+  0.216 -> 0.041 ms avg in quiet minutes (5x), 3.03 -> 1.10 ms avg and 25.9 -> 13.0 ms max in the loudest minute; sub_82150338 (the SFX
+  render) 0.70-0.82 -> 0.25-0.31 ms per voice (max 20 -> 3.4 ms); holds >= 5 ms on 0x36A0D4 4,677 -> 390 per census (profiled);
+  **6-min ARCADE census underruns 143 -> 2 UNPROFILED (aud1102 vs aud1103b), 665 -> 2 profiled (aud1102i vs aud1103a)** -- same box, same
+  drive, same build minus the cache. The 11-02 verdict "CPU-bound recompiled DSP" was right about WHERE (the per-voice render) and wrong
+  about WHAT: the DSP's own cost is a quarter of what was measured; the rest was the host shim. Also cached: `RT_AUDIOCRUX` (per engine
+  frame) and `RT_AUDIOFILL` (per SFX render) getenvs in merged_shell.cpp's hooks. `rt_indirect_call` still has `getenv("RT_STUBREG")`
+  behind an lr compare (never on the engine path).
+- ✅ **THE LAST 2 = the first second of every leg (start-of-run transient), now accounted.** Every Windows census, plain or profiled, had
+  `[starve] 1s window: ring depth min=0 max=11 underruns=2` as its first window: the first SDL callback drains the primed ring to depth 0
+  (it takes the whole device buffer; the 11-02 prefill rule already excludes the silent frames INSIDE that callback) and the next callbacks
+  find it dry until the demand-driven worker refills it -- 2 frames, while the engine is producing rms=0 silence (nothing audible exists
+  yet). rt_audio.cpp counts those as a STARTUP TRANSIENT, bounded (ends when the ring first reaches the prime depth after the first
+  callback, or after 375 rendered frames = 2 s, so a producer that never catches up is still counted), reported once
+  (`[audio] SDL startup: 2 silent frame(s) between the first callback and the ring's first refill to 8 (depth 11 at rendered frame #2)`);
+  `RT_AUDIOSTARTGRACE=0` reverts to the 11-02 counting. Inert on the Mac (CoreAudio never drains the ring at start).
+- ✅ **VERDICTS.** aud1103c (unprofiled, HEAD-1 engine): `FATAL=0 VKERR=0 SLOW=0 UNDERRUN=0 SINKSTALL=0 ... RESULT: PASS` -- the first
+  Windows ARCADE census PASS. 0.3.0-rc5 staged (`rc_stage_win.sh 0.3.0-rc5`, exe build id 0f23859) and gated with
+  `STEPS="q1_ctest q1_census" rc_gates_win.sh 0.3.0-rc5`: GATES_RESULT_PLACEHOLDER
+- 🔎 **WHAT THE RESIDUAL COST IS (the sampler, loudest minute, in-frame samples; `_local/rc/census/aud1103a_arcade/guest.log`).** 76 % of
+  the frame is sub_82150338 -> 65 % sub_8214F080 (the "decoder prime" = the decode itself: +264 obj vt[4]) -> codec 60 % -> sub_82153CB8
+  57 % -> **sub_821536C0 44 % SELF** (shell/gen/ppc_recomp.23.cpp:14227, 893 lines of lvx128 / vmaddfp / stvx128 = the codec's vectorised
+  transform, VMX128 through SIMDe; Ghidra cannot even decompile it), then sub_82127390 17 %, sub_8212BE20 11-13 %, sub_82153CB8 10-12 %
+  self; the per-voice SRC (+252 obj vt[10] = sub_82113A80 under sub_82115180) 20 %; sub_8214E5C0 17 %. With the fix the loudest minute
+  runs 1.1 ms avg per 5.33 ms frame at 6 voices and the ~10-frame ring absorbs the 5-13 ms outliers (355 frames >= 5 ms per census, 0
+  underruns from them). NEXT LEVER if a louder scene ever needs it: a native IMDCT/transform for sub_821536C0 (+ sub_82127390 /
+  sub_8212BE20), or a host xWMA decode at packet submit (rt_xwma.cpp's DMO decoder already exists for the bridge). Not pursued: the gate
+  passes without it, and a decoder swap carries bit-exactness risk the gate cannot see.
+- ✅ **INSTRUMENTS (default off).** `RT_ENGSAMP=<hz>` (out_reco/rt_engsamp.cpp, Windows-only TU `shellkernel_engsamp`): a sampling
+  profiler of the engine thread -- SuspendThread + GetThreadContext + RtlVirtualUnwind over the exe's own .pdata (no loader lock, no
+  allocation while the target is suspended), symbols from PPCFuncMappings_shell (host fn ptr -> guest address) plus the hooked `__imp__`
+  bodies merged_shell.cpp registers (the table holds the HOOK's address for those); `[engsamp] 60s samples= inframe=` + top-32 self / incl
+  tables per minute; unresolved host RVAs (`exe+0x...`) resolve against the new `build/futari_combined.map` (the host link now passes
+  `/map`). `[engprof]` table extended to 16 rows (refill / decprime / the two packet copiers / silence / nextpkt / pktstate); `[engtgt]`
+  prints the render's six indirect targets + the voice's WAVEFORMATEX once per distinct tuple. Landmine met on the way: a C++-linkage
+  array (`PPCFuncMappings_shell`) declared `extern "C"` resolves to NULL as a weak reference -- the mangled name carries the struct name.
+- ⚠ **DOCTRINE NOTE.** Two rounds (11-02, 11-03 morning) measured the symptom to the function and read "CPU-bound DSP"; the sampler found
+  the host shim in the first profiled minute. A per-function timing table cannot see cost that is INSIDE every function (a per-dispatch
+  tax); a sampler with host symbols can. Keep `RT_ENGSAMP` as the first instrument for any "the guest is slow" question.
+
 ## 2026-11-02 — CLEAN QUIT LANDED · WIN-AUDIO-1 ROOT CAUSE MEASURED (engine frame under lock) · Windows build arms for Black Label · rc4 both seats
 - ✅ **CLEAN QUIT FROM THE TITLE SCREEN (user todo 10-31) LANDED.** B (any pad source) or Esc (host keyboard, all three poll arms) while the shell
   shows PRESS START exits the process cleanly: out_reco/merged/merged_shell.cpp pulses `g_rt_title_heartbeat` once per tick of the pre-accept title

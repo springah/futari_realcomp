@@ -14,11 +14,11 @@ KNOWN ISSUES (release candidate; each is documented, not new)
     docs/AUDIT_kstub_sizes.md, PLAN_RC1 section 0.5.
   - (rc2 and earlier only; FIXED from 0.3.0-rc3) XBOX 360 MODE: the host START shortcut is wired to the ARCADE module's memory address, so it is inert there; START still works through the
     normal pad path, and no leak behind a menu was observed. PLAN_RC1 section 0.5 item 2.
-  - WINDOWS ONLY: in the attract (demo) loop the audio ring buffer logs short bursts of underruns at sound-effect-dense moments (the same
-    demo moments every run). The user listened on 2026-10-29 and heard nothing; it is instrumented, not audible. Measured 2026-11-02: the
-    game's own audio engine frame processing overruns its 5.3 ms period on the PC CPU at those moments (not a thread-priority issue; the
-    first-second count of every launch was a device-buffer prefill artefact and is fixed from 0.3.0-rc4). docs/NOTE_fnf_shell_defects.md,
-    entries "2026-10-29 WINDOWS rc2 twin" and "2026-11-02 WIN-AUDIO-1".
+  - (rc4 and earlier only; FIXED from 0.3.0-rc5) WINDOWS ONLY: in the attract (demo) loop the audio ring buffer logged short bursts of
+    underruns at sound-effect-dense moments (instrumented, not audible: the user listened on 2026-10-29 and heard nothing). Cause: a host-side
+    per-call environment lookup in the recompiled code's indirect-call path, paid thousands of times per compressed sound-effect packet;
+    removed 2026-11-03, the 6-minute ARCADE census now reports 0 underruns. docs/NOTE_fnf_shell_defects.md entries "2026-11-02 WIN-AUDIO-1"
+    and "2026-11-03 WIN-AUDIO-1 CLOSED".
   - B or Esc on the TITLE screen (PRESS START) quits the game cleanly from 0.3.0-rc4 (RT_NOTITLEQUIT=1 restores the old no-op); elsewhere B is
     still BACK / bomb and Esc is ignored.
   - Xbox LIVE is out of scope: sign-in, leaderboards and online play are not available (SCORE ATTACK shows the sign-in dialog; decline it).

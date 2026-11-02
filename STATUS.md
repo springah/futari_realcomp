@@ -1,5 +1,15 @@
 # STATUS — futari_realcomp (pointer, 2026-10-12)
 
+**2026-11-03 (PC seat): 🎉 WIN-AUDIO-1 FIXED (0f23859) -- the cost was a `getenv()` on EVERY indirect dispatch in `rt_indirect_call`, not the
+recompiled DSP.** A new sampling profiler of the engine thread (`RT_ENGSAMP=1`, out_reco/rt_engsamp.cpp) + the host link map named
+`common_getenv_nolock`/`_strnicmp` under the xWMA software decoder the SFX voices run (thousands of indirect dispatches per packet). Cached:
+sub_82150338 0.7 -> 0.25 ms per voice (max 20 -> 3.4 ms), the engine frame 3.0 -> 1.1 ms avg in the loudest minute, 6-min ARCADE census
+underruns 143 -> 2 unprofiled; the last 2 (first second of every leg, the SDL first-callback drain before the worker refills the ring, rms=0)
+are now a bounded startup transient (`RT_AUDIOSTARTGRACE=0` reverts). **aud1103c: UNDERRUN=0, RESULT: PASS -- the first Windows ARCADE census
+PASS.** 0.3.0-rc5 staged + gated (`STEPS="q1_ctest q1_census"`): GATES_RESULT_PLACEHOLDER Residual cost named for the record (sub_821536C0,
+the codec's VMX128 transform, 44 % self of the loudest minute; next lever = native transform or host xWMA decode at submit; not needed).
+Evidence: BACKLOG.md 2026-11-03, NOTE_fnf_shell_defects.md 2026-11-03, `_local/rc/census/aud1103{a,b,c}_arcade/`, `_rc/0.3.0-rc5-win/SMOKE.md`.
+
 **2026-11-02 (PC seat): CLEAN QUIT landed · WIN-AUDIO-1 root cause measured · Black Label Windows build arms · rc4 cuts.** B / Esc on the
 TITLE screen exits cleanly (heartbeat-gated edge in the pad merge -> renderer `rvk_request_quit`; `RT_NOTITLEQUIT=1` disables; control + quit
 acceptance PASS). WIN-AUDIO-1 is no longer a mystery: `RT_WAITPROF=1` lock-holder profiling shows the XAudio engine thread's per-frame processing

@@ -5,6 +5,21 @@ friends & family and collect their logs. This note is the running defect ledger 
 Method per doctrine: ship-path first, oracle in hand before theorizing, instruments presumed
 lying until positive-controlled, texel-diff acceptance.
 
+## 2026-11-03 — 🎉 WIN-AUDIO-1 CLOSED: the per-dispatch getenv() in rt_indirect_call (host shim), not the recompiled DSP · SDL startup transient accounted · first Windows ARCADE census PASS
+PC seat, engine 0f23859 (= 0.3.0-rc5). The 11-02 entry below measured the engine frame to the SFX voice render (sub_82150338, 75 % of the
+frame, 0.7 ms per voice). A sampling profiler of the engine thread (`RT_ENGSAMP=1`, new, out_reco/rt_engsamp.cpp) + the host link map
+named the cost inside it: `common_getenv_nolock` / `_strnicmp` -- `rt_indirect_call` (out_reco/rt.cpp) ran `getenv("RT_WATCHS")` on EVERY
+indirect dispatch, and the xWMA software decoder the SFX voices run (creation sub_82122B58, decode via +264 obj vt[4] ->
+sub_8211FB98 -> sub_82153CB8 -> sub_821536C0) dispatches through function pointers thousands of times per 2230-byte packet. Cached:
+sub_82150338 0.70-0.82 -> 0.25-0.31 ms per voice (max 20 -> 3.4 ms), the frame 3.03 -> 1.10 ms avg / 25.9 -> 13.0 ms max in the loudest
+minute, 6-min ARCADE underruns 143 -> 2 UNPROFILED (aud1102 -> aud1103b). The last 2 are the first second of every leg (the first SDL
+callback drains the primed ring to 0; the next callbacks find it dry until the worker refills it; rms=0 at that point) -- now a bounded
+STARTUP TRANSIENT in rt_audio.cpp (`[audio] SDL startup: N silent frame(s) ...`, grace ends at prime depth or 375 rendered frames;
+`RT_AUDIOSTARTGRACE=0` reverts). aud1103c unprofiled: **UNDERRUN=0, RESULT: PASS**. rc5 gates (q1_ctest + q1_census): GATES_RESULT_PLACEHOLDER
+Residual (sampler, loudest minute): sub_821536C0 44 % self (ppc_recomp.23.cpp:14227, VMX128 transform through SIMDe), sub_82127390 17 %,
+sub_8212BE20 12 %, sub_82153CB8 11 %; SRC sub_82113A80 20 % incl. Next lever if ever needed: native transform or host xWMA decode at
+submit. Full record: BACKLOG.md 2026-11-03.
+
 ## 2026-11-02 — CLEAN QUIT FROM THE TITLE (landed) · WIN-AUDIO-1: the engine frame overruns its period under the engine lock (measured) · SDL prefill artefact (fixed)
 PC seat. Engine changes on main for 0.3.0-rc4; the Windows acceptance runs are `_local/rc/quit_test_win.sh` + `scripts/rc_census_win.sh` 6-min ARCADE legs.
 - **CLEAN QUIT (user todo 10-31).** Mechanism: merged_shell.cpp `g_rt_title_heartbeat` (volatile counter, ++ once per tick of the pre-accept
