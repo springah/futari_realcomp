@@ -13,8 +13,10 @@ the trees exist); stage/smoke/gates follow every `futari_game_*.dll`. Evidence: 
 **rc4 CUT ON BOTH SEATS (2026-11-03 00:15); WINDOWS PUBLIC ZIP UPLOADED 2026-11-03 06:44 AUSEST** (user: "Yes, upload rc4") = GitHub
 pre-release `v0.3.0-rc4` https://github.com/springah/futari_realcomp/releases/tag/v0.3.0-rc4 on the pushed tag, assets
 `Futari-Realcomp-Windows-v0.3.0-rc4-public.zip` (digest 72cf9e04...9c79 confirmed by re-download) + `.sha256`; rc3 pre-release left in place.
-The Windows F&F zip (with data) + README went to the F&F folder `Desktop/NSP/` (rc3 moved to `_superseded_rc3/`). Nothing from the Mac seat is
-published (no asset-free macOS form exists). Same engine `1b03038` + decomp `1d79e20871bc` on both. Mac: `rc_cut_mac.sh
+The Windows F&F zip (with data) + README went to the F&F folder `Desktop/NSP/` (rc3 moved to `_superseded_rc3/`). The macOS asset-free zip was
+ATTACHED to the same pre-release at 07:25 AUSEST (user: "Yes, attach macOS"; digest e553fa15...f3b2 confirmed by re-download; notes retitled
+"Windows + macOS test builds", macOS section = Apple silicon only, self-signed -> quarantine/Open Anyway, Extract Game Data.command; Black Label
+row greyed until the wizard takes your own DLC, both platforms). Same engine `1b03038` + decomp `1d79e20871bc` on both. Mac: `rc_cut_mac.sh
 0.3.0-rc4` ALL-PASS (app_smoke, gstart, q1_ctest, q1_census PASS in both modes, rc_chain 352 PASS / 0 FAIL), 4-module bundle (Black Label
 dylibs in), tags `v0.3.0-rc4` (realcomp) + `realcomp-v0.3.0-rc4` (decomp) pushed, F&F zip `_rc/Futari-Realcomp-macOS-v0.3.0-rc4.zip`
 (720 MB, sha256 `5bba81f7ca8f18e5e019b51c6af4801ce67f95084fdd8c8ea194a77c7121af3e`, contains game data). Windows: `rc_stage_win.sh` +
@@ -25,10 +27,9 @@ PASS (`_local/rc/bl_boot_win.sh`: modreg 4/4, modeIdx 4, swap to kiniro_normal, 
 PUBLIC asset-free zip `_rc/Futari-Realcomp-Windows-v0.3.0-rc4-public.zip` (32 MB, sha256
 `72cf9e0473367c42941a1b882d4288678cccaddec34dc43ee93100529b4d1c79`, game-data scan clean, wizard smoke PASS: extractor fed the gated tree ->
 manifest match, 4/4 modules bound, 0 FATAL, 0 VK_ERROR). The Windows tree carries no rc4 tag of its own (the Mac cut's tag is the rc4 tag;
-the Windows exe is the same commit). Owed: the hands checklist on both seats, a macOS public (asset-free) form (never staged yet; rc3 and
-rc4 public are Windows-only), the Mac F&F zip to whoever gets it.
+the Windows exe is the same commit). Owed: the hands checklist on both seats, the Mac F&F zip to whoever gets it, tester triage.
 
-**macOS PUBLIC (asset-free) rc4 zip STAGED + SMOKED 2026-11-03 07:15 AUSEST -- NOT UPLOADED (the owner's call).** New
+**macOS PUBLIC (asset-free) rc4 zip STAGED + SMOKED 2026-11-03 07:15 AUSEST -- UPLOADED 07:25 on the user's yes (see above).** New
 `scripts/rc_stage_mac_public.sh` (twin of `rc_stage_win_public.sh`): copies the gated rc4 bundle minus `Contents/Resources/assets`, re-seals it ad hoc
 (outer seal only: engine + 4 module dylibs + Frameworks BYTE-IDENTICAL to `_rc/0.3.0-rc4/MACHO_MD5.txt`, only the launcher's signature blob and
 CodeResources change), ships the extractor with a macOS first-run path (`Extract Game Data.command` -> `tools/extract/extract_assets.sh`, the

@@ -56,12 +56,14 @@
   LABEL BOOT PASS (`_local/rc/bl_boot_win.sh`: modreg 4/4 -> modeIdx 4 -> kiniro_normal swap -> hub; 0 FATAL / UNMAPPED / kdrop) -- the
   Windows twin of the Mac route works on the first real run. UPLOADED 2026-11-03 06:44 on the user's yes: GitHub pre-release `v0.3.0-rc4`
   (public Windows zip + .sha256; asset digest re-downloaded and matched); Windows F&F zip + README to `Desktop/NSP/`, rc3 copies moved to
-  `_superseded_rc3/`. Nothing published from the Mac seat (no asset-free macOS form). Hands checklist owed on both seats.
+  `_superseded_rc3/`. The macOS asset-free zip followed at 07:25 (user's yes; digest verified by re-download; release retitled
+  Windows + macOS, notes corrected: Apple silicon only, self-signed Gatekeeper steps, Black Label via the wizard's DLC pass on both
+  platforms -- the first draft wrongly said there was no DLC path). Hands checklist owed on both seats.
   Harness landmine found on the way: a pad "press" timed with `powershell Start-Sleep` holds the button for the sleep PLUS ~250 ms of
   PowerShell start-up, so a 70 ms DOWN auto-repeated on the top menu (cursor 0 -> 3 for two presses) and the drive hit the wrong row twice;
   bash `sleep 0.07` fixed it (2 SE_Select01 cues for 2 presses). Read the cue count, not the 300-frame `[mstate]` cursor sample.
 
-- ✅ **macOS PUBLIC (asset-free) rc4 zip STAGED + SMOKED (2026-11-03 07:15), NOT UPLOADED** -- `scripts/rc_stage_mac_public.sh` +
+- ✅ **macOS PUBLIC (asset-free) rc4 zip STAGED + SMOKED (2026-11-03 07:15), UPLOADED 07:25 to pre-release v0.3.0-rc4** -- `scripts/rc_stage_mac_public.sh` +
   `scripts/rc_smoke_mac_public.sh` (new, twins of the Windows pair) + `tools/extract/extract_assets.sh` (the `.bat` twin, behind the double-click
   `Extract Game Data.command`; builds `assets/` beside the .app, which `launcher.c` already finds). `_rc/Futari-Realcomp-macOS-v0.3.0-rc4-public.zip`
   33 MB, sha256 `e553fa15a5076a3eebf0217851528e9c65c29f2b97f4205a41a1cb899532f3b2`, game-data scan clean, smoke ALL-PASS (58/58 manifest with the
