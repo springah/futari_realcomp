@@ -808,6 +808,39 @@ static void rt_host_fifo_merge(const char* hf, uint16_t& b){
     else if(std::sscanf(tok,"%x",&v)==1) b|=(uint16_t)v; }
   std::fclose(f);
 }
+// ===== CLEAN QUIT FROM THE TITLE SCREEN (2026-11-02, owner todo 10-31) =====
+// B (pad, any source merged below) or Esc (host keyboard, every poll arm) on the shell TITLE screen (PRESS START) exits the
+// process cleanly: a Gaming Mode player leaves without Steam's force-stop, a desktop player without reaching for the window's X.
+// "On the title" = out_reco/merged/merged_shell.cpp's g_rt_title_heartbeat advanced within the last 250 ms (it is pulsed only
+// while the pre-accept title state fn ticks, so the hub / options / play never qualify; B there stays BACK / bomb). The check
+// runs on the guest thread inside syn_sample (the per-frame pad merge), so it sees exactly the pad word the shell sees and
+// fires on the PRESS EDGE only. The exit itself is the renderer's rvk_request_quit (flush + _Exit, the same FNF-8 P1 route the
+// window's X takes); at the title no save or replay write can be in flight (those happen in the post-game save flow, long
+// before the title is back) and fflush(nullptr) drains stdio first. RT_NOTITLEQUIT=1 disables the quit (harness drives that
+// want to press B on the title). Weak: module / standalone builds without the renderer or the shell hooks link unchanged.
+extern "C" volatile unsigned int g_rt_title_heartbeat __attribute__((weak));
+extern "C" void rvk_request_quit(const char* why) __attribute__((weak));
+extern "C" int  rvk_sdl_host_esc(void) __attribute__((weak));            // render/vk_render.cpp (SDL window arm)
+static std::atomic<bool> g_host_esc{false};                                // host Esc level, every poll arm writes it
+static void rt_title_quit_check(uint16_t b){
+  static const bool off = getenv("RT_NOTITLEQUIT")!=nullptr;
+  if(off || !&g_rt_title_heartbeat) return;
+  static unsigned lastHb=0; static std::chrono::steady_clock::time_point lastAdv{};
+  static uint16_t lastB=0; static bool lastEsc=false; static bool everLive=false;
+  auto now=std::chrono::steady_clock::now();
+  unsigned hb=g_rt_title_heartbeat;
+  if(hb!=lastHb){ lastHb=hb; lastAdv=now; everLive=true; }
+  const bool onTitle = everLive && std::chrono::duration_cast<std::chrono::milliseconds>(now-lastAdv).count() < 250;
+  const bool esc=g_host_esc.load(std::memory_order_relaxed);
+  const bool bEdge=(b&0x2000) && !(lastB&0x2000);
+  const bool escEdge=esc && !lastEsc;
+  lastB=b; lastEsc=esc;
+  if(!onTitle || !(bEdge||escEdge)) return;
+  const char* why = escEdge ? "Esc on the title screen" : "B on the title screen";
+  std::fprintf(stderr,"[quit] %s -> clean exit (title heartbeat %u; RT_NOTITLEQUIT=1 disables)\n", why, hb);
+  if(rvk_request_quit) rvk_request_quit(why);
+  else { std::fflush(nullptr); std::_Exit(0); }
+}
 static void rt_host_poll_thread(){
 #ifdef _WIN32
   struct KM{ int vk; uint16_t btn; const char* name; };
@@ -828,7 +861,7 @@ static void rt_host_poll_thread(){
   // read for a tester who drives from a second window. Focus edges are logged (first 16) so a drive can prove which state the
   // keys were read in. XInput pads are per-process already and untouched.
   static const bool anyFocus=getenv("RT_PAD_UNFOCUSED")!=nullptr;
-  std::fprintf(stderr,"[padhost] ACTIVE (GetAsyncKeyState, %s) -- arrows+ZXCV+Enter+RShift (Esc ignored)%s%s\n",
+  std::fprintf(stderr,"[padhost] ACTIVE (GetAsyncKeyState, %s) -- arrows+ZXCV+Enter+RShift, Esc = quit on the title screen%s%s\n",
     anyFocus?"RT_PAD_UNFOCUSED: keys read whatever window is in front":"keys read only while the game window is in front",
     hf?" + host FIFO ":"", hf?hf:"");
   bool wasFocused=false; int focusEdges=0;
@@ -840,6 +873,7 @@ static void rt_host_poll_thread(){
       if(focusEdges++<16) std::fprintf(stderr,"[padhost] window %s -- keyboard %s\n", focused?"FOCUSED":"UNFOCUSED",
         focused?"live":"ignored (RT_PAD_UNFOCUSED=1 reads it anyway)"); }
     if(focused) for(int i=0;i<NKM;i++) if(GetAsyncKeyState(km[i].vk)&0x8000) b|=km[i].btn;
+    g_host_esc.store(focused && (GetAsyncKeyState(VK_ESCAPE)&0x8000), std::memory_order_relaxed);   // title-screen quit (rt_title_quit_check)
     rt_host_fifo_merge(hf,b);
     g_host_buttons.store(b,std::memory_order_relaxed);
     int16_t lx=0,ly=0;
@@ -854,10 +888,11 @@ static void rt_host_poll_thread(){
     // human on the keyboard; no RT_PAD synthetic timeline, no g_syn_quiet silencer) -- the Mac boss driver's
     // focus-independent input. "0" releases. Distinct from RT_PAD_FIFO, which rides the SYNTHETIC channel.
     const char* hf=getenv("RT_PAD_HOST_FIFO");
-    std::fprintf(stderr,"[padhost] ACTIVE via the SDL window (focus it) -- arrows+ZXCV+Enter+RShift (Esc ignored)%s%s\n",
+    std::fprintf(stderr,"[padhost] ACTIVE via the SDL window (focus it) -- arrows+ZXCV+Enter+RShift, Esc = quit on the title screen%s%s\n",
       hf?" + host FIFO ":"", hf?hf:"");
     for(;;){
       uint16_t b=rvk_sdl_host_buttons();
+      g_host_esc.store(rvk_sdl_host_esc && rvk_sdl_host_esc()!=0, std::memory_order_relaxed);   // title-screen quit (rt_title_quit_check)
       rt_host_fifo_merge(hf,b);   // token grammar: see rt_host_fifo_merge above (unchanged behaviour, now shared with the Windows arm)
       g_host_buttons.store(b,std::memory_order_relaxed);
       int16_t lx=0,ly=0;                       // arrows also drive the left stick, full deflection
@@ -890,15 +925,17 @@ static void rt_host_poll_thread(){
   };
   enum{ NKM=(int)(sizeof(km)/sizeof(km[0])) };
   unsigned char kc[NKM]; char names[320]; int off=0;
+  const unsigned char kcEsc=xKs2Kc(dpy,0xFF1B);   // XK_Escape: title-screen quit (rt_title_quit_check)
   for(int i=0;i<NKM;i++){ kc[i]=xKs2Kc(dpy,km[i].ks);
     off+=std::snprintf(names+off,sizeof(names)-off,"%s%s",i?", ":"",km[i].name); }
-  std::fprintf(stderr,"[padhost] ACTIVE on DISPLAY=%s -- %s (Esc ignored)\n",
+  std::fprintf(stderr,"[padhost] ACTIVE on DISPLAY=%s -- %s, Esc = quit on the title screen\n",
     getenv("DISPLAY")?getenv("DISPLAY"):"(default)",names);
   char keys[32];
   for(;;){
     xQuery(dpy,keys);
     uint16_t b=0;
     for(int i=0;i<NKM;i++){ unsigned char k=kc[i]; if(k && (keys[k>>3]&(1u<<(k&7)))) b|=km[i].btn; }
+    g_host_esc.store(kcEsc && (keys[kcEsc>>3]&(1u<<(kcEsc&7))), std::memory_order_relaxed);
     g_host_buttons.store(b,std::memory_order_relaxed);
     int16_t lx=0,ly=0;                       // arrows also drive the left stick, full deflection
     if(b&0x0004) lx=-32767; else if(b&0x0008) lx=32767;
@@ -1087,6 +1124,7 @@ static uint16_t rt_xinput_buttons(int idx){
 // sample the timeline; on edge, push keystroke + bump packet. Call under g_syn_m.
 static uint16_t syn_sample(){
   uint16_t b=(uint16_t)(syn_buttons_now()|rt_host_buttons()|rt_fifo_buttons()|rt_xinput_buttons(0));
+  rt_title_quit_check(b);   // B / Esc on the title screen = clean exit (2026-11-02); no-op elsewhere
   { static const bool nogate = getenv("RT_STARTWIRE_NOGATE")!=nullptr;   // G-START: honour the shell's game-input gate
     static const bool rawlevel = getenv("RT_STARTWIRE_RAWLEVEL")!=nullptr; // DC-2: old host-level timing (A/B lever)
     const bool focus = nogate || g_rt_gamefocus.load(std::memory_order_relaxed)!=0;

@@ -5,6 +5,18 @@
 #   build/futari_combined.exe      the module-agnostic host (shell + kernel + renderer + bridge)
 #   build/futari_game_normal.dll   reco_normal   (ARCADE,    modeIdx 0)  <- out_reco/
 #   build/futari_game_abn.dll      reco_abnormal (XBOX 360,  modeIdx 1)  <- out_reco_abn/
+#   build/futari_game_kiniro.dll   kiniro_normal   (Black Label ARCADE,  modeIdx 4) <- out_kiniro/      } built whenever their
+#   build/futari_game_kiniro_abn.dll kiniro_abnormal (Black Label XBOX 360, modeIdx 5) <- out_kiniro_abn/ } trees + maps exist
+#
+#   2026-11-02 WINDOWS ARMS FOR MODULES 4/5 (the Mac's build_mac_dll.sh shape, 2026-10-31 build-shape ruling): the default MODULES
+#   is the Ver 1.5 pair PLUS kiniro / kiniro_abn when out_kiniro*/ppc_recomp.0.cpp and the checked-in symbol maps are present (the
+#   generated trees are Mac-regenerated and gitignored -- copy them from the Mac seat; see scripts/regen_kiniro_mac.sh). Naming a
+#   kiniro module also compiles the HOST with -DFUTARI_HOST_KINIRO=1 / -DFUTARI_HOST_KINIRO_ABN=1 (the third / fourth g_slots[] row),
+#   so a 4-module host prints "[modreg] 4/4"; the shell's own DLC gate keeps the Black Label row grey without the player's DLC data.
+#   The kiniro arms link NO decomp/game TU except nvk_game_hooks (w186 LAW 1) + out_kiniro*/kiniro_hook_stubs.cpp, force-include their
+#   symbol map, and use the CHECKED-IN moduleshim/module_shim_kiniro_*.cpp (the ABI generator measures the reco pair's objects; a kiniro
+#   shim that lacks a symbol fails loudly at link, the same tripwire one step later -- as on the Mac).
+#     MODULES="normal abn"            forces the 2-module shape      HOST_ONLY=1 / MODULES_ONLY=1   one half (host-only ~5 min)
 #
 # L4+L5 of _tmpscripts/dll_packaging_plan.md.  Notes: _tmpscripts/l4l5_combined_notes.md.
 #
@@ -65,6 +77,15 @@ XS="-D_xstart=_xstart_shell -D__imp___xstart=__imp___xstart_shell"
 # split). Exported so gen_symbol_map.py/gen_stubs.py see the same override. Defined BEFORE
 # step 0 — gen_symbol_map.py scans the shared decomp TUs.
 export DECOMP_DIR="${DECOMP_DIR:-../futari_decomp/decomp}"
+# Default MODULES (2026-11-02, mirrors build_mac_dll.sh): the Ver 1.5 pair, plus the Black Label modules whenever their trees + maps exist.
+if [ -z "${MODULES:-}" ]; then
+  MODULES="normal abn"
+  [ -f out_kiniro/ppc_recomp.0.cpp ] && [ -f out_kiniro/kiniro_symbol_map.h ] && MODULES="$MODULES kiniro"
+  [ -f out_kiniro_abn/ppc_recomp.0.cpp ] && [ -f out_kiniro_abn/kiniro_abn_symbol_map.h ] && MODULES="$MODULES kiniro_abn"
+fi
+HAS_KINIRO=0; HAS_KINIRO_ABN=0; for m in $MODULES; do [ "$m" = kiniro ] && HAS_KINIRO=1; [ "$m" = kiniro_abn ] && HAS_KINIRO_ABN=1; done
+KIN_HOST=""; [ "$HAS_KINIRO" = 1 ] && KIN_HOST="-DFUTARI_HOST_KINIRO=1"; [ "$HAS_KINIRO_ABN" = 1 ] && KIN_HOST="$KIN_HOST -DFUTARI_HOST_KINIRO_ABN=1"
+echo "MODULES: $MODULES  (host slots: 2$([ "$HAS_KINIRO" = 1 ] && echo +kiniro)$([ "$HAS_KINIRO_ABN" = 1 ] && echo +kiniro_abn))"
 
 fail=0
 banner(){ echo; echo "=============== $* ==============="; }
@@ -91,6 +112,7 @@ python out_reco_abn/tools_abn/gen_symbol_map.py || exit 1
 # --------------------------------------------------------------------------------------------
 # 1. HOST EXE
 # --------------------------------------------------------------------------------------------
+if [ "${MODULES_ONLY:-0}" != "1" ]; then
 banner "1. HOST EXE (build/futari_combined.exe)"
 OBJ=build/obj_dll_host
 mkdir -p "$OBJ"; rm -f "$OBJ"/*.o "$OBJ"/*.err build/futari_combined.exe
@@ -125,7 +147,7 @@ cc "game_harness" "out_reco/harness.cpp" $GI $RT
 cc "game_rt_phys" "out_reco/rt_phys.cpp" $GI $RT
 
 echo "-- module registry (load / bind / activate / swap)"
-cc "host_module_registry" "host/module_registry.cpp" $GI $RT
+cc "host_module_registry" "host/module_registry.cpp" $GI $RT $KIN_HOST   # Black Label slots only when their modules are built
 
 echo "-- merged host halves (bridge + shell; merged_game.cpp is DLL-side)"
 cc "merged_bridge" "out_reco/merged/merged_bridge.cpp" $GI $RT
@@ -165,6 +187,7 @@ echo "-- link"
   -Xlinker /FORCE:MULTIPLE -Xlinker /errorlimit:0 \
   2>"$OBJ"/link.err && echo "LINK_OK -> build/futari_combined.exe" || {
     echo "LINK_FAILED"; grep 'undefined symbol' "$OBJ"/link.err | sort -u | head -30; tail -20 "$OBJ"/link.err; exit 1; }
+fi   # MODULES_ONLY
 
 # --------------------------------------------------------------------------------------------
 # 2. MODULE DLLs
@@ -213,6 +236,8 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
   GI="-I $TREE -I $DERISK/XenonUtils -I $DERISK/thirdparty/simde"
   RT="-include $TREE/rt_indirect.h"
   MAP=""; [ "$MIDX" = "1" ] && MAP="-include $TREE/abn_symbol_map.h"
+  [ "$MIDX" = "4" ] && MAP="-include $TREE/kiniro_symbol_map.h"
+  [ "$MIDX" = "5" ] && MAP="-include $TREE/kiniro_abn_symbol_map.h"   # kiniro_normal's map composed with the +8 law (gen_symbol_map_abn.py)
   i=0
   echo "-- generated tree"
   for f in $TREE/ppc_recomp.*.cpp; do n=$(basename "$f" .cpp); cc "gen_$n" "$f" $GI $RT; done
@@ -438,10 +463,18 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
       # only) -- the same reasoning as the famk1/famk9/famk11/famk12/famk30 census cases.
       case "$n" in game_entry_msgs|asset_decode|asset_pump|archive|mem_util|asset_upload|page_bake|objaction|objaction_queue|objaction_queue2|bossvein_object|fam4_object|fam1_arms|fam3_arms|fam9_arms|fam10_arms|fam11_tick|paperdoll2_draw|class233_236_draw|actor3pose_draw|objnode_park|objnode_parkcensus|famk1|famk9|pagescene|famk2|famk11|famk12|famk30|famk5|famk28|bossscript_w165|classes_w165|cutscene_w165|encounter_w165|famk21_w165|famk4_7_w165|famk8_10_w165|frontend_w162|objects_w162|pagetrans_w162|pump_w162|results_w162|scene_w165|select_w165|ship_w162|tracking_w165) continue;; esac
     fi
+    # NON-RECO MODULES (kiniro_normal 4 / kiniro_abnormal 5): every decomp/game TU is reco_normal content (bodies, .data literals,
+    # MATCHED rows), so a different game build links NONE of them -- except the renderer bridge nvk_game_hooks, which every module
+    # needs (w186 LAW 1). Same rule as build_mac_dll.sh.
+    if { [ "$MIDX" = "4" ] || [ "$MIDX" = "5" ]; } && [ "$n" != nvk_game_hooks ]; then continue; fi
     cc "decomp_$n" "$f" $GI -I . $RT $MAP
   done
   if [ "$MIDX" = "1" ]; then
     for f in "$DECOMP_DIR"/game_abn/*.cpp; do n=$(basename "$f" .cpp); decomp_skipped "$n" && { echo "   [DECOMP_SKIP] game_abn/$n"; continue; }; cc "decomp_$n" "$f" $GI -I . $RT; done
+  fi
+  if [ "$MIDX" = "4" ] || [ "$MIDX" = "5" ]; then
+    echo "-- dropped-hook stubs (GENERATED with the kiniro symbol map: loud weak sub_X_KDROP definitions)"
+    cc "modstub_kiniro_hook_stubs" "$TREE/kiniro_hook_stubs.cpp" $GI $RT
   fi
   echo "-- host-facing shim (moduleshim/, NEVER a glob-swept dir)"
   cc "module_shim" "moduleshim/module_shim_$NAME.cpp" $GI $RT
@@ -453,7 +486,7 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
   # decomp_*.o FIRST — the strong-hook seam (decomp/README.md, PILOT_NOTES.md:25-47) is
   # link-unit-internal, and all three participants now live in THIS link unit.
   "$CXX" --target=x86_64-pc-windows-msvc -fuse-ld=lld -O2 -std=c++20 -shared \
-    $(ls "$OBJ"/decomp_*.o 2>/dev/null) "$OBJ"/merged_game.o "$OBJ"/module_shim.o "$OBJ"/gen_*.o \
+    $(ls "$OBJ"/decomp_*.o 2>/dev/null) "$OBJ"/merged_game.o $(ls "$OBJ"/modstub_*.o 2>/dev/null) "$OBJ"/module_shim.o "$OBJ"/gen_*.o \
     -o "$OUT" -Xlinker /FORCE:MULTIPLE -Xlinker /errorlimit:0 \
     2>"$OBJ"/link.err && echo "LINK_OK -> $OUT" || {
       echo "LINK_FAILED -> $OUT"
@@ -464,9 +497,25 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
       tail -20 "$OBJ"/link.err; fail=1; }
 }
 
-build_dll reco_normal   out_reco     0 build/futari_game_normal.dll
-build_dll reco_abnormal out_reco_abn 1 build/futari_game_abn.dll
+if [ "${HOST_ONLY:-0}" != "1" ]; then
+  for m in $MODULES; do case "$m" in
+    normal) build_dll reco_normal   out_reco     0 build/futari_game_normal.dll;;
+    abn)    build_dll reco_abnormal out_reco_abn 1 build/futari_game_abn.dll;;
+    kiniro) [ -f out_kiniro/ppc_recomp.0.cpp ] || { echo "MISSING: out_kiniro generated tree (Mac-regenerated: scripts/regen_kiniro_mac.sh, then copy)"; fail=1; continue; }
+            [ -f out_kiniro/kiniro_symbol_map.h ] || { echo "MISSING: out_kiniro/kiniro_symbol_map.h"; fail=1; continue; }
+            build_dll kiniro_normal out_kiniro 4 build/futari_game_kiniro.dll;;
+    kiniro_abn) [ -f out_kiniro_abn/ppc_recomp.0.cpp ] || { echo "MISSING: out_kiniro_abn generated tree"; fail=1; continue; }
+            [ -f out_kiniro_abn/kiniro_abn_symbol_map.h ] || { echo "MISSING: out_kiniro_abn/kiniro_abn_symbol_map.h (python out_kiniro/tools_kiniro/gen_symbol_map_abn.py)"; fail=1; continue; }
+            build_dll kiniro_abnormal out_kiniro_abn 5 build/futari_game_kiniro_abn.dll;;
+    *)      echo "UNKNOWN MODULE '$m' (normal|abn|kiniro|kiniro_abn)"; fail=1;;
+  esac; done
+fi
 
 banner "SUMMARY"
-ls -la build/futari_combined.exe build/futari_game_normal.dll build/futari_game_abn.dll 2>/dev/null
-[ $fail -eq 0 ] && echo "BUILD_OK — combined exe + 2 module DLLs" || { echo "BUILD_INCOMPLETE"; exit 1; }
+ls -la build/futari_combined.exe build/futari_game_*.dll 2>/dev/null
+NMOD=$(echo $MODULES | wc -w | tr -d ' ')
+if [ "${HOST_ONLY:-0}" = "1" ]; then
+  [ $fail -eq 0 ] && echo "BUILD_OK — combined exe only (HOST_ONLY=1; host slots for $NMOD modules: $MODULES; DLLs in build/ untouched)" || { echo "BUILD_INCOMPLETE"; exit 1; }
+else
+  [ $fail -eq 0 ] && echo "BUILD_OK — combined exe + $NMOD module DLLs ($MODULES)" || { echo "BUILD_INCOMPLETE"; exit 1; }
+fi

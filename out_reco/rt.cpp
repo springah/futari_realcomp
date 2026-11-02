@@ -187,38 +187,85 @@ PPC_FUNC_IMPL(__imp__KeTlsSetValue){ LOGN("KeTlsSetValue"); uint32_t i=ctx.r3.u3
 // the no-op stubs used to mask. Under RT_NOLOCKS, TryEnter reports "acquired" (uncontended, no
 // real lock) rather than the old audit-flagged always-fail 0.
 static bool rt_nolocks(){ static bool off=getenv("RT_NOLOCKS")!=nullptr; return off; }
+// Keyed guest locks (critical sections + spinlocks) -> one host recursive mutex each. RT_WAITPROF=1 (2026-11-02, WIN-AUDIO-1
+// diagnosis) adds holder tracking: who holds a lock (host tid + the Enter lr), for how long, and who had to wait >= 5 ms for it
+// -- the priority-inversion / long-hold detector. Off (default) the lock path is the plain lock()/unlock().
+struct RtLock { std::recursive_mutex m; std::atomic<long> holder_tid{0}; std::atomic<uint32_t> holder_lr{0}; std::atomic<int64_t> t_acq{0}; std::atomic<int64_t> cpu_acq{0}; std::atomic<int> depth{0}; };
+// The holder's own CPU time (user+kernel, us): a long hold with cpu ~= wall is CPU-bound guest code; cpu << wall means the holder
+// was blocked or preempted while holding the lock.
+static int64_t rt_thread_cpu_us(){
+#ifdef _WIN32
+  FILETIME c,e,k,u; if(!GetThreadTimes(GetCurrentThread(),&c,&e,&k,&u)) return 0;
+  uint64_t kk=((uint64_t)k.dwHighDateTime<<32)|k.dwLowDateTime, uu=((uint64_t)u.dwHighDateTime<<32)|u.dwLowDateTime;
+  return (int64_t)((kk+uu)/10);
+#else
+  return 0;
+#endif
+}
 static std::mutex g_locktab_m;
-static std::unordered_map<uint32_t,std::recursive_mutex*> g_locktab;
-static std::recursive_mutex* rt_lock_for(uint32_t key){
+static std::unordered_map<uint32_t,RtLock*> g_locktab;
+static RtLock* rt_lock_for(uint32_t key){
   std::lock_guard<std::mutex> l(g_locktab_m);
   auto it=g_locktab.find(key); if(it!=g_locktab.end()) return it->second;
-  std::recursive_mutex* m=new std::recursive_mutex(); g_locktab[key]=m; return m;
+  RtLock* m=new RtLock(); g_locktab[key]=m; return m;
+}
+static bool rt_waitprof_l(){ static bool on=getenv("RT_WAITPROF")!=nullptr; return on; }
+static int64_t rt_lock_now_us(){ return (int64_t)std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
+static void rt_lock_mark_acquired(RtLock* L, uint32_t lr){
+  if(L->depth.fetch_add(1)==0){ L->holder_tid.store(xr_gettid()); L->holder_lr.store(lr); L->t_acq.store(rt_lock_now_us()); L->cpu_acq.store(rt_thread_cpu_us()); }
+}
+static void rt_lock_enter(RtLock* L, uint32_t key, uint32_t lr, const char* kind){
+  if(!rt_waitprof_l()){ L->m.lock(); return; }
+  int64_t t0=rt_lock_now_us(); long htid=L->holder_tid.load(); uint32_t hlr=L->holder_lr.load(); int64_t hacq=L->t_acq.load();
+  bool fast=L->m.try_lock(); if(!fast) L->m.lock();
+  int64_t t1=rt_lock_now_us();
+  if(!fast && t1-t0>=5000){ static std::atomic<long> n{0}; long i=n.fetch_add(1)+1;
+    if(i<=20000) std::fprintf(stderr,"[lockprof] %s 0x%X blocked %ld ms lr=0x%X tid=%ld | holder tid=%ld enter-lr=0x%X had held %ld ms\n",
+                            kind,key,(long)((t1-t0)/1000),lr,xr_gettid(),htid,hlr,hacq?(long)((t0-hacq)/1000):-1L); }
+  rt_lock_mark_acquired(L,lr);
+}
+static bool rt_lock_try(RtLock* L, uint32_t lr){
+  if(!L->m.try_lock()) return false;
+  if(rt_waitprof_l()) rt_lock_mark_acquired(L,lr);
+  return true;
+}
+static void rt_lock_leave(RtLock* L, uint32_t key, uint32_t lr, const char* kind){
+  if(!rt_waitprof_l()){ L->m.unlock(); return; }
+  if(L->depth.fetch_sub(1)==1){
+    int64_t held=rt_lock_now_us()-L->t_acq.load();
+    if(held>=5000){ static std::atomic<long> n{0}; long i=n.fetch_add(1)+1;
+      int64_t cpu=rt_thread_cpu_us()-L->cpu_acq.load();
+      if(i<=20000) std::fprintf(stderr,"[holdprof] %s 0x%X held %ld ms (cpu %ld ms) by tid=%ld enter-lr=0x%X leave-lr=0x%X\n",
+                              kind,key,(long)(held/1000),(long)(cpu/1000),xr_gettid(),L->holder_lr.load(),lr); }
+    L->holder_tid.store(0);
+  }
+  L->m.unlock();
 }
 // Init: the lock is created lazily on first acquire, so init stays a no-op (return SUCCESS).
 PPC_FUNC_IMPL(__imp__RtlInitializeCriticalSection){ LOGN("RtlInitializeCriticalSection"); ctx.r3.u32=0; (void)base; }
 PPC_FUNC_IMPL(__imp__RtlInitializeCriticalSectionAndSpinCount){ LOGN("RtlInitializeCriticalSectionAndSpinCount"); ctx.r3.u32=0; (void)base; }
 PPC_FUNC_IMPL(__imp__RtlEnterCriticalSection){ LOGN("RtlEnterCriticalSection");
-  if(!rt_nolocks() && ctx.r3.u32) rt_lock_for(ctx.r3.u32)->lock(); (void)base; }
+  if(!rt_nolocks() && ctx.r3.u32) rt_lock_enter(rt_lock_for(ctx.r3.u32),ctx.r3.u32,(uint32_t)ctx.lr,"cs"); (void)base; }
 PPC_FUNC_IMPL(__imp__RtlLeaveCriticalSection){ LOGN("RtlLeaveCriticalSection");
-  if(!rt_nolocks() && ctx.r3.u32) rt_lock_for(ctx.r3.u32)->unlock(); (void)base; }
+  if(!rt_nolocks() && ctx.r3.u32) rt_lock_leave(rt_lock_for(ctx.r3.u32),ctx.r3.u32,(uint32_t)ctx.lr,"cs"); (void)base; }
 // RtlTryEnterCriticalSection(r3=&cs) -> 1 acquired / 0 contended.
 PPC_FUNC_IMPL(__imp__RtlTryEnterCriticalSection){ LOGN("RtlTryEnterCriticalSection");
   uint32_t r=1;
-  if(!rt_nolocks() && ctx.r3.u32) r = rt_lock_for(ctx.r3.u32)->try_lock() ? 1u : 0u;
+  if(!rt_nolocks() && ctx.r3.u32) r = rt_lock_try(rt_lock_for(ctx.r3.u32),(uint32_t)ctx.lr) ? 1u : 0u;
   ctx.r3.u32=r; (void)base; }
 // Guest spinlocks -> the SAME keyed recursive-mutex table. IRQL is unmodeled: KfAcquireSpinLock
 // returns previous-IRQL 0 (as the old stub did); Kf release takes old-IRQL in r4 (ignored).
 PPC_FUNC_IMPL(__imp__KfAcquireSpinLock){ LOGN("KfAcquireSpinLock");
   uint32_t lk=ctx.r3.u32;
-  if(!rt_nolocks() && lk) rt_lock_for(lk)->lock();
+  if(!rt_nolocks() && lk) rt_lock_enter(rt_lock_for(lk),lk,(uint32_t)ctx.lr,"spin");
   ctx.r3.u32=0; /* previous IRQL */ (void)base; }
 PPC_FUNC_IMPL(__imp__KfReleaseSpinLock){ LOGN("KfReleaseSpinLock");
-  if(!rt_nolocks() && ctx.r3.u32) rt_lock_for(ctx.r3.u32)->unlock();
+  if(!rt_nolocks() && ctx.r3.u32) rt_lock_leave(rt_lock_for(ctx.r3.u32),ctx.r3.u32,(uint32_t)ctx.lr,"spin");
   ctx.r3.u32=0; (void)base; }
 PPC_FUNC_IMPL(__imp__KeAcquireSpinLockAtRaisedIrql){ LOGN("KeAcquireSpinLockAtRaisedIrql");
-  if(!rt_nolocks() && ctx.r3.u32) rt_lock_for(ctx.r3.u32)->lock(); (void)base; }
+  if(!rt_nolocks() && ctx.r3.u32) rt_lock_enter(rt_lock_for(ctx.r3.u32),ctx.r3.u32,(uint32_t)ctx.lr,"spinr"); (void)base; }
 PPC_FUNC_IMPL(__imp__KeReleaseSpinLockFromRaisedIrql){ LOGN("KeReleaseSpinLockFromRaisedIrql");
-  if(!rt_nolocks() && ctx.r3.u32) rt_lock_for(ctx.r3.u32)->unlock(); (void)base; }
+  if(!rt_nolocks() && ctx.r3.u32) rt_lock_leave(rt_lock_for(ctx.r3.u32),ctx.r3.u32,(uint32_t)ctx.lr,"spinr"); (void)base; }
 // --- memory protection query (stub-audit H5) ---
 // MmQueryAddressProtect(r3=address) -> page-protect flags. The old stub returned 0 (=NOACCESS) for
 // EVERY address, so a guest that gates a read/write on the queried protection would treat valid
@@ -391,18 +438,55 @@ static int rt_prio_map(int inc){
   return THREAD_PRIORITY_LOWEST;
 }
 #endif
+// ★ 2026-11-02 WIN-AUDIO-1 ROOT CAUSE (the Windows demo-loop audio ring underruns, parked 10-29): the title creates its two
+// XAudio engine threads (entry 0x820B4248) and raises each to +17 right after ExCreateThread -- through the KTHREAD pointer it
+// gets from ObReferenceObjectByHandle(handle, type, &object). That call was a return-0 stub that wrote NOTHING to the object
+// out-param, so the guest read stale stack memory (0x340900 on every leg) and KeSetBasePriorityThread below, seeing an unknown
+// token, took the "KeGetCurrentThread self-raise" branch: the CALLING thread -- the guest main thread -- went TIME_CRITICAL, twice,
+// and the two mixer threads stayed at host-normal. The inverse of hardware. In the attract loop's texture re-decode / cue storms
+// the elevated main thread then starved the normal-priority mixer, the frame_ready handshake came late, the ring drained
+// (depth 0 in every burst window) and the sink counted underruns; the Mac (more cores, cheaper storms) never showed it.
+// Fix, register-true: resolve OUR thread handles (0xE000+idx) to an object token the Ke* calls below recognise -- the handle
+// value itself (KTHREAD pointers are opaque to the guest; XAudio only passes them back to KeSetBasePriorityThread /
+// KeSetAffinityThread / ObDereferenceObject, all ours). Other handle kinds keep the old behaviour (out-param untouched) so the
+// blast radius is exactly the thread-priority route. This def shadows the stubs.cpp no-op by link order (game_rt.o <
+// game_stubs.o, first-definition-wins; the ExCreateThread / KeSetBasePriorityThread pattern). RT_OBJREF=0 reverts.
+// Arms (2026-11-02). The default (RT_OBJREF=1) is the CONSERVATIVE arm: KeSetBasePriorityThread keeps the legacy self-raise
+// EXACTLY as before (the main thread ends TIME_CRITICAL as it has since 2026-08-02) and ADDITIONALLY raises the target thread for
+// the +17 class only -- the two XAudio engine threads, the mixer, the ones WIN-AUDIO-1 starved. RT_OBJREF=2 = the register-true
+// arm (every handle routed to its thread, no self-raise: the +16 raises then also elevate the shell service thread, entry
+// 0x821CB190, and the XACT engine thread, 0x821361F8, while the main thread stays host-normal) -- UNMEASURED beyond a boot; it
+// changes the boot interleaving the shell has run under since August, so it stays opt-in until a census says otherwise.
+// RT_OBJREF=0 = the old no-op. (A 2026-11-02 "boot segfault" first blamed on arm 2 was a launcher landmine, MSYS_NO_PATHCONV=1
+// leaving RT_GAME_ROOT unconverted so sound.xgs went MISSING -- not this code.)
+static int rt_objref_mode(){ static int m=[](){ const char* e=getenv("RT_OBJREF"); int v=e?atoi(e):1; return (v>=0&&v<=2)?v:1; }(); return m; }
+PPC_FUNC_IMPL(__imp__ObReferenceObjectByHandle){ LOGN("ObReferenceObjectByHandle");
+  uint32_t h=ctx.r3.u32, outp=ctx.r5.u32;
+  ctx.r3.u32=0;
+  if(rt_objref_mode()==0 || !outp){ (void)base; return; }
+  if(h>=0xE000u && h<0xE000u+RT_THR_MAX){
+    *(uint32_t*)(base+outp)=__builtin_bswap32(h);
+    static std::atomic<long> on{0}; long i=on.fetch_add(1)+1;
+    if(i<=8) std::fprintf(stderr,"  [objref] ObReferenceObjectByHandle(0x%X) -> thread object token 0x%X (KeSetBasePriorityThread routes it to that thread; RT_OBJREF=0 reverts)\n",h,h);
+  }
+  (void)base; }
 PPC_FUNC_IMPL(__imp__KeSetBasePriorityThread){ LOGN("KeSetBasePriorityThread");
   static bool off = getenv("RT_NOPRIO")!=nullptr;
   uint32_t h=ctx.r3.u32; int inc=(int)(int32_t)ctx.r4.u32;
   ctx.r3.u64=8;
   if(off){ (void)base; return; }
 #ifdef _WIN32
+  // Routing (2026-11-02, see ObReferenceObjectByHandle above): mode 1 (default) = legacy self-raise PLUS the target thread for
+  // +17 raises (the XAudio engine threads); mode 2 = target only, every handle (register-true, opt-in, unmeasured); mode 0 /
+  // an unknown token = the legacy self-raise alone.
   HANDLE t=nullptr; const char* route="current-thread";
-  if(h>=0xE000u && h<0xE000u+RT_THR_MAX && g_thr[h-0xE000u].hth){ t=(HANDLE)g_thr[h-0xE000u].hth; route="handle"; }
+  const int mode=rt_objref_mode();
+  if(h>=0xE000u && h<0xE000u+RT_THR_MAX && g_thr[h-0xE000u].hth && (mode==2 || (mode==1 && inc>=17))){ t=(HANDLE)g_thr[h-0xE000u].hth; route=(mode==2)?"handle":"handle+self"; }
   BOOL ok=SetThreadPriority(t?t:GetCurrentThread(), rt_prio_map(inc));
+  if(t && mode==1) SetThreadPriority(GetCurrentThread(), rt_prio_map(inc));   // the legacy self-raise, unchanged
   static std::atomic<long> pn{0}; long i=pn.fetch_add(1)+1;
-  if(i<=8) std::fprintf(stderr,"  [prio] KeSetBasePriorityThread(0x%X, %+d) -> %s host=%d ok=%d (RT_NOPRIO=1 reverts)\n",
-                        h,inc,route,rt_prio_map(inc),(int)ok);
+  if(i<=8) std::fprintf(stderr,"  [prio] KeSetBasePriorityThread(0x%X, %+d) -> %s host=%d ok=%d (RT_NOPRIO=1 reverts; RT_OBJREF=%d)\n",
+                        h,inc,route,rt_prio_map(inc),(int)ok,mode);
 #endif
   (void)base; }
 // Real ExTerminateThread: actually end the calling host thread. The old return-0 stub let the

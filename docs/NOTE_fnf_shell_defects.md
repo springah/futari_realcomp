@@ -5,6 +5,40 @@ friends & family and collect their logs. This note is the running defect ledger 
 Method per doctrine: ship-path first, oracle in hand before theorizing, instruments presumed
 lying until positive-controlled, texel-diff acceptance.
 
+## 2026-11-02 — CLEAN QUIT FROM THE TITLE (landed) · WIN-AUDIO-1: the engine frame overruns its period under the engine lock (measured) · SDL prefill artefact (fixed)
+PC seat. Engine changes on main for 0.3.0-rc4; the Windows acceptance runs are `_local/rc/quit_test_win.sh` + `scripts/rc_census_win.sh` 6-min ARCADE legs.
+- **CLEAN QUIT (user todo 10-31).** Mechanism: merged_shell.cpp `g_rt_title_heartbeat` (volatile counter, ++ once per tick of the pre-accept
+  title state fn sub_821CBFF0, the same shape as g_rt_menu_heartbeat) -> stubs.cpp `rt_title_quit_check(b)` inside syn_sample on the guest
+  thread: onTitle = heartbeat advanced within 250 ms; fires on the B (0x2000) or host-Esc PRESS EDGE only; calls the renderer's
+  `rvk_request_quit(why)` (vk_render.cpp, Win32 + SDL arms; SDL arm also exports `rvk_sdl_host_esc()` from the event loop; focus loss clears
+  it). No save/replay write can be in flight at the title (those happen in the post-game save flow). Acceptance: control leg (title -> START ->
+  B: process stays, no `[quit]` line) PASS; quit leg (title -> B: `[quit] B on the title screen -> clean exit (title heartbeat 320 ...)`,
+  `[rvk][win] quit requested (B on the title screen) -- clean exit`, run_win exit=0, process gone within 1 s, 0 FATAL) PASS.
+- **WIN-AUDIO-1 class 1 (FIXED): SDL first-callback prefill.** Every Windows leg's first `[starve]` window said `depth min=9 max=10 underruns=4`:
+  the ring was never dry; SDL3's first callback asks for its whole device buffer (> the 8-10 primed frames). rt_audio.cpp now counts the
+  first callback's shortfall as prefill (`[audio] SDL first callback: device-buffer prefill took 1 silent frame(s) ...`), underruns only after
+  it completes. CoreAudio never showed it (asks per period).
+- **WIN-AUDIO-1 class 2 (MEASURED, OPEN): the engine frame overruns its period.** Instrument `RT_WAITPROF=1` (default off): `[prodprof]`
+  (worker token wait + guest callback duration), `[waitprof]` (transpose frame_ready wait at lr 0x82139740, engine 'consumed' wait at
+  0x821361C4), `[lockprof]` (any guest CS/spinlock wait >= 5 ms, with the holder's tid/enter-lr and how long it had held),
+  `[holdprof]` (any hold >= 5 ms, enter/leave lr, holder CPU time). Three 6-min ARCADE censuses on the same host build (RT_OBJREF 1 / 2 /
+  profiled): 143 / 144 / 132-174 underruns, 17 windows, at the SAME demo frames each run (f12618, f13625, f17356, f21815, f21906, f22179,
+  f22270, f22907, f27002, f27093, f28094). Profile: the XAudio engine thread holds engine section 0x36A0D4 in `sub_82137218` from lr
+  0x82137240 to 0x82137334 for 5-36 ms (4,033 x 5-9 ms, 613 x 10-19, 31 x >= 20 in 6 min; max 36) = the per-frame engine processing
+  (sub_821390B0, sub_821370C8, sub_82135AA0, per-voice indirect calls, sub_821362F8) exceeding the 5.33 ms frame. Waiters: the XACT/sound
+  thread at `sub_8211A4C8`+0xD0 (1,174 blocks of 5-42 ms) while holding the shell sound section 0x360C9C from `sub_820EC8F8`+0x20; the main
+  thread behind it at `sub_820E7708`+0x30 (470 blocks). The transpose wait (worker) then hits its 16 ms budget (24-45 TIMEOUTs per run) and
+  the ring drains. The hold count correlates with the underrun windows (6-7 holds >= 10 ms in the 30 lines before a burst window vs 0 in
+  quiet windows). PRIORITY RULED OUT: the guest's KeSetBasePriorityThread had been raising the MAIN thread (stale ObReferenceObjectByHandle
+  token); `__imp__ObReferenceObjectByHandle` now returns our 0xE000+idx handle as the object token and the +17 raises reach the two XAudio
+  engine threads (RT_OBJREF=1 default: legacy self-raise kept + target; =2 register-true, main left normal; =0 old no-op) -- no change in
+  the count either way. Next: read `(cpu N ms)` in `[holdprof]` on the next profiled census: cpu ~= wall => CPU-bound recompiled DSP
+  (VMX128 mixer emulated scalar?) -> a faster vector path for the mixer TUs; cpu << wall => the engine blocks inside the lock -> find the wait.
+- **Launcher landmine** (not engine): `MSYS_NO_PATHCONV=1` around run_win.sh => RT_GAME_ROOT unconverted => sound.xgs MISS => KeBugCheck
+  segfault at boot (reproduced on the released rc3 exe). Rule in BACKLOG 2026-11-02.
+- **Windows Black Label arms**: build_win_dll.sh modules 4/5 (auto when out_kiniro*/ exist), stage/smoke/gates follow every module DLL;
+  `_local/rc/bl_boot_win.sh` is the Windows twin of kiniro_boot_mac.sh.
+
 ## 2026-10-30 — G5-fix LANDED: RT_POOLRELEASE returns long-pooled guest pages on macOS/Linux (ARCADE RSS ramp FLAT) · 360 START-wire reads the EXCH byte at the module's dshift (PLAN_RC1 §0.5 item 2 CLOSED)
 Unattended Mac seat (user away, "go nuts"); engine commits 098809f + 08fce44 on main; nothing cut, rc2 bundle untouched.
 - **G5-fix (PLAN_RC1 Q5/Q6, BACKLOG post-RC1).** Q5 bisected the ARCADE demo-loop RSS ramp to out_reco/rt_phys.cpp: freed blocks sit in

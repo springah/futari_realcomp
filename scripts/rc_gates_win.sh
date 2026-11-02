@@ -1,7 +1,7 @@
 #!/bin/bash
 # rc_gates_win.sh <version>  -- the Windows twin of rc_cut_mac.sh step (c): run the scripted RC smoke against the STAGED Windows folder
 # (scripts/rc_stage_win.sh output) and write ../_rc/<version>-win/SMOKE.md. Steps, each PASS/FAIL, all run even after a FAIL:
-#   1 boot_smoke   scripts/rc_smoke_win.sh on the staged folder itself (build id = HEAD, 2/2 modules bound, 0 FATAL, 0 VK_ERROR)
+#   1 boot_smoke   scripts/rc_smoke_win.sh on the staged folder itself (build id = HEAD, N/N modules bound, 0 FATAL, 0 VK_ERROR)
 #   2 gstart       scripts/gstart_win.sh ARCADE (HUBSTART=1) + XBOX 360 -- no LEAK=YES row
 #   3 q1_ctest     scripts/q7v_run_win.sh ... ctest 240 1 : RVK_CENSUSTEST positive control: every injected dropout confirmed (>= 60 in 240 s)
 #   4 q1_census    scripts/rc_census_win.sh arcade + x360 : single launch, dropouts only in the named AUTHENTIC classes, 0 FATAL/VK/slow/underrun, 3600 fpm
@@ -34,7 +34,7 @@ BID=$(sed -n 's/^exe_build_id=//p' "$ST/BUILD.txt" 2>/dev/null)
 
 # ---- the engine copy (re-made every run; cmp-checked against the staged exe)
 rm -rf "$ENGDIR"; mkdir -p "$ENGDIR"
-cp "$ST/futari_combined.exe" "$ENG"; cp "$ST/futari_game_normal.dll" "$ST/futari_game_abn.dll" "$ENGDIR/"
+cp "$ST/futari_combined.exe" "$ENG"; cp "$ST"/futari_game_*.dll "$ENGDIR/"   # every module DLL the stage carries (4 with Black Label)
 cmp -s "$ENG" "$ST/futari_combined.exe" && CMP=IDENTICAL || die "engine copy differs from the staged exe"
 ENGMD5=$(md5sum "$ENG" | cut -c1-32)
 if [ $SUBSET = 1 ] && [ -f "$SMOKE" ]; then

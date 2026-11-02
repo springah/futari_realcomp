@@ -19,6 +19,11 @@ log(){ echo "[stage] $*"; }
 
 # ---- preflight: build outputs + the build id they carry
 for f in build/futari_combined.exe build/futari_game_normal.dll build/futari_game_abn.dll; do [ -f "$f" ] || die "missing $f (run build_win_dll.sh)"; done
+# module DLLs: the Ver 1.5 pair always; the Black Label pair when build_win_dll.sh produced them (2026-11-02, Windows arms for modules 4/5;
+# inert without the player's DLC data). Everything below that lists or hashes DLLs uses this set.
+MODDLLS=$(ls build/futari_game_*.dll); NMOD=$(echo $MODDLLS | wc -w | tr -d ' ')
+BL_FILES=""; [ -f build/futari_game_kiniro.dll ] && BL_FILES="$BL_FILES"$'\n'"  futari_game_kiniro.dll     Black Label ARCADE module (grey in the menu until your Black Label DLC data is found: RT_DLC_ROOT)"
+[ -f build/futari_game_kiniro_abn.dll ] && BL_FILES="$BL_FILES"$'\n'"  futari_game_kiniro_abn.dll Black Label XBOX 360 mode module (same DLC gate)"
 [ -f assets/default.xex ] || die "assets/default.xex missing (the F&F folder ships the game data)"
 [ -f shell/default.xex ]  || die "shell/default.xex missing"
 HR=$(git rev-parse HEAD); HRS=$(git rev-parse --short HEAD)
@@ -45,7 +50,7 @@ TU_SH=$(ls "$DECOMP_REPO"/decomp/shell/*.cpp | wc -l | tr -d ' '); TU_G=$(ls "$D
 
 # ---- layout
 rm -rf "$RD"; mkdir -p "$ST/docs" "$ST/shell" "$ST/logs"
-cp build/futari_combined.exe build/futari_game_normal.dll build/futari_game_abn.dll "$ST/"
+cp build/futari_combined.exe $MODDLLS "$ST/"
 # the launcher ships CRLF whatever the checkout has (git autocrlf vs tool-written LF): cmd.exe parses LF-only .bat files with known quirks
 tr -d '\r' < "dist/next_release/Futari 1.5.bat" | sed 's/$/\r/' > "$ST/Futari 1.5.bat"
 cp shell/default.xex "$ST/shell/"
@@ -93,13 +98,13 @@ BUILD (docs/PLAN_RC1.md section 6; Windows twin of the macOS $VER cut)
   futari_realcomp:    $HR   (tree at staging; engine built at $ENGINE_COMMIT; tag $TAGV @ ${TAGC:0:12})
   futari_decomp:      $HD
   Decomp TUs:         shell $TU_SH, game/ARCADE $TU_G, game_abn/360 $TU_A source TUs in the sibling tree at build time
-  Engine:             combined host exe (shell + kernel + renderer + bridge) + 2 module DLLs, Win32 window + XInput,
+  Engine:             combined host exe (shell + kernel + renderer + bridge) + $NMOD module DLLs ($(echo $MODDLLS | sed 's|build/futari_game_||g;s|\.dll||g')), Win32 window + XInput,
                       SDL3 audio sink (static), Vulkan via the system loader. Launch environment: see "Futari 1.5.bat".
 EOF
 cp "$ST/README.txt" "$RD/README.txt"
 
 # ---- hashes + build block
-( cd "$ST" && md5sum futari_combined.exe futari_game_normal.dll futari_game_abn.dll "Futari 1.5.bat" shell/default.xex ) > "$ST/MD5.txt"
+( cd "$ST" && md5sum futari_combined.exe futari_game_*.dll "Futari 1.5.bat" shell/default.xex ) > "$ST/MD5.txt"
 { echo "version=$VER platform=windows"; echo "realcomp=$HR"; echo "engine_commit=$ENGINE_COMMIT"; echo "decomp=$HD"; echo "exe_build_id=$BID"; echo "tag=$TAGV@$TAGC"; echo "staged=$(date -Iseconds)"; } > "$ST/BUILD.txt"
 cp "$ST/MD5.txt" "$RD/MD5.txt"; cp "$ST/BUILD.txt" "$RD/BUILD.txt"
 cat "$ST/MD5.txt"

@@ -1,5 +1,15 @@
 # STATUS — futari_realcomp (pointer, 2026-10-12)
 
+**2026-11-02 (PC seat): CLEAN QUIT landed · WIN-AUDIO-1 root cause measured · Black Label Windows build arms · rc4 cuts.** B / Esc on the
+TITLE screen exits cleanly (heartbeat-gated edge in the pad merge -> renderer `rvk_request_quit`; `RT_NOTITLEQUIT=1` disables; control + quit
+acceptance PASS). WIN-AUDIO-1 is no longer a mystery: `RT_WAITPROF=1` lock-holder profiling shows the XAudio engine thread's per-frame processing
+(`sub_82137218`, under engine section 0x36A0D4) overrunning its 5.33 ms period by 5-36 ms thousands of times per 6-min census at SFX-dense demo
+moments (same demo frames every run); thread priority is not the lever (register-true routing via the new ObReferenceObjectByHandle token,
+RT_OBJREF=1 default / =2 / =0, leaves the count at ~143); the first-second "4 underruns" were SDL device-buffer prefill (fixed). Open: CPU-bound
+mixer vs blocked-in-lock (`[holdprof]` now prints holder CPU time). Windows build_win_dll.sh gains the kiniro / kiniro_abn module arms (auto when
+the trees exist); stage/smoke/gates follow every `futari_game_*.dll`. Evidence: BACKLOG.md 2026-11-02, NOTE_fnf_shell_defects.md 2026-11-02.
+Cuts: `0.3.0-rc4` on both seats (see the rc4 lines below once gated).
+
 **🎉 BLACK LABEL RUNS, BOTH MODES (2026-10-31, Mac, opt-in build):** kiniro_normal (Black Label ARCADE, modeIdx 4) and kiniro_abnormal
 (Black Label XBOX 360 MODE, modeIdx 5) boot as third/fourth module dylibs and play: title -> hub -> Mode Select (Original/Maniac/God) ->
 Character Select (Reco & Kiniro) -> stage 1 -> GAME OVER -> replay prompt, 0 FATAL / 0 UNMAPPED / 0 kdrop on every drive. Needs

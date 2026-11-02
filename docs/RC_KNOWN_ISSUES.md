@@ -14,9 +14,13 @@ KNOWN ISSUES (release candidate; each is documented, not new)
     docs/AUDIT_kstub_sizes.md, PLAN_RC1 section 0.5.
   - (rc2 and earlier only; FIXED from 0.3.0-rc3) XBOX 360 MODE: the host START shortcut is wired to the ARCADE module's memory address, so it is inert there; START still works through the
     normal pad path, and no leak behind a menu was observed. PLAN_RC1 section 0.5 item 2.
-  - WINDOWS ONLY: in the attract (demo) loop the audio ring buffer logs short bursts of underruns at scene changes (texture reloads). The user
-    listened on 2026-10-29 and heard nothing; it is instrumented, not audible, and parked as a known issue. docs/NOTE_fnf_shell_defects.md,
-    entry "2026-10-29 WINDOWS rc2 twin".
+  - WINDOWS ONLY: in the attract (demo) loop the audio ring buffer logs short bursts of underruns at sound-effect-dense moments (the same
+    demo moments every run). The user listened on 2026-10-29 and heard nothing; it is instrumented, not audible. Measured 2026-11-02: the
+    game's own audio engine frame processing overruns its 5.3 ms period on the PC CPU at those moments (not a thread-priority issue; the
+    first-second count of every launch was a device-buffer prefill artefact and is fixed from 0.3.0-rc4). docs/NOTE_fnf_shell_defects.md,
+    entries "2026-10-29 WINDOWS rc2 twin" and "2026-11-02 WIN-AUDIO-1".
+  - B or Esc on the TITLE screen (PRESS START) quits the game cleanly from 0.3.0-rc4 (RT_NOTITLEQUIT=1 restores the old no-op); elsewhere B is
+    still BACK / bomb and Esc is ignored.
   - Xbox LIVE is out of scope: sign-in, leaderboards and online play are not available (SCORE ATTACK shows the sign-in dialog; decline it).
   - FrameDelay 2V/3V (OPTIONS > GAME) paces correctly on macOS; 1V is the default and recommended.
   - If the window goes black mid-play and the app quits, it was a GPU device loss: send the log.

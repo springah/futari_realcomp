@@ -834,15 +834,29 @@ static void rt_voice_census(uint8_t* B){
       }
     } }
 }
+// RT_WAITPROF=1 (2026-11-02, WIN-AUDIO-1 diagnosis): time every producer step and the two XAudio handshake waits; log the slow
+// ones (>= 12 ms, i.e. more than two device frames) with the thread, so a census log says WHICH side of the ring stalled.
+static bool rt_waitprof(){ static bool on=getenv("RT_WAITPROF")!=nullptr; return on; }
+static std::atomic<long> g_wp_transpose_tmo{0};
 static void rt_audio_worker_main(uint8_t* B){
   t_on_audio_worker=true;
   PPCContext c{}; rt_setup_thread_ctx(c,B);
   rt_audio_worker_init();
   std::fprintf(stderr,"  [audioworker] thread up: cb=0x%08X prime=%d\n",g_xaudio_cb,rt_audio_worker_prime_count());
   for(;;){
+    auto wp_t0=std::chrono::steady_clock::now();
     if(!rt_audio_worker_wait_token()) break;   // blocks until the sink consumes a frame
+    auto wp_t1=std::chrono::steady_clock::now();
     if(!g_xaudio_cb) continue;
     rt_audio_fire_cb_once(c,B);
+    if(rt_waitprof()){
+      auto wp_t2=std::chrono::steady_clock::now();
+      long tok=(long)std::chrono::duration_cast<std::chrono::milliseconds>(wp_t1-wp_t0).count();
+      long cb =(long)std::chrono::duration_cast<std::chrono::milliseconds>(wp_t2-wp_t1).count();
+      if(cb>=12 || tok>=40){ static std::atomic<long> n{0}; long i=n.fetch_add(1)+1;
+        if(i<=3000) std::fprintf(stderr,"[prodprof] #%ld token-wait %ld ms, guest callback %ld ms (transpose timeouts so far %ld)\n",
+                               i,tok,cb,g_wp_transpose_tmo.load()); }
+    }
     rt_voice_census(B);
   }
   std::fprintf(stderr,"  [audioworker] thread exiting\n");
@@ -1614,6 +1628,7 @@ PPC_FUNC_IMPL(__imp__KeWaitForMultipleObjects){ LOGN("KeWaitForMultipleObjects")
     for(uint32_t i=0;i<cnt;i++) std::fprintf(stderr," %08X",(unsigned)__builtin_bswap32(*(uint32_t*)(base+arr+i*4)));
     std::fprintf(stderr,"\n"); }
   auto deadline=std::chrono::steady_clock::now()+std::chrono::microseconds(max_us);
+  const auto wp_w0=std::chrono::steady_clock::now();
   uint64_t result=0x102;
   // RT_KWAITPOLL=1 restores the pre-08-01 300us polling loop (A/B arm for the seam metric).
   static bool kwpoll = [](){ const char* e=getenv("RT_KWAITPOLL"); return e && e[0]=='1' && !e[1]; }();
@@ -1631,6 +1646,13 @@ PPC_FUNC_IMPL(__imp__KeWaitForMultipleObjects){ LOGN("KeWaitForMultipleObjects")
     if(kwpoll){ std::this_thread::sleep_for(std::chrono::microseconds(300)); continue; }
     std::unique_lock<std::mutex> lk(g_evsig_m);
     g_evsig_cv.wait_until(lk,deadline,[&]{ return g_evsig_gen.load(std::memory_order_acquire)!=gen0; });
+  }
+  if(rt_waitprof() && (is_transpose_wait || lr==0x821361C4u)){
+    long el=(long)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()-wp_w0).count();
+    if(is_transpose_wait && result==0x102) g_wp_transpose_tmo.fetch_add(1);
+    if(el>=12){ static std::atomic<long> n{0}; long i=n.fetch_add(1)+1;
+      if(i<=3000) std::fprintf(stderr,"[waitprof] %s wait took %ld ms -> %s (budget %lld ms)\n",
+                             is_transpose_wait?"transpose(frame_ready)":"engine(consumed)",el,result==0x102?"TIMEOUT":"signalled",(long long)max_us/1000); }
   }
   // ---- RT_PAIRTRACE: transpose-wait phase histogram + periodic summary ----
   if(pt && is_transpose_wait){

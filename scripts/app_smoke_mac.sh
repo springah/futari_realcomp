@@ -49,7 +49,7 @@ quit
 # every module the bundle carries must bind: "N/N module DLL(s) bound" (2/2 for the Ver 1.5 pair, 4/4 with Black Label, 2026-10-31)
 grep -a -E "\[modreg\] ([0-9]+)/\1 module DLL\(s\) bound" "$LOG" | grep -q . && say "PASS all modules bound ($(grep -a -o -E '[0-9]+/[0-9]+ module DLL' "$LOG" | head -1))" || { say "FAIL modules not all bound ($(grep -a -o -E '[0-9]+/[0-9]+ module DLL' "$LOG" | head -1))"; FAIL=1; }
 [ "$(grep -c FATAL "$LOG")" = 0 ] && say "PASS no FATAL" || { say "FAIL FATAL in log"; FAIL=1; }
-grep -q "window closed by user\|SDL_EVENT_QUIT\|RETURNED" "$LOG" && say "PASS clean exit logged" || say "note: no exit marker in log"
+grep -q "window closed by user\|SDL_EVENT_QUIT\|RETURNED\|quit requested (\|^\[quit\] " "$LOG" && say "PASS clean exit logged" || say "note: no exit marker in log"   # 2026-11-02: the title-screen B/Esc quit logs "[quit] ..." + "quit requested (...)"
 ls "$SAVE"/435A07D7/00000001/systemdata.bin/savegame.bin >/dev/null 2>&1 && say "PASS save written under Application Support" || { say "FAIL no savegame.bin under $SAVE"; FAIL=1; }
 
 say "== launch 2: the save must be read back"

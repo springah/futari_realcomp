@@ -4573,6 +4573,16 @@ static void rvkToggleFullscreen(HWND h) {
   }
 }
 
+// rvk_request_quit (2026-11-02, CLEAN QUIT FROM THE TITLE): the one orderly exit, shared by the window's X (WM_CLOSE /
+// SDL_EVENT_QUIT below) and the title-screen B / Esc (shell/gen/stubs.cpp rt_title_quit_check). FNF-8 P1 semantics: there is
+// no host main loop to unwind and guest threads cannot be joined, so the exit IS flush + _Exit(0); the guest's own save
+// validator covers a torn write (none is in flight at the title). RVK_NOEXITONCLOSE=1 keeps the process alive for drives.
+extern "C" void rvk_request_quit(const char* why) {
+  gw.closed = true;
+  std::fprintf(stderr, "[rvk][win] quit requested (%s) -- clean exit\n", why ? why : "?");
+  static bool stay = std::getenv("RVK_NOEXITONCLOSE") && atoi(std::getenv("RVK_NOEXITONCLOSE")) != 0;
+  if (!stay) { std::fflush(nullptr); std::_Exit(0); }
+}
 LRESULT CALLBACK rvkWndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
   if (m == WM_KEYDOWN && w == VK_F11 && !(l & (1 << 30))) {   // bit30 = autorepeat
     static bool off = std::getenv("RVK_NOF11") && atoi(std::getenv("RVK_NOF11")) != 0;
@@ -4599,6 +4609,13 @@ static void rvkWindowPump() {
   while (PeekMessageA(&msg, nullptr, 0, 0, PM_REMOVE)) { TranslateMessage(&msg); DispatchMessageA(&msg); }
 }
 #else   // SDL3 window: fullscreen toggle + event pump (same semantics as the Win32 WndProc above)
+// rvk_request_quit: see the Win32 arm's definition (same semantics; the SDL quit event lands here too).
+extern "C" void rvk_request_quit(const char* why) {
+  gw.closed = true;
+  std::fprintf(stderr, "[rvk][win] quit requested (%s) -- clean exit\n", why ? why : "?");
+  static bool stay = std::getenv("RVK_NOEXITONCLOSE") && atoi(std::getenv("RVK_NOEXITONCLOSE")) != 0;
+  if (!stay) { std::fflush(nullptr); std::_Exit(0); }
+}
 static void rvkToggleFullscreenSdl() {
   static bool fs = false;
   fs = !fs;
@@ -4613,6 +4630,9 @@ static void rvkToggleFullscreenSdl() {
 // are physical keys, so the map is layout-independent. Focus loss clears it (no stuck keys).
 static std::atomic<uint16_t> g_sdlHostKeys{0};
 extern "C" uint16_t rvk_sdl_host_buttons(void) { return g_sdlHostKeys.load(std::memory_order_relaxed); }
+// Esc level for the pad host's title-screen quit (shell/gen/stubs.cpp rt_title_quit_check); cleared on focus loss like the keys.
+static std::atomic<int> g_sdlHostEsc{0};
+extern "C" int rvk_sdl_host_esc(void) { return g_sdlHostEsc.load(std::memory_order_relaxed); }
 static uint16_t rvkSdlKeyBit(SDL_Scancode sc) {
   switch (sc) {
     case SDL_SCANCODE_UP: return 0x0001;    case SDL_SCANCODE_DOWN: return 0x0002;
@@ -4634,7 +4654,9 @@ static void rvkHandleSdlEvent(const SDL_Event& ev) {
         SDL_GetScancodeName(ev.key.scancode), ev.type == SDL_EVENT_KEY_DOWN ? "down" : "up", bit, g_sdlHostKeys.load()); }
     }
   }
-  if (ev.type == SDL_EVENT_WINDOW_FOCUS_LOST) g_sdlHostKeys.store(0, std::memory_order_relaxed);
+  if ((ev.type == SDL_EVENT_KEY_DOWN || ev.type == SDL_EVENT_KEY_UP) && ev.key.scancode == SDL_SCANCODE_ESCAPE && !ev.key.repeat)
+    g_sdlHostEsc.store(ev.type == SDL_EVENT_KEY_DOWN ? 1 : 0, std::memory_order_relaxed);
+  if (ev.type == SDL_EVENT_WINDOW_FOCUS_LOST) { g_sdlHostKeys.store(0, std::memory_order_relaxed); g_sdlHostEsc.store(0, std::memory_order_relaxed); }
   if (ev.type == SDL_EVENT_KEY_DOWN && ev.key.scancode == SDL_SCANCODE_F11 && !ev.key.repeat) {
     static bool off = std::getenv("RVK_NOF11") && atoi(std::getenv("RVK_NOF11")) != 0;
     if (!off) rvkToggleFullscreenSdl();

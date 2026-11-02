@@ -217,12 +217,23 @@ PPC_FUNC(sub_8206E500){
 // free (spin in sub_8208CD20) walks forever, RSS flat, msg-5 pump starves. Freezes observed
 // at 3 different PCs across runs = classic corruption nondeterminism. One host recursive
 // mutex over every entry point (recursive: the entries nest via weak-alias dispatch).
+#include <chrono>
+#include <atomic>
 static std::recursive_mutex g_shellheap_m;
 static bool heaplock(){ static bool on=std::getenv("RT_HEAPLOCK")!=nullptr; return on; }
+// RT_WAITPROF=1 (2026-11-02, WIN-AUDIO-1 diagnosis): a shell-heap entry that waits >= 5 ms for the lock is logged (caller lr).
+static void heaplock_acquire(uint32_t lr){
+  static const bool prof=std::getenv("RT_WAITPROF")!=nullptr;
+  if(!prof || g_shellheap_m.try_lock()){ if(!prof) g_shellheap_m.lock(); return; }
+  auto t0=std::chrono::steady_clock::now(); g_shellheap_m.lock();
+  long el=(long)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()-t0).count();
+  if(el>=5){ static std::atomic<long> n{0}; long i=n.fetch_add(1)+1;
+    if(i<=160) std::fprintf(stderr,"[heaplockprof] shell heap lock blocked %ld ms lr=0x%X\n",el,lr); }
+}
 #define HEAPLOCK_WRAP(FN) \
   extern "C" void __imp__##FN(PPCContext& __restrict, uint8_t*); \
   PPC_FUNC(FN){ \
-    if(heaplock()){ std::lock_guard<std::recursive_mutex> l(g_shellheap_m); __imp__##FN(ctx,base); } \
+    if(heaplock()){ heaplock_acquire((uint32_t)ctx.lr); std::lock_guard<std::recursive_mutex> l(g_shellheap_m, std::adopt_lock); __imp__##FN(ctx,base); } \
     else __imp__##FN(ctx,base); \
   }
 HEAPLOCK_WRAP(sub_8208C450)
@@ -4266,7 +4277,15 @@ static void tprobe_tick(const char* state, uint32_t t, uint8_t* base){
 // The PRE-ACCEPT title-item state (the one the oracle's 20-on/20-off applies to). Ticked once
 // per shell frame while the title holds; hands off to sub_821CBF58 on accept.
 extern "C" void __imp__sub_821CBFF0(PPCContext& __restrict, uint8_t*);
+// g_rt_title_heartbeat (2026-11-02, CLEAN QUIT FROM THE TITLE, owner todo 10-31): pulsed once per shell tick while the
+// title's PRE-ACCEPT item state (this function) is the live state fn, i.e. exactly while the shell shows PRESS START and
+// has not yet accepted a press. The host pad merge (shell/gen/stubs.cpp rt_title_quit_check) treats "advanced within the
+// last ~250 ms" as "we are on the title screen" and quits the process on a B / Esc edge there. Same shape as
+// g_rt_menu_heartbeat above: a monotonic counter the reader diffs, no guest memory written, freezes the moment the state
+// hands off to sub_821CBF58 (accept) so B in the hub / in play never reaches the quit.
+extern "C" { volatile unsigned int g_rt_title_heartbeat = 0; }
 PPC_FUNC(sub_821CBFF0){
+  g_rt_title_heartbeat++;
   if(!tprobe_lvl()){ __imp__sub_821CBFF0(ctx,base); return; }
   uint32_t t = ctx.r3.u32;
   uint32_t sf_before = t ? PPC_LOAD_U32(t + 72) : 0;

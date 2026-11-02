@@ -21,6 +21,11 @@ log(){ echo "[stage-public] $*"; }
 
 # ---- preflight: build outputs + the build id they carry (same acceptance as rc_stage_win.sh)
 for f in build/futari_combined.exe build/futari_game_normal.dll build/futari_game_abn.dll; do [ -f "$f" ] || die "missing $f (run build_win_dll.sh)"; done
+# module DLLs: the Ver 1.5 pair always; the Black Label pair when build_win_dll.sh produced them (2026-11-02, Windows arms for modules 4/5;
+# inert without the player's DLC data). Everything below that lists or hashes DLLs uses this set.
+MODDLLS=$(ls build/futari_game_*.dll); NMOD=$(echo $MODDLLS | wc -w | tr -d ' ')
+BL_FILES=""; [ -f build/futari_game_kiniro.dll ] && BL_FILES="$BL_FILES"$'\n'"  futari_game_kiniro.dll     Black Label ARCADE module (grey in the menu until your Black Label DLC data is found: RT_DLC_ROOT)"
+[ -f build/futari_game_kiniro_abn.dll ] && BL_FILES="$BL_FILES"$'\n'"  futari_game_kiniro_abn.dll Black Label XBOX 360 mode module (same DLC gate)"
 for f in tools/extract/futari_extract.py tools/extract/extract_assets.bat tools/extract/manifest_v1.tsv docs/DUMPING.md \
          docs/RC_KNOWN_ISSUES.md docs/RC1_HANDS_CHECKLIST.md "dist/next_release/Futari 1.5.bat" save_freshcard; do
   [ -e "$f" ] || die "missing $f"; done
@@ -45,7 +50,7 @@ TU_SH=$(ls "$DECOMP_REPO"/decomp/shell/*.cpp 2>/dev/null | wc -l | tr -d ' '); T
 
 # ---- layout (STAGING.md steps 1-6; NO assets/, NO shell/)
 rm -rf "$RD"; mkdir -p "$ST/docs" "$ST/tools/extract" "$ST/logs"
-cp build/futari_combined.exe build/futari_game_normal.dll build/futari_game_abn.dll "$ST/"
+cp build/futari_combined.exe $MODDLLS "$ST/"
 tr -d '\r' < "dist/next_release/Futari 1.5.bat" | sed 's/$/\r/' > "$ST/Futari 1.5.bat"
 tr -d '\r' < tools/extract/extract_assets.bat | sed 's/$/\r/' > "$ST/tools/extract/extract_assets.bat"
 cp tools/extract/futari_extract.py tools/extract/manifest_v1.tsv "$ST/tools/extract/"
@@ -97,7 +102,7 @@ BUG REPORTS
 FILES
   futari_combined.exe        the game (both modes)
   futari_game_normal.dll     ARCADE 1.5 module
-  futari_game_abn.dll        XBOX 360 mode module
+  futari_game_abn.dll        XBOX 360 mode module$BL_FILES
   Futari 1.5.bat             launcher (+ first-run extraction wizard)
   tools\\extract\\             the asset extractor + reference manifest
   docs\\                      DUMPING.md, RC_KNOWN_ISSUES.md, RC1_HANDS_CHECKLIST.md
@@ -110,13 +115,13 @@ BUILD (docs/PLAN_RC1.md section 6; public form of the Windows $VER cut, dist/nex
   futari_realcomp:    $HR   (tree at staging; engine built at $ENGINE_COMMIT; tag $TAGV @ ${TAGC:0:12})
   futari_decomp:      $HD
   Decomp TUs:         shell $TU_SH, game/ARCADE $TU_G, game_abn/360 $TU_A source TUs in the sibling tree at build time
-  Engine:             combined host exe (shell + kernel + renderer + bridge) + 2 module DLLs, Win32 window + XInput,
+  Engine:             combined host exe (shell + kernel + renderer + bridge) + $NMOD module DLLs ($(echo $MODDLLS | sed 's|build/futari_game_||g;s|\.dll||g')), Win32 window + XInput,
                       SDL3 audio sink (static), Vulkan via the system loader. Launch environment: see "Futari 1.5.bat".
 EOR
 sed -i 's/$/\r/' "$ST/README.txt"; cp "$ST/README.txt" "$RD/README.txt"
 
 # ---- hashes + build block
-( cd "$ST" && md5sum futari_combined.exe futari_game_normal.dll futari_game_abn.dll "Futari 1.5.bat" tools/extract/futari_extract.py tools/extract/manifest_v1.tsv ) > "$ST/MD5.txt"
+( cd "$ST" && md5sum futari_combined.exe futari_game_*.dll "Futari 1.5.bat" tools/extract/futari_extract.py tools/extract/manifest_v1.tsv ) > "$ST/MD5.txt"
 { echo "version=$VER platform=windows form=public-asset-free"; echo "realcomp=$HR"; echo "engine_commit=$ENGINE_COMMIT"; echo "decomp=$HD"; echo "exe_build_id=$BID"; echo "tag=$TAGV@$TAGC"; echo "staged=$(date -Iseconds)"; } > "$ST/BUILD.txt"
 cp "$ST/MD5.txt" "$RD/MD5.txt"; cp "$ST/BUILD.txt" "$RD/BUILD.txt"
 cat "$ST/MD5.txt"
@@ -124,7 +129,7 @@ cat "$ST/MD5.txt"
 # ---- GAME-DATA SCAN: refuse to zip if anything disc-shaped is in the tree
 BAD=$(cd "$RD" && find . -path "*/save_freshcard" -prune -o \( -iname '*.xex' -o -iname 'media' -o -iname 'assets' -o -iname 'shell' -o -iname '*.bin' -o -iname '*.xma' -o -iname '*.xwb' -o -iname '*.xsb' \) -print)  # save_freshcard = runtime-generated template (STAGING.md step 5), not disc content
 [ -z "$BAD" ] || { echo "$BAD"; die "game-data-shaped paths in the public tree"; }
-BIG=$(cd "$RD" && find . -type f -size +60M ! -name futari_combined.exe ! -name futari_game_normal.dll ! -name futari_game_abn.dll -print)
+BIG=$(cd "$RD" && find . -type f -size +60M ! -name futari_combined.exe ! -name 'futari_game_*.dll' -print)
 [ -z "$BIG" ] || { echo "$BIG"; die "unexpected large files in the public tree"; }
 log "game-data scan: clean ($(find "$ST" -type f | wc -l | tr -d ' ') files, $(du -sh "$ST" | cut -f1))"
 

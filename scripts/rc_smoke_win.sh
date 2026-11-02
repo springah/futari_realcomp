@@ -3,7 +3,7 @@
 # of scripts/app_smoke_mac.sh step 1: launch the folder's own exe with the folder's own launcher environment (the env block of
 # "Futari 1.5.bat", re-exported here), from a COPY of the folder's fresh-save template, no synthetic input beyond RT_NAV_SEQ START
 # presses to leave the title; run <secs> (default 60); kill; read the log:
-#   PASS/FAIL  both module DLLs bound ("2/2 module DLL(s) bound")      PASS/FAIL  0 FATAL     PASS/FAIL  0 VK_ERROR
+#   PASS/FAIL  every module DLL bound ("N/N module DLL(s) bound": 2/2 for the Ver 1.5 pair, 4/4 with Black Label)   PASS/FAIL  0 FATAL   PASS/FAIL  0 VK_ERROR
 #   PASS/FAIL  build id names a commit (not -dirty / unknown)           note       slowframe count, present count
 # Nothing is written inside the staged folder: save + log go to _local/rc/smoke_win_<ts>/.  Kills ONLY the pid it started.
 set -u
@@ -27,7 +27,7 @@ export RVK_RESALIAS=1 RVK_RESFRESH=1 RVK_FIXB2=1 RVK_RESREAL=1 RVK_HDR=0 RVK_WIN
 export RT_NAVREAL=1 RT_STARTWIRE=1 RT_PAD_HOST=1 RT_SNDQFREE=1 RT_RESCACHE=1 RT_HEAPLOCK=1
 export RT_PAD=1 RT_NAV_SEQ="8000:STARTx20@500" RT_NOXINPUT=1
 
-say "exe $(md5sum "$ST/futari_combined.exe" | cut -c1-12)  normal $(md5sum "$ST/futari_game_normal.dll" | cut -c1-12)  abn $(md5sum "$ST/futari_game_abn.dll" | cut -c1-12)"
+say "exe $(md5sum "$ST/futari_combined.exe" | cut -c1-12)  $(cd "$ST" && for d in futari_game_*.dll; do printf '%s %s  ' "${d#futari_game_}" "$(md5sum "$d" | cut -c1-12)"; done)"
 ( cd "$ST" && ./futari_combined.exe 8208A2B8 0 "shell\\default.xex" 2>"$LOG" >"$W/stdout.txt" ) &
 PID=$!
 say "pid $PID running ${SECS}s ..."; sleep "$SECS"
@@ -38,7 +38,7 @@ kill $PID 2>/dev/null; wait $PID 2>/dev/null
 FAIL=0
 BID=$(grep -o -m1 "build=[^ ]*" "$LOG" | head -1)
 case "$BID" in build=unknown|build=*-dirty|"") say "FAIL build id: ${BID:-missing}"; FAIL=1;; *) say "PASS $BID";; esac
-grep -q "2/2 module DLL(s) bound" "$LOG" && say "PASS both modules bound" || { say "FAIL modules not both bound: $(grep -m3 '\[modreg\]' "$LOG" | tr '\n' '|')"; FAIL=1; }
+grep -q -E "\[modreg\] ([0-9]+)/\1 module DLL\(s\) bound" "$LOG" && say "PASS all modules bound ($(grep -o -E '[0-9]+/[0-9]+ module DLL' "$LOG" | head -1))" || { say "FAIL modules not all bound: $(grep -m3 '\[modreg\]' "$LOG" | tr '\n' '|')"; FAIL=1; }
 NF=$(grep -c FATAL "$LOG"); [ "$NF" = 0 ] && say "PASS no FATAL" || { say "FAIL FATAL x$NF: $(grep -m2 FATAL "$LOG" | tr '\n' '|')"; FAIL=1; }
 NV=$(grep -c "VK_ERROR" "$LOG"); [ "$NV" = 0 ] && say "PASS no VK_ERROR" || { say "FAIL VK_ERROR x$NV"; FAIL=1; }
 say "note: slowframe x$(grep -c '\[slowframe\]' "$LOG"), navreal lines x$(grep -c '\[navreal\]' "$LOG"), log $(wc -l < "$LOG") lines -> $LOG"

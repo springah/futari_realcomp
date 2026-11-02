@@ -338,16 +338,25 @@ static bool rt_sink_wasapi(){
   return on;
 }
 
+// Device-buffer PREFILL (2026-11-02, WIN-AUDIO-1 second class): SDL3's FIRST callback asks for its whole device buffer at once
+// (~2048+ samples = 8+ frames on the Windows default device), more than the 8-10 frames the worker primed, so the shortfall
+// used to be counted as 4 underruns in the first second of every Windows leg (depth min=9, i.e. the ring was never starved:
+// `[starve] 1s window: ring depth min=9 max=10 underruns=4`). Nothing was playing yet -- the device buffer was being filled,
+// not drained -- so those silence frames are prefill, not starvation. Counted separately and reported once; only shortfalls
+// AFTER the first callback completes are underruns. The Mac never hit it (CoreAudio asks per period, below the prime).
+static std::atomic<bool> g_sdl_prefill_done{false};
+static std::atomic<long> g_sdl_prefill_frames{0};
 static void SDLCALL rt_audio_sdl_cb(void*, SDL_AudioStream* stream, int additional_amount, int){
   // Mirror of SDLAudioDriver::SDLCallback: serve whole 256-sample frames; explicit silence when
   // the ring is dry (the device timeline stays continuous and the underrun is COUNTED, not
   // implied). Tokens/depth notes fire only on real frames, exactly like the SDK's semaphore.
   const int len = (int)(kStereoFloats*sizeof(float));
+  const bool first = !g_sdl_prefill_done.load(std::memory_order_relaxed);
   while(additional_amount > 0){
     uint32_t rd = g_ring_rd.load(std::memory_order_acquire);
     if(rd == g_ring_wr.load(std::memory_order_acquire)){
       static const float silence[kStereoFloats] = {};
-      rt_starve_note_underrun();
+      if(first) g_sdl_prefill_frames.fetch_add(1); else rt_starve_note_underrun();
       if(!SDL_PutAudioStreamData(stream, silence, len)) break;
       additional_amount -= len;
       continue;
@@ -363,6 +372,9 @@ static void SDLCALL rt_audio_sdl_cb(void*, SDL_AudioStream* stream, int addition
       std::fprintf(stderr,"[audio] SDL rendered frame #%ld (ring depth %u)\n",
                    r, g_ring_wr.load()-g_ring_rd.load());
   }
+  if(first){ g_sdl_prefill_done.store(true, std::memory_order_relaxed);
+    std::fprintf(stderr,"[audio] SDL first callback: device-buffer prefill took %ld silent frame(s) beyond the primed ring (not counted as underruns)\n",
+                 g_sdl_prefill_frames.load()); }
 }
 
 static void rt_audio_sdl_start(){

@@ -1,5 +1,46 @@
 # BACKLOG.md — ranked open work (re-rank of 2026-07-27, the long-queued t3)
 
+## 2026-11-02 — CLEAN QUIT LANDED · WIN-AUDIO-1 ROOT CAUSE MEASURED (engine frame under lock) · Windows build arms for Black Label · rc4 both seats
+- ✅ **CLEAN QUIT FROM THE TITLE SCREEN (user todo 10-31) LANDED.** B (any pad source) or Esc (host keyboard, all three poll arms) while the shell
+  shows PRESS START exits the process cleanly: out_reco/merged/merged_shell.cpp pulses `g_rt_title_heartbeat` once per tick of the pre-accept title
+  state fn (sub_821CBFF0); shell/gen/stubs.cpp `rt_title_quit_check()` (called from syn_sample, the per-frame pad merge) fires on the PRESS EDGE only
+  while the heartbeat advanced within 250 ms, so B in the hub / options / play stays BACK / bomb; the exit is the renderer's new
+  `rvk_request_quit()` (Win32 + SDL arms: `[rvk][win] quit requested (...) -- clean exit`, flush, `_Exit(0)`, RVK_NOEXITONCLOSE honoured).
+  `RT_NOTITLEQUIT=1` disables (harness drives that press B on the title). Acceptance `_local/rc/quit_test_win.sh`: control (START then B off the
+  title -> process stays, no `[quit]` line) + quit (B on the title -> `[quit] B on the title screen`, renderer marker, exit 0, process gone) PASS.
+  app_smoke_mac.sh's "clean exit logged" rung now also accepts the quit markers. The [padhost] banners say "Esc = quit on the title screen".
+- 🔎 **WIN-AUDIO-1 (parked 10-29) -- ROOT CAUSE MEASURED, NOT YET FIXED.** Two classes. (1) FIXED: the 4 "underruns" in the first second of every
+  Windows leg were SDL3's first callback asking for its whole device buffer (depth min=9, ring never dry) -> counted as prefill now
+  (`[audio] SDL first callback: device-buffer prefill took N silent frame(s)`). (2) The bursts: `RT_WAITPROF=1` (new, off by default: times the
+  producer step, the two XAudio handshake waits, and every guest critical section / spinlock with HOLDER tracking) shows the XAudio ENGINE
+  thread holding engine section 0x36A0D4 inside `sub_82137218` (enter lr 0x82137240 .. leave lr 0x82137334 = the per-frame engine
+  processing: sub_821390B0 / sub_821370C8 / sub_82135AA0 / the per-voice indirect calls / sub_821362F8) for 5-36 ms, 4,677 times in a 6-min
+  ARCADE census (4,033 x 5-9 ms, 613 x 10-19, 31 x >= 20) on an i5-11400; the budget is one 5.33 ms frame. The XACT/sound thread blocks on
+  that section from sub_8211A4C8 (lr 0x8211A598) while itself holding the shell sound-manager section 0x360C9C (sub_820EC8F8), and the main
+  thread queues behind it at sub_820E7708 -- a three-thread chain, but the ROOT is the engine frame overrunning its period at SFX-dense demo
+  moments (the bursts sit at the same demo frames in every run: f12618, f13625, f17356, f21815-22270, f22907, f27002, f28094). Thread
+  PRIORITY IS NOT THE LEVER: routing the +17 raises to the real XAudio threads (RT_OBJREF=1, now default; the guest's
+  ObReferenceObjectByHandle token used to be a stale register, so KeSetBasePriorityThread had raised the MAIN thread instead) and the fully
+  register-true arm (RT_OBJREF=2: every raise to its thread, main left normal) both left the census at 143/144 underruns vs 282 on rc3 (rc3
+  ran on a contended box; the delta is not attributable). OPEN QUESTION for the next leg: is the hold CPU-bound recompiled DSP (the 360 mixer
+  is VMX128-heavy; our vector emulation may be the cost) or does the engine block inside the lock? `[holdprof]` now prints the holder's own
+  CPU time next to the wall hold (cpu ~= wall => CPU-bound). Candidate fixes after that: a faster vector path for the mixer TUs, or running
+  the engine frame off the lock. Census rule unchanged (any underrun = FAIL); the RC_KNOWN_ISSUES Windows line stays, reworded.
+- ✅ **Windows build arms for Black Label (modules 4/5):** build_win_dll.sh default `MODULES="normal abn"` auto-adds `kiniro kiniro_abn` when
+  `out_kiniro*/ppc_recomp.0.cpp` + their symbol maps exist (same shape as build_mac_dll.sh), host compiled with `-DFUTARI_HOST_KINIRO=1 /
+  -DFUTARI_HOST_KINIRO_ABN=1` only then; the kiniro DLLs link NO decomp/game TU except nvk_game_hooks + `kiniro_hook_stubs.cpp` (w186 LAW 1),
+  force-include their map, use the checked-in moduleshim twins; `HOST_ONLY=1` / `MODULES_ONLY=1` split the build; `MODULES=...` overrides.
+  rc_stage_win(.public), rc_smoke_win (N/N bound), rc_gates_win copy every `futari_game_*.dll`. First Windows Black Label boot:
+  `_local/rc/bl_boot_win.sh` (DLC from `RT_DLC_ROOT=_local/bl_extract`, the player shape).
+- ⚠ **LAUNCHER LANDMINE (cost ~40 min today):** `export MSYS_NO_PATHCONV=1` in a script that then runs scripts/run_win.sh leaves
+  RT_GAME_ROOT as `/c/...`; the engine misses `media/Sound/sound.xgs` (`[file] open ... -> MISS`), the shell service thread's doc never
+  exists and the boot KeBugChecks (`[import] __imp__KeBugCheck`, lookups `name="id"` -> obj 0, `[svc] poll -> 0x102` loop, exit 139 at ~5 s)
+  -- it looks exactly like a code crash and reproduces on the RELEASED rc3 exe. win_shim.sh already says never to set it; rc_smoke_win.sh
+  is the one script that may (it cygpaths every path). Triage rule: grep the log for `-> MISS` and diff the first ~330 log lines against the
+  last good log BEFORE bisecting code.
+- **rc4 on both seats** (a fix on top of a cut = a new rc): Windows `rc_stage_win.sh 0.3.0-rc4` + gates + public asset-free zip; Mac
+  `rc_cut_mac.sh 0.3.0-rc4` (4-module Black Label shape, dry run ALL-PASS 10-31). Upload to the GitHub pre-release = owner's call.
+
 ## 2026-11-01 — WINDOWS 0.3.0-rc3 F&F CUT (PC seat) + the four Desktop/NSP friends-and-family zips
 - ✅ **Desktop/NSP** holds Windows F&F zips WITH game data (never public): Futari-Realcomp-Windows-v0.3.0-rc3 (rc2 set moved to `_superseded_rc2/`),
   Mushihimesama-Futari-PC-v1.5.3-FF (futari_recomp), Daytona-USA-PC-v1.1.5-FF, Zuma-PC-v0.1.0-FF (first zuma stage). Each smoke-booted before zipping.

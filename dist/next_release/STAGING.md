@@ -4,7 +4,9 @@ The versioned pieces live HERE (launcher, README, this checklist). Assemble a sh
 folder/zip like so — **NO GAME DATA GOES IN**:
 
 1. Rebuild at the release commit: `bash build_win_dll.sh` → copy
-   `build/futari_combined.exe`, `build/futari_game_normal.dll`, `build/futari_game_abn.dll`.
+   `build/futari_combined.exe` + every `build/futari_game_*.dll` (the Ver 1.5 pair; from 0.3.0-rc4 also
+   `futari_game_kiniro.dll` / `futari_game_kiniro_abn.dll` = Black Label, built when `out_kiniro*/` exist;
+   the host prints `[modreg] N/N module DLL(s) bound` and the smoke asserts N == N).
 2. Copy `Futari 1.5.bat` + `README.txt` (this folder).
 3. Copy `tools/extract/` → `tools\extract\` (futari_extract.py, extract_assets.bat,
    manifest_v1.tsv — DESIGN.md is a dev doc, optional).
