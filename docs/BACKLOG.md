@@ -54,7 +54,9 @@
   Windows `rc_stage_win.sh` + `rc_gates_win.sh 0.3.0-rc4`: PASS except q1_census (WIN-AUDIO-1 underruns only: ARCADE 156 / 360 247, nothing
   outside the named dropout classes); `rc_stage_win_public.sh` -> 32 MB asset-free zip, scan clean, wizard smoke PASS. FIRST WINDOWS BLACK
   LABEL BOOT PASS (`_local/rc/bl_boot_win.sh`: modreg 4/4 -> modeIdx 4 -> kiniro_normal swap -> hub; 0 FATAL / UNMAPPED / kdrop) -- the
-  Windows twin of the Mac route works on the first real run. NOT uploaded (owner's call). Hands checklist owed on both seats.
+  Windows twin of the Mac route works on the first real run. UPLOADED 2026-11-03 06:44 on the user's yes: GitHub pre-release `v0.3.0-rc4`
+  (public Windows zip + .sha256; asset digest re-downloaded and matched); Windows F&F zip + README to `Desktop/NSP/`, rc3 copies moved to
+  `_superseded_rc3/`. Nothing published from the Mac seat (no asset-free macOS form). Hands checklist owed on both seats.
   Harness landmine found on the way: a pad "press" timed with `powershell Start-Sleep` holds the button for the sleep PLUS ~250 ms of
   PowerShell start-up, so a 70 ms DOWN auto-repeated on the top menu (cursor 0 -> 3 for two presses) and the drive hit the wrong row twice;
   bash `sleep 0.07` fixed it (2 SE_Select01 cues for 2 presses). Read the cue count, not the 300-frame `[mstate]` cursor sample.

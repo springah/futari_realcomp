@@ -10,7 +10,11 @@ engine frame is CPU-BOUND recompiled DSP -- holds >= 5 ms are 0.98 CPU by QueryT
 callees < 5 % of it; the time is the per-voice render calls (voice vtable[0] = sub_8214E3E0 / sub_82150338 / sub_8214E5C0, `[engslow]`);
 SPLIT (census aud1102i, per 60 s): sub_82150338 (the SFX source-voice render) is 75-77 % of the outer frame time -- 0.67-0.82 ms PER VOICE PER 5.33 ms FRAME (23k-31k calls/min, max 9-20 ms for ONE call), so 5-7 live SFX voices alone spend 4-5 ms of the 5.33 ms budget; sub_8214E3E0 (the always-present voice, likely the BGM/submix path) is 0.03-0.07 ms per call and sub_8214E5C0 0.07 ms. THE TARGET IS sub_82150338 (ppc_recomp.23.cpp, 287 lines: sub_82150148, sub_8214F080, 6 indirect calls) and its callees. Fix direction = make that render cheaper (vector path) or take the engine frame off the lock; no fix in rc4. Windows build_win_dll.sh gains the kiniro / kiniro_abn module arms (auto when
 the trees exist); stage/smoke/gates follow every `futari_game_*.dll`. Evidence: BACKLOG.md 2026-11-02, NOTE_fnf_shell_defects.md 2026-11-02.
-**rc4 CUT ON BOTH SEATS (2026-11-03 00:15), NOT UPLOADED:** same engine `1b03038` + decomp `1d79e20871bc` on both. Mac: `rc_cut_mac.sh
+**rc4 CUT ON BOTH SEATS (2026-11-03 00:15); WINDOWS PUBLIC ZIP UPLOADED 2026-11-03 06:44 AUSEST** (user: "Yes, upload rc4") = GitHub
+pre-release `v0.3.0-rc4` https://github.com/springah/futari_realcomp/releases/tag/v0.3.0-rc4 on the pushed tag, assets
+`Futari-Realcomp-Windows-v0.3.0-rc4-public.zip` (digest 72cf9e04...9c79 confirmed by re-download) + `.sha256`; rc3 pre-release left in place.
+The Windows F&F zip (with data) + README went to the F&F folder `Desktop/NSP/` (rc3 moved to `_superseded_rc3/`). Nothing from the Mac seat is
+published (no asset-free macOS form exists). Same engine `1b03038` + decomp `1d79e20871bc` on both. Mac: `rc_cut_mac.sh
 0.3.0-rc4` ALL-PASS (app_smoke, gstart, q1_ctest, q1_census PASS in both modes, rc_chain 352 PASS / 0 FAIL), 4-module bundle (Black Label
 dylibs in), tags `v0.3.0-rc4` (realcomp) + `realcomp-v0.3.0-rc4` (decomp) pushed, F&F zip `_rc/Futari-Realcomp-macOS-v0.3.0-rc4.zip`
 (720 MB, sha256 `5bba81f7ca8f18e5e019b51c6af4801ce67f95084fdd8c8ea194a77c7121af3e`, contains game data). Windows: `rc_stage_win.sh` +
@@ -21,8 +25,8 @@ PASS (`_local/rc/bl_boot_win.sh`: modreg 4/4, modeIdx 4, swap to kiniro_normal, 
 PUBLIC asset-free zip `_rc/Futari-Realcomp-Windows-v0.3.0-rc4-public.zip` (32 MB, sha256
 `72cf9e0473367c42941a1b882d4288678cccaddec34dc43ee93100529b4d1c79`, game-data scan clean, wizard smoke PASS: extractor fed the gated tree ->
 manifest match, 4/4 modules bound, 0 FATAL, 0 VK_ERROR). The Windows tree carries no rc4 tag of its own (the Mac cut's tag is the rc4 tag;
-the Windows exe is the same commit). Owed: the owner's upload decision (public Windows zip + both F&F zips to the F&F channel), the hands
-checklist on both seats, a macOS public (asset-free) form (never staged yet; rc3 public was Windows-only).
+the Windows exe is the same commit). Owed: the hands checklist on both seats, a macOS public (asset-free) form (never staged yet; rc3 and
+rc4 public are Windows-only), the Mac F&F zip to whoever gets it.
 
 **🎉 BLACK LABEL RUNS, BOTH MODES (2026-10-31, Mac, opt-in build):** kiniro_normal (Black Label ARCADE, modeIdx 4) and kiniro_abnormal
 (Black Label XBOX 360 MODE, modeIdx 5) boot as third/fourth module dylibs and play: title -> hub -> Mode Select (Original/Maniac/God) ->
