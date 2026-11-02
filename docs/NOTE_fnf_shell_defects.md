@@ -32,12 +32,21 @@ PC seat. Engine changes on main for 0.3.0-rc4; the Windows acceptance runs are `
   quiet windows). PRIORITY RULED OUT: the guest's KeSetBasePriorityThread had been raising the MAIN thread (stale ObReferenceObjectByHandle
   token); `__imp__ObReferenceObjectByHandle` now returns our 0xE000+idx handle as the object token and the +17 raises reach the two XAudio
   engine threads (RT_OBJREF=1 default: legacy self-raise kept + target; =2 register-true, main left normal; =0 old no-op) -- no change in
-  the count either way. Next: read `(cpu N ms)` in `[holdprof]` on the next profiled census: cpu ~= wall => CPU-bound recompiled DSP
-  (VMX128 mixer emulated scalar?) -> a faster vector path for the mixer TUs; cpu << wall => the engine blocks inside the lock -> find the wait.
+  the count either way. ANSWERED 2026-11-03: cpu ~= wall (0.98 by
+  QueryThreadCycleTime; 0 ms of any hold inside kernel imports; named callees < 5 %) => CPU-bound recompiled DSP in the per-voice render
+  calls of `sub_82137218` (voice vtable[0] targets sub_8214E3E0 [1 voice, always] / sub_82150338 / sub_8214E5C0 [the SFX voices, up to
+  10 in the loud minutes]; `[engslow]` prints the target histogram of every frame >= 5 ms). SPLIT (census aud1102i, per 60 s): sub_82150338 (the SFX source-voice render) is 75-77 % of the outer frame time -- 0.67-0.82 ms PER VOICE PER 5.33 ms FRAME (23k-31k calls/min, max 9-20 ms for ONE call), so 5-7 live SFX voices alone spend 4-5 ms of the 5.33 ms budget; sub_8214E3E0 (the always-present voice, likely the BGM/submix path) is 0.03-0.07 ms per call and sub_8214E5C0 0.07 ms. THE TARGET IS sub_82150338 (ppc_recomp.23.cpp, 287 lines: sub_82150148, sub_8214F080, 6 indirect calls) and its callees. Instruments added for it,
+  all RT_WAITPROF=1 only: `[heldimp]` (an import >= 2 ms while this thread holds a profiled lock), per-hold import tally + Mcyc + holder
+  priority in `[holdprof]`, `[engprof]` (60-s table: outer frame, 4 named callees, 3 render targets, voices/frame), `[engslow]`.
+  Profiling overhead raises the count (469-683 vs 143 plain). Next leg = the render functions' own callees down to the DSP loop
+  (ppc_recomp.23.cpp) -> vector path, or the engine frame off the lock.
 - **Launcher landmine** (not engine): `MSYS_NO_PATHCONV=1` around run_win.sh => RT_GAME_ROOT unconverted => sound.xgs MISS => KeBugCheck
   segfault at boot (reproduced on the released rc3 exe). Rule in BACKLOG 2026-11-02.
 - **Windows Black Label arms**: build_win_dll.sh modules 4/5 (auto when out_kiniro*/ exist), stage/smoke/gates follow every module DLL;
-  `_local/rc/bl_boot_win.sh` is the Windows twin of kiniro_boot_mac.sh.
+  `_local/rc/bl_boot_win.sh` is the Windows twin of kiniro_boot_mac.sh. First Windows Black Label boot PASS 2026-11-03 00:14 on the rc4
+  exe (modreg 4/4, `[modeidx] modeIdx=4`, `[modswap] DONE -> kiniro_normal`, `[p0build] menu_game_title`, 30 s hold, 0 FATAL / UNMAPPED /
+  kdrop, `[kgate] RT_SNDQFREE REFUSED on kiniro_normal` as designed). Pad presses in the Windows driver are timed with bash `sleep`, not
+  `powershell Start-Sleep` (its ~250 ms start-up turns a 70 ms hold into an auto-repeat).
 
 ## 2026-10-30 — G5-fix LANDED: RT_POOLRELEASE returns long-pooled guest pages on macOS/Linux (ARCADE RSS ramp FLAT) · 360 START-wire reads the EXCH byte at the module's dshift (PLAN_RC1 §0.5 item 2 CLOSED)
 Unattended Mac seat (user away, "go nuts"); engine commits 098809f + 08fce44 on main; nothing cut, rc2 bundle untouched.

@@ -40,7 +40,17 @@ extern std::atomic<long> g_import_calls;
 extern "C" uint32_t rt_alloc(uint32_t size, uint32_t align);   // bump allocator (in harness)
 extern "C" uint32_t rt_alloc_raw(uint32_t size, uint32_t align); // HW-true no-zero-on-reuse (Mm path)
 extern "C" void rt_impcall(const char* n);
-#define LOGN(n) do{static bool o=false;if(!o){o=true;std::fprintf(stderr,"  [import] " n "\n");}g_import_calls++;rt_impcall(n);}while(0)
+#include <chrono>
+extern "C" int  rt_prof_holding(void);   // out_reco/rt.cpp (RT_WAITPROF held-lock count)
+extern "C" int  rt_waitprof_flag(void);
+extern "C" long rt_prof_tid(void);
+extern "C" void rt_prof_imp_add(const char* n, int64_t us);
+static int64_t rt_imp_now_us(){ return (int64_t)std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
+struct RtImpTimer { const char* n; int64_t t0; bool on;
+  RtImpTimer(const char* name):n(name),t0(0),on(false){ if(rt_waitprof_flag() && rt_prof_holding()>0){ on=true; t0=rt_imp_now_us(); } }
+  ~RtImpTimer(){ if(on){ int64_t us=rt_imp_now_us()-t0; rt_prof_imp_add(n,us); long el=(long)(us/1000); if(el>=2){ static std::atomic<long> c{0}; long i=c.fetch_add(1)+1;
+      if(i<=20000) std::fprintf(stderr,"[heldimp] %s took %ld ms while holding %d guest lock(s) tid=%ld\n",n,el,rt_prof_holding(),rt_prof_tid()); } } } };
+#define LOGN(n) do{static bool o=false;if(!o){o=true;std::fprintf(stderr,"  [import] " n "\n");}g_import_calls++;rt_impcall(n);}while(0); RtImpTimer _rt_imp_timer(n)
 // --- memory ---
 PPC_FUNC_IMPL(__imp__MmAllocatePhysicalMemoryEx){ LOGN("MmAllocatePhysicalMemoryEx"); uint32_t sz=ctx.r4.u32; ctx.r3.u32=rt_alloc_raw(sz?sz:0x1000,0x1000); (void)base; }
 PPC_FUNC_IMPL(__imp__NtAllocateVirtualMemory){ LOGN("NtAllocateVirtualMemory");

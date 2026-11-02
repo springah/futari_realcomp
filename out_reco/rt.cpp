@@ -24,7 +24,19 @@
 extern std::atomic<long> g_import_calls;
 extern "C" uint32_t rt_alloc(uint32_t size, uint32_t align);   // bump allocator (in harness)
 extern "C" void rt_recommit(uint32_t addr, uint32_t size);     // NtVA DECOMMIT/recommit (in harness)
-#define LOGN(n) do{static bool o=false;if(!o){o=true;std::fprintf(stderr,"  [import] " n "\n");}g_import_calls++;}while(0)
+// RT_WAITPROF=1 (2026-11-02, WIN-AUDIO-1 round 3): every kernel import entered while THIS thread holds a profiled guest lock is
+// timed; one that takes >= 2 ms is logged as [heldimp] -- the "what does the engine thread block on inside its own lock" probe
+// (the long holds measured 4 % CPU, so the time is spent blocked, in some import). Off: one static-bool test per import.
+extern "C" int  rt_prof_holding(void);
+extern "C" int  rt_waitprof_flag(void);
+extern "C" long rt_prof_tid(void);
+extern "C" void rt_prof_imp_add(const char* n, int64_t us);
+static int64_t rt_imp_now_us(){ return (int64_t)std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
+struct RtImpTimer { const char* n; int64_t t0; bool on;
+  RtImpTimer(const char* name):n(name),t0(0),on(false){ if(rt_waitprof_flag() && rt_prof_holding()>0){ on=true; t0=rt_imp_now_us(); } }
+  ~RtImpTimer(){ if(on){ int64_t us=rt_imp_now_us()-t0; rt_prof_imp_add(n,us); long el=(long)(us/1000); if(el>=2){ static std::atomic<long> c{0}; long i=c.fetch_add(1)+1;
+      if(i<=20000) std::fprintf(stderr,"[heldimp] %s took %ld ms while holding %d guest lock(s) tid=%ld\n",n,el,rt_prof_holding(),rt_prof_tid()); } } } };
+#define LOGN(n) do{static bool o=false;if(!o){o=true;std::fprintf(stderr,"  [import] " n "\n");}g_import_calls++;}while(0); RtImpTimer _rt_imp_timer(n)
 static bool crt_trace(){ static bool on=getenv("RT_CRTTRACE")!=nullptr; return on; }
 
 // --- event/wait machinery (game kernel) -----------------------------------
@@ -190,7 +202,7 @@ static bool rt_nolocks(){ static bool off=getenv("RT_NOLOCKS")!=nullptr; return 
 // Keyed guest locks (critical sections + spinlocks) -> one host recursive mutex each. RT_WAITPROF=1 (2026-11-02, WIN-AUDIO-1
 // diagnosis) adds holder tracking: who holds a lock (host tid + the Enter lr), for how long, and who had to wait >= 5 ms for it
 // -- the priority-inversion / long-hold detector. Off (default) the lock path is the plain lock()/unlock().
-struct RtLock { std::recursive_mutex m; std::atomic<long> holder_tid{0}; std::atomic<uint32_t> holder_lr{0}; std::atomic<int64_t> t_acq{0}; std::atomic<int64_t> cpu_acq{0}; std::atomic<int> depth{0}; };
+struct RtLock { std::recursive_mutex m; std::atomic<long> holder_tid{0}; std::atomic<uint32_t> holder_lr{0}; std::atomic<int64_t> t_acq{0}; std::atomic<int64_t> cpu_acq{0}; std::atomic<uint64_t> cyc_acq{0}; std::atomic<int> depth{0}; };
 // The holder's own CPU time (user+kernel, us): a long hold with cpu ~= wall is CPU-bound guest code; cpu << wall means the holder
 // was blocked or preempted while holding the lock.
 static int64_t rt_thread_cpu_us(){
@@ -210,9 +222,32 @@ static RtLock* rt_lock_for(uint32_t key){
   RtLock* m=new RtLock(); g_locktab[key]=m; return m;
 }
 static bool rt_waitprof_l(){ static bool on=getenv("RT_WAITPROF")!=nullptr; return on; }
+static thread_local int t_prof_held=0;      // profiled guest locks this thread holds (RT_WAITPROF only)
+// Per-outermost-hold tally of the time this thread spent inside kernel imports (any duration) -- "is the hold's wall time
+// inside imports at all?" (sum ~= wall => blocked in imports; sum << wall and cpu << wall => the thread was not running).
+static thread_local int64_t t_imp_us=0; static thread_local long t_imp_n=0; static thread_local int64_t t_imp_max_us=0; static thread_local const char* t_imp_max_n="";
+extern "C" void rt_prof_imp_add(const char* n, int64_t us){ t_imp_us+=us; t_imp_n++; if(us>t_imp_max_us){ t_imp_max_us=us; t_imp_max_n=n; } }
+static uint64_t rt_thread_cycles(){
+#ifdef _WIN32
+  ULONG64 c=0; QueryThreadCycleTime(GetCurrentThread(),&c); return (uint64_t)c;
+#else
+  return 0;
+#endif
+}
+static int rt_thread_prio(){
+#ifdef _WIN32
+  return GetThreadPriority(GetCurrentThread());
+#else
+  return 0;
+#endif
+}
+extern "C" int  rt_prof_holding(void){ return t_prof_held; }
+extern "C" int  rt_waitprof_flag(void){ return rt_waitprof_l()?1:0; }
+extern "C" long rt_prof_tid(void){ return xr_gettid(); }
 static int64_t rt_lock_now_us(){ return (int64_t)std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
 static void rt_lock_mark_acquired(RtLock* L, uint32_t lr){
-  if(L->depth.fetch_add(1)==0){ L->holder_tid.store(xr_gettid()); L->holder_lr.store(lr); L->t_acq.store(rt_lock_now_us()); L->cpu_acq.store(rt_thread_cpu_us()); }
+  if(L->depth.fetch_add(1)==0){ L->holder_tid.store(xr_gettid()); L->holder_lr.store(lr); L->t_acq.store(rt_lock_now_us()); L->cpu_acq.store(rt_thread_cpu_us()); L->cyc_acq.store(rt_thread_cycles());
+    if(t_prof_held++==0){ t_imp_us=0; t_imp_n=0; t_imp_max_us=0; t_imp_max_n=""; } }
 }
 static void rt_lock_enter(RtLock* L, uint32_t key, uint32_t lr, const char* kind){
   if(!rt_waitprof_l()){ L->m.lock(); return; }
@@ -234,10 +269,10 @@ static void rt_lock_leave(RtLock* L, uint32_t key, uint32_t lr, const char* kind
   if(L->depth.fetch_sub(1)==1){
     int64_t held=rt_lock_now_us()-L->t_acq.load();
     if(held>=5000){ static std::atomic<long> n{0}; long i=n.fetch_add(1)+1;
-      int64_t cpu=rt_thread_cpu_us()-L->cpu_acq.load();
-      if(i<=20000) std::fprintf(stderr,"[holdprof] %s 0x%X held %ld ms (cpu %ld ms) by tid=%ld enter-lr=0x%X leave-lr=0x%X\n",
-                              kind,key,(long)(held/1000),(long)(cpu/1000),xr_gettid(),L->holder_lr.load(),lr); }
-    L->holder_tid.store(0);
+      int64_t cpu=rt_thread_cpu_us()-L->cpu_acq.load(); uint64_t cyc=rt_thread_cycles()-L->cyc_acq.load();
+      if(i<=20000) std::fprintf(stderr,"[holdprof] %s 0x%X held %ld ms (cpu %ld ms, %llu Mcyc, imports %ld ms/%ld calls, max %s %ld ms, prio %d) by tid=%ld enter-lr=0x%X leave-lr=0x%X\n",
+                              kind,key,(long)(held/1000),(long)(cpu/1000),(unsigned long long)(cyc/1000000ull),(long)(t_imp_us/1000),t_imp_n,t_imp_max_n,(long)(t_imp_max_us/1000),rt_thread_prio(),xr_gettid(),L->holder_lr.load(),lr); }
+    L->holder_tid.store(0); if(t_prof_held>0) t_prof_held--;
   }
   L->m.unlock();
 }

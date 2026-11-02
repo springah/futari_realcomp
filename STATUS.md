@@ -5,10 +5,24 @@ TITLE screen exits cleanly (heartbeat-gated edge in the pad merge -> renderer `r
 acceptance PASS). WIN-AUDIO-1 is no longer a mystery: `RT_WAITPROF=1` lock-holder profiling shows the XAudio engine thread's per-frame processing
 (`sub_82137218`, under engine section 0x36A0D4) overrunning its 5.33 ms period by 5-36 ms thousands of times per 6-min census at SFX-dense demo
 moments (same demo frames every run); thread priority is not the lever (register-true routing via the new ObReferenceObjectByHandle token,
-RT_OBJREF=1 default / =2 / =0, leaves the count at ~143); the first-second "4 underruns" were SDL device-buffer prefill (fixed). Open: CPU-bound
-mixer vs blocked-in-lock (`[holdprof]` now prints holder CPU time). Windows build_win_dll.sh gains the kiniro / kiniro_abn module arms (auto when
+RT_OBJREF=1 default / =2 / =0, leaves the count at ~143); the first-second "4 underruns" were SDL device-buffer prefill (fixed). VERDICT 11-03: the
+engine frame is CPU-BOUND recompiled DSP -- holds >= 5 ms are 0.98 CPU by QueryThreadCycleTime, 0 ms inside kernel imports, the four named
+callees < 5 % of it; the time is the per-voice render calls (voice vtable[0] = sub_8214E3E0 / sub_82150338 / sub_8214E5C0, `[engslow]`);
+SPLIT (census aud1102i, per 60 s): sub_82150338 (the SFX source-voice render) is 75-77 % of the outer frame time -- 0.67-0.82 ms PER VOICE PER 5.33 ms FRAME (23k-31k calls/min, max 9-20 ms for ONE call), so 5-7 live SFX voices alone spend 4-5 ms of the 5.33 ms budget; sub_8214E3E0 (the always-present voice, likely the BGM/submix path) is 0.03-0.07 ms per call and sub_8214E5C0 0.07 ms. THE TARGET IS sub_82150338 (ppc_recomp.23.cpp, 287 lines: sub_82150148, sub_8214F080, 6 indirect calls) and its callees. Fix direction = make that render cheaper (vector path) or take the engine frame off the lock; no fix in rc4. Windows build_win_dll.sh gains the kiniro / kiniro_abn module arms (auto when
 the trees exist); stage/smoke/gates follow every `futari_game_*.dll`. Evidence: BACKLOG.md 2026-11-02, NOTE_fnf_shell_defects.md 2026-11-02.
-Cuts: `0.3.0-rc4` on both seats (see the rc4 lines below once gated).
+**rc4 CUT ON BOTH SEATS (2026-11-03 00:15), NOT UPLOADED:** same engine `1b03038` + decomp `1d79e20871bc` on both. Mac: `rc_cut_mac.sh
+0.3.0-rc4` ALL-PASS (app_smoke, gstart, q1_ctest, q1_census PASS in both modes, rc_chain 352 PASS / 0 FAIL), 4-module bundle (Black Label
+dylibs in), tags `v0.3.0-rc4` (realcomp) + `realcomp-v0.3.0-rc4` (decomp) pushed, F&F zip `_rc/Futari-Realcomp-macOS-v0.3.0-rc4.zip`
+(720 MB, sha256 `5bba81f7ca8f18e5e019b51c6af4801ce67f95084fdd8c8ea194a77c7121af3e`, contains game data). Windows: `rc_stage_win.sh` +
+`rc_gates_win.sh 0.3.0-rc4` -- boot_smoke / gstart / q1_ctest / rc_chain (418 PASS, 0 FAIL) PASS, q1_census FAIL on the known WIN-AUDIO-1
+underruns only (ARCADE 156 / 360 247; 0 dropouts outside the named classes; `_rc/0.3.0-rc4-win/SMOKE.md`); FIRST WINDOWS BLACK LABEL BOOT
+PASS (`_local/rc/bl_boot_win.sh`: modreg 4/4, modeIdx 4, swap to kiniro_normal, hub, 0 FATAL / UNMAPPED / kdrop); F&F zip
+`_rc/Futari-Realcomp-Windows-v0.3.0-rc4.zip` (920 MB, sha256 `110609cf8c0a792a3d150476cd67800eb028c215825a2ffd2ae3c37d0afa1844`);
+PUBLIC asset-free zip `_rc/Futari-Realcomp-Windows-v0.3.0-rc4-public.zip` (32 MB, sha256
+`72cf9e0473367c42941a1b882d4288678cccaddec34dc43ee93100529b4d1c79`, game-data scan clean, wizard smoke PASS: extractor fed the gated tree ->
+manifest match, 4/4 modules bound, 0 FATAL, 0 VK_ERROR). The Windows tree carries no rc4 tag of its own (the Mac cut's tag is the rc4 tag;
+the Windows exe is the same commit). Owed: the owner's upload decision (public Windows zip + both F&F zips to the F&F channel), the hands
+checklist on both seats, a macOS public (asset-free) form (never staged yet; rc3 public was Windows-only).
 
 **🎉 BLACK LABEL RUNS, BOTH MODES (2026-10-31, Mac, opt-in build):** kiniro_normal (Black Label ARCADE, modeIdx 4) and kiniro_abnormal
 (Black Label XBOX 360 MODE, modeIdx 5) boot as third/fourth module dylibs and play: title -> hub -> Mode Select (Original/Maniac/God) ->

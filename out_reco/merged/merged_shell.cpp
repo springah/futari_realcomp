@@ -1616,6 +1616,49 @@ static void rt_bgmcollect_tree(uint8_t* base, uint32_t submix){
 // and sums each voice. If that list is EMPTY, the game-submitted voices never reach the mixer's
 // summation graph => zero frame regardless of wave-data (a game->shell voice-routing gap). Logs
 // the list length + first voices for the first calls and periodically. Read-only.
+// RT_WAITPROF=1 engine-frame profile (2026-11-03, WIN-AUDIO-1 round 4): the engine thread's hold of section 0x36A0D4 is CPU-bound
+// (cpu ~= wall) inside sub_82137218; this times the outermost sub_82137218 call and its four named callees (the per-voice indirect
+// calls are the remainder) and prints a `[engprof]` table every 60 s: which recompiled function eats the 5.33 ms frame.
+#include <chrono>
+#include <atomic>
+static bool rt_engprof(){ static bool on=std::getenv("RT_WAITPROF")!=nullptr; return on; }
+struct RtEngAcc { std::atomic<long> n{0}; std::atomic<int64_t> us{0}; std::atomic<int64_t> mx{0}; };
+static RtEngAcc g_eng_acc[8];
+static const char* g_eng_names[8]={"sub_82137218(outer)","sub_821390B0","sub_821370C8","sub_82135AA0","sub_821362F8","sub_8214E3E0(render)","sub_82150338(render)","sub_8214E5C0(render)"};
+static thread_local int t_eng_depth=0;
+static int64_t rt_eng_now_us(){ return (int64_t)std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
+static void rt_eng_add(int i, int64_t us){ RtEngAcc& a=g_eng_acc[i]; a.n.fetch_add(1); a.us.fetch_add(us); int64_t m=a.mx.load(); while(us>m && !a.mx.compare_exchange_weak(m,us)){} }
+// Per-frame voice walk (the active-voice list at mixerObj+556, node+0=voice, node+4=next; voice vtable[0] = its render fn, the
+// target of the per-voice indirect calls that are the remainder of the outer time): voices per frame, and on a slow frame
+// (>= 5 ms) the render-target histogram -- names the recompiled function(s) the frame is spent in.
+static std::atomic<long> g_eng_voices{0};
+struct RtEngTgt { uint32_t fn; int n; };
+static int rt_eng_walk(uint8_t* base, uint32_t mo, RtEngTgt* t, int tmax){
+  int cnt=0, nt=0; uint32_t node=mo?PPC_LOAD_U32(mo+556):0;
+  while(node && node<0xF0000000u && cnt<128){
+    uint32_t v=PPC_LOAD_U32(node+0); uint32_t vt=(v&&v<0xF0000000u)?PPC_LOAD_U32(v):0; uint32_t fn=(vt&&vt<0xF0000000u)?PPC_LOAD_U32(vt):0;
+    int k; for(k=0;k<nt;k++) if(t[k].fn==fn){ t[k].n++; break; }
+    if(k==nt && nt<tmax){ t[nt].fn=fn; t[nt].n=1; nt++; }
+    node=PPC_LOAD_U32(node+4); ++cnt;
+  }
+  return cnt;
+}
+static void rt_eng_report(){
+  static int64_t last=0; int64_t now=rt_eng_now_us(); if(last==0){ last=now; return; } if(now-last<60000000) return; last=now;
+  { long v=g_eng_voices.exchange(0); long n=g_eng_acc[0].n.load(); std::fprintf(stderr,"[engprof] 60s voices/frame avg=%.1f (%ld voice-renders)\n",n?(double)v/n:0.0,v); }
+  for(int i=0;i<8;i++){ RtEngAcc& a=g_eng_acc[i]; long n=a.n.exchange(0); int64_t us=a.us.exchange(0); int64_t mx=a.mx.exchange(0);
+    std::fprintf(stderr,"[engprof] 60s %-20s n=%ld total=%ld ms avg=%.3f ms max=%.2f ms%s\n",g_eng_names[i],n,(long)(us/1000),n?(double)us/1000.0/n:0.0,mx/1000.0,i==0?" (budget 5.33 ms per frame)":""); }
+}
+#define RT_ENG_HOOK(FN,IDX) \
+  extern "C" void __imp__##FN(PPCContext& __restrict, uint8_t*); \
+  PPC_FUNC(FN){ \
+    if(!rt_engprof()){ __imp__##FN(ctx,base); return; } \
+    int64_t t0=rt_eng_now_us(); __imp__##FN(ctx,base); rt_eng_add(IDX, rt_eng_now_us()-t0); \
+  }
+RT_ENG_HOOK(sub_821390B0,1)
+RT_ENG_HOOK(sub_821370C8,2)
+RT_ENG_HOOK(sub_82135AA0,3)
+RT_ENG_HOOK(sub_821362F8,4)
 extern "C" void __imp__sub_82137218(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_82137218){
   static bool mt = std::getenv("RT_MIXTRACE")!=nullptr;
@@ -1653,6 +1696,15 @@ PPC_FUNC(sub_82137218){
         std::fprintf(stderr,"\n");
       }
     }
+  }
+  if(rt_engprof() && t_eng_depth==0){
+    RtEngTgt tg[8]={}; int nv=rt_eng_walk(base,ctx.r3.u32,tg,8); g_eng_voices.fetch_add(nv);
+    t_eng_depth++; int64_t t0=rt_eng_now_us(); __imp__sub_82137218(ctx,base); int64_t el=rt_eng_now_us()-t0; rt_eng_add(0, el); t_eng_depth--;
+    if(el>=5000){ static std::atomic<long> c{0}; long i=c.fetch_add(1)+1;
+      if(i<=400){ std::fprintf(stderr,"[engslow] outer %ld us voices=%d targets:",(long)el,nv);
+        for(int k=0;k<8 && k<nv;k++){ if(tg[k].n==0) break; std::fprintf(stderr," 0x%X x%d",tg[k].fn,tg[k].n); }
+        std::fprintf(stderr,"\n"); } }
+    rt_eng_report(); return;
   }
   __imp__sub_82137218(ctx,base);
 }
@@ -1797,7 +1849,8 @@ PPC_FUNC(sub_8214E3E0){
     if(inAcc&&inAcc<0xF0000000u){ if_flag=PPC_LOAD_U32(inAcc+4); if_pcm=PPC_LOAD_U32(inAcc+0);
       if(if_pcm&&if_pcm<0xF0000000u) if_pcmnz=rt_sv_census512(base,if_pcm,if_pcmpk); }
   }
-  __imp__sub_8214E3E0(ctx,base);
+  if(rt_engprof()){ int64_t t0=rt_eng_now_us(); __imp__sub_8214E3E0(ctx,base); rt_eng_add(5, rt_eng_now_us()-t0); }   // [engprof] render-target timing (2026-11-03)
+  else __imp__sub_8214E3E0(ctx,base);
   if(fp_producer) rt_fp_after_produce();   // frame written to 0x36FA90; mark it unconsumed
   if(inflag && voice==0x372F10u){
     uint32_t c_out2=PPC_LOAD_U32(voice+0x88); int onz=0; float opk=0;
@@ -1919,7 +1972,8 @@ PPC_FUNC(sub_82150338){
     }
   }
   uint64_t r0 = sv ? g_sv_readc : 0;
-  __imp__sub_82150338(ctx,base);
+  if(rt_engprof()){ int64_t t0=rt_eng_now_us(); __imp__sub_82150338(ctx,base); rt_eng_add(6, rt_eng_now_us()-t0); }   // [engprof] render-target timing (2026-11-03)
+  else __imp__sub_82150338(ctx,base);
   if(sv && voice && voice<0xF0000000u){
     uint64_t rd = g_sv_readc - r0;                  // >0 => source-read branch fired this tick
     std::lock_guard<std::mutex> lk(g_sv_mtx);
@@ -2018,7 +2072,8 @@ PPC_FUNC(sub_8214E5C0){
     outO=PPC_LOAD_U32(voice+0x7c); if(outO&&outO<0xF0000000u) outP=PPC_LOAD_U32(outO);
     n=PPC_LOAD_U32(voice+0x60);
   }
-  __imp__sub_8214E5C0(ctx,base);
+  if(rt_engprof()){ int64_t t0=rt_eng_now_us(); __imp__sub_8214E5C0(ctx,base); rt_eng_add(7, rt_eng_now_us()-t0); }   // [engprof] render-target timing (2026-11-03)
+  else __imp__sub_8214E5C0(ctx,base);
   if(al && voice && voice<0xF0000000u){
     float opk=0; int onz=rt_sv_census512(base,outP,opk);
     if(outP){ g_al_stage_out.store(outP); if(onz>0) g_al_stage_bgm_nz.fetch_add(onz); g_al_stage_writes.fetch_add(1); }

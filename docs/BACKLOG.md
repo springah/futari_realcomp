@@ -22,10 +22,21 @@
   PRIORITY IS NOT THE LEVER: routing the +17 raises to the real XAudio threads (RT_OBJREF=1, now default; the guest's
   ObReferenceObjectByHandle token used to be a stale register, so KeSetBasePriorityThread had raised the MAIN thread instead) and the fully
   register-true arm (RT_OBJREF=2: every raise to its thread, main left normal) both left the census at 143/144 underruns vs 282 on rc3 (rc3
-  ran on a contended box; the delta is not attributable). OPEN QUESTION for the next leg: is the hold CPU-bound recompiled DSP (the 360 mixer
-  is VMX128-heavy; our vector emulation may be the cost) or does the engine block inside the lock? `[holdprof]` now prints the holder's own
-  CPU time next to the wall hold (cpu ~= wall => CPU-bound). Candidate fixes after that: a faster vector path for the mixer TUs, or running
-  the engine frame off the lock. Census rule unchanged (any underrun = FAIL); the RC_KNOWN_ISSUES Windows line stays, reworded.
+  ran on a contended box; the delta is not attributable).   ANSWERED 2026-11-03 (four more
+  profiled 6-min ARCADE censuses, instruments `[heldimp]` / per-hold import tally / `[engprof]` / `[engslow]`, all RT_WAITPROF=1 only):
+  the hold is CPU-BOUND. Holds >= 5 ms on 0x36A0D4: cpu/wall 0.98 (QueryThreadCycleTime, ~3 Mcyc per wall ms = the thread never left the
+  CPU), 0 ms of the hold inside kernel imports (131k import calls under the lock, none >= 1 ms -- the `[heldimp]` blocked-while-holding
+  imports are all the WAITERS: the sound thread holding 0x360C9C waiting for 0x36A0D4, main holding 0x360C00 waiting for 0x360C9C).
+  `sub_82137218` runs once per 5.33 ms frame (11,250/min): 0.23 ms avg in quiet minutes, 2-3 ms avg with max 15-24 ms in the SFX-dense
+  ones; its four named callees (sub_821390B0 / sub_821370C8 / sub_82135AA0 / sub_821362F8) total < 0.5 s per minute, so the frame is the
+  per-voice indirect render calls: the master's active list holds 1 voice (render 0x8214E3E0, always present) plus up to 10 more
+  (0x82150338 / 0x8214E5C0) in the loud minutes; slow frames (>= 5 ms) average 7-9 ms at 1-11 voices. SPLIT (census aud1102i, per 60 s): sub_82150338 (the SFX source-voice render) is 75-77 % of the outer frame time -- 0.67-0.82 ms PER VOICE PER 5.33 ms FRAME (23k-31k calls/min, max 9-20 ms for ONE call), so 5-7 live SFX voices alone spend 4-5 ms of the 5.33 ms budget; sub_8214E3E0 (the always-present voice, likely the BGM/submix path) is 0.03-0.07 ms per call and sub_8214E5C0 0.07 ms. THE TARGET IS sub_82150338 (ppc_recomp.23.cpp, 287 lines: sub_82150148, sub_8214F080, 6 indirect calls) and its callees.
+  The earlier "4 % CPU on >= 20 ms holds" was the GetThreadTimes 15.6 ms quantum (retracted). The engine thread's host priority is 0 under
+  RT_OBJREF=1 (the guest's +16 raise self-raises the creating thread in that mode; arm 2 routes it to the thread and measured the same
+  count). Instruments perturb: 143 underruns plain -> 469-683 with every timer on; a profiled census is never a verdict count.
+  FIX DIRECTION (next leg, not in rc4): make the per-voice render cheaper (the recompiled shell TU ppc_recomp.23.cpp: hook-time the
+  three render fns' callees down to the DSP loop, then a vector path), or take the engine frame off the lock / give the Windows ring more
+  slack. Census rule unchanged (any underrun = FAIL); the RC_KNOWN_ISSUES Windows line stays.
 - ✅ **Windows build arms for Black Label (modules 4/5):** build_win_dll.sh default `MODULES="normal abn"` auto-adds `kiniro kiniro_abn` when
   `out_kiniro*/ppc_recomp.0.cpp` + their symbol maps exist (same shape as build_mac_dll.sh), host compiled with `-DFUTARI_HOST_KINIRO=1 /
   -DFUTARI_HOST_KINIRO_ABN=1` only then; the kiniro DLLs link NO decomp/game TU except nvk_game_hooks + `kiniro_hook_stubs.cpp` (w186 LAW 1),
@@ -38,8 +49,15 @@
   -- it looks exactly like a code crash and reproduces on the RELEASED rc3 exe. win_shim.sh already says never to set it; rc_smoke_win.sh
   is the one script that may (it cygpaths every path). Triage rule: grep the log for `-> MISS` and diff the first ~330 log lines against the
   last good log BEFORE bisecting code.
-- **rc4 on both seats** (a fix on top of a cut = a new rc): Windows `rc_stage_win.sh 0.3.0-rc4` + gates + public asset-free zip; Mac
-  `rc_cut_mac.sh 0.3.0-rc4` (4-module Black Label shape, dry run ALL-PASS 10-31). Upload to the GitHub pre-release = owner's call.
+- ✅ **rc4 on both seats, GATED (2026-11-03 00:15)** (a fix on top of a cut = a new rc). Mac `rc_cut_mac.sh 0.3.0-rc4` ALL-PASS (4-module
+  Black Label shape; q1_census PASS both modes; rc_chain 352/0), tags `v0.3.0-rc4` + `realcomp-v0.3.0-rc4` pushed, F&F zip 720 MB.
+  Windows `rc_stage_win.sh` + `rc_gates_win.sh 0.3.0-rc4`: PASS except q1_census (WIN-AUDIO-1 underruns only: ARCADE 156 / 360 247, nothing
+  outside the named dropout classes); `rc_stage_win_public.sh` -> 32 MB asset-free zip, scan clean, wizard smoke PASS. FIRST WINDOWS BLACK
+  LABEL BOOT PASS (`_local/rc/bl_boot_win.sh`: modreg 4/4 -> modeIdx 4 -> kiniro_normal swap -> hub; 0 FATAL / UNMAPPED / kdrop) -- the
+  Windows twin of the Mac route works on the first real run. NOT uploaded (owner's call). Hands checklist owed on both seats.
+  Harness landmine found on the way: a pad "press" timed with `powershell Start-Sleep` holds the button for the sleep PLUS ~250 ms of
+  PowerShell start-up, so a 70 ms DOWN auto-repeated on the top menu (cursor 0 -> 3 for two presses) and the drive hit the wrong row twice;
+  bash `sleep 0.07` fixed it (2 SE_Select01 cues for 2 presses). Read the cue count, not the 300-frame `[mstate]` cursor sample.
 
 ## 2026-11-01 — WINDOWS 0.3.0-rc3 F&F CUT (PC seat) + the four Desktop/NSP friends-and-family zips
 - ✅ **Desktop/NSP** holds Windows F&F zips WITH game data (never public): Futari-Realcomp-Windows-v0.3.0-rc3 (rc2 set moved to `_superseded_rc2/`),
