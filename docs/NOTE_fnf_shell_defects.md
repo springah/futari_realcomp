@@ -5,6 +5,23 @@ friends & family and collect their logs. This note is the running defect ledger 
 Method per doctrine: ship-path first, oracle in hand before theorizing, instruments presumed
 lying until positive-controlled, texel-diff acceptance.
 
+## 2026-11-03 (later still) — rc5 Mac cut attempt 3: q1_census 360 UNDERRUN=41 = ONE 1 s window right after a `[vblank] stall: deadline forgiven (debt>4T)` = a whole-process stall (box), not audio · the keyframe-PNG lead RETIRED · attempt 4 launched
+
+Seat: Fable (PC), the Mac cut over ssh. Third `rc_cut_mac.sh 0.3.0-rc5` attempt at HEAD 1a021d3 (engine sources identical to 0f23859): app_smoke,
+gstart, q1_ctest PASS; q1_census ARCADE PASS (0 underruns, 0 dropouts, 0 stalls); XBOX 360 FAIL on `UNDERRUN=41` (dropouts: 10 named incl. the
+two ring-class lines now matched at 0x1C14000/0x1C54000, 0 other). All 41 underruns sit in ONE `[starve] 1s window` (ring depth min=0) and the
+line three above it is `[vblank] stall: deadline forgiven #1 (debt>4T)` (shell/gen/rt.cpp:1118) = the present loop found itself more than four
+frame periods behind its deadline, i.e. the WHOLE PROCESS was off the CPU for >67 ms, and the audio ring (10 frames x 5.3 ms = 53 ms) ran dry.
+Same signature in the rc4 arm of the morning A/B (`_local/rc/ab1103/rc4/arcade/guest.log`: 1 stall line, then 1 window of 23); the two clean runs
+(A/B rc5 arm, attempt-3 ARCADE) have 0 stall lines and 0 underruns. The census-PNG keyframe lead from attempt 1 is RETIRED: in both surviving
+logs the nearest `[rvk] wrote ...png` lines are 50+ log lines away from the stall and the stall PRECEDES the burst. Nothing in the engine changed
+between the clean and the stalled runs (same binary within a run; A/B crossed engines). Mac system log at the minute (09:39-09:40) shows only
+cpu-online churn and an mds CoreDuet burst; no thermal, sleep or backup event. Verdict: BOX VARIANCE with a named marker. Evidence banked at
+`_local/rc/0_3_0_rc5_attempt3/` (census banks + SMOKE) and `_rc/cut_0.3.0-rc5.attempt3.out`. Action: attempt 4 launched 10:54:44 at the same HEAD,
+box idle (load 1.5). ⚖ For the owner: whether the census should forgive an underrun window that directly follows a `[vblank] stall` line (a
+gate-definition change that would make the Mac cut survive one box stall per run) is NOT applied; the gate stays as it is and the cut is rerun.
+Landmine (tooling): a waiter doing `pgrep -f rc_cut_mac.sh` matches ITS OWN command line and never returns; use `pgrep -f '[r]c_cut_mac.sh'`.
+
 ## 2026-11-03 (later) — rc5 Mac cut attempt 2: q1_census 360 "2 other" = the NOW-LOADING ring class at a new texture page (0x1C?8000) · matcher widened · ⚖ docketed
 
 Seat: Fable (PC), the Mac cut over ssh. Second `rc_cut_mac.sh 0.3.0-rc5` attempt (engine d0dd58d = the WIN-AUDIO-1 fix 0f23859 + docs): app_smoke,
