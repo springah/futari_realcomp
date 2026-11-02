@@ -162,6 +162,7 @@ cc "shellkernel_rt"       "shell/gen/rt.cpp"       $SI $XS $RT
 cc "shellkernel_stubs"    "shell/gen/stubs.cpp"    $SI $XS $RT
 cc "shellkernel_rt_audio" "shell/gen/rt_audio.cpp" -Ithirdparty/sdl3/include
 cc "shellkernel_rt_xwma"  "shell/gen/rt_xwma.cpp"
+cc "shellkernel_engsamp"  "out_reco/rt_engsamp.cpp"     # RT_ENGSAMP sampling profiler (Windows-only TU; round 5 2026-11-03)
 
 echo "-- renderer"
 cc "vk_render" "render/vk_render.cpp" -I "${VKSDK}Include"
@@ -184,7 +185,7 @@ echo "-- link"
   "$DERISK/build-win/thirdparty/fmt/fmt.lib" \
   "${VKSDK}Lib/vulkan-1.lib" \
   thirdparty/sdl3/lib/SDL3-static.lib -luser32 -lole32 -lwinmm -limm32 -loleaut32 -lversion -ladvapi32 -lsetupapi -lshell32 -lgdi32 -luuid \
-  -Xlinker /FORCE:MULTIPLE -Xlinker /errorlimit:0 \
+  -Xlinker /FORCE:MULTIPLE -Xlinker /errorlimit:0 -Xlinker /map:build/futari_combined.map \
   2>"$OBJ"/link.err && echo "LINK_OK -> build/futari_combined.exe" || {
     echo "LINK_FAILED"; grep 'undefined symbol' "$OBJ"/link.err | sort -u | head -30; tail -20 "$OBJ"/link.err; exit 1; }
 fi   # MODULES_ONLY

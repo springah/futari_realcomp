@@ -4,6 +4,7 @@
 // _tmpscripts/dll_packaging_plan.md §2.3/§2.4.  Original: merged_xex.cpp.bak_l2split.
 // Shared scaffolding lives in merged_common.h.
 #include "merged_common.h"
+static bool rt_crux_on();   // defined with the RT_WAITPROF engine profile (round 5)
 extern "C" uint32_t rt_alloc(uint32_t size, uint32_t align);
 extern "C" void __imp__sub_821706E8(PPCContext& __restrict ctx, uint8_t* base);  // real idle/render loop
 // GATE 3: the per-frame game-mode tick target. Defined in shell/gen/rt.cpp; the VdSwap hook
@@ -1428,7 +1429,7 @@ PPC_FUNC(sub_820F14A8){
 static std::atomic<long> g_xsubmit{0}, g_xsubmit_ok{0}, g_xsubmit_err{0}, g_xcommit{0};
 extern "C" void __imp__sub_820E8400(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_820E8400){
-  if(std::getenv("RT_AUDIOCRUX")){
+  if(rt_crux_on()){
     long n=g_xsubmit.fetch_add(1)+1;
     uint32_t engine=ctx.r3.u32;
     __imp__sub_820E8400(ctx,base);
@@ -1622,9 +1623,16 @@ static void rt_bgmcollect_tree(uint8_t* base, uint32_t submix){
 #include <chrono>
 #include <atomic>
 static bool rt_engprof(){ static bool on=std::getenv("RT_WAITPROF")!=nullptr; return on; }
+// (round 5, 2026-11-03) cached: these two getenv()s ran once per engine frame (sub_82137218 hook) and once per SFX voice render
+// (sub_82150338 hook) on the engine thread; the CRT getenv takes a lock and strnicmp-scans the whole environment block.
+static bool rt_crux_on(){ static bool on=std::getenv("RT_AUDIOCRUX")!=nullptr; return on; }
+static bool rt_afill_on(){ static bool on=std::getenv("RT_AUDIOFILL")!=nullptr; return on; }
 struct RtEngAcc { std::atomic<long> n{0}; std::atomic<int64_t> us{0}; std::atomic<int64_t> mx{0}; };
-static RtEngAcc g_eng_acc[8];
-static const char* g_eng_names[8]={"sub_82137218(outer)","sub_821390B0","sub_821370C8","sub_82135AA0","sub_821362F8","sub_8214E3E0(render)","sub_82150338(render)","sub_8214E5C0(render)"};
+static RtEngAcc g_eng_acc[16];
+// 8..15 (round 5, 2026-11-03): the SFX render's direct callees -- 8 sub_82150148 (refill: pulls nBlockAlign*frames source bytes from the
+// packet queue), 9 sub_8214F080 (decoder prime: bytes-left -> +264 obj vt[4]), 10/11 the two packet copiers, 12 silence fill, 13 next packet, 14 packet state.
+static const char* g_eng_names[16]={"sub_82137218(outer)","sub_821390B0","sub_821370C8","sub_82135AA0","sub_821362F8","sub_8214E3E0(render)","sub_82150338(render)","sub_8214E5C0(render)",
+  "sub_82150148(refill)","sub_8214F080(decprime)","sub_8214FA68(loopcopy)","sub_8214F8C0(onecopy)","sub_82112280(silence)","sub_8214F818(nextpkt)","sub_8214F008(pktstate)","(spare)"};
 static thread_local int t_eng_depth=0;
 static int64_t rt_eng_now_us(){ return (int64_t)std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
 static void rt_eng_add(int i, int64_t us){ RtEngAcc& a=g_eng_acc[i]; a.n.fetch_add(1); a.us.fetch_add(us); int64_t m=a.mx.load(); while(us>m && !a.mx.compare_exchange_weak(m,us)){} }
@@ -1646,7 +1654,7 @@ static int rt_eng_walk(uint8_t* base, uint32_t mo, RtEngTgt* t, int tmax){
 static void rt_eng_report(){
   static int64_t last=0; int64_t now=rt_eng_now_us(); if(last==0){ last=now; return; } if(now-last<60000000) return; last=now;
   { long v=g_eng_voices.exchange(0); long n=g_eng_acc[0].n.load(); std::fprintf(stderr,"[engprof] 60s voices/frame avg=%.1f (%ld voice-renders)\n",n?(double)v/n:0.0,v); }
-  for(int i=0;i<8;i++){ RtEngAcc& a=g_eng_acc[i]; long n=a.n.exchange(0); int64_t us=a.us.exchange(0); int64_t mx=a.mx.exchange(0);
+  for(int i=0;i<16;i++){ RtEngAcc& a=g_eng_acc[i]; long n=a.n.exchange(0); int64_t us=a.us.exchange(0); int64_t mx=a.mx.exchange(0);
     std::fprintf(stderr,"[engprof] 60s %-20s n=%ld total=%ld ms avg=%.3f ms max=%.2f ms%s\n",g_eng_names[i],n,(long)(us/1000),n?(double)us/1000.0/n:0.0,mx/1000.0,i==0?" (budget 5.33 ms per frame)":""); }
 }
 #define RT_ENG_HOOK(FN,IDX) \
@@ -1659,13 +1667,52 @@ RT_ENG_HOOK(sub_821390B0,1)
 RT_ENG_HOOK(sub_821370C8,2)
 RT_ENG_HOOK(sub_82135AA0,3)
 RT_ENG_HOOK(sub_821362F8,4)
+RT_ENG_HOOK(sub_8214F080,9)
+RT_ENG_HOOK(sub_82112280,12)
+RT_ENG_HOOK(sub_8214F818,13)
+RT_ENG_HOOK(sub_8214F008,14)
+// RT_ENGSAMP=1 (round 5): the host-side sampling profiler of the engine thread lives in out_reco/rt_engsamp.cpp (Windows-only TU,
+// shellkernel_engsamp in build_win_dll.sh). It needs the engine frame marked and the HOOKED bodies named (the shell mapping table
+// holds the hook's address for those, so a sample inside the real body would otherwise land on the previous table entry).
+#ifdef _WIN32
+extern "C" void rt_engsamp_frame(int enter);
+extern "C" void rt_engsamp_add_sym(void* addr, const char* name);
+extern "C" void rt_indirect(uint32_t, PPCContext&, uint8_t*);
+extern "C" void __imp__sub_82137218(PPCContext& __restrict, uint8_t*);
+extern "C" void __imp__sub_82150338(PPCContext& __restrict, uint8_t*);
+extern "C" void __imp__sub_82150148(PPCContext& __restrict, uint8_t*);
+extern "C" void __imp__sub_8214E3E0(PPCContext& __restrict, uint8_t*);
+extern "C" void __imp__sub_8214E5C0(PPCContext& __restrict, uint8_t*);
+extern "C" void __imp__sub_8214FA68(PPCContext& __restrict, uint8_t*);
+extern "C" void __imp__sub_8214F8C0(PPCContext& __restrict, uint8_t*);
+static bool rt_engsamp_on(){ static bool on=std::getenv("RT_ENGSAMP")!=nullptr; return on; }
+static void rt_engsamp_enter(){
+  if(!rt_engsamp_on()) return;
+  static bool reg=false;
+  if(!reg){ reg=true;
+#define RT_ES_SYM(FN) rt_engsamp_add_sym((void*)&__imp__##FN, "__imp__" #FN)
+    RT_ES_SYM(sub_82137218); RT_ES_SYM(sub_82150338); RT_ES_SYM(sub_82150148); RT_ES_SYM(sub_8214E3E0); RT_ES_SYM(sub_8214E5C0);
+    RT_ES_SYM(sub_8214FA68); RT_ES_SYM(sub_8214F8C0); RT_ES_SYM(sub_821390B0); RT_ES_SYM(sub_821370C8); RT_ES_SYM(sub_82135AA0);
+    RT_ES_SYM(sub_821362F8); RT_ES_SYM(sub_8214F080); RT_ES_SYM(sub_82112280); RT_ES_SYM(sub_8214F818); RT_ES_SYM(sub_8214F008);
+#undef RT_ES_SYM
+    rt_engsamp_add_sym((void*)&rt_indirect_call,"host:rt_indirect_call"); rt_engsamp_add_sym((void*)&rt_indirect,"host:rt_indirect");
+    rt_engsamp_add_sym((void*)&rt_eng_now_us,"host:rt_eng_now_us"); rt_engsamp_add_sym((void*)&rt_eng_walk,"host:rt_eng_walk");
+  }
+  rt_engsamp_frame(1);
+}
+static void rt_engsamp_leave(){ if(rt_engsamp_on()) rt_engsamp_frame(0); }
+#else
+static bool rt_engsamp_on(){ return false; }
+static void rt_engsamp_enter(){}
+static void rt_engsamp_leave(){}
+#endif
 extern "C" void __imp__sub_82137218(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_82137218){
   static bool mt = std::getenv("RT_MIXTRACE")!=nullptr;
   static bool col = std::getenv("RT_BGMCOLLECT")!=nullptr;
   if(mt) rt_mixtrace_summer(base, ctx.r3.u32);
   if(col) rt_bgmcollect_tree(base, ctx.r3.u32);
-  if(std::getenv("RT_AUDIOCRUX")){
+  if(rt_crux_on()){
     static std::atomic<long> mc{0}; long n=mc.fetch_add(1)+1;
     if(n<=8 || (n%2000)==0){
       uint32_t mo=ctx.r3.u32;
@@ -1697,9 +1744,11 @@ PPC_FUNC(sub_82137218){
       }
     }
   }
-  if(rt_engprof() && t_eng_depth==0){
+  if((rt_engprof()||rt_engsamp_on()) && t_eng_depth==0){
+    rt_engsamp_enter();   // RT_ENGSAMP: mark the engine frame for the sampler (no-op otherwise)
     RtEngTgt tg[8]={}; int nv=rt_eng_walk(base,ctx.r3.u32,tg,8); g_eng_voices.fetch_add(nv);
     t_eng_depth++; int64_t t0=rt_eng_now_us(); __imp__sub_82137218(ctx,base); int64_t el=rt_eng_now_us()-t0; rt_eng_add(0, el); t_eng_depth--;
+    rt_engsamp_leave();
     if(el>=5000){ static std::atomic<long> c{0}; long i=c.fetch_add(1)+1;
       if(i<=400){ std::fprintf(stderr,"[engslow] outer %ld us voices=%d targets:",(long)el,nv);
         for(int k=0;k<8 && k<nv;k++){ if(tg[k].n==0) break; std::fprintf(stderr," 0x%X x%d",tg[k].fn,tg[k].n); }
@@ -1906,7 +1955,7 @@ PPC_FUNC(sub_8214E3E0){
     }
   }
   if(mt) rt_mt_census(base, voice, 0x8214E3E0u);
-  if(std::getenv("RT_AUDIOFILL") && voice && voice<0xF0000000u){
+  if(rt_afill_on() && voice && voice<0xF0000000u){
     uint32_t ob=PPC_LOAD_U32(voice+120);
     if(ob && ob<0xF0000000u){
       uint32_t out=ob+56;
@@ -1952,7 +2001,8 @@ extern "C" void __imp__sub_82150148(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_82150148){
   static bool sv = std::getenv("RT_STARVED")!=nullptr;
   if(sv) ++g_sv_readc;                              // this tick took the source-read (non-silence) branch
-  __imp__sub_82150148(ctx,base);
+  if(rt_engprof()){ int64_t t0=rt_eng_now_us(); __imp__sub_82150148(ctx,base); rt_eng_add(8, rt_eng_now_us()-t0); }   // [engprof] refill timing (round 5)
+  else __imp__sub_82150148(ctx,base);
 }
 extern "C" void __imp__sub_82150338(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_82150338){
@@ -1972,6 +2022,21 @@ PPC_FUNC(sub_82150338){
     }
   }
   uint64_t r0 = sv ? g_sv_readc : 0;
+  // [engtgt] (round 5): name the six indirect targets of this render (self vt[2]; +8 obj vt[11]/vt[10]; +252 obj vt[11]/vt[10];
+  // +264 obj vt[4]/vt[5]/vt[8]) and the voice format (+120 WAVEFORMATEX), once per distinct tuple -- the sampler names the bodies,
+  // this names which object (decoder / SRC / filter) they belong to.
+  if((rt_engprof()||rt_engsamp_on()) && voice && voice<0xF0000000u){
+    auto vtf=[&](uint32_t obj,int slot)->uint32_t{ if(!obj||obj>=0xF0000000u) return 0; uint32_t vt=PPC_LOAD_U32(obj); if(!vt||vt>=0xF0000000u) return 0; return PPC_LOAD_U32(vt+(uint32_t)slot*4); };
+    uint32_t o8=PPC_LOAD_U32(voice+8), o252=PPC_LOAD_U32(voice+252), o264=PPC_LOAD_U32(voice+264);
+    uint32_t key[8]={ vtf(voice,2), vtf(o8,11), vtf(o8,10), vtf(o252,11), vtf(o252,10), vtf(o264,4), vtf(o264,5), vtf(o264,8) };
+    static uint32_t seen[16][8]; static int nseen=0; static std::mutex m; std::lock_guard<std::mutex> lk(m);
+    int k; for(k=0;k<nseen;k++) if(!std::memcmp(seen[k],key,sizeof key)) break;
+    if(k==nseen && nseen<16){ std::memcpy(seen[nseen++],key,sizeof key);
+      uint32_t fmt=PPC_LOAD_U32(voice+120); unsigned tag=0,ch=0,rate=0,ba=0,bits=0,cb=0;
+      if(fmt&&fmt<0xF0000000u){ tag=PPC_LOAD_U16(fmt); ch=PPC_LOAD_U16(fmt+2); rate=PPC_LOAD_U32(fmt+4); ba=PPC_LOAD_U16(fmt+12); bits=PPC_LOAD_U16(fmt+14); cb=PPC_LOAD_U16(fmt+16); }
+      std::fprintf(stderr,"[engtgt] voice=0x%X fmt@0x%X tag=0x%X ch=%u rate=%u blockalign=%u bits=%u cb=%u | self.vt[2]=0x%X | +8=0x%X vt[11]=0x%X vt[10]=0x%X | +252=0x%X vt[11]=0x%X vt[10]=0x%X | +264=0x%X vt[4]=0x%X vt[5]=0x%X vt[8]=0x%X\n",
+        voice,fmt,tag,ch,rate,ba,bits,cb,key[0],o8,key[1],key[2],o252,key[3],key[4],o264,key[5],key[6],key[7]); }
+  }
   if(rt_engprof()){ int64_t t0=rt_eng_now_us(); __imp__sub_82150338(ctx,base); rt_eng_add(6, rt_eng_now_us()-t0); }   // [engprof] render-target timing (2026-11-03)
   else __imp__sub_82150338(ctx,base);
   if(sv && voice && voice<0xF0000000u){
@@ -5379,7 +5444,8 @@ PPC_FUNC(sub_8214F8C0){
     static std::atomic<long> n{0}; long i=n.fetch_add(1)+1;
     if(i<=4||(i%4096)==0) std::fprintf(stderr,"[psel] oneShot #%ld this=0x%X\n",i,(unsigned)ctx.r3.u32);
   }
-  __imp__sub_8214F8C0(ctx,base);
+  if(rt_engprof()){ int64_t t0=rt_eng_now_us(); __imp__sub_8214F8C0(ctx,base); rt_eng_add(11, rt_eng_now_us()-t0); }   // [engprof] (round 5)
+  else __imp__sub_8214F8C0(ctx,base);
 }
 static void rt_pktwatch_arm(uint32_t pkt);   // round 17, defined at file end
 PPC_FUNC(sub_8214FA68){
@@ -5398,7 +5464,8 @@ PPC_FUNC(sub_8214FA68){
                    i,v,lc,pkt,pb);
     }
   }
-  __imp__sub_8214FA68(ctx,base);
+  if(rt_engprof()){ int64_t t0=rt_eng_now_us(); __imp__sub_8214FA68(ctx,base); rt_eng_add(10, rt_eng_now_us()-t0); }   // [engprof] (round 5)
+  else __imp__sub_8214FA68(ctx,base);
 }
 
 // ★ Round 15 — WHERE THE GARBAGE PACKET COMES FROM. Round 14 proved the ghost: the shot voice

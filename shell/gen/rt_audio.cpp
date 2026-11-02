@@ -346,6 +346,16 @@ static bool rt_sink_wasapi(){
 // AFTER the first callback completes are underruns. The Mac never hit it (CoreAudio asks per period, below the prime).
 static std::atomic<bool> g_sdl_prefill_done{false};
 static std::atomic<long> g_sdl_prefill_frames{0};
+// STARTUP TRANSIENT (2026-11-03, WIN-AUDIO-1 round 5): the first callback drains the primed ring to depth 0 (it takes the whole
+// device buffer), and until the demand-driven worker has refilled the ring to its prime depth the next callbacks can still find it
+// dry -- 2 silent frames in the first second of EVERY Windows leg (plain and profiled alike; the engine is producing rms=0 silence
+// at that point, so nothing audible is lost). Those are counted here, reported once, and NOT as underruns. BOUNDED: the grace ends
+// when the ring first reaches rt_audio_worker_prime_count() frames after the first callback, or after 375 rendered frames (2 s)
+// whichever comes first, so a producer that never catches up is still counted. RT_AUDIOSTARTGRACE=0 disables the rule (every
+// post-first-callback shortfall counts, the 2026-11-02 behaviour).
+static std::atomic<long> g_sdl_startup_frames{0};
+static std::atomic<int>  g_sdl_startup_done{0};
+static bool rt_sdl_startgrace_on(){ static bool on=[](){ const char* e=getenv("RT_AUDIOSTARTGRACE"); return !(e && e[0]=='0' && !e[1]); }(); return on; }
 static void SDLCALL rt_audio_sdl_cb(void*, SDL_AudioStream* stream, int additional_amount, int){
   // Mirror of SDLAudioDriver::SDLCallback: serve whole 256-sample frames; explicit silence when
   // the ring is dry (the device timeline stays continuous and the underrun is COUNTED, not
@@ -356,7 +366,9 @@ static void SDLCALL rt_audio_sdl_cb(void*, SDL_AudioStream* stream, int addition
     uint32_t rd = g_ring_rd.load(std::memory_order_acquire);
     if(rd == g_ring_wr.load(std::memory_order_acquire)){
       static const float silence[kStereoFloats] = {};
-      if(first) g_sdl_prefill_frames.fetch_add(1); else rt_starve_note_underrun();
+      if(first) g_sdl_prefill_frames.fetch_add(1);
+      else if(rt_sdl_startgrace_on() && !g_sdl_startup_done.load(std::memory_order_relaxed)) g_sdl_startup_frames.fetch_add(1);   // startup transient (see above)
+      else rt_starve_note_underrun();
       if(!SDL_PutAudioStreamData(stream, silence, len)) break;
       additional_amount -= len;
       continue;
@@ -368,6 +380,11 @@ static void SDLCALL rt_audio_sdl_cb(void*, SDL_AudioStream* stream, int addition
     if(rt_audio_worker_on()) rt_wk_release(1);
     additional_amount -= len;
     long r = g_rendered.fetch_add(1)+1;
+    if(!first && !g_sdl_startup_done.load(std::memory_order_relaxed)){
+      const int depth=(int)(g_ring_wr.load(std::memory_order_relaxed)-(rd+1)); const int prime=rt_audio_worker_prime_count();
+      if(depth>=prime || r>=375){ g_sdl_startup_done.store(1, std::memory_order_relaxed);
+        std::fprintf(stderr,"[audio] SDL startup: %ld silent frame(s) between the first callback and the ring's first refill to %d (depth %d at rendered frame #%ld%s) -- startup transient, not counted as underruns\n",
+                     g_sdl_startup_frames.load(), prime, depth, r, r>=375?", 375-frame BOUND hit":""); } }
     if(r==1||r==188||r==1880)
       std::fprintf(stderr,"[audio] SDL rendered frame #%ld (ring depth %u)\n",
                    r, g_ring_wr.load()-g_ring_rd.load());

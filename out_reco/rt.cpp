@@ -950,6 +950,7 @@ void a3e_note(uint32_t target, uint32_t A0,uint32_t A1, uint32_t B0,uint32_t B1,
 // second, disjoint host offset. These bounds are HARDCODED (not the PPC_CODE_BASE/SIZE
 // macros, which resolve per-TU to whichever module that TU was compiled as) so this one
 // function is module-agnostic and works whether compiled into the game or shell object.
+static bool rt_watchs_on(){ static bool on=getenv("RT_WATCHS")!=nullptr; return on; }
 extern "C" void rt_indirect_call(PPCContext& ctx, uint8_t* base, uint32_t target){
   PPCFunc* f=nullptr;
   // RT_STUBREG experiment (task 11): the game's resource-kind registration loop
@@ -1077,7 +1078,7 @@ extern "C" void rt_indirect_call(PPCContext& ctx, uint8_t* base, uint32_t target
     // 0->nonzero. S+0 DOES flip in our bypass (dispatcher builds the engine root) so this
     // locates the resource/engine subsystem; S+16/+30/+50 do NOT flip yet (the factory that
     // fills them never runs) -- if driving more mode-enter makes them flip, this names the fn.
-    if(getenv("RT_WATCHS")){
+    if(rt_watchs_on()){   // (round 5, 2026-11-03) was a getenv() on EVERY indirect dispatch
       static uint32_t s0s=0,s16s=0,s30s=0,s50s=0;
       uint32_t S = __builtin_bswap32(*(uint32_t*)(base+0x821F857Cu));
       f(ctx,base);
