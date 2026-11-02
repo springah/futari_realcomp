@@ -8,14 +8,36 @@ kernel and GPU layer, in the mould of UnleashedRecomp. Output should be explaina
 original code and hardware semantics rather than approximated — renderer heuristics are treated as
 temporary scaffolding, not solutions.
 
-> **Status (2026-10-30):** release candidate, family-and-friends only. `0.3.0-rc2` was cut on the Mac on 2026-10-24 and
-> staged on Windows on 2026-10-29; both passed the scripted RC gates (boot smoke, G-START, chained flows, 60-minute soaks,
-> frame census) and await the owner's hands sign-off (`docs/RC1_HANDS_CHECKLIST.md`). Two game modules are hosted,
-> **ARCADE 1.5 Original** and **XBOX 360 MODE**, switchable from the top menu; attract, menus, Normal Play, Training,
-> Score Attack (offline), co-op, replays, saves and native audio all run. Known, documented quirks: `docs/RC_KNOWN_ISSUES.md`.
-> Since rc2 the engine has gained the macOS/Linux page release (`RT_POOLRELEASE`), a rotated portrait present
-> (`RT_ROTATE`), the XBOX 360 MODE START-wire fix, and the regenerated Black Label (kiniro) trees for the next module
-> (`docs/PLAN_kiniro_bringup.md`); none of that is in a cut yet. Ranked open work: `docs/BACKLOG.md`.
+## Download
+
+**[Latest test build: v0.3.0-rc4 (Windows + macOS)](https://github.com/springah/futari_realcomp/releases/tag/v0.3.0-rc4)** — looking for testers.
+
+| platform | file | needs |
+|---|---|---|
+| Windows 10/11 64-bit | `Futari-Realcomp-Windows-v0.3.0-rc4-public.zip` | a Vulkan 1.1+ GPU driver; Python 3 for the one-time extraction |
+| macOS 13+ on Apple silicon | `Futari-Realcomp-macOS-v0.3.0-rc4-public.zip` | Python 3.10+ for the one-time extraction; the app is self-signed, so macOS asks once ("Open Anyway") |
+
+**No game data is included and never will be.** You need your own copy of the Xbox 360 game (title ID `435A07D7`): on first run
+the launcher (`Futari 1.5.bat` on Windows, `Extract Game Data.command` on macOS) asks for the `435A07D7` folder copied off your
+console or your disc ISO and builds `assets/` from it, verified against the console's own integrity hashes and a 58-file manifest.
+`docs/DUMPING.md` in the zip explains how to copy the game off your console. If you also own the Black Label DLC, the same
+wizard takes it and unlocks that mode. Both Ver 1.5 modes — **ARCADE (1.5 Original)** and **XBOX 360 MODE** — are in one exe,
+picked at the title select. Known quirks: `docs/RC_KNOWN_ISSUES.md` in the zip. Bugs: open an issue with the newest file from
+`logs/`, your mode, input device and GPU.
+
+**Building from source is not supported yet.** The engine links against the matching-decompilation tree in the sibling
+`futari_decomp` repository, which is still private, and the recompiler fork and vendored SDL/XenonUtils checkouts under
+`external/` are not in this repository either. Until that changes, the release zips above are the way to run it; the build
+sections below document the owner's seats.
+
+> **Status (2026-11-03):** release candidate `0.3.0-rc4`, cut from the same engine commit on the Mac and on Windows and
+> published as a GitHub pre-release on both platforms (the first public macOS build). Both cuts passed the scripted RC gates
+> (boot smoke, G-START, chained flows, frame census; the Windows audio census still logs the known, inaudible attract-loop
+> underrun class, measured to the game's own audio engine frame overrunning its 5.3 ms period on the PC CPU — a later rc).
+> Four game modules are hosted: **ARCADE 1.5 Original**, **XBOX 360 MODE**, and the two **Black Label** modes behind the
+> user's own DLC; attract, menus, Normal Play, Training, Score Attack (offline), co-op, replays, saves and native audio all
+> run. Since rc3: clean quit from the title (B/Esc), the audio-prefill accounting fix, the Black Label modules on both
+> seats. Owner's hands sign-off (`docs/RC1_HANDS_CHECKLIST.md`) still owed on both seats. Ranked open work: `docs/BACKLOG.md`.
 >
 > The long game is the **matching decompilation** in the sibling `futari_decomp` repository: the shell is 76.7 % DONE
 > (matched + converted instructions over authored), and every promoted translation unit links into this engine.
@@ -49,14 +71,15 @@ temporary scaffolding, not solutions.
 
 ## Building (Windows)
 
-Requires Git Bash and clang/lld. The matching workbench additionally needs the XDK 9328 compiler
+(Owner's seat; see "Building from source is not supported yet" above.) Requires Git Bash and clang/lld. The matching workbench additionally needs the XDK 9328 compiler
 at `../_tools/xdk/xdk9328` (override with `MATCHLAB_CL`).
 
 ```bash
 bash build_win.sh        # combined executable
-bash build_win_dll.sh    # combined executable + the two module DLLs (the shipping shape; fixed 2026-10-29 to compile the decomp shell TUs with the shell include set)
-bash scripts/rc_stage_win.sh 0.3.0-rc2   # stage the Windows family-and-friends folder + zip under ../_rc/
-bash scripts/rc_gates_win.sh 0.3.0-rc2   # the Mac RC gates on the staged folder (boot smoke, G-START, chained flows, census)
+bash build_win_dll.sh    # combined executable + the module DLLs (the shipping shape; 4 when the Black Label trees exist)
+bash scripts/rc_stage_win.sh 0.3.0-rc4   # stage the Windows family-and-friends folder + zip under ../_rc/
+bash scripts/rc_gates_win.sh 0.3.0-rc4   # the Mac RC gates on the staged folder (boot smoke, G-START, chained flows, census)
+bash scripts/rc_stage_win_public.sh 0.3.0-rc4   # the public asset-free zip (wizard extractor, no assets/ or shell/)
 ```
 
 The `*_win.sh` gate scripts are generated from the Mac originals by `scripts/win_port.sh` — edit the Mac file and
@@ -114,7 +137,8 @@ LINK_ONLY=1 bash build_mac.sh
 bash build_mac_dll.sh        # the shipping shape: build/futari_combined + futari_game_{normal,abn}.dylib (both modes; OUTDIR=/OBJSFX= for a private arm)
 bash mac-build/build_mac_app.sh   # -> "Futari Realcomp.app" (game data inside: family-and-friends only)
 bash scripts/run_mac.sh      # boot the shell in a window (BIN=build/futari_combined for the two-mode host)
-bash scripts/rc_cut_mac.sh 0.3.0-rc3   # a release candidate: pinned pair, bundle, zip, smoke + gates, SMOKE.md
+bash scripts/rc_cut_mac.sh 0.3.0-rc4   # a release candidate: pinned pair, bundle, zip, smoke + gates, SMOKE.md
+bash scripts/rc_stage_mac_public.sh 0.3.0-rc4   # the public asset-free zip; scripts/rc_smoke_mac_public.sh smokes it
 ```
 
 The gate scorers (`scripts/stagepix_mac.py`, `scripts/boss1/boss_plate_gate.py`) need numpy + Pillow; on a Mac whose
@@ -146,7 +170,7 @@ porter will meet:
 ## Documentation
 
 - `STATUS.md` — the live pointers: the RC cut, the engine state after it, where the campaign ledger is
-- `docs/BACKLOG.md` — ranked open work; newest block (2026-10-30) at the top
+- `docs/BACKLOG.md` — ranked open work; newest block at the top
 - `docs/PLAN_RC1.md` — the release-candidate definition, scorecard, gates and the cut procedure; `docs/RC1_HANDS_CHECKLIST.md`
   (what the owner checks by hand) and `docs/RC_KNOWN_ISSUES.md` (the tester-facing known issues)
 - `docs/NOTE_fnf_shell_defects.md` — the shell defect ledger: every finding with its evidence, newest at the top
