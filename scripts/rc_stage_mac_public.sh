@@ -116,6 +116,8 @@ FIRST LAUNCH ON A NEW MAC
       xattr -dr com.apple.quarantine "/path/to/$NAME"
   or open each, dismiss the warning, then System Settings > Privacy & Security > scroll down > "Open Anyway".
   (On macOS 13 and 14, right-click > Open also works.)
+  On the first launch macOS may also ask whether the app may access the folder you unzipped to (Downloads, Desktop or
+  Documents): click Allow -- that is how it reads assets/ next to itself. Until you answer, the window stays blank.
 
 MODES
   Both Ver 1.5 modes are in this build: ARCADE (1.5 Original) and XBOX 360 MODE. Pick one at the in-game title

@@ -1,24 +1,30 @@
 #!/bin/bash
-# rc_smoke_mac_public.sh <public zip> <dump>  -- WIZARD + BOOT SMOKE of a public (asset-free) macOS zip: the Mac twin of the Windows
-# wizard smoke (rc_stage_win_public.sh's closing hint + rc_smoke_win.sh). Run ON THE MAC from the futari_realcomp checkout.
-#   1 unzip     the zip into a FRESH folder under _local/rc/pubsmoke_mac_<ts>/ (ditto -x -k, xattrs kept)
+# rc_smoke_mac_public.sh <public zip> <dump> [<dlc>]  -- WIZARD + BOOT SMOKE of a public (asset-free) macOS zip: the Mac twin of the
+# Windows wizard smoke (rc_stage_win_public.sh's closing hint + rc_smoke_win.sh). Run ON THE MAC from the futari_realcomp checkout.
+#   1 unzip     the zip into a FRESH folder under $PUBSMOKE_ROOT (default ~/Library/Caches/futari_realcomp)/pubsmoke_mac_<ts>/ (ditto -x -k)
 #   2 seal      codesign --verify --deep --strict on the unzipped .app
 #   3 nodata    no game-data-shaped path anywhere in the unzipped folder (assets/ shell/ media/ *.xex *.xwb *.xgs *.xsb *.lzx *.bin)
 #   4 extract   the SHIPPED extractor exactly as a tester would from Terminal: tools/extract/extract_assets.sh <dump> (no dialogs) ->
-#               assets/ next to the .app; PASS = exit 0 + "matches the reference manifest" + every manifest row present (N/N)
+#               assets/ next to the .app, then the same for <dlc> when given (the wizard's "also your Black Label DLC" step);
+#               PASS = exit 0 + "matches the reference manifest" + every manifest row present (N/N; the 3 DLC rows only count when <dlc> was given)
 #   5 app_smoke scripts/app_smoke_mac.sh on the unzipped .app (LaunchServices launch, pad FIFO drive title -> top menu -> card -> ARCADE
 #               -> hub -> back, Quit, relaunch): all module dylibs bound (N/N), 0 FATAL, save written + read back
 #   6 log       the first session's log: build id names a commit, 0 VK_ERROR, 0 MoltenVK/Metal error lines, game root = the beside-the-app assets/
-# Writes SMOKE.md into the work folder AND next to the zip as <zip>.SMOKE.md (the record the release notes cite). The zip, the gated bundle and
-# everything else under _rc/ are read-only here. The <dump> for a seat smoke is the gated bundle's own Contents/Resources/assets (an
-# already-extracted disc folder, DLC files included), which is what the Windows wizard smoke fed its extractor too.
+# Writes SMOKE.md into the work folder, a copy with the logs under _local/rc/pubsmoke_mac_<ts>/ (the evidence trail), and one next to the zip
+# as <zip>.SMOKE.md (the record the release notes cite). The zip, the gated bundle and everything else under _rc/ are read-only here.
+# WHY the work folder is NOT under _local/ (= ~/Desktop/...): a re-signed bundle has a new cdhash, so macOS TCC treats it as a new app and
+# PROMPTS for Desktop/Documents/Downloads access on its first file read -- the prompt blocks the guest thread and the title never loads
+# (2026-11-03, first run of this script: 9 log lines, 4 minutes of nothing). ~/Library/Caches is not a TCC-protected folder.
+# The <dump> for a seat smoke is the gated bundle's own Contents/Resources/assets (an already-extracted disc folder, 55 of the 58 manifest
+# rows: the Mac bundle ships without the DLC), <dlc> = the seat's private Black Label root (_local/blroot: its media/Rom/ holds the 3 DLC rows).
 # Refuses to launch while any other futari_merged runs (the drive lock discipline of rc_cut_mac.sh); kills nothing but a stale engine of THIS .app.
 set -u
-ZIP="${1:?usage: rc_smoke_mac_public.sh <public zip> <dump path>}"; DUMP="${2:?usage: rc_smoke_mac_public.sh <public zip> <dump path>}"
+ZIP="${1:?usage: rc_smoke_mac_public.sh <public zip> <dump path> [<dlc path>]}"; DUMP="${2:?usage: rc_smoke_mac_public.sh <public zip> <dump path> [<dlc path>]}"; DLC="${3:-}"
 cd "$(dirname "$0")/.."
-[ -f "$ZIP" ] || { echo "no zip $ZIP"; exit 2; }; [ -e "$DUMP" ] || { echo "no dump $DUMP"; exit 2; }
+[ -f "$ZIP" ] || { echo "no zip $ZIP"; exit 2; }; [ -e "$DUMP" ] || { echo "no dump $DUMP"; exit 2; }; [ -z "$DLC" ] || [ -e "$DLC" ] || { echo "no dlc $DLC"; exit 2; }
 ZIP="$(cd "$(dirname "$ZIP")" && pwd)/$(basename "$ZIP")"
-TS=$(date +%Y%m%d_%H%M%S); W="$PWD/_local/rc/pubsmoke_mac_$TS"; mkdir -p "$W"; SM="$W/SMOKE.md"
+TS=$(date +%Y%m%d_%H%M%S); W="${PUBSMOKE_ROOT:-$HOME/Library/Caches/futari_realcomp}/pubsmoke_mac_$TS"; mkdir -p "$W"; SM="$W/SMOKE.md"
+EV="$PWD/_local/rc/pubsmoke_mac_$TS"; mkdir -p "$EV"
 say(){ echo "[pubsmoke] $(date +%H:%M:%S) $*"; }; FAIL=0; ROWS=""
 row(){ ROWS="$ROWS| $1 | **$2** | $(( $(date +%s) - T0 )) | ${3//|/\/} |"$'\n'; say "$2 $1: $3"; [ "$2" = PASS ] || FAIL=1; T0=$(date +%s); }
 T0=$(date +%s); STARTED="$(date '+%F %T')"
@@ -33,11 +39,11 @@ else row unzip FAIL "no launcher at $APP"; fi
 finish(){
   { echo "# SMOKE -- public (asset-free) macOS zip"; echo
     echo "- started $STARTED; zip \`$ZIP\` ($(du -h "$ZIP" | cut -f1)); sha256 \`$SHA\`"
-    echo "- dump fed to the shipped extractor: \`$DUMP\`"; echo "- unzipped to \`$W\` (fresh); .app launched from there with assets/ beside it"
+    echo "- dump fed to the shipped extractor: \`$DUMP\`${DLC:+; then the DLC root \`$DLC\`}"; echo "- unzipped to \`$W\` (fresh); .app launched from there with assets/ beside it; evidence copied to \`$EV\`"
     echo "- scripts: rc_smoke_mac_public.sh -> tools/extract/extract_assets.sh (shipped) + scripts/app_smoke_mac.sh"
     echo; echo "| step | result | secs | detail |"; echo "|---|---|---|---|"; printf '%s' "$ROWS"
     echo; echo "finished $(date '+%F %T'); PUBLIC MAC SMOKE: $([ $FAIL = 0 ] && echo PASS || echo FAIL)"; } > "$SM"
-  cp "$SM" "$ZIP.SMOKE.md" 2>/dev/null; echo; cat "$SM"; echo; say "record: $SM (copy: $ZIP.SMOKE.md)"
+  cp "$SM" "$ZIP.SMOKE.md" 2>/dev/null; cp "$SM" "$W"/*.log "$W"/*.txt "$EV/" 2>/dev/null; echo; cat "$SM"; echo; say "record: $SM (copies: $ZIP.SMOKE.md, $EV/)"
   [ $FAIL = 0 ] && echo "PUBLIC MAC SMOKE: PASS" || { echo "PUBLIC MAC SMOKE: FAIL"; exit 1; }; }
 [ -x "$APP/Contents/MacOS/Futari Realcomp" ] || finish
 
@@ -50,11 +56,14 @@ GD=$(cd "$F" && find . \( -iname assets -o -iname shell -o -iname media -o -inam
 # 4 extract (the shipped script, scripted mode = no dialogs)
 say "extractor: tools/extract/extract_assets.sh \"$DUMP\" -> $F/assets"
 ( cd "$F" && bash "tools/extract/extract_assets.sh" "$DUMP" ) > "$W/extract.log" 2>&1; rc=$?
-MANI="$F/tools/extract/manifest_v1.tsv"; NM=$(grep -c -v -E '^(#|path\b|$)' "$MANI"); HAVE=0
-while IFS=$'\t' read -r p _s _h; do case "$p" in \#*|path|"") continue;; esac; [ -f "$F/assets/$p" ] && HAVE=$((HAVE+1)); done < "$MANI"
-if [ $rc = 0 ] && grep -q "matches the reference manifest" "$W/extract.log" && [ "$HAVE" = "$NM" ]; then
-  row extract PASS "exit 0; manifest $HAVE/$NM present, sha256-verified by the extractor ($(grep -c '  copied ' "$W/extract.log") files copied); python $(grep -o 'Python:.*' "$W/extract.log" | head -1 | sed 's/Python: *//')"
-else row extract FAIL "exit $rc; manifest $HAVE/$NM; $(grep -a -E 'FAILED|MISSING|DO NOT MATCH|ERROR|No such|Traceback' "$W/extract.log" | head -3 | tr '\n' ' ')"; fi
+if [ -n "$DLC" ] && [ $rc = 0 ]; then say "extractor again for the DLC: tools/extract/extract_assets.sh \"$DLC\""
+  ( cd "$F" && bash "tools/extract/extract_assets.sh" "$DLC" ) > "$W/extract_dlc.log" 2>&1; rc=$?; cat "$W/extract_dlc.log" >> "$W/extract.log"; fi
+MANI="$F/tools/extract/manifest_v1.tsv"; NM=$(grep -c -v -E '^(#|path\b|$)' "$MANI"); HAVE=0; MISS=""
+while IFS=$'\t' read -r p _s _h; do case "$p" in \#*|path|"") continue;; esac; if [ -f "$F/assets/$p" ]; then HAVE=$((HAVE+1)); else MISS="$MISS $p"; fi; done < "$MANI"
+NDLC=3; WANT=$NM; [ -z "$DLC" ] && WANT=$((NM-NDLC))   # the 3 Black Label rows (media/Rom/cg_black*.bin, dropprm.bl) are optional to the extractor
+if [ $rc = 0 ] && grep -q "matches the reference manifest" "$W/extract.log" && [ "$HAVE" -ge "$WANT" ]; then
+  row extract PASS "exit 0; manifest $HAVE/$NM present + sha256-verified by the extractor$([ -z "$DLC" ] && echo " (no DLC given: the 3 Black Label rows are optional)"); $(grep -c '  copied ' "$W/extract.log") files copied; python $(grep -o 'Python:.*' "$W/extract.log" | head -1 | sed 's/Python: *//')"
+else row extract FAIL "exit $rc; manifest $HAVE/$NM (missing:$MISS); $(grep -a -E 'FAILED|MISSING|DO NOT MATCH|ERROR|No such|Traceback' "$W/extract.log" | head -3 | tr '\n' ' ')"; fi
 [ -f "$F/assets/default.xex" ] || finish
 
 # 5 app_smoke (refuse while another engine runs: never kill someone else's drive)
