@@ -15,7 +15,7 @@ sub_82150338 0.70-0.82 -> 0.25-0.31 ms per voice (max 20 -> 3.4 ms), the frame 3
 minute, 6-min ARCADE underruns 143 -> 2 UNPROFILED (aud1102 -> aud1103b). The last 2 are the first second of every leg (the first SDL
 callback drains the primed ring to 0; the next callbacks find it dry until the worker refills it; rms=0 at that point) -- now a bounded
 STARTUP TRANSIENT in rt_audio.cpp (`[audio] SDL startup: N silent frame(s) ...`, grace ends at prime depth or 375 rendered frames;
-`RT_AUDIOSTARTGRACE=0` reverts). aud1103c unprofiled: **UNDERRUN=0, RESULT: PASS**. rc5 gates (q1_ctest + q1_census): GATES_RESULT_PLACEHOLDER
+`RT_AUDIOSTARTGRACE=0` reverts). aud1103c unprofiled: **UNDERRUN=0, RESULT: PASS**. rc5 gates (q1_ctest + q1_census): **BOTH PASS** (SMOKE.md 2026-11-03 07:31-07:53): q1_ctest PASS (positive control 60 DROPOUT-CONFIRMED for 60 INJECT, 262 s); q1_census PASS -- ARCADE `UNDERRUN=0 SINKSTALL=0` (8 named-class dropouts, 0 other), XBOX 360 `UNDERRUN=0 SINKSTALL=0` (1 named, 0 other; rc4 had 247 here), fpm-off 0 in both (1050 s). Staged folder `_rc/0.3.0-rc5-win/` (1.2 GB, exe build id 0f23859, engine md5 21ee5112...), F&F zip `_rc/Futari-Realcomp-Windows-v0.3.0-rc5.zip` -- NOT uploaded, no public form staged (owner's call); boot_smoke / gstart / rc_chain not re-run for rc5.
 Residual (sampler, loudest minute): sub_821536C0 44 % self (ppc_recomp.23.cpp:14227, VMX128 transform through SIMDe), sub_82127390 17 %,
 sub_8212BE20 12 %, sub_82153CB8 11 %; SRC sub_82113A80 20 % incl. Next lever if ever needed: native transform or host xWMA decode at
 submit. Full record: BACKLOG.md 2026-11-03.

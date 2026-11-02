@@ -6,7 +6,7 @@ recompiled DSP.** A new sampling profiler of the engine thread (`RT_ENGSAMP=1`, 
 sub_82150338 0.7 -> 0.25 ms per voice (max 20 -> 3.4 ms), the engine frame 3.0 -> 1.1 ms avg in the loudest minute, 6-min ARCADE census
 underruns 143 -> 2 unprofiled; the last 2 (first second of every leg, the SDL first-callback drain before the worker refills the ring, rms=0)
 are now a bounded startup transient (`RT_AUDIOSTARTGRACE=0` reverts). **aud1103c: UNDERRUN=0, RESULT: PASS -- the first Windows ARCADE census
-PASS.** 0.3.0-rc5 staged + gated (`STEPS="q1_ctest q1_census"`): GATES_RESULT_PLACEHOLDER Residual cost named for the record (sub_821536C0,
+PASS.** 0.3.0-rc5 staged + gated (`STEPS="q1_ctest q1_census"`): **BOTH PASS** (SMOKE.md 2026-11-03 07:31-07:53): q1_ctest PASS (positive control 60 DROPOUT-CONFIRMED for 60 INJECT, 262 s); q1_census PASS -- ARCADE `UNDERRUN=0 SINKSTALL=0` (8 named-class dropouts, 0 other), XBOX 360 `UNDERRUN=0 SINKSTALL=0` (1 named, 0 other; rc4 had 247 here), fpm-off 0 in both (1050 s). Staged folder `_rc/0.3.0-rc5-win/` (1.2 GB, exe build id 0f23859, engine md5 21ee5112...), F&F zip `_rc/Futari-Realcomp-Windows-v0.3.0-rc5.zip` -- NOT uploaded, no public form staged (owner's call); boot_smoke / gstart / rc_chain not re-run for rc5. Residual cost named for the record (sub_821536C0,
 the codec's VMX128 transform, 44 % self of the loudest minute; next lever = native transform or host xWMA decode at submit; not needed).
 Evidence: BACKLOG.md 2026-11-03, NOTE_fnf_shell_defects.md 2026-11-03, `_local/rc/census/aud1103{a,b,c}_arcade/`, `_rc/0.3.0-rc5-win/SMOKE.md`.
 

@@ -26,7 +26,7 @@
   `RT_AUDIOSTARTGRACE=0` reverts to the 11-02 counting. Inert on the Mac (CoreAudio never drains the ring at start).
 - ✅ **VERDICTS.** aud1103c (unprofiled, HEAD-1 engine): `FATAL=0 VKERR=0 SLOW=0 UNDERRUN=0 SINKSTALL=0 ... RESULT: PASS` -- the first
   Windows ARCADE census PASS. 0.3.0-rc5 staged (`rc_stage_win.sh 0.3.0-rc5`, exe build id 0f23859) and gated with
-  `STEPS="q1_ctest q1_census" rc_gates_win.sh 0.3.0-rc5`: GATES_RESULT_PLACEHOLDER
+  `STEPS="q1_ctest q1_census" rc_gates_win.sh 0.3.0-rc5`: **BOTH PASS** (SMOKE.md 2026-11-03 07:31-07:53): q1_ctest PASS (positive control 60 DROPOUT-CONFIRMED for 60 INJECT, 262 s); q1_census PASS -- ARCADE `UNDERRUN=0 SINKSTALL=0` (8 named-class dropouts, 0 other), XBOX 360 `UNDERRUN=0 SINKSTALL=0` (1 named, 0 other; rc4 had 247 here), fpm-off 0 in both (1050 s). Staged folder `_rc/0.3.0-rc5-win/` (1.2 GB, exe build id 0f23859, engine md5 21ee5112...), F&F zip `_rc/Futari-Realcomp-Windows-v0.3.0-rc5.zip` -- NOT uploaded, no public form staged (owner's call); boot_smoke / gstart / rc_chain not re-run for rc5.
 - 🔎 **WHAT THE RESIDUAL COST IS (the sampler, loudest minute, in-frame samples; `_local/rc/census/aud1103a_arcade/guest.log`).** 76 % of
   the frame is sub_82150338 -> 65 % sub_8214F080 (the "decoder prime" = the decode itself: +264 obj vt[4]) -> codec 60 % -> sub_82153CB8
   57 % -> **sub_821536C0 44 % SELF** (shell/gen/ppc_recomp.23.cpp:14227, 893 lines of lvx128 / vmaddfp / stvx128 = the codec's vectorised
