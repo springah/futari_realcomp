@@ -1,7 +1,7 @@
 # futari_realcomp
 
 A static recompilation of the Xbox 360 release of **Mushihimesama Futari Ver 1.5** to native
-macOS (Apple silicon, the primary seat since 2026-10), Windows and Linux / Steam Deck.
+macOS (Apple silicon, the primary seat since 2026-10) and Windows.
 
 The goal is a **matching decompilation**: the game's own recompiled code plus a thin, faithful
 kernel and GPU layer, in the mould of UnleashedRecomp. Output should be explainable by the
