@@ -5,6 +5,21 @@ friends & family and collect their logs. This note is the running defect ledger 
 Method per doctrine: ship-path first, oracle in hand before theorizing, instruments presumed
 lying until positive-controlled, texel-diff acceptance.
 
+## 2026-11-03 (later) — rc5 Mac cut attempt 2: q1_census 360 "2 other" = the NOW-LOADING ring class at a new texture page (0x1C?8000) · matcher widened · ⚖ docketed
+
+Seat: Fable (PC), the Mac cut over ssh. Second `rc_cut_mac.sh 0.3.0-rc5` attempt (engine d0dd58d = the WIN-AUDIO-1 fix 0f23859 + docs): app_smoke,
+gstart, q1_ctest PASS; q1_census ARCADE PASS (0 underruns, 0 dropouts); XBOX 360 FAIL on "dropouts outside the named classes: 2":
+`f8977 DROPOUT-CONFIRMED len=3 base=0x1C18000 v0=(253.5,273.6)` and `f9022 len=2 base=0x1C58000 v0=(251.0,-5.4)`. These are the two lines of the
+2026-10-12 attribution above ("360 NOW-LOADING ring particles": AUTHENTIC, input-timing dependent, NO engine change) frame for frame, length for
+length and v0 key for v0 key; the keyframe `nvk_f9000.png` of the run is the NOW LOADING screen with the ring sprites. Only the bound texture's
+page differs: 0x1C04000/0x1C44000 (dry-run engine) -> 0x1C14000/0x1C54000 (HEAD probes, rc2) -> 0x1C18000/0x1C58000 (rc5). The named-class
+matcher in `scripts/rc_census_mac.sh` (and the Windows twin) keyed the base as `0x1C?4000`, so the identical event fell outside the named classes.
+Action: base pattern widened to `0x1C?[48]000`; length and v0 key unchanged (they are the identity; the page is incidental and moves with the
+build). Windows twin edited in place to the same line (the generated copy has drifted from `win_port.sh` output, so it was not regenerated).
+⚖ For the owner: a named-class pattern change is a gate-definition change; it is applied by default (banker-rec rule) and flagged here.
+Attempt 1 of the same cut had stopped on ARCADE underruns (32) that a same-box A/B then showed on the rc4 engine too (23) and not on rc5 (0):
+Mac box variance, see BACKLOG 2026-11-03.
+
 ## 2026-11-03 — 🎉 WIN-AUDIO-1 CLOSED: the per-dispatch getenv() in rt_indirect_call (host shim), not the recompiled DSP · SDL startup transient accounted · first Windows ARCADE census PASS
 PC seat, engine 0f23859 (= 0.3.0-rc5). The 11-02 entry below measured the engine frame to the SFX voice render (sub_82150338, 75 % of the
 frame, 0.7 ms per voice). A sampling profiler of the engine thread (`RT_ENGSAMP=1`, new, out_reco/rt_engsamp.cpp) + the host link map

@@ -11,7 +11,8 @@
 #   0x49C4000 (w136 menu-atlas pair); the strobe and the card-LEFT quad are also matched by their v0 key ((-190.5,181.5) / len=1 v0=(41.5,-284.5)) because the
 #   base moves between builds (0x34E0000 on the Q1 probe, 0x34D0000 on the RC bundle engine) -- Q9/G11, docs/NOTE_fnf_shell_defects.md 2026-10-12;
 #   360 NOW-LOADING ring particles (the two hand-over lines of the 0.3.0-rc1 dry run): len=3 v0=(253.5,273.6) and len=2 v0=(251.0,-5.4), base
-#   0x1C?4000 (0x1C04000/0x1C44000 on the dry-run engine, 0x1C14000/0x1C54000 on the HEAD probes) -- a ring-sprite type with zero live particles
+#   0x1C?4000 (0x1C04000/0x1C44000 on the dry-run engine, 0x1C14000/0x1C54000 on the HEAD probes; 0x1C18000/0x1C58000 on the 0.3.0-rc5 engine,
+#   i.e. 0x1C?[48]000 -- the page moves with the build, the frame/len/v0 key does not) -- a ring-sprite type with zero live particles
 #   between its last particle expiring and the next burst; occurs only for some press timings, identical when the presses land on the same guest
 #   ticks (NOTE_fnf_shell_defects.md 2026-10-12 "360 NOW-LOADING ring particles").  Named-class hits are listed as INFO.
 # DRIVE LOCK: mkdir /c/tmp/futari_drive.lock, 60 s polls up to LOCKWAIT s (default 7200), also waits while `pgrep -x futari_merged` (someone is playing);
@@ -59,15 +60,15 @@ fin(){ kill "$PID" 2>/dev/null; sleep 2; kill -9 "$PID" 2>/dev/null; wait "$PID"
 verdict(){ # $1 = abort reason or empty
   local f=$(cnt FATAL) v=$(cnt 'VK_ERROR\|VUID') s=$(cnt '\[slowframe\]') u st bad named
   u=$(grep -a -o 'underruns=[0-9]*' "$L" | awk -F= '{x+=$2} END{print x+0}'); st=$(cnt 'live sink stalled')
-  named=$(grep -a 'DROPOUT-CONFIRMED' "$L" | grep -a -c 'base=0x2530000\|base=0x34E0000\|base=0x49C4000\|len=1 base=0x34[0-9A-F]0000 .*v0=(41.5,-284.5)\|base=0x2[0-9A-F]*0000 .*v0=(-190.5,181.5)\|len=3 base=0x1C[0-9A-F]4000 .*v0=(253.5,273.6)\|len=2 base=0x1C[0-9A-F]4000 .*v0=(251.0,-5.4)')
-  bad=$(grep -a 'DROPOUT-CONFIRMED' "$L" | grep -a -vc 'base=0x2530000\|base=0x34E0000\|base=0x49C4000\|len=1 base=0x34[0-9A-F]0000 .*v0=(41.5,-284.5)\|base=0x2[0-9A-F]*0000 .*v0=(-190.5,181.5)\|len=3 base=0x1C[0-9A-F]4000 .*v0=(253.5,273.6)\|len=2 base=0x1C[0-9A-F]4000 .*v0=(251.0,-5.4)')
+  named=$(grep -a 'DROPOUT-CONFIRMED' "$L" | grep -a -c 'base=0x2530000\|base=0x34E0000\|base=0x49C4000\|len=1 base=0x34[0-9A-F]0000 .*v0=(41.5,-284.5)\|base=0x2[0-9A-F]*0000 .*v0=(-190.5,181.5)\|len=3 base=0x1C[0-9A-F][48]000 .*v0=(253.5,273.6)\|len=2 base=0x1C[0-9A-F][48]000 .*v0=(251.0,-5.4)')
+  bad=$(grep -a 'DROPOUT-CONFIRMED' "$L" | grep -a -vc 'base=0x2530000\|base=0x34E0000\|base=0x49C4000\|len=1 base=0x34[0-9A-F]0000 .*v0=(41.5,-284.5)\|base=0x2[0-9A-F]*0000 .*v0=(-190.5,181.5)\|len=3 base=0x1C[0-9A-F][48]000 .*v0=(253.5,273.6)\|len=2 base=0x1C[0-9A-F][48]000 .*v0=(251.0,-5.4)')
   local fr
   if [ -n "${RT_TICKLOG:-}" ]; then   # exact per-present counts + ms timestamps: score the RATE per interval, 59.94 +-0.2 fps (= the +-10/3600 band)
     fr=$(awk -F, 'NR>1&&$3!=""&&$4!=""{ if(p!=""){r=($3-p)*1000/($4-pt); if(r<59.74||r>60.14) n++} p=$3; pt=$4 } END{print n+0}' "$B/rss.csv" 2>/dev/null)
   else fr=$(awk -F, 'NR>1&&$3!=""{ if(p!=""){d=$3-p; if(d<3590||d>3610) n++} p=$3 } END{print n+0}' "$B/rss.csv" 2>/dev/null); fi
   local pr=0; [ -s "$B/rss.csv" ] || pr=1
   { echo "census $TAG mode=$MODE minutes=$MIN"; echo "FATAL=$f VKERR=$v SLOW=$s UNDERRUN=$u SINKSTALL=$st"
-    echo "INFO named-class dropouts: $named (0x2530000 strobe / 0x34E0000 card-LEFT / 0x49C4000 pair / 0x1C?4000 360 loading rings)"
+    echo "INFO named-class dropouts: $named (0x2530000 strobe / 0x34E0000 card-LEFT / 0x49C4000 pair / 0x1C?[48]000 360 loading rings)"
     echo "dropouts outside the named classes: $bad"; echo "hands-off minutes off 3600+-10 frames (60 s samples): $fr"
     [ -n "$1" ] && echo "ABORT: $1"; } >> "$V"
   local r=PASS; { [ -n "$1" ] || [ "$f" != 0 ] || [ "$v" != 0 ] || [ "$s" != 0 ] || [ "$u" != 0 ] || [ "$st" != 0 ] || [ "$bad" != 0 ] || [ "$fr" != 0 ] || [ $pr = 1 ]; } && r=FAIL
