@@ -61,6 +61,18 @@
   PowerShell start-up, so a 70 ms DOWN auto-repeated on the top menu (cursor 0 -> 3 for two presses) and the drive hit the wrong row twice;
   bash `sleep 0.07` fixed it (2 SE_Select01 cues for 2 presses). Read the cue count, not the 300-frame `[mstate]` cursor sample.
 
+- ✅ **macOS PUBLIC (asset-free) rc4 zip STAGED + SMOKED (2026-11-03 07:15), NOT UPLOADED** -- `scripts/rc_stage_mac_public.sh` +
+  `scripts/rc_smoke_mac_public.sh` (new, twins of the Windows pair) + `tools/extract/extract_assets.sh` (the `.bat` twin, behind the double-click
+  `Extract Game Data.command`; builds `assets/` beside the .app, which `launcher.c` already finds). `_rc/Futari-Realcomp-macOS-v0.3.0-rc4-public.zip`
+  33 MB, sha256 `e553fa15a5076a3eebf0217851528e9c65c29f2b97f4205a41a1cb899532f3b2`, game-data scan clean, smoke ALL-PASS (58/58 manifest with the
+  DLC pass from `_local/blroot`, 4/4 modules, 0 FATAL / VK / MTL, build 1b03038; record `_rc/Futari-Realcomp-macOS-v0.3.0-rc4-public.zip.SMOKE.md`).
+  Engine bytes = the gated bundle's (MACHO_MD5 check); only the launcher's signature blob + the seal differ: no code change in the cut. Landmines:
+  a re-signed bundle = new cdhash = a fresh TCC folder-access prompt that blocks the first file read (smoke now runs under `~/Library/Caches`; README
+  says click Allow); the Mac gated assets tree has no DLC (55/58 alone). OWED: the owner's upload call (zip + .sha256 onto the `v0.3.0-rc4`
+  pre-release); hands checklist on the public form from `~/Downloads` (quarantine + TCC prompts are the tester's real path, covered by README text
+  only); an in-launcher first-run wizard (launcher.c, = rc5) if the .command route is judged too clunky; the TCC-blocked first attempt left an
+  813 MB APFS-clone assets copy under `_local/rc/pubsmoke_mac_20261103_070619/` (delete at will).
+
 ## 2026-11-01 — WINDOWS 0.3.0-rc3 F&F CUT (PC seat) + the four Desktop/NSP friends-and-family zips
 - ✅ **Desktop/NSP** holds Windows F&F zips WITH game data (never public): Futari-Realcomp-Windows-v0.3.0-rc3 (rc2 set moved to `_superseded_rc2/`),
   Mushihimesama-Futari-PC-v1.5.3-FF (futari_recomp), Daytona-USA-PC-v1.1.5-FF, Zuma-PC-v0.1.0-FF (first zuma stage). Each smoke-booted before zipping.

@@ -28,6 +28,23 @@ manifest match, 4/4 modules bound, 0 FATAL, 0 VK_ERROR). The Windows tree carrie
 the Windows exe is the same commit). Owed: the hands checklist on both seats, a macOS public (asset-free) form (never staged yet; rc3 and
 rc4 public are Windows-only), the Mac F&F zip to whoever gets it.
 
+**macOS PUBLIC (asset-free) rc4 zip STAGED + SMOKED 2026-11-03 07:15 AUSEST -- NOT UPLOADED (the owner's call).** New
+`scripts/rc_stage_mac_public.sh` (twin of `rc_stage_win_public.sh`): copies the gated rc4 bundle minus `Contents/Resources/assets`, re-seals it ad hoc
+(outer seal only: engine + 4 module dylibs + Frameworks BYTE-IDENTICAL to `_rc/0.3.0-rc4/MACHO_MD5.txt`, only the launcher's signature blob and
+CodeResources change), ships the extractor with a macOS first-run path (`Extract Game Data.command` -> `tools/extract/extract_assets.sh`, the
+`.bat` twin: Finder dialogs, or a path argument for scripted use; builds `assets/` BESIDE the .app, where `mac-build/launcher.c` already looks --
+no code in the cut bundle changes; an in-launcher wizard would be a launcher.c change = rc5), README/BUILD/MD5 with `form=public-asset-free`,
+the same docs; game-data scan clean (24 files, 114 MB; none of the 58 manifest names, no assets/shell/media, no .xex/.xgs/.xwb/.xsb/.bin/.lzx).
+Output `~/Desktop/projects/_rc/Futari-Realcomp-macOS-v0.3.0-rc4-public.zip` (33 MB, sha256
+`e553fa15a5076a3eebf0217851528e9c65c29f2b97f4205a41a1cb899532f3b2`) + `.sha256` / `.md5` / `.SMOKE.md`. Smoke `scripts/rc_smoke_mac_public.sh`
+(new) ALL-PASS: unzip fresh -> seal verifies -> no game data -> the SHIPPED extractor fed the gated bundle's assets tree, then `_local/blroot` for
+the DLC pass -> manifest 58/58 -> `app_smoke_mac.sh` on the unzipped .app PASS (4/4 modules bound, save written + read back) -> session log
+build=1b03038, 0 FATAL, 0 VK_ERROR, 0 MoltenVK/Metal errors, game root = the beside-the-app assets/. Two landmines on the way: (1) a re-signed
+bundle has a NEW cdhash, so macOS TCC prompts for Desktop/Downloads/Documents access on its first file read and the guest thread sits behind the
+prompt (9 log lines, title never loads) -- the smoke unzips under `~/Library/Caches` and the README tells testers to click Allow; (2) the Mac's
+gated assets tree carries no Black Label DLC (55/58 on its own; the extractor treats those 3 rows as optional), hence the DLC pass. The gated
+bundle, its SMOKE.md and the F&F zip are untouched (Nov 2 mtimes). NOT attached to the `v0.3.0-rc4` pre-release: uploading is the owner's decision.
+
 **🎉 BLACK LABEL RUNS, BOTH MODES (2026-10-31, Mac, opt-in build):** kiniro_normal (Black Label ARCADE, modeIdx 4) and kiniro_abnormal
 (Black Label XBOX 360 MODE, modeIdx 5) boot as third/fourth module dylibs and play: title -> hub -> Mode Select (Original/Maniac/God) ->
 Character Select (Reco & Kiniro) -> stage 1 -> GAME OVER -> replay prompt, 0 FATAL / 0 UNMAPPED / 0 kdrop on every drive. Needs
