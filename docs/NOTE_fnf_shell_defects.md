@@ -5,6 +5,29 @@ friends & family and collect their logs. This note is the running defect ledger 
 Method per doctrine: ship-path first, oracle in hand before theorizing, instruments presumed
 lying until positive-controlled, texel-diff acceptance.
 
+## 2026-11-03 (noon) — rc5 Mac cut attempt 4: BOTH modes fail the census (ARCADE 1 underrun no marker; 360 UNDERRUN=83 in 6 windows, 3 stall markers) · the box's load named: Spotlight + mediaanalysisd chewing the census's own keyframe PNGs · ⚖ two changes: stall-forgive rule (user ruling) + keyframes into `png.noindex`
+
+Seat: Fable (PC), the Mac cut over ssh. Fourth attempt at HEAD 1a021d3, box idle at launch (load 1.5): app_smoke, gstart, q1_ctest PASS;
+q1_census ARCADE FAIL on UNDERRUN=1 (one window, ring min=0, NO stall marker before it); XBOX 360 FAIL on UNDERRUN=83 in six windows with three
+`[vblank] stall: deadline forgiven` markers (two in the first minute: 5 / 21 / 14; one late: 1 / 9 / 33). Evidence `_local/rc/0_3_0_rc5_attempt4/`,
+`_rc/cut_0.3.0-rc5.attempt4.out`. Load at the moment the cut stopped: 3.7, `mediaanalysisd` 51 % CPU and three `mdworker_shared` at 14 % each;
+all idle again 60 s later. The census had just written ~100 keyframe PNGs per mode (`RT_NVKPNG=300` -> `$B/png/`), and the evidence trees under
+`projects/_local`, `projects/_rc` and `futari_realcomp/_local` hold 42,224 PNGs that Spotlight indexes and mediaanalysisd (visual lookup; GPU +
+Neural Engine) analyses when new. Mechanism (not instrumented, circumstantial but tight): each census run feeds ~200 fresh images to the indexer
+and the analyser; their GPU/ANE work contends with the MoltenVK present queue; the present loop falls >4 frame periods behind (`[vblank] stall`),
+and the audio ring (53 ms) runs dry. It fits every stalled run today (the runs that passed happened when the daemons were between batches) and
+retires "box variance" as a name: it is the box indexing our own evidence. Nothing in the engine differs between the passing and failing runs.
+Actions (⚖ both docketed): (1) USER RULING 2026-11-03 "Yes, if it stalls again" -> `scripts/rc_census_mac.sh` forgives ONE underrun window per run
+that is the first such window within 40 log lines after a stall marker (reported as INFO, not scored; `RT_CENSUS_NOFORGIVE=1` scores everything);
+Mac script only, the Windows twin keeps scoring every window because its regime had an engine cause (WIN-AUDIO-1). Validated on attempt-3 x360
+(41 in 1 window forgiven), the rc4 A/B arm (23 in 1), the clean attempt-3 ARCADE (0). Attempt 4 would NOT have passed under it (six windows, and
+the ARCADE window has no marker) -- the rule is a one-stall tolerance, not a mask. (2) The keyframe folder of the census and G-START scripts
+(both seats) is now `png.noindex` -- Spotlight skips directories with that suffix (the Xcode `Index.noindex` convention), so a cut no longer feeds
+the indexer or mediaanalysisd during its own gates; the banked keyframes stay where they were, one folder name longer. The 42k existing PNGs are
+already indexed and cost nothing until touched. For the owner's hands: adding `~/Desktop/projects/_rc` and `_local` (and `futari_realcomp/_local`)
+to System Settings > Siri & Spotlight > Spotlight Privacy would take the whole evidence tree out of the indexer; it needs the GUI or sudo, so it is
+not done here. Attempt 5 follows both changes.
+
 ## 2026-11-03 (later still) — rc5 Mac cut attempt 3: q1_census 360 UNDERRUN=41 = ONE 1 s window right after a `[vblank] stall: deadline forgiven (debt>4T)` = a whole-process stall (box), not audio · the keyframe-PNG lead RETIRED · attempt 4 launched
 
 Seat: Fable (PC), the Mac cut over ssh. Third `rc_cut_mac.sh 0.3.0-rc5` attempt at HEAD 1a021d3 (engine sources identical to 0f23859): app_smoke,

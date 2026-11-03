@@ -23,7 +23,7 @@ cd "$(dirname "$0")/.."
 TAG="${1:?tag}"; BIN="${2:?bin}"; MODE="${3:?arcade|x360}"; MIN="${4:-6}"; PN="$(basename "$BIN")"
 [ -x "$BIN" ] || { echo "no $BIN"; exit 2; }
 case "$MODE" in arcade|x360) ;; *) echo "mode arcade|x360"; exit 2;; esac
-B="${RCC_ROOT:-_local/rc/census}/$TAG"; rm -rf "$B"; mkdir -p "$B/png"; OUT="$B/steps.txt"; : > "$OUT"; V="$B/VERDICT.txt"; : > "$V"
+B="${RCC_ROOT:-_local/rc/census}/$TAG"; rm -rf "$B"; mkdir -p "$B/png.noindex"; OUT="$B/steps.txt"; : > "$OUT"; V="$B/VERDICT.txt"; : > "$V"
 LOCK=/c/tmp/futari_drive.lock; HAVE=0
 rel(){ [ "$HAVE" = 1 ] && rmdir "$LOCK" 2>/dev/null; HAVE=0; }
 trap 'pkill -x "$PN" 2>/dev/null; rel' EXIT
@@ -46,7 +46,7 @@ export RVK_RESALIAS=1 RVK_RESFRESH=1 RVK_FIXB2=1 RVK_RESREAL=1 RVK_HDR=0
 export RVK_WINDOW=1 RVK_WINSIZE=1280x720 RVK_DIMFIX=1
 export RT_NAVREAL=1 RT_STARTWIRE=1 RT_SNDQFREE=1 RT_RESCACHE=1 RT_HEAPLOCK=1
 export RT_PAD_HOST=1 RT_PAD_HOST_FIFO="$FIFO" RT_SAMPLES=0 RT_AUDIOSTARVE=1
-export RT_NVKPNG=300 RVK_DUMPDIR="$PWD/$B/png"
+export RT_NVKPNG=300 RVK_DUMPDIR="$PWD/$B/png.noindex"
 export RVK_DRAWCENSUS=2 RVK_TITLEPROBE=1
 [ "${TICKLOG:-0}" = 1 ] && export RT_TICKLOG=1   # opt-in (Windows gates pass TICKLOG=1): one [tick] p<N> line per present, an EXACT frame count for the sampler below
 [ "$MODE" = x360 ] && export RT_NAV360=1

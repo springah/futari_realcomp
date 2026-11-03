@@ -4,7 +4,7 @@
 # (the demo loop) with RVK_DRAWCENSUS=2, per-30 s RSS/frame samples. Adapted from _local/rc1/q1/q1_run.sh (the env block is its verbatim copy) with the
 # binary as a parameter. The engine is killed with `pkill -x <basename BIN>` ONLY (use a uniquely named copy; rc_cut_mac.sh makes one).
 # Verdict (RESULT: PASS|FAIL on the last line of <bank>/VERDICT.txt, exit 0/1; exit 3 = no lock):
-#   FAIL on any FATAL, VK_ERROR/VUID, [slowframe], audio underrun, live-sink stall, a hands-off minute outside 3600 +-10 frames, or any
+#   FAIL on any FATAL, VK_ERROR/VUID, [slowframe], audio underrun (bar ONE stall-adjacent window, ruling 2026-11-03), live-sink stall, a hands-off minute outside 3600 +-10 frames, or any
 #   DROPOUT-CONFIRMED whose base is not a NAMED AUTHENTIC deterministic class: 0x2530000 (PRESS START strobe), 0x34E0000 (360 card-LEFT quad),
 #   0x49C4000 (w136 menu-atlas pair); the strobe and the card-LEFT quad are also matched by their v0 key ((-190.5,181.5) / len=1 v0=(41.5,-284.5)) because the
 #   base moves between builds (0x34E0000 on the Q1 probe, 0x34D0000 on the RC bundle engine) -- Q9/G11, docs/NOTE_fnf_shell_defects.md 2026-10-12;
@@ -20,7 +20,7 @@ cd "$(dirname "$0")/.."
 TAG="${1:?tag}"; BIN="${2:?bin}"; MODE="${3:?arcade|x360}"; MIN="${4:-6}"; PN="$(basename "$BIN")"
 [ -x "$BIN" ] || { echo "no $BIN"; exit 2; }
 case "$MODE" in arcade|x360) ;; *) echo "mode arcade|x360"; exit 2;; esac
-B="${RCC_ROOT:-_local/rc/census}/$TAG"; rm -rf "$B"; mkdir -p "$B/png"; OUT="$B/steps.txt"; : > "$OUT"; V="$B/VERDICT.txt"; : > "$V"
+B="${RCC_ROOT:-_local/rc/census}/$TAG"; rm -rf "$B"; mkdir -p "$B/png.noindex"; OUT="$B/steps.txt"; : > "$OUT"; V="$B/VERDICT.txt"; : > "$V"
 LOCK=/tmp/futari_drive.lock; HAVE=0
 rel(){ [ "$HAVE" = 1 ] && rmdir "$LOCK" 2>/dev/null; HAVE=0; }
 trap 'pkill -x "$PN" 2>/dev/null; rel' EXIT
@@ -43,7 +43,7 @@ export RVK_RESALIAS=1 RVK_RESFRESH=1 RVK_FIXB2=1 RVK_RESREAL=1 RVK_HDR=0
 export RVK_WINDOW=1 RVK_WINSIZE=1280x720 RVK_DIMFIX=1
 export RT_NAVREAL=1 RT_STARTWIRE=1 RT_SNDQFREE=1 RT_RESCACHE=1 RT_HEAPLOCK=1
 export RT_PAD_HOST=1 RT_PAD_HOST_FIFO="$FIFO" RT_SAMPLES=0 RT_AUDIOSTARVE=1
-export RT_NVKPNG=300 RVK_DUMPDIR="$PWD/$B/png"
+export RT_NVKPNG=300 RVK_DUMPDIR="$PWD/$B/png.noindex"
 export RVK_DRAWCENSUS=2 RVK_TITLEPROBE=1
 [ "${TICKLOG:-0}" = 1 ] && export RT_TICKLOG=1   # opt-in (Windows gates pass TICKLOG=1): one [tick] p<N> line per present, an EXACT frame count for the sampler below
 [ "$MODE" = x360 ] && export RT_NAV360=1
@@ -57,6 +57,15 @@ fin(){ kill "$PID" 2>/dev/null; sleep 2; kill -9 "$PID" 2>/dev/null; wait "$PID"
 verdict(){ # $1 = abort reason or empty
   local f=$(cnt FATAL) v=$(cnt 'VK_ERROR\|VUID') s=$(cnt '\[slowframe\]') u st bad named
   u=$(grep -a -o 'underruns=[0-9]*' "$L" | awk -F= '{x+=$2} END{print x+0}'); st=$(cnt 'live sink stalled')
+  # ⚖ ruling 2026-11-03: ONE underrun window per run that is the first such window within 40 log lines after a
+  # `[vblank] stall: deadline forgiven` line (the present loop >4 frame periods behind = the whole process off the CPU = the box,
+  # not audio; NOTE_fnf_shell_defects 2026-11-03 "later still") is reported and not scored. A second window, or one with no stall
+  # line before it, is scored as before. RT_CENSUS_NOFORGIVE=1 scores everything.
+  local ufg=0 ufw=0 ue
+  if [ -z "${RT_CENSUS_NOFORGIVE:-}" ]; then
+    read -r ufg ufw <<<"$(awk '/\[vblank\] stall: deadline forgiven/{ls=NR} /underruns=[1-9]/{ if(ls && NR-ls<=40 && fw<1){ match($0,/underruns=[0-9]+/); fg+=substr($0,RSTART+10,RLENGTH-10); fw++ } ls=0 } END{print fg+0, fw+0}' "$L")"
+  fi
+  ue=$((u-ufg))
   named=$(grep -a 'DROPOUT-CONFIRMED' "$L" | grep -a -c 'base=0x2530000\|base=0x34E0000\|base=0x49C4000\|len=1 base=0x34[0-9A-F]0000 .*v0=(41.5,-284.5)\|base=0x2[0-9A-F]*0000 .*v0=(-190.5,181.5)\|len=3 base=0x1C[0-9A-F][48]000 .*v0=(253.5,273.6)\|len=2 base=0x1C[0-9A-F][48]000 .*v0=(251.0,-5.4)')
   bad=$(grep -a 'DROPOUT-CONFIRMED' "$L" | grep -a -vc 'base=0x2530000\|base=0x34E0000\|base=0x49C4000\|len=1 base=0x34[0-9A-F]0000 .*v0=(41.5,-284.5)\|base=0x2[0-9A-F]*0000 .*v0=(-190.5,181.5)\|len=3 base=0x1C[0-9A-F][48]000 .*v0=(253.5,273.6)\|len=2 base=0x1C[0-9A-F][48]000 .*v0=(251.0,-5.4)')
   local fr
@@ -64,11 +73,12 @@ verdict(){ # $1 = abort reason or empty
     fr=$(awk -F, 'NR>1&&$3!=""&&$4!=""{ if(p!=""){r=($3-p)*1000/($4-pt); if(r<59.74||r>60.14) n++} p=$3; pt=$4 } END{print n+0}' "$B/rss.csv" 2>/dev/null)
   else fr=$(awk -F, 'NR>1&&$3!=""{ if(p!=""){d=$3-p; if(d<3590||d>3610) n++} p=$3 } END{print n+0}' "$B/rss.csv" 2>/dev/null); fi
   local pr=0; [ -s "$B/rss.csv" ] || pr=1
-  { echo "census $TAG mode=$MODE minutes=$MIN"; echo "FATAL=$f VKERR=$v SLOW=$s UNDERRUN=$u SINKSTALL=$st"
+  { echo "census $TAG mode=$MODE minutes=$MIN"; echo "FATAL=$f VKERR=$v SLOW=$s UNDERRUN=$ue SINKSTALL=$st"
+    [ "$ufw" != 0 ] && echo "INFO underruns forgiven as stall-adjacent (ruling 2026-11-03): $ufg in $ufw window right after a [vblank] stall line (raw UNDERRUN=$u)"
     echo "INFO named-class dropouts: $named (0x2530000 strobe / 0x34E0000 card-LEFT / 0x49C4000 pair / 0x1C?[48]000 360 loading rings)"
     echo "dropouts outside the named classes: $bad"; echo "hands-off minutes off 3600+-10 frames (60 s samples): $fr"
     [ -n "$1" ] && echo "ABORT: $1"; } >> "$V"
-  local r=PASS; { [ -n "$1" ] || [ "$f" != 0 ] || [ "$v" != 0 ] || [ "$s" != 0 ] || [ "$u" != 0 ] || [ "$st" != 0 ] || [ "$bad" != 0 ] || [ "$fr" != 0 ] || [ $pr = 1 ]; } && r=FAIL
+  local r=PASS; { [ -n "$1" ] || [ "$f" != 0 ] || [ "$v" != 0 ] || [ "$s" != 0 ] || [ "$ue" != 0 ] || [ "$st" != 0 ] || [ "$bad" != 0 ] || [ "$fr" != 0 ] || [ $pr = 1 ]; } && r=FAIL
   echo "RESULT: $r" >> "$V"; say "RESULT $r"; cat "$V"; [ $r = PASS ]; }
 die(){ say "FAIL: $*"; fin; verdict "$*"; exit 1; }
 press(){ echo "$1" > "$FIFO"; sleep 0.2; echo 0 > "$FIFO"; }

@@ -34,7 +34,7 @@ OVERALL=0
 
 # ---------------------------------------------------------------------------------------------------- leg machinery
 leg_begin(){ # name mode [seed-dir]  -- take the lock, set env, launch, find the log
-  LEG="$1"; LMODE="$2"; B="$ROOT/${TAG}_$LEG"; rm -rf "$B"; mkdir -p "$B/png"; echo 0 > "$FIFO"
+  LEG="$1"; LMODE="$2"; B="$ROOT/${TAG}_$LEG"; rm -rf "$B"; mkdir -p "$B/png.noindex"; echo 0 > "$FIFO"
   local w=0
   while :; do
     if mkdir "$LOCK" 2>/dev/null; then GOT=1
@@ -43,7 +43,7 @@ leg_begin(){ # name mode [seed-dir]  -- take the lock, set env, launch, find the
     [ $w -ge "${LOCKWAIT:-10800}" ] && { echo "lock busy ${w}s -- giving up"; exit 3; }; sleep 60; w=$((w+60)); done
   echo "lockwait=${w}s" > "$B/lockwait.txt"
   trap 'pkill -x "$PN" 2>/dev/null; sleep 1; [ "$GOT" = 1 ] && rmdir "$LOCK" 2>/dev/null' EXIT
-  export RT_PAD_HOST=1 RT_PAD_HOST_FIFO="$FIFO" RT_NVKPNG="${NVKPNG:-30}" RVK_DUMPDIR="$PWD/$B/png" RT_NAVREAL=1 RT_MENULOG=1 RT_TRAINPROBE=1 RVK_DRAWCENSUS=2
+  export RT_PAD_HOST=1 RT_PAD_HOST_FIFO="$FIFO" RT_NVKPNG="${NVKPNG:-30}" RVK_DUMPDIR="$PWD/$B/png.noindex" RT_NAVREAL=1 RT_MENULOG=1 RT_TRAINPROBE=1 RVK_DRAWCENSUS=2
   export RT_INDCENSUS=1 RT_INDCENSUS_OUT="$PWD/$ROOT/${LEG}_${TAG}_indcensus.txt" RT_INDCENSUS_EVERY=20000   # coordinator: decomp UNREACHED-row census
   [ "$LMODE" = x360 ] && export RT_NAV360=1 || unset RT_NAV360
   [ -n "${3:-}" ] && { rm -rf "$RT_SAVE_DIR"; cp -R "$3" "$RT_SAVE_DIR"; }
@@ -60,7 +60,7 @@ mark(){ MARK=$(wc -l < "$LOGF" | tr -d ' '); }
 press(){ echo "$1" > "$FIFO"; sleep 0.2; echo 0 > "$FIFO"; say "pad $1"; sleep "${2:-0.6}"; }
 newlog(){ tail -n +"$((MARK+1))" "$LOGF"; }
 waitnew(){ local pat="$1" n=$(( ${2:-10}*2 )) i; for ((i=0;i<n;i++)); do newlog | grep -a -q -- "$pat" && return 0; sleep 0.5; done; return 1; }
-shot(){ N=$((N+1)); sleep 0.3; local f; f=$(printf '%s/shot_%02d_%s.png' "$B" "$N" "${1:-s}"); cp "$B/png/nvk_last.png" "$f" 2>/dev/null && say "shot $(basename "$f")" || say "no frame for $1"; }
+shot(){ N=$((N+1)); sleep 0.3; local f; f=$(printf '%s/shot_%02d_%s.png' "$B" "$N" "${1:-s}"); cp "$B/png.noindex/nvk_last.png" "$f" 2>/dev/null && say "shot $(basename "$f")" || say "no frame for $1"; }
 ok(){ say "PASS $1"; echo "PASS $1" >> "$V"; }
 bad(){ say "FAIL $1"; echo "FAIL $1" >> "$V"; FAIL=1; }
 info(){ say "INFO $1"; echo "INFO $1" >> "$V"; }

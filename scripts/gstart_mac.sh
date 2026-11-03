@@ -10,11 +10,11 @@ set -u
 cd "$(dirname "$0")/.."
 TAG="${1:?tag}"; BIN="${2:?bin}"; MODE="${3:-arcade}"; PN="$(basename "$BIN")"
 [ -x "$BIN" ] || { echo "no $BIN"; exit 2; }
-B="_local/gstart/$TAG"; rm -rf "$B"; mkdir -p "$B/png"
+B="_local/gstart/$TAG"; rm -rf "$B"; mkdir -p "$B/png.noindex"
 FIFO=/tmp/futari_pad_gstart; echo 0 > "$FIFO"; LOCK=/tmp/futari_drive.lock
 w=0; until mkdir "$LOCK" 2>/dev/null; do [ $w -ge "${LOCKWAIT:-7200}" ] && { echo "lock busy ${w}s"; exit 3; }; sleep 60; w=$((w+60)); done
 trap 'pkill -x "$PN" 2>/dev/null; sleep 1; rmdir "$LOCK" 2>/dev/null' EXIT
-export RT_PAD_HOST=1 RT_PAD_HOST_FIFO="$FIFO" RT_NVKPNG=30 RVK_DUMPDIR="$PWD/$B/png" RT_NAV360=1
+export RT_PAD_HOST=1 RT_PAD_HOST_FIFO="$FIFO" RT_NVKPNG=30 RVK_DUMPDIR="$PWD/$B/png.noindex" RT_NAV360=1
 [ "${NOGATE:-0}" = 1 ] && export RT_STARTWIRE_NOGATE=1
 export RT_SAVE="_local/saves/save_gstart_$TAG"; rm -rf "$RT_SAVE"; cp -R _local/saves/save_rc1_rc1m_x360 "$RT_SAVE"
 BIN="$BIN" RUN_SECS="${RUN_SECS:-300}" bash scripts/run_mac.sh > "$B/run_out.txt" 2>&1 &
@@ -26,7 +26,7 @@ MARK=0; mark(){ MARK=$(wc -l < "$LOGF" | tr -d ' '); }
 press(){ echo "$1" > "$FIFO"; sleep 0.2; echo 0 > "$FIFO"; }
 waitnew(){ local pat="$1" n=$(( ${2:-10}*2 )) i; for ((i=0;i<n;i++)); do tail -n +"$((MARK+1))" "$LOGF" | grep -q -- "$pat" && return 0; sleep 0.5; done; return 1; }
 step(){ local pad="$1" pat="$2" to="${3:-10}" st="${4:-2}"; mark; press "$pad"; if waitnew "$pat" "$to"; then say "ok pad $pad ($pat)"; else say "TIMEOUT pad $pad ($pat)"; fi; sleep "$st"; }
-N=0; shot(){ N=$((N+1)); sleep 0.3; cp "$B/png/nvk_last.png" "$(printf '%s/shot_%02d_%s.png' "$B" "$N" "$1")" 2>/dev/null; }
+N=0; shot(){ N=$((N+1)); sleep 0.3; cp "$B/png.noindex/nvk_last.png" "$(printf '%s/shot_%02d_%s.png' "$B" "$N" "$1")" 2>/dev/null; }
 # probe <screen> <pad> <name>: press, dwell 4 s, report module deltas since the press
 probe(){ local scr="$1" pad="$2" nm="$3"; mark; press "$pad"; sleep 4
   local d; d=$(tail -n +"$((MARK+1))" "$LOGF" | grep -E '\[navreal\] (st|d76)|\[nav360\].*(st|d76) [0-9-]+->|\[startwire\]|\[cb2gate\]|\[decide\]|GameEntry\(msg=(1[0-9]|[0-9]),' | grep -v 'msg=5' | head -12)
