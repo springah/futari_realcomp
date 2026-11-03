@@ -1,5 +1,7 @@
 # STATUS — futari_realcomp (pointer, 2026-10-12)
 
+**2026-11-03 ~12:45 (PC seat) — rc5 HANDOFF TO THE MAC: read `docs/NOTES_rc5_mac_handoff.md` FIRST.** Windows rc5 = all five gates PASS, F&F + public zips staged (NOT uploaded, no tag). Mac rc5 = NOT CUT after six attempts, all stopped at q1_census by box stall episodes (`[vblank] stall` marker + one underrun burst; mediaanalysisd on the Photos library), never an rc5 defect; A5/A6 passed XBOX 360 clean. ⚖ OPEN for the user: forgive one stall EPISODE per run (draft awk in the handoff) vs keep rerunning. Mac checkout must `git pull --ff-only` before the next cut (preflight). Upload of rc5 = ASK THE USER.
+
 **2026-11-03 (PC seat): 🎉 WIN-AUDIO-1 FIXED (0f23859) -- the cost was a `getenv()` on EVERY indirect dispatch in `rt_indirect_call`, not the
 recompiled DSP.** A new sampling profiler of the engine thread (`RT_ENGSAMP=1`, out_reco/rt_engsamp.cpp) + the host link map named
 `common_getenv_nolock`/`_strnicmp` under the xWMA software decoder the SFX voices run (thousands of indirect dispatches per packet). Cached:
