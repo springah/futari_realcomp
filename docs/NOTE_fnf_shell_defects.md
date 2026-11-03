@@ -5,6 +5,24 @@ friends & family and collect their logs. This note is the running defect ledger 
 Method per doctrine: ship-path first, oracle in hand before theorizing, instruments presumed
 lying until positive-controlled, texel-diff acceptance.
 
+## 2026-11-03 (afternoon) — rc5 Mac cut attempts 5 + 6: XBOX 360 census PASSES CLEAN both times; ARCADE fails on ONE stall episode each time · mediaanalysisd caught working on the Photos syndication library, not our keyframes · the gate is at the mercy of the box's daemons
+
+Seat: Fable (PC), the Mac cut over ssh, both attempts on main (f5b00c6 / 5dc987b: stall-forgive rule + png.noindex in). Both: app_smoke, gstart,
+q1_ctest PASS; q1_census XBOX 360 PASS (0 underruns, 0 stalls) -- the mode that failed attempts 2-4. ARCADE: attempt 5 (11:26) three stall markers
+within ~100 log lines, windows 12 / 9 / 17; the rule forgave the first, scored 26 -> FAIL. Attempt 6 (12:03, launched after the indexer daemons
+had been quiet for 60 s) one marker 5 s into the run (log line 990 of ~9600), windows 5 (flushed three lines BEFORE the marker) and 21 (after);
+the rule forgave 21, scored 5 -> FAIL. Every scored window in both runs is part of the same stall episode as a forgiven one; under a
+"one EPISODE" rule both ARCADE runs pass with the engine untouched. Evidence `_local/rc/0_3_0_rc5_attempt{5,6}/`, `_rc/cut_0.3.0-rc5.attempt{5,6}.out`.
+The box, caught in the act 30 s after attempt 6 ended: `mediaanalysisd` at 108 % CPU with `~/Library/Photos/Libraries/Syndication.photoslibrary`
+and `~/Library/MediaAnalysis/*.sqlite` open, log lines `MADServiceTextProcessingTask` / EmbeddingCore -- it is processing the user's Photos and
+Messages media, NOT our PNGs (the morning's hypothesis that the census keyframes fed it is WITHDRAWN; the `png.noindex` change still keeps ~200
+images per cut out of Spotlight and is kept). Files the cut still creates in indexed places per run: ~1,100 under `futari_realcomp/build/`, ~1,100
+under `_local/` (q1_ctest bank `_local/rc1/...` incl. 52 PNGs, gstart `shot_*.png` x21, logs, objects). The user's Spotlight Privacy entries
+(added 11:40) were still not effective at 12:03 (mdfind returns 41,640 PNGs under the repo's `_local`). Conclusion: the Mac census measures the
+box as much as the engine; a stall marker + burst is a box event the engine cannot prevent windowed. ⚖ OPEN for the owner: forgive one stall
+EPISODE (all underrun windows within 40 log lines of a marker cluster, one cluster per run) instead of one window; or gate under Game Mode via the
+.app in full screen (BACKLOG). No rerun launched blind; the user decides.
+
 ## 2026-11-03 (noon) — rc5 Mac cut attempt 4: BOTH modes fail the census (ARCADE 1 underrun no marker; 360 UNDERRUN=83 in 6 windows, 3 stall markers) · the box's load named: Spotlight + mediaanalysisd chewing the census's own keyframe PNGs · ⚖ two changes: stall-forgive rule (user ruling) + keyframes into `png.noindex`
 
 Seat: Fable (PC), the Mac cut over ssh. Fourth attempt at HEAD 1a021d3, box idle at launch (load 1.5): app_smoke, gstart, q1_ctest PASS;
