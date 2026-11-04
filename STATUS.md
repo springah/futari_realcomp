@@ -1,5 +1,21 @@
 # STATUS — futari_realcomp (pointer, 2026-10-12)
 
+**2026-11-04 22:25 AUSEST (Mac seat) -- 🚀 rc5 UPLOADED on the user's yes ("Yes, upload rc5"): GitHub pre-release `v0.3.0-rc5`
+https://github.com/springah/futari_realcomp/releases/tag/v0.3.0-rc5** on the pushed tag, title "v0.3.0-rc5 — Windows + macOS test builds (no game
+data, bring your own dump)", notes = the rc4 notes updated (WIN-AUDIO-1 fixed -> all five gates PASS on BOTH platforms; build table b299957 /
+1d79e208; both digests). Assets: `Futari-Realcomp-Windows-v0.3.0-rc5-public.zip` (33,574,452 B, sha256 `2d0dfa38…1cbc`, fetched from the PC's
+`_rc/` by scp and re-hashed) + `.sha256`, `Futari-Realcomp-macOS-v0.3.0-rc5-public.zip` (33,412,658 B, sha256 `440dbf85…7017`) + `.sha256`; ALL
+FOUR re-downloaded with `gh release download` and `shasum -c` OK against the uploaded .sha256 files and the notes. GitHub was DEGRADED (API +
+Git Operations) during the upload: one HTTP 500 on create, then a created release id 433819908 whose asset upload 404'd and which then vanished
+(no draft left behind; checked via the API) -- the third try (create without assets, then `gh release upload --clobber` per asset, retry loops)
+succeeded. rc4 + rc3 pre-releases left in place. F&F (with game data, never public): on the PC `Desktop\NSP\` now holds
+`Futari-Realcomp-Windows-v0.3.0-rc5.zip` (964,017,522 B, sha256 `301832b4…8e2c` verified after the copy) + `.md5/.sha256` + the staged folder's
+README as `Futari-Realcomp-Windows-v0.3.0-rc5.README.txt`, AND the Mac F&F zip `Futari-Realcomp-macOS-v0.3.0-rc5.zip` (741,268,897 B, sha256
+`5dcca523…b698`, scp'd from the Mac, `sha256sum -c` OK there) + `.md5/.sha256`; rc4's four NSP files moved to `NSP\_superseded_rc4\`. The PC's
+`_rc/` copies were left in place (copied, not moved). Scratch on the Mac: `_rc/rc5_upload/notes_rc5.md` (the notes as posted). OWED: hands
+checklist both seats (`RC1_HANDS_CHECKLIST.md`), tester triage, the rc_cut_mac.sh HTTPS-push fix, Spotlight exclusion, the Linux build (none).
+
+
 **2026-11-04 21:20 AUSEST (Mac seat) -- 🎉 0.3.0-rc5 CUT ON THE MAC, ALL-PASS, BOTH TAGS PUSHED, PUBLIC macOS ZIP STAGED + SMOKED. NOT UPLOADED.**
 User ruling 11-04 ("rerun as is"): no episode rule, the one-window forgive rule of f5b00c6 stays. Attempt 7 of `rc_cut_mac.sh 0.3.0-rc5`
 (20:04-21:11, box quiet, mediaanalysisd/mds idle at launch): app_smoke PASS, gstart PASS (ARCADE 10 probes / 360 9 probes, 0 leaks), q1_ctest PASS
