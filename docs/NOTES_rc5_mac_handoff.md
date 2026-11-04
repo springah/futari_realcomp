@@ -5,6 +5,8 @@
 > `BACKLOG.md` 2026-11-04, `NOTE_fnf_shell_defects.md` 2026-11-04. New landmine for §6: the script's tag push fails over ssh from a detached shell
 > (publickey refused; global insteadOf rewrites https→ssh) — push tags over HTTPS with `GIT_CONFIG_GLOBAL=/dev/null git -c credential.helper='!gh auth git-credential'`.**
 > **UPLOADED 2026-11-04 22:25 on the user's yes — pre-release `v0.3.0-rc5` live with both public zips + .sha256 (digests re-downloaded OK); F&F zips in the PC's `Desktop\NSP` (rc4 superseded). §5 complete.**
+> **22:40 correction: the ssh failure was GitHub's outage (Git Operations degraded), not the key; ssh works again. Spotlight exclusion still ineffective (mdfind 29,808).**
+
 
 
 

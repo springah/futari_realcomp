@@ -1,5 +1,13 @@
 # STATUS — futari_realcomp (pointer, 2026-10-12)
 
+**2026-11-04 22:40 (Mac seat) -- CORRECTION to the ssh "landmine" below: the key is FINE.** `ssh -T git@github.com` now answers "Hi springah!
+You've successfully authenticated" and `git ls-remote` over ssh works, with nothing changed on the Mac; githubstatus.com showed Git Operations
++ API Requests DEGRADED during the cut's tag push, the docs push (one 500) and the release upload (one vanished release) and OPERATIONAL now.
+So the cut's `git push origin v0.3.0-rc5` died on GitHub's outage, not on `~/.ssh/id_rsa`, and the global https->ssh insteadOf is not a
+problem. The HTTPS+gh push recipe still works as a fallback; the rc_cut_mac.sh TODO shrinks to "retry the tag push a few times before dying".
+Spotlight Privacy exclusion STILL not effective at 22:40 (`mdfind` count 29,808 PNGs under `_local/`, rising).
+
+
 **2026-11-04 22:25 AUSEST (Mac seat) -- 🚀 rc5 UPLOADED on the user's yes ("Yes, upload rc5"): GitHub pre-release `v0.3.0-rc5`
 https://github.com/springah/futari_realcomp/releases/tag/v0.3.0-rc5** on the pushed tag, title "v0.3.0-rc5 — Windows + macOS test builds (no game
 data, bring your own dump)", notes = the rc4 notes updated (WIN-AUDIO-1 fixed -> all five gates PASS on BOTH platforms; build table b299957 /

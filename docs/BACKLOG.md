@@ -14,6 +14,9 @@
 - ✅ **macOS PUBLIC rc5 zip staged + smoked**: `_rc/Futari-Realcomp-macOS-v0.3.0-rc5-public.zip` 33 MB sha256 `440dbf85…7017`, Mach-Os
   byte-identical to the gated bundle, game-data scan clean; `rc_smoke_mac_public.sh` ALL-PASS (extractor 58/58 incl. DLC, 4/4 modules, 0
   FATAL/VK/MTL, build b299957; record `…-public.zip.SMOKE.md`). Gotcha: `<dlc>` must be an ABSOLUTE path (relative failed the extract step once).
+- ✏️ **CORRECTION 22:40: the ssh key was never refused -- GitHub Git Operations were DEGRADED (githubstatus.com) during the tag push, the docs
+  push and the release upload; ssh auth + `git ls-remote` over ssh work again with nothing changed.** The HTTPS+gh recipe stays as a fallback;
+  the rc_cut_mac.sh TODO becomes: retry the tag push (e.g. 5 x 30 s) before `die`. Spotlight exclusion still ineffective (mdfind 29,808).
 - 🚀 **rc5 UPLOADED 2026-11-04 22:25 (user: "Yes, upload rc5")**: pre-release `v0.3.0-rc5` https://github.com/springah/futari_realcomp/releases/tag/v0.3.0-rc5
   = Windows public zip (sha256 `2d0dfa38…1cbc`) + macOS public zip (sha256 `440dbf85…7017`) + both `.sha256`; all four re-downloaded, digests OK.
   GitHub API/Git degraded during the upload (one 500, one vanished release id 433819908, no draft left) -- create-then-upload with retries worked.

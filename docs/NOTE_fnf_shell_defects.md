@@ -28,6 +28,9 @@ inside the `~/Library/Caches` work folder) -- the log row inherits that FAIL; re
 app_smoke 4/4 modules + save round-trip, log build=b299957, 0 FATAL / VK / MTL). Nothing uploaded; the owner decides. Lesson for the script: push
 over HTTPS via gh, and have the smoke script absolutise its path arguments.
 
+CORRECTION 22:40: the ssh failure was GitHub's degraded Git Operations (githubstatus.com), not the key -- `ssh -T git@github.com` authenticates
+again with nothing changed on the Mac; the global insteadOf is harmless. The HTTPS+gh push stays a fallback recipe; the script's fix = retry the push.
+
 ## 2026-11-03 (afternoon) — rc5 Mac cut attempts 5 + 6: XBOX 360 census PASSES CLEAN both times; ARCADE fails on ONE stall episode each time · mediaanalysisd caught working on the Photos syndication library, not our keyframes · the gate is at the mercy of the box's daemons
 
 Seat: Fable (PC), the Mac cut over ssh, both attempts on main (f5b00c6 / 5dc987b: stall-forgive rule + png.noindex in). Both: app_smoke, gstart,
