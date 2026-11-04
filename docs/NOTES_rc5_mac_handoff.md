@@ -1,5 +1,11 @@
 # NOTES — 0.3.0-rc5 handoff to the Mac seat (written on the PC seat, 2026-11-03 ~12:45 AUSEST)
 
+> **DONE 2026-11-04 21:20 AUSEST on the Mac — attempt 7 ALL-PASS on the current (one-window) rule, user ruling "rerun as is"; the §3 episode rule was
+> not needed and stays undecided. Tags pushed, F&F + public macOS zips staged, public smoke PASS, NOTHING UPLOADED. Record: `STATUS.md` top block,
+> `BACKLOG.md` 2026-11-04, `NOTE_fnf_shell_defects.md` 2026-11-04. New landmine for §6: the script's tag push fails over ssh from a detached shell
+> (publickey refused; global insteadOf rewrites https→ssh) — push tags over HTTPS with `GIT_CONFIG_GLOBAL=/dev/null git -c credential.helper='!gh auth git-credential'`.**
+
+
 The user is moving to the Mac to finish rc5 there. This file is the complete state so the Mac session needs nothing from the PC
 transcript. Detail per attempt lives in `NOTE_fnf_shell_defects.md` (entries dated 2026-11-03, newest first) and `BACKLOG.md`
 (the 2026-11-03 morning bullet); this is the operational summary + the open decision + the exact next commands.

@@ -5,6 +5,29 @@ friends & family and collect their logs. This note is the running defect ledger 
 Method per doctrine: ship-path first, oracle in hand before theorizing, instruments presumed
 lying until positive-controlled, texel-diff acceptance.
 
+## 2026-11-04 (evening, Mac seat) — rc5 Mac cut attempt 7: ALL-PASS on the one-window rule · ZERO stall markers, ZERO underrun windows in both modes (the box was quiet) · the cut's own tag push died on ssh publickey, (d) finished by hand over HTTPS · public macOS zip staged + smoked
+
+User ruling 11-04 on the open ⚖ of `NOTES_rc5_mac_handoff.md` §3: "rerun as is" -- the episode rule is NOT applied (draft awk stays unvalidated in
+the handoff note). Attempt 7 launched 20:04 with mediaanalysisd / mds_stores / mdworker all at 0 % CPU; the leftover `_local/rc/0_3_0_rc5` was a
+byte-identical duplicate of the banked `_attempt6` and was deleted before launch. app_smoke 58 s PASS; gstart 200 s PASS (ARCADE 10 probes, 360
+9 probes, 0 leaks); q1_ctest 257 s PASS (60/60); q1_census 1040 s PASS -- ARCADE `FATAL=0 VKERR=0 SLOW=0 UNDERRUN=0 SINKSTALL=0`, 0 named / 0
+other; XBOX 360 the same with 1 named (the loading-ring class) / 0 other; `grep -c 'deadline forgiven'` = 0 and `grep -c 'underruns=[1-9]'` = 0
+in BOTH guest.logs, so the forgive rule never fired; rc_chain 2382 s PASS (352 PASS lines, 0 FAIL). Seven attempts, one clean box window: the
+gate's failures were the daemons all along, as §2 of the handoff said.
+
+Then the script's (d) step: tag `v0.3.0-rc5` was created locally and `git push origin v0.3.0-rc5` failed with `git@github.com: Permission denied
+(publickey)` -- `ssh -v` shows `~/.ssh/id_rsa` offered and refused; `~/.gitconfig` carries `url.git@github.com:springah/.insteadOf
+https://github.com/springah/`, so even an https push goes to ssh. (One ssh push DID go through minutes later, the next did not: flaky, not
+reliable.) Finished by hand, identical to the script: pushed the realcomp tag, created + pushed the decomp tag `realcomp-v0.3.0-rc5` at 1d79e208
+with the script's tag message, both over HTTPS with `GIT_CONFIG_GLOBAL=/dev/null git -c credential.helper='!gh auth git-credential' push
+https://github.com/springah/<repo>.git <tag>`, verified via `gh api .../git/ref/tags/...`; `ditto -c -k --keepParent` zip 720 MB, sha256
+`5dcca5239529a6671c9f450a48b2378fce4c1ef68eb8de72f4ca4cd98d52b698`, md5 `9cd46d1d7577e2738440cd610b5e7dd2`, `_serve/` symlink. Public form:
+`rc_stage_mac_public.sh 0.3.0-rc5` clean (sha256 `440dbf8548f1a11dc32fa183b4715392dae70ed98a7e3a11738dd70058a97017`, 33 MB);
+`rc_smoke_mac_public.sh` first run FAILED its extract step only because the `<dlc>` argument was RELATIVE (`_local/blroot`; the extractor runs
+inside the `~/Library/Caches` work folder) -- the log row inherits that FAIL; rerun with absolute paths ALL-PASS (extract 58/58 sha-verified,
+app_smoke 4/4 modules + save round-trip, log build=b299957, 0 FATAL / VK / MTL). Nothing uploaded; the owner decides. Lesson for the script: push
+over HTTPS via gh, and have the smoke script absolutise its path arguments.
+
 ## 2026-11-03 (afternoon) — rc5 Mac cut attempts 5 + 6: XBOX 360 census PASSES CLEAN both times; ARCADE fails on ONE stall episode each time · mediaanalysisd caught working on the Photos syndication library, not our keyframes · the gate is at the mercy of the box's daemons
 
 Seat: Fable (PC), the Mac cut over ssh, both attempts on main (f5b00c6 / 5dc987b: stall-forgive rule + png.noindex in). Both: app_smoke, gstart,

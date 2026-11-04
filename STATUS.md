@@ -1,5 +1,31 @@
 # STATUS — futari_realcomp (pointer, 2026-10-12)
 
+**2026-11-04 21:20 AUSEST (Mac seat) -- 🎉 0.3.0-rc5 CUT ON THE MAC, ALL-PASS, BOTH TAGS PUSHED, PUBLIC macOS ZIP STAGED + SMOKED. NOT UPLOADED.**
+User ruling 11-04 ("rerun as is"): no episode rule, the one-window forgive rule of f5b00c6 stays. Attempt 7 of `rc_cut_mac.sh 0.3.0-rc5`
+(20:04-21:11, box quiet, mediaanalysisd/mds idle at launch): app_smoke PASS, gstart PASS (ARCADE 10 probes / 360 9 probes, 0 leaks), q1_ctest PASS
+(60 DROPOUT-CONFIRMED / 60 INJECT), q1_census PASS BOTH MODES with `UNDERRUN=0 SINKSTALL=0` and ZERO `[vblank] stall` markers (ARCADE 0 named /
+0 other; XBOX 360 1 named / 0 other; nothing forgiven, nothing to forgive), rc_chain 352 PASS / 0 FAIL. Engine realcomp `b299957e15b7` + decomp
+`1d79e20871bc` (300 decomp TUs; same pair as Windows rc5), bundle 924 MB, `futari_merged` md5 `7d7798ee4e4cab0714bc18f0db3ed032`,
+`_rc/0.3.0-rc5/SMOKE.md`. LANDMINE: the script's own (d) step died at `git push origin v0.3.0-rc5` with `git@github.com: Permission denied
+(publickey)` -- the detached nohup shell offers `~/.ssh/id_rsa` and GitHub refuses it, and the global `url.git@github.com:springah/.insteadOf`
+rewrites every https URL to ssh -- so the remainder of (d) was done BY HAND, step for step: tags `v0.3.0-rc5` (realcomp -> b299957e) and
+`realcomp-v0.3.0-rc5` (decomp -> 1d79e208, same tag message) pushed over HTTPS (`GIT_CONFIG_GLOBAL=/dev/null git -c
+credential.helper='!gh auth git-credential' push https://github.com/springah/<repo>.git <tag>`), both verified on the remotes via the API;
+F&F zip `_rc/Futari-Realcomp-macOS-v0.3.0-rc5.zip` 720 MB sha256 `5dcca5239529a6671c9f450a48b2378fce4c1ef68eb8de72f4ca4cd98d52b698`
+md5 `9cd46d1d7577e2738440cd610b5e7dd2` (CONTAINS GAME DATA, F&F only) + `.sha256`/`.md5`, symlinked into `_serve/`. PUBLIC asset-free form:
+`rc_stage_mac_public.sh 0.3.0-rc5` -> `_rc/Futari-Realcomp-macOS-v0.3.0-rc5-public.zip` 33 MB sha256
+`440dbf8548f1a11dc32fa183b4715392dae70ed98a7e3a11738dd70058a97017` (re-sealed ad hoc; engine + 4 module dylibs + Frameworks byte-identical to
+`MACHO_MD5.txt`, only the launcher's signature blob changed; game-data scan clean, 24 files / 114 MB); `rc_smoke_mac_public.sh` ALL-PASS
+(unzip, seal, nodata, extractor 58/58 sha-verified incl. the 3 DLC rows from `_local/blroot`, app_smoke 4/4 modules + save round-trip, log
+build=b299957 0 FATAL / 0 VK_ERROR / 0 MoltenVK-Metal, 30 lines naming the beside-the-app assets/; record
+`_rc/Futari-Realcomp-macOS-v0.3.0-rc5-public.zip.SMOKE.md`, evidence `_local/rc/pubsmoke_mac_20261104_211834/`). A first smoke run with a
+RELATIVE `<dlc>` path failed only its extract step (the extractor runs from the cache work folder) -- pass ABSOLUTE paths; that run's evidence
+`_local/rc/pubsmoke_mac_20261104_211715/`. Windows rc5 public zip (sha256 `2d0dfa38…1cbc`) is on the PC at `_rc/`. **OWED: the owner's upload
+call** (GitHub pre-release `v0.3.0-rc5` on the pushed tag = Windows public zip + macOS public zip + `.sha256`; F&F zips to `Desktop/NSP`);
+the hands checklist on both seats (`RC1_HANDS_CHECKLIST.md`, check the Game Mode badge on the Mac); the Spotlight Privacy exclusion is STILL
+not effective (`mdfind` count 29,565 under `_local/` before the cut -- the box was simply quiet at 8 pm); the episode rule stays docketed, unused.
+
+
 **2026-11-03 ~12:45 (PC seat) — rc5 HANDOFF TO THE MAC: read `docs/NOTES_rc5_mac_handoff.md` FIRST.** Windows rc5 = all five gates PASS, F&F + public zips staged (NOT uploaded, no tag). Mac rc5 = NOT CUT after six attempts, all stopped at q1_census by box stall episodes (`[vblank] stall` marker + one underrun burst; mediaanalysisd on the Photos library), never an rc5 defect; A5/A6 passed XBOX 360 clean. ⚖ OPEN for the user: forgive one stall EPISODE per run (draft awk in the handoff) vs keep rerunning. Mac checkout must `git pull --ff-only` before the next cut (preflight). Upload of rc5 = ASK THE USER.
 
 **2026-11-03 (PC seat): 🎉 WIN-AUDIO-1 FIXED (0f23859) -- the cost was a `getenv()` on EVERY indirect dispatch in `rt_indirect_call`, not the
