@@ -4,11 +4,12 @@
 #   quad  [Karm]           XBOX 360 hand-over leg (tick-scheduled presses, as Q1 leg_x360) with RVK_QUADCENSUS armed from the host
 #                          by `touch /tmp/rvk_quad_now` a few presents after the LEFT press, so the per-quad lines cover the LEFT+13 loss.
 #   bank: _local/rc1/q7v/<tag>/{census_lines.txt,quad_lines.txt,guest.log,facts.txt}; the env block is q1_run.sh's verbatim.
+#   PNGs (RT_NVKPNG keyframes + shot_end.png) go to <tag>/png.noindex/ so Spotlight never indexes them (2026-11-07, as the census/G-START banks).
 set -u
 cd "$(dirname "$0")/.."
 TAG="${1:?tag}"; BIN="${2:?bin}"; KIND="${3:?ctest|quad}"; ARG="${4:-240}"; PN="$(basename "$BIN")"
 LEVEL="${5:-1}"
-B="_local/rc1/q7v/$TAG"; rm -rf "$B"; mkdir -p "$B/png"; OUT="$B/steps.txt"; : > "$OUT"
+B="_local/rc1/q7v/$TAG"; rm -rf "$B"; mkdir -p "$B/png.noindex"; OUT="$B/steps.txt"; : > "$OUT"
 LOCK=/tmp/futari_drive.lock; HAVE=0
 rel(){ [ "$HAVE" = 1 ] && rmdir "$LOCK" 2>/dev/null; HAVE=0; }
 trap 'pkill -x "$PN" 2>/dev/null; rel' EXIT
@@ -32,7 +33,7 @@ export RVK_RESALIAS=1 RVK_RESFRESH=1 RVK_FIXB2=1 RVK_RESREAL=1 RVK_HDR=0
 export RVK_WINDOW=1 RVK_WINSIZE=1280x720 RVK_DIMFIX=1
 export RT_NAVREAL=1 RT_STARTWIRE=1 RT_SNDQFREE=1 RT_RESCACHE=1 RT_HEAPLOCK=1
 export RT_PAD_HOST=1 RT_PAD_HOST_FIFO="$FIFO" RT_SAMPLES=0 RT_AUDIOSTARVE=1
-export RT_NVKPNG=300 RVK_DUMPDIR="$PWD/$B/png"
+export RT_NVKPNG=300 RVK_DUMPDIR="$PWD/$B/png.noindex"
 export RVK_DRAWCENSUS=2 RVK_TITLEPROBE=1
 [ "$KIND" = ctest ] && export RVK_CENSUSTEST="$LEVEL"
 [ "$KIND" = quad ] && export RT_TICKLOG=1 RVK_QUADCENSUS=1 RVK_QUADCENSUS_K="${KARM:-16}"
@@ -56,7 +57,7 @@ for ((i=0;i<90;i++)); do grep -a -q "name='motion/title.lzx'" "$L" && break; kil
 grep -a -q "name='motion/title.lzx'" "$L" || die "no title"
 say "shell title loaded"; sleep 4
 if [ "$KIND" = ctest ]; then
-  say "ctest: idle $ARG s at the shell title, CENSUSTEST=$LEVEL"; sleep "$ARG"; cp "$B/png/nvk_last.png" "$B/shot_end.png" 2>/dev/null; fin; exit 0
+  say "ctest: idle $ARG s at the shell title, CENSUSTEST=$LEVEL"; sleep "$ARG"; cp "$B/png.noindex/nvk_last.png" "$B/png.noindex/shot_end.png" 2>/dev/null; fin; exit 0
 fi
 # ---- quad: tick-scheduled presses (Q1 tpress shape; the LEFT press additionally arms the quad census from the host) ----
 tpress(){ local pad="$1" arm="${2:-0}" now T i f armed=0; now=$(tick); [ -n "$now" ] || now=0; T=$((now+25)); echo "t$T:$pad" > "$FIFO"

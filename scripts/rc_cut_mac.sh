@@ -22,7 +22,7 @@
 #     SMOKE.md) staged with the bundle's module dylibs + Frameworks under _rc/<version>/smoke_engine/ and renamed `rcut_eng` so `pkill -x rcut_eng`
 #     can only ever hit it. Same bytes = same code; the bundle-only properties (Info.plist, signature, bundle paths, Quit) are covered by step 1.
 # (d) CUT        (real only, all-PASS, HEADs unchanged since preflight): annotated tag v<version> in futari_realcomp + realcomp-v<version> in futari_decomp
-#     (at the decomp hash built), push both; zip `ditto -c -k --keepParent` -> _rc/Futari-Realcomp-macOS-v<version>.zip (+ .sha256/.md5), symlink into
+#     (at the decomp hash built), push both (each push retried PUSH_TRIES=5 x PUSH_RETRY_SECS=30 s before the cut stops); zip `ditto -c -k --keepParent` -> _rc/Futari-Realcomp-macOS-v<version>.zip (+ .sha256/.md5), symlink into
 #     ~/Desktop/projects/_serve/ (quick tunnel), print the sign-off block.
 # DRIVE LOCK: /tmp/futari_drive.lock is taken only around step 1 here (sub-scripts take their own per leg); waits (60 s polls, up to LOCKWAIT s = 7200) while any
 # futari_merged outside this bundle runs; a lock is rmdir'd only if THIS process made it. Kills: only `rcut_eng` / processes whose command is inside _rc/<version>.
@@ -179,11 +179,18 @@ if [ "$DRY" = 1 ]; then
 fi
 [ -z "$FAILED" ] || die "smoke failed:$FAILED"
 [ "$(git -C "$REPO" rev-parse HEAD)" = "$HR" ] && [ "$(git -C "$DECOMP_REPO" rev-parse HEAD)" = "$HD" ] || die "a HEAD moved during the smoke -- the built pair is no longer the checked-out pair; re-run"
+# push_tag <repo> <tag>: retry PUSH_TRIES (5) x PUSH_RETRY_SECS (30) before giving up -- the 0.3.0-rc5 cut's push died on GitHub's DEGRADED
+# Git Operations, not on the key (STATUS 2026-11-04 22:40). Re-pushing an identical tag is a no-op ("Everything up-to-date", exit 0), so a
+# try that reached the remote but lost its reply is harmless. Fallback by hand if all tries fail: GIT_CONFIG_GLOBAL=/dev/null git -c
+# credential.helper='!gh auth git-credential' push https://github.com/springah/<repo>.git <tag>   (BACKLOG 2026-11-04; not the default).
+push_tag(){ local repo="$1" tag="$2" n="${PUSH_TRIES:-5}" i
+  for ((i=1; i<=n; i++)); do git -C "$repo" push origin "$tag" && return 0
+    log "push $tag ($(basename "$repo")) failed, try $i/$n"; [ $i -lt $n ] && sleep "${PUSH_RETRY_SECS:-30}"; done; return 1; }
 TM="futari_realcomp $VER -- release candidate. realcomp $HR, futari_decomp $HD ($TU_U decomp TUs). Frozen-bundle smoke ALL-PASS: $SMOKE"
 if git -C "$REPO" rev-parse -q --verify "refs/tags/v$VER" >/dev/null; then log "tag v$VER already at HEAD"; else git -C "$REPO" tag -a "v$VER" -m "$TM" "$HR" || die "tag failed"; fi
-git -C "$REPO" push origin "v$VER" || die "push tag (realcomp) failed"
+push_tag "$REPO" "v$VER" || die "push tag (realcomp) failed after ${PUSH_TRIES:-5} tries (fallback: the HTTPS+gh recipe, BACKLOG 2026-11-04)"
 if git -C "$DECOMP_REPO" rev-parse -q --verify "refs/tags/realcomp-v$VER" >/dev/null; then log "decomp tag already exists"; else git -C "$DECOMP_REPO" tag -a "realcomp-v$VER" -m "$TM" "$HD" || die "decomp tag failed"; fi
-git -C "$DECOMP_REPO" push origin "realcomp-v$VER" || die "push tag (decomp) failed"
+push_tag "$DECOMP_REPO" "realcomp-v$VER" || die "push tag (decomp) failed after ${PUSH_TRIES:-5} tries (fallback: the HTTPS+gh recipe, BACKLOG 2026-11-04)"
 ZIP="$RC/Futari-Realcomp-macOS-v$VER.zip"; rm -f "$ZIP"
 ditto -c -k --keepParent "$APP" "$ZIP" || die "zip failed"
 ( cd "$RC" && shasum -a 256 "$(basename "$ZIP")" > "$(basename "$ZIP").sha256" && md5 "$(basename "$ZIP")" > "$(basename "$ZIP").md5" )
