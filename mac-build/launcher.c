@@ -13,8 +13,11 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
+#include "../host/futari_ini.h"   // futari.ini -> env (the engine applies the same file; see the header)
 
-static void def(const char* k, const char* v) { if (!getenv(k)) setenv(k, v, 1); }
+// "only if unset" -- and only if futari.ini did not decide the name (an off/auto ini value decides it as unset; see
+// futari_ini::decided). Called after futari_ini::apply("launcher").
+static void def(const char* k, const char* v) { if (!getenv(k) && !futari_ini::decided(k)) setenv(k, v, 1); }
 static bool isdir(const std::string& p) { struct stat st; return stat(p.c_str(), &st) == 0 && S_ISDIR(st.st_mode); }
 static bool isfile(const std::string& p) { struct stat st; return stat(p.c_str(), &st) == 0 && S_ISREG(st.st_mode); }
 static void mkdirs(const std::string& p) { std::string cmd = "mkdir -p '" + p + "'"; system(cmd.c_str()); }
@@ -34,9 +37,21 @@ int main(int argc, char** argv) {
   std::string res = contents + "/Resources";
   std::string engine = macos + "/futari_merged";
 
-  // Game data: inside the bundle (family-and-friends build) or, if absent, beside the .app.
-  std::string assets = res + "/assets";
-  if (!isdir(assets)) {
+  // futari.ini (2026-11-07): ~/Library/Application Support/Futari Realcomp/futari.ini, created from the bundle's
+  // template on first launch. Applied BEFORE every default below, so: environment > futari.ini > these defaults.
+  // FUTARI_INI_APPLIED tells the engine which variables came from the ini (its log then says so).
+  const char* home0 = getenv("HOME"); if (!home0) home0 = "/tmp";
+  std::string support0 = std::string(home0) + "/Library/Application Support/Futari Realcomp";
+  mkdirs(support0);
+  if (!isfile(support0 + "/futari.ini") && isfile(res + "/futari.ini.template")) {
+    std::string cmd = "cp '" + res + "/futari.ini.template' '" + support0 + "/futari.ini'"; system(cmd.c_str());
+  }
+  futari_ini::apply("launcher");
+
+  // Game data: futari.ini [storage] game_data / RT_GAME_ROOT if set, else inside the bundle (family-and-friends
+  // build) or, if absent, beside the .app.
+  std::string assets = getenv("RT_GAME_ROOT") ? std::string(getenv("RT_GAME_ROOT")) : res + "/assets";
+  if (!getenv("RT_GAME_ROOT") && !isdir(assets)) {
     std::string app = contents.substr(0, contents.rfind('/'));   // the .app
     std::string beside = app.substr(0, app.rfind('/')) + "/assets";
     if (isdir(beside)) assets = beside;
@@ -54,7 +69,7 @@ int main(int argc, char** argv) {
   // --- the attended-session env set (scripts/run_mac.sh), every value overridable ---
   def("RT_GAME_ROOT", assets.c_str());
   def("RT_MODDLL_DIR", macos.c_str());     // the two module dylibs sit beside the engine (host/module_registry.cpp searches here first)
-  std::string xex = assets + "/default.xex"; def("XR_SHELL_XEX", xex.c_str());
+  std::string xex = getenv("XR_SHELL_XEX") ? std::string(getenv("XR_SHELL_XEX")) : assets + "/default.xex"; def("XR_SHELL_XEX", xex.c_str());
   std::string save = support + "/save";      def("RT_SAVE", save.c_str());
   def("RT_BOOT_SHELL", "1"); def("RT_THREADS", "1"); def("RT_DEFERDRIVER", "1"); def("RT_ASYNCIO", "1");
   def("RT_EHCONTAIN", "1"); def("RT_AUDIOPUMP", "1");

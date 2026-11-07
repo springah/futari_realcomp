@@ -156,11 +156,15 @@ the shared recompiler. The beta-3 checklist is `docs/PLAN_beta3_mac.md`; the Dec
 ## Runtime levers worth knowing
 
 Everything is an environment variable read at boot; the drive scripts set the full shipping set. A few that a tester or
-porter will meet:
+porter will meet. Players set the common ones in `futari.ini` instead (next to the exe on Windows,
+`~/Library/Application Support/Futari Realcomp/futari.ini` on macOS; every key is documented in `tools/settings/futari.ini.template`,
+`Settings.bat` / `Settings.command` edit it). `host/futari_ini.h` applies it as the first statement of `main()`; a variable already
+set in the environment wins over the file, so every drive script behaves as before. The session log starts with one `[ini]` line per key.
 
 | lever | what it does |
 |---|---|
 | `RVK_WINSIZE=WxH`, F11 | window size / fullscreen; the 1280x720 compose is aspect-fit into it |
+| `RVK_FULLSCREEN=1` | start in borderless fullscreen (`futari.ini` `display.fullscreen`); F11 still toggles |
 | `RT_ROTATE=90\|270` | rotated (portrait) present through a small shader pass — the Mac-first half of an iPad build (2026-10-30) |
 | `RT_POOLRELEASE=<ms>` | long-pooled guest pages are returned after this quarantine (default 10000: macOS/Linux since 2026-10-30, Windows since 2026-11-07; `0` = never, the earlier allocator). Cuts the ARCADE demo-loop RSS plateau from ~720 MB to ~400 MB |
 | `RT_SAVE=<dir>` | save directory (the `.app` uses `~/Library/Application Support/Futari Realcomp/save`) |
@@ -176,6 +180,8 @@ porter will meet:
 - `docs/NOTE_fnf_shell_defects.md` — the shell defect ledger: every finding with its evidence, newest at the top
 - `docs/PLAN_other_modes.md` / `docs/PLAN_kiniro_bringup.md` — hosting the remaining modules (Black Label first)
 - `docs/PLAN_macos_bringup.md`, `docs/PLAN_beta3_mac.md`, `docs/DECK.md` — the macOS and Steam Deck ports
+- `docs/SWITCHING_FROM_FUTARI_RECOMP.md` — moving game data, DLC and saves over from futari_recomp; settings key mapping
+- `docs/DESIGN_settings_overlay.md` — the in-game settings screen (F2): design and estimate, not built
 - `../futari_decomp/docs/NOTE_campaign_decomp.md` — the decomp campaign ledger; newest entries at the top
 - `tools/matchlab/README.md` — the matching toolchain, its rules, and its landmines
 

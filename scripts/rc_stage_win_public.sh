@@ -27,7 +27,7 @@ MODDLLS=$(ls build/futari_game_*.dll); NMOD=$(echo $MODDLLS | wc -w | tr -d ' ')
 BL_FILES=""; [ -f build/futari_game_kiniro.dll ] && BL_FILES="$BL_FILES"$'\n'"  futari_game_kiniro.dll     Black Label ARCADE module (grey in the menu until your Black Label DLC data is found: RT_DLC_ROOT)"
 [ -f build/futari_game_kiniro_abn.dll ] && BL_FILES="$BL_FILES"$'\n'"  futari_game_kiniro_abn.dll Black Label XBOX 360 mode module (same DLC gate)"
 for f in tools/extract/futari_extract.py tools/extract/extract_assets.bat tools/extract/manifest_v1.tsv docs/DUMPING.md \
-         docs/RC_KNOWN_ISSUES.md docs/RC1_HANDS_CHECKLIST.md "dist/next_release/Futari 1.5.bat" save_freshcard; do
+         docs/RC_KNOWN_ISSUES.md docs/RC1_HANDS_CHECKLIST.md "dist/next_release/Futari 1.5.bat" save_freshcard          dist/next_release/Settings.bat tools/settings/futari_settings.py tools/settings/futari.ini.template docs/SWITCHING_FROM_FUTARI_RECOMP.md; do
   [ -e "$f" ] || die "missing $f"; done
 HR=$(git rev-parse HEAD); HRS=$(git rev-parse --short HEAD)
 HD=$(git -C "$DECOMP_REPO" rev-parse HEAD 2>/dev/null || echo unknown)
@@ -40,7 +40,7 @@ case "$BID" in
   "$HRS") ;;
   "$HRS-dirty") [ "${ALLOW_DIRTY:-0}" = 1 ] || die "exe stamped -dirty: commit, rebuild";;
   "") [ "${ALLOW_DIRTY:-0}" = 1 ] || die "exe carries no recent commit's build id: rebuild";;
-  *) if git merge-base --is-ancestor "$BID" HEAD 2>/dev/null && [ -z "$(git diff --name-only "$BID" HEAD | grep -v -E '^(docs/|scripts/|dist/|STATUS\.md$|README\.md$)')" ]; then
+  *) if git merge-base --is-ancestor "$BID" HEAD 2>/dev/null && [ -z "$(git diff --name-only "$BID" HEAD | grep -v -E '^(docs/|scripts/|dist/|tools/extract/|tools/settings/|STATUS\.md$|README\.md$)')" ]; then
        ENGINE_COMMIT="$BID"; log "exe build id $BID is an ancestor of HEAD $HRS with docs/scripts-only changes between: accepted (engine commit $BID)"
      else [ "${ALLOW_DIRTY:-0}" = 1 ] || die "exe build id ($BID) is not HEAD ($HRS) and engine sources changed since: rebuild"; fi;;
 esac
@@ -54,7 +54,11 @@ cp build/futari_combined.exe $MODDLLS "$ST/"
 tr -d '\r' < "dist/next_release/Futari 1.5.bat" | sed 's/$/\r/' > "$ST/Futari 1.5.bat"
 tr -d '\r' < tools/extract/extract_assets.bat | sed 's/$/\r/' > "$ST/tools/extract/extract_assets.bat"
 cp tools/extract/futari_extract.py tools/extract/manifest_v1.tsv "$ST/tools/extract/"
-cp docs/DUMPING.md docs/RC_KNOWN_ISSUES.md docs/RC1_HANDS_CHECKLIST.md "$ST/docs/"
+cp docs/DUMPING.md docs/RC_KNOWN_ISSUES.md docs/RC1_HANDS_CHECKLIST.md docs/SWITCHING_FROM_FUTARI_RECOMP.md "$ST/docs/"
+# futari.ini (2026-11-07): the template + settings tool; the launcher creates futari.ini from the template on first run
+# (never shipped as futari.ini itself, so unzipping a new version over an old folder keeps the player's settings)
+mkdir -p "$ST/tools/settings"; cp tools/settings/futari_settings.py tools/settings/futari.ini.template "$ST/tools/settings/"
+tr -d '\r' < dist/next_release/Settings.bat | sed 's/$/\r/' > "$ST/Settings.bat"
 cp -r save_freshcard "$ST/save_freshcard"
 
 # ---- README (the rc_stage_win.sh text with the F&F "data included" paragraph replaced by the first-run wizard)
@@ -68,6 +72,8 @@ THIS PACKAGE SHIPS NO GAME DATA
   from it, verified against the console's own integrity hashes and a reference manifest (58 files). The one-time
   extraction needs Python 3 (https://www.python.org/downloads/ -- tick "Add python.exe to PATH").
   Full dumping instructions: docs\\DUMPING.md.  You can also drag your dump onto tools\\extract\\extract_assets.bat.
+  Coming from futari_recomp: drag ITS folder (the one with futari.exe and assets\\) instead; the game data, your
+  Black Label DLC and (if you say yes) your save come over. docs\\SWITCHING_FROM_FUTARI_RECOMP.md has the details.
 
 REQUIREMENTS
   64-bit Windows 10/11 with a Vulkan 1.1+ GPU driver (any current NVIDIA / AMD / Intel driver). No installer.
@@ -103,9 +109,13 @@ FILES
   futari_combined.exe        the game (both modes)
   futari_game_normal.dll     ARCADE 1.5 module
   futari_game_abn.dll        XBOX 360 mode module$BL_FILES
-  Futari 1.5.bat             launcher (+ first-run extraction wizard)
+  Futari 1.5.bat             launcher (+ first-run extraction wizard and settings step)
+  Settings.bat               window size, fullscreen, vsync, rotation, keyboard, sound output, save folder
+  futari.ini                 those settings (created on first run from tools\\settings\\futari.ini.template;
+                             every key is explained inside; an environment variable already set wins)
   tools\\extract\\             the asset extractor + reference manifest
-  docs\\                      DUMPING.md, RC_KNOWN_ISSUES.md, RC1_HANDS_CHECKLIST.md
+  tools\\settings\\            the settings tool + the futari.ini template
+  docs\\                      DUMPING.md, RC_KNOWN_ISSUES.md, RC1_HANDS_CHECKLIST.md, SWITCHING_FROM_FUTARI_RECOMP.md
   assets\\ + shell\\           built by the wizard from YOUR dump (not shipped)
   save_freshcard\\            fresh-save template (used on first run)
 
@@ -121,7 +131,7 @@ EOR
 sed -i 's/$/\r/' "$ST/README.txt"; cp "$ST/README.txt" "$RD/README.txt"
 
 # ---- hashes + build block
-( cd "$ST" && md5sum futari_combined.exe futari_game_*.dll "Futari 1.5.bat" tools/extract/futari_extract.py tools/extract/manifest_v1.tsv ) > "$ST/MD5.txt"
+( cd "$ST" && md5sum futari_combined.exe futari_game_*.dll "Futari 1.5.bat" Settings.bat tools/extract/futari_extract.py tools/extract/manifest_v1.tsv tools/settings/futari_settings.py tools/settings/futari.ini.template ) > "$ST/MD5.txt"
 { echo "version=$VER platform=windows form=public-asset-free"; echo "realcomp=$HR"; echo "engine_commit=$ENGINE_COMMIT"; echo "decomp=$HD"; echo "exe_build_id=$BID"; echo "tag=$TAGV@$TAGC"; echo "staged=$(date -Iseconds)"; } > "$ST/BUILD.txt"
 cp "$ST/MD5.txt" "$RD/MD5.txt"; cp "$ST/BUILD.txt" "$RD/BUILD.txt"
 cat "$ST/MD5.txt"

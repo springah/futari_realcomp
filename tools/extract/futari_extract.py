@@ -664,11 +664,26 @@ def find_extracted_disc(root: Path):
 # Copy helpers
 # ---------------------------------------------------------------------------
 
+# --link (set by main): hard-link instead of copying where the filesystem allows it,
+# so building assets/ from another install's tree costs no disk space. Falls back to
+# a copy (other volume, FAT/exFAT, ...). The game only ever reads these files.
+LINK_FILES = False
+
+
 def copy_file(src: Path, dest: Path, label: str):
     dest.parent.mkdir(parents=True, exist_ok=True)
     if dest.exists() and dest.stat().st_size == src.stat().st_size:
         print(f"  present    {label}  ({src.stat().st_size:,} bytes)")
         return
+    if LINK_FILES:
+        try:
+            if dest.exists():
+                dest.unlink()
+            os.link(src, dest)
+            print(f"  linked     {label}  ({dest.stat().st_size:,} bytes)")
+            return
+        except OSError as e:
+            print(f"  NOTE: cannot hard-link {label} ({e.strerror}); copying")
     shutil.copy2(src, dest)
     if dest.stat().st_size != src.stat().st_size:
         problem(f"{label}: copy came out short")
@@ -847,6 +862,171 @@ def report_verification(out_dir, missing, mismatched, extra):
 
 
 # ---------------------------------------------------------------------------
+# Switching from futari_recomp (docs/SWITCHING_FROM_FUTARI_RECOMP.md)
+# ---------------------------------------------------------------------------
+# futari_recomp (the rexglue-SDK port of the same game) keeps, next to its exe
+# (macOS: inside Futari-<version>.app/Contents/MacOS/):
+#   assets/      the whole extracted disc (default.xex + media/) - exactly the
+#                "already-extracted disc folder" input above
+#   dlc/         marketplace DLC as raw STFS packages (optional)
+#   futari.ini   its settings; [Storage] user_data_path moves its user data
+# and, in its user-data folder (user_data_path, else Documents\futari on
+# Windows, $XDG_DATA_HOME/futari or ~/.local/share/futari on macOS), the SDK's content tree:
+#   <xuid>/435A07D7/00000001/systemdata.bin/savegame.bin   settings + scores
+#   <xuid>/435A07D7/00000001/replaydata.bin/replaydata.bin the saved replay
+#   0000000000000000/435A07D7/00000002/<content id>/Rom/   installed DLC
+# realcomp keeps the same two save items, minus the <xuid> level and the SDK's
+# Headers/ files, under <RT_SAVE>/435A07D7/00000001/ (shell/gen/stubs.cpp
+# rt_save_scan). Both ports run the same game code, which writes these files
+# itself, so the bytes are the same container (8192-byte savegame.bin, same
+# header) and import is a copy.
+
+SAVE_HEADER = bytes.fromhex("09101001")   # first word of every savegame.bin seen, both ports
+SAVE_SIZE = 8192
+TITLE_DIR = "435A07D7"
+
+
+def recomp_install_dir(path: Path):
+    """The folder holding a futari_recomp install's assets/ (and dlc/), or None.
+    Accepts the install folder, its .app, or a folder holding the .app."""
+    p = Path(path).expanduser()
+    if p.suffix.lower() == ".app":
+        p = p / "Contents" / "MacOS"
+    if (p / "assets" / "default.xex").is_file():
+        return p
+    if p.is_dir():
+        for app in sorted(p.glob("*.app")):
+            m = app / "Contents" / "MacOS"
+            if (m / "assets" / "default.xex").is_file():
+                return m
+    return None
+
+
+def _documents_dir():
+    if os.name != "nt":
+        return None
+    try:
+        import ctypes
+        buf = ctypes.create_unicode_buffer(1024)
+        # CSIDL_PERSONAL = the user's Documents folder, wherever it was redirected
+        if ctypes.windll.shell32.SHGetFolderPathW(None, 5, None, 0, buf) == 0 and buf.value:
+            return Path(buf.value)
+    except Exception:
+        pass
+    return Path(os.environ.get("USERPROFILE", str(Path.home()))) / "Documents"
+
+
+def recomp_ini_value(install: Path | None, section: str, key: str):
+    ini = install / "futari.ini" if install else None
+    if not ini or not ini.is_file():
+        return None
+    cur = ""
+    for line in ini.read_text(encoding="utf-8", errors="replace").splitlines():
+        s = line.strip()
+        if not s or s[0] in "#;":
+            continue
+        if s.startswith("[") and s.endswith("]"):
+            cur = s[1:-1].strip().lower()
+            continue
+        if "=" in s:
+            k, v = s.split("=", 1)
+            if cur == section and k.strip().lower() == key:
+                v = v.split(" #", 1)[0].split(" ;", 1)[0].strip().strip('"')
+                return v
+    return None
+
+
+def recomp_user_data(install: Path | None, override=None):
+    """futari_recomp's user-data folder (saves + installed DLC), or None."""
+    cands = []
+    if override:
+        cands.append(Path(override).expanduser())
+    else:
+        v = recomp_ini_value(install, "storage", "user_data_path")
+        if v:
+            p = Path(v).expanduser()
+            cands.append(p if p.is_absolute() else install / p)
+        if os.name == "nt":
+            cands.append(_documents_dir() / "futari")
+        else:
+            # the rexglue SDK's GetUserFolder() (src/core/filesystem_mac.cpp / _posix.cpp): $XDG_DATA_HOME, else
+            # ~/.local/share -- plus the app name. Found on the w1107 Mac: ~/.local/share/futari (not ~/futari).
+            xdg = os.environ.get("XDG_DATA_HOME")
+            if xdg:
+                cands.append(Path(xdg) / "futari")
+            cands.append(Path.home() / ".local" / "share" / "futari")
+    for c in cands:
+        if (c / "0000000000000000").is_dir() or any(recomp_profiles(c)):
+            return c
+    return None
+
+
+def recomp_profiles(user_data: Path):
+    """Profile folders (<16 hex digits>) that hold a futari save, newest first."""
+    out = []
+    if not user_data or not user_data.is_dir():
+        return out
+    for d in user_data.iterdir():
+        n = d.name
+        if len(n) != 16 or any(c not in "0123456789ABCDEFabcdef" for c in n):
+            continue
+        sg = d / TITLE_DIR / "00000001" / "systemdata.bin" / "savegame.bin"
+        if sg.is_file():
+            out.append((sg.stat().st_mtime, d))
+    return [d for _m, d in sorted(out, reverse=True)]
+
+
+def import_recomp_saves(user_data: Path, save_dir: Path, profile=None, dry_run=False):
+    """Copy futari_recomp's save items into a realcomp save folder (RT_SAVE).
+    Anything already there is moved aside (never deleted)."""
+    profs = recomp_profiles(user_data)
+    if profile:
+        profs = [p for p in profs if p.name.lower() == profile.lower()]
+    if not profs:
+        problem(f"no futari_recomp save found under {user_data}"
+                f"{' for profile ' + profile if profile else ''}")
+        return False
+    if len(profs) > 1 and not profile:
+        print(f"  NOTE: {len(profs)} profiles with a save; taking the newest, {profs[0].name} "
+              f"(--profile picks another: {', '.join(p.name for p in profs[1:])})")
+    src = profs[0] / TITLE_DIR / "00000001"
+    sg = src / "systemdata.bin" / "savegame.bin"
+    data = sg.read_bytes()
+    if len(data) != SAVE_SIZE or data[:4] != SAVE_HEADER:
+        problem(f"{sg}: not the expected save container ({len(data)} bytes, header {data[:4].hex()}); "
+                f"expected {SAVE_SIZE} bytes starting {SAVE_HEADER.hex()}")
+        return False
+    items = sorted(d for d in src.iterdir() if d.is_dir())
+    dst = save_dir / TITLE_DIR / "00000001"
+    print(f"Importing futari_recomp saves")
+    print(f"  from  {src}")
+    print(f"  to    {dst}")
+    for it in items:
+        files = [f for f in it.rglob("*") if f.is_file()]
+        print(f"  item  {it.name}/  ({', '.join(f'{f.name} {f.stat().st_size:,} bytes' for f in files)})")
+    if dry_run:
+        print("  (dry run: nothing written)")
+        return True
+    if dst.exists() and any(dst.iterdir()):
+        import time
+        aside = dst.with_name("00000001.before-recomp-import-" + time.strftime("%Y%m%d_%H%M%S"))
+        dst.rename(aside)
+        print(f"  the save that was there is kept, moved to {aside}")
+    dst.mkdir(parents=True, exist_ok=True)
+    for it in items:
+        shutil.copytree(it, dst / it.name)
+    got = (dst / "systemdata.bin" / "savegame.bin").read_bytes()
+    if got != data:
+        problem(f"{dst}: the copied savegame.bin differs from the source")
+        return False
+    print(f"  done: {len(items)} item(s) copied; savegame.bin byte-identical to the source")
+    if any(it.name == "replaydata.bin" for it in items):
+        print("  NOTE: the replay keeps the recomp profile's gamer name and id inside it (the game"
+              " wrote them there); realcomp plays it regardless (docs/SWITCHING_FROM_FUTARI_RECOMP.md).")
+    return True
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -879,6 +1059,10 @@ def classify(path: Path):
         src["god"] = gods[0]
     else:
         extracted = find_extracted_disc(path)
+        if recomp_install_dir(path) is not None:
+            print(f"  NOTE: {path} looks like a futari_recomp install. Its assets/ is used as an\n"
+                  f"  already-extracted disc; --from-recomp also takes the DLC it installed and,\n"
+                  f"  with --saves-to, its save.")
         if extracted:
             src["extracted"] = extracted[0]
         else:
@@ -895,56 +1079,8 @@ def classify(path: Path):
     return src
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Build futari_realcomp's assets/ tree from your own copy of "
-                    "Mushihimesama Futari Ver. 1.5")
-    parser.add_argument("source", nargs="?",
-                        help="An .iso, a console-install folder (00007000 or "
-                             "anything above it), a DLC folder (00000002), or "
-                             "an already-extracted disc folder")
-    parser.add_argument("--out", default="assets", help="Assets output directory")
-    parser.add_argument("--shell", default=None,
-                        help="Also stage default.xex into this directory "
-                             "(the port's shell/ folder)")
-    parser.add_argument("--no-verify", action="store_true",
-                        help="Skip the disc install's hash-tree verification")
-    parser.add_argument("--verify-only", action="store_true",
-                        help="Check an existing --out tree against the manifest "
-                             "and stop")
-    parser.add_argument("--quick", action="store_true",
-                        help="Verify sizes only, not SHA-256 (fast)")
-    args = parser.parse_args()
-
-    out_dir = Path(args.out)
-    shell_dir = Path(args.shell) if args.shell else None
-
-    if args.verify_only:
-        if not out_dir.is_dir():
-            sys.exit(f"Nothing to verify: {out_dir} does not exist.")
-        print(f"Verifying {out_dir} against {MANIFEST.name}"
-              f"{' (sizes only)' if args.quick else ''}...")
-        ok, missing, mismatched, extra = verify_against_manifest(out_dir, args.quick)
-        report_verification(out_dir, missing, mismatched, extra)
-        if PROBLEMS:
-            print(f"\nVERIFY FAILED -- {len(PROBLEMS)} problem(s).", file=sys.stderr)
-            return 1
-        print("\nVerified: every file in the manifest is present and matches.")
-        return 0
-
-    if args.source:
-        src_path = Path(args.source)
-        if not src_path.exists():
-            sys.exit(f"Not found: {src_path}")
-    else:
-        candidates = list(Path(".").glob("*.iso")) + list(Path("game").glob("*.iso"))
-        if not candidates:
-            sys.exit("Nothing to extract. Pass a path: an .iso, or a folder "
-                     "copied off your console.")
-        src_path = candidates[0]
-        print(f"Auto-detected ISO: {src_path}")
-
-    src = classify(src_path)
+def build_assets(src, out_dir: Path, shell_dir, args):
+    """Disc + DLC + derived copies + manifest verification (the whole extraction)."""
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # -- the disc ---------------------------------------------------------
@@ -1012,6 +1148,124 @@ def main():
 
     print("\nDone. assets/ matches the reference manifest.")
     return 0
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Build futari_realcomp's assets/ tree from your own copy of "
+                    "Mushihimesama Futari Ver. 1.5")
+    parser.add_argument("source", nargs="?",
+                        help="An .iso, a console-install folder (00007000 or "
+                             "anything above it), a DLC folder (00000002), or "
+                             "an already-extracted disc folder")
+    parser.add_argument("--out", default="assets", help="Assets output directory")
+    parser.add_argument("--shell", default=None,
+                        help="Also stage default.xex into this directory "
+                             "(the port's shell/ folder)")
+    parser.add_argument("--no-verify", action="store_true",
+                        help="Skip the disc install's hash-tree verification")
+    parser.add_argument("--verify-only", action="store_true",
+                        help="Check an existing --out tree against the manifest "
+                             "and stop")
+    parser.add_argument("--quick", action="store_true",
+                        help="Verify sizes only, not SHA-256 (fast)")
+    g = parser.add_argument_group("switching from futari_recomp")
+    g.add_argument("--from-recomp", metavar="DIR", default=None,
+                   help="Take the game data from a futari_recomp install: its folder "
+                        "(the one holding futari.exe + assets/), its .app, or the folder "
+                        "holding the .app. Also takes its dlc/ packages and the DLC it "
+                        "installed into its user-data folder.")
+    g.add_argument("--recomp-user-data", metavar="DIR", default=None,
+                   help="futari_recomp's user-data folder, if not the default "
+                        "(Documents\\futari on Windows, ~/.local/share/futari on macOS, or its "
+                        "futari.ini [Storage] user_data_path)")
+    g.add_argument("--saves-to", metavar="SAVE_DIR", default=None,
+                   help="Also import futari_recomp's save (settings, scores, replay) into "
+                        "this realcomp save folder (RT_SAVE). An existing save there is "
+                        "moved aside, never deleted.")
+    g.add_argument("--profile", default=None,
+                   help="Which futari_recomp profile's save to import (16 hex digits; "
+                        "default: the newest)")
+    g.add_argument("--saves-only", action="store_true",
+                   help="With --from-recomp/--recomp-user-data: import the save, skip the game data")
+    g.add_argument("--dry-run", action="store_true",
+                   help="With --from-recomp/--recomp-user-data: show what would be taken "
+                        "(game data, DLC, save), write nothing")
+    g.add_argument("--link", action="store_true",
+                   help="Hard-link the game files instead of copying them (same drive only; "
+                        "falls back to copying). No extra disk space; the files are only read.")
+    args = parser.parse_args()
+
+    global LINK_FILES
+    LINK_FILES = args.link
+    out_dir = Path(args.out)
+    shell_dir = Path(args.shell) if args.shell else None
+
+    if args.from_recomp or args.recomp_user_data:
+        install = None
+        if args.from_recomp:
+            install = recomp_install_dir(Path(args.from_recomp))
+            if install is None and not args.saves_only:
+                sys.exit(f"No futari_recomp game data under {args.from_recomp}: expected "
+                         "assets/default.xex there (or inside a Futari-*.app).")
+        user_data = recomp_user_data(install, args.recomp_user_data)
+        print(f"futari_recomp install:   {install or '(not given)'}")
+        print(f"futari_recomp user data: {user_data or '(not found)'}")
+        if not args.saves_only:
+            src = {"god": None, "iso": None, "extracted": install / "assets",
+                   "dlc_pkgs": find_dlc_packages(install / "dlc") if (install / "dlc").is_dir() else [],
+                   "dlc_dirs": []}
+            inst_dlc = (user_data / "0000000000000000" / TITLE_DIR / "00000002") if user_data else None
+            if inst_dlc and inst_dlc.is_dir():
+                src["dlc_dirs"] = find_unpacked_dlc(inst_dlc)
+            print(f"  game data from {src['extracted']}; {len(src['dlc_pkgs'])} DLC package(s) in dlc/; "
+                  f"{len(src['dlc_dirs'])} installed DLC folder(s) in the user data")
+            if args.dry_run:
+                print(f"  (dry run: nothing written; the game data would go to {out_dir})")
+            else:
+                rc = build_assets(src, out_dir, shell_dir, args)
+                if rc:
+                    return rc
+        if args.saves_to:
+            if user_data is None:
+                sys.exit("futari_recomp's user-data folder was not found; pass --recomp-user-data DIR.")
+            ok = import_recomp_saves(user_data, Path(args.saves_to), args.profile, args.dry_run)
+            if not ok:
+                print(f"\nSAVE IMPORT FAILED -- {len(PROBLEMS)} problem(s):", file=sys.stderr)
+                for p in PROBLEMS:
+                    print(f"  {p}", file=sys.stderr)
+                return 1
+        elif args.saves_only:
+            sys.exit("--saves-only needs --saves-to SAVE_DIR.")
+        return 0
+
+    if args.verify_only:
+        if not out_dir.is_dir():
+            sys.exit(f"Nothing to verify: {out_dir} does not exist.")
+        print(f"Verifying {out_dir} against {MANIFEST.name}"
+              f"{' (sizes only)' if args.quick else ''}...")
+        ok, missing, mismatched, extra = verify_against_manifest(out_dir, args.quick)
+        report_verification(out_dir, missing, mismatched, extra)
+        if PROBLEMS:
+            print(f"\nVERIFY FAILED -- {len(PROBLEMS)} problem(s).", file=sys.stderr)
+            return 1
+        print("\nVerified: every file in the manifest is present and matches.")
+        return 0
+
+    if args.source:
+        src_path = Path(args.source)
+        if not src_path.exists():
+            sys.exit(f"Not found: {src_path}")
+    else:
+        candidates = list(Path(".").glob("*.iso")) + list(Path("game").glob("*.iso"))
+        if not candidates:
+            sys.exit("Nothing to extract. Pass a path: an .iso, or a folder "
+                     "copied off your console.")
+        src_path = candidates[0]
+        print(f"Auto-detected ISO: {src_path}")
+
+    src = classify(src_path)
+    return build_assets(src, out_dir, shell_dir, args)
 
 
 if __name__ == "__main__":

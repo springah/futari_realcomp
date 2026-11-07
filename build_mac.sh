@@ -125,6 +125,7 @@ for f in out_reco/*.cpp; do
   n=$(basename "$f" .cpp); [ "$n" = "shell_only_stubs" ] && continue
   cc "game_$n" "$f" $GAME_INC $RT
 done
+cc "preinit_futari_ini" "host/futari_ini_preinit.cpp"   # futari.ini before every static initializer: FIRST on the link line (Mach-O ignores init priorities)
 echo "== SHELL guest tree (shell/gen/ppc_recomp.*.cpp) =="
 for f in shell/gen/ppc_recomp.*.cpp; do
   n=$(basename "$f" .cpp); cc "shell_$n" "$f" $SHELL_INC $XS $RT
@@ -152,7 +153,7 @@ if [ "$FAILED" -ne 0 ]; then echo "COMPILE_INCOMPLETE"; exit 1; fi
 fi  # LINK_ONLY
 
 # ---- link: first-definition-wins via rename-on-duplicate ----
-LINKLINE=( $(ls "$OBJ"/decomp_*.o 2>/dev/null) "$OBJ"/game_*.o "$OBJ"/merged_game.o "$OBJ"/merged_bridge.o "$OBJ"/merged_shell.o "$OBJ"/vk_render.o "$OBJ"/shell_*.o "$OBJ"/shellkernel_*.o )
+LINKLINE=( "$OBJ"/preinit_futari_ini.o $(ls "$OBJ"/decomp_*.o 2>/dev/null) "$OBJ"/game_*.o "$OBJ"/merged_game.o "$OBJ"/merged_bridge.o "$OBJ"/merged_shell.o "$OBJ"/vk_render.o "$OBJ"/shell_*.o "$OBJ"/shellkernel_*.o )
 LIBS=( "$DERISK_BUILD/XenonUtils/libXenonUtils.a" "$DERISK_BUILD/XenonAnalyse/libLibXenonAnalyse.a"
        "$DERISK_BUILD/thirdparty/disasm/libdisasm.a" "$DERISK_BUILD/thirdparty/xxHash/cmake_unofficial/libxxhash.a"
        "$DERISK_BUILD/thirdparty/fmt/libfmt.a" "$SDL_DYLIB" "$MVK_DYLIB" "${XWMA_LIBS[@]}" -lpthread -ldl -lm

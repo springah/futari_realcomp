@@ -71,7 +71,19 @@ SRC="${SRC%/}"
 [ -n "$SRC" ] && [ -e "$SRC" ] || { say "[ERROR] No such path: '$SRC'"; exit 1; }
 
 say ""; say "Extracting from: $SRC"; say "Output:          $OUT"; say "Python:          $PY ($("$PY" -c 'import platform; print(platform.python_version())'))"; say ""
-"$PY" "$EXTRACTOR" "$SRC" --out "$OUT"; RC=$?
+# A futari_recomp install (its folder, its Futari-*.app, or the folder holding the .app) is taken whole: game data
+# (hard-linked, no extra space), its DLC, and -- if wanted -- its save (docs/SWITCHING_FROM_FUTARI_RECOMP.md).
+RECOMP=0
+if [ -f "$SRC/assets/default.xex" ] || [ -f "$SRC/Contents/MacOS/assets/default.xex" ] || ls "$SRC"/*.app/Contents/MacOS/assets/default.xex >/dev/null 2>&1; then RECOMP=1; fi
+if [ $RECOMP = 1 ]; then
+  SAVEARGS=(--saves-to "$HOME/Library/Application Support/Futari Realcomp/save")
+  if [ $GUI = 1 ]; then
+    [ "$(ask "That is a futari_recomp install. Its game data and DLC come over.\n\nAlso bring over its save (settings, high scores, replay)? A save already here is kept aside, not deleted." "No" "Yes")" = "Yes" ] || SAVEARGS=()
+  elif [ "${FUTARI_IMPORT_SAVE:-1}" = 0 ]; then SAVEARGS=(); fi
+  "$PY" "$EXTRACTOR" --from-recomp "$SRC" --link --out "$OUT" ${SAVEARGS[@]+"${SAVEARGS[@]}"}; RC=$?   # bash 3.2 + set -u: empty-array safe
+else
+  "$PY" "$EXTRACTOR" "$SRC" --out "$OUT"; RC=$?
+fi
 say ""
 if [ $RC != 0 ]; then
   say "[FAILED] Extraction did not complete - see the messages above. Nothing was harmed; fix the input and run this again."
@@ -81,10 +93,18 @@ fi
 say "[DONE] assets/ matches the reference manifest."
 
 # ---- optional: the Black Label DLC (its three files go into assets/media/Rom/; the Black Label menu row un-greys)
-if [ $GUI = 1 ] && [ ! -f "$OUT/media/Rom/cg_black.bin" ]; then
+if [ $GUI = 1 ] && [ $RECOMP = 0 ] && [ ! -f "$OUT/media/Rom/cg_black.bin" ]; then
   if [ "$(ask "assets/ is built and verified.\n\nIf you also own the Black Label DLC, point the extractor at it now (the folder or package you copied off the console) - or skip it." "Skip" "Pick DLC...")" = "Pick DLC..." ]; then
     DLC=$(osascript -e 'POSIX path of (choose folder with prompt "Pick the folder holding your Black Label DLC package (00000002, or the folder above it)")' 2>/dev/null)
     [ -n "$DLC" ] && "$PY" "$EXTRACTOR" "${DLC%/}" --out "$OUT"
+  fi
+fi
+
+# ---- settings step (futari.ini in ~/Library/Application Support/Futari Realcomp/; tools/settings/futari_settings.py)
+SETTINGS="$ROOT/tools/settings/futari_settings.py"
+if [ $GUI = 1 ] && [ -f "$SETTINGS" ]; then
+  if [ "$(ask "Change the window settings now (window size, fullscreen, vsync, rotation)? They can be changed any time with Settings.command." "Not now" "Settings...")" = "Settings..." ]; then
+    "$PY" "$SETTINGS"
   fi
 fi
 

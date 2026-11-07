@@ -130,6 +130,7 @@ if [ "${LINK_ONLY:-0}" != "1" ]; then
   cc "game_rt"      "out_reco/rt.cpp"      $GI $RT
   cc "game_stubs"   "out_reco/stubs.cpp"   $GI $RT
   cc "game_harness" "out_reco/harness.cpp" $GI $RT
+  cc "preinit_futari_ini" "host/futari_ini_preinit.cpp"   # futari.ini before every static initializer: FIRST on the link line (Mach-O ignores init priorities)
   cc "game_rt_phys" "out_reco/rt_phys.cpp" $GI $RT
   echo "-- module registry (load / bind / activate / swap)"
   KIN_HOST=""; [ "$HAS_KINIRO" = 1 ] && KIN_HOST="-DFUTARI_HOST_KINIRO=1"   # the opt-in third g_slots[] row
@@ -154,7 +155,7 @@ if [ "${LINK_ONLY:-0}" != "1" ]; then
 fi
 # ORDER IS LOAD-BEARING (build_win_dll.sh "1. HOST EXE"): game_* kernel copies before shell_*/shellkernel_* so the GAME copy of
 # the 66 shared __imp__X wins, exactly as the per-mode exes; decomp_* first (first-definition-wins overrides).
-LINKLINE=( $(ls "$OBJ"/decomp_*.o 2>/dev/null) "$OBJ"/game_*.o "$OBJ"/host_module_registry.o "$OBJ"/merged_bridge.o "$OBJ"/merged_shell.o "$OBJ"/vk_render.o "$OBJ"/shell_*.o "$OBJ"/shellkernel_*.o )
+LINKLINE=( "$OBJ"/preinit_futari_ini.o $(ls "$OBJ"/decomp_*.o 2>/dev/null) "$OBJ"/game_*.o "$OBJ"/host_module_registry.o "$OBJ"/merged_bridge.o "$OBJ"/merged_shell.o "$OBJ"/vk_render.o "$OBJ"/shell_*.o "$OBJ"/shellkernel_*.o )
 python3 mac-build/link_merge.py --cxx "$CXX" --objcopy "$OBJCOPY" --out "$OUT" --objdir "$OBJ" -- "${LINKLINE[@]}" -- "${LIBS_HOST[@]}" || { echo "HOST LINK_FAILED"; exit 1; }
 fi
 
