@@ -72,11 +72,13 @@ pstep(){ mark; press "$1" 0.2; need "$2" "$3" "$4"; sleep "${5:-1}"; }
 leg_end(){ sleep 1; echo 0 > "$FIFO"; pkill -x "$PN" 2>/dev/null; sleep 2; cp "$LOGF" "$B/guest.log"; local L="$B/guest.log"
   { echo "leg=$LEG mode=$LMODE tag=$TAG wall=$(( $(date +%s)-T0 ))s"
     echo "FATAL=$(grep -a -c FATAL "$L") VKERR=$(grep -a -c 'VK_ERROR\|VUID' "$L") SLOW=$(grep -a -c '\[slowframe\]' "$L") DROPOUT=$(grep -a -c DROPOUT-CONFIRMED "$L") UNDERRUN_NONZERO=$(grep -a '\[starve\]' "$L" | grep -a -vc 'underruns=0 (total=0)')"
-    echo "modreg: $(grep -a '\[modreg\].*2/2' "$L" | head -1 | cut -c1-90)"
+    echo "modreg: $(grep -a '\[modreg\].*bound' "$L" | head -1 | cut -c1-90)"
     echo "modswap: $(grep -a -o '\[modswap\] #[0-9]* DONE — live module is now [a-z_]*' "$L" | sed 's/\[modswap\] //;s/ DONE — live module is now / /' | tr '\n' ';')"
     echo "residue: $(grep -a -o 'residue=[0-9]*' "$L" | sort | uniq -c | tr '\n' ' ')"; } > "$B/facts.txt"
   local nf; nf=$(grep -a -c 'FATAL\|VK_ERROR\|VUID' "$L"); [ "$nf" = 0 ] && echo "PASS no FATAL/VK_ERROR" >> "$V" || { echo "FAIL $nf FATAL/VK_ERROR lines" >> "$V"; FAIL=1; }
   [ $FAIL = 0 ] && echo "VERDICT PASS" >> "$V" || echo "VERDICT FAIL" >> "$V"; say "DONE -> $B"; cat "$V" "$B/facts.txt"
+  # 2026-11-07 disk law: the every-30th-frame dumps (~1 GB/leg, ~10 GB per chain run) are NOT a bank; the scored shot_*.png stay. RC_KEEPFRAMES=1 keeps them.
+  [ "${RC_KEEPFRAMES:-0}" = 1 ] || { rm -rf "$B/png.noindex"; say "frame dumps pruned ($(ls "$B"/shot_*.png 2>/dev/null | wc -l | tr -d " ") shots kept; RC_KEEPFRAMES=1 keeps)"; }
   [ $GOT = 1 ] && { rmdir "$LOCK" 2>/dev/null; GOT=0; }
   exit $FAIL
 }
