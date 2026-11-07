@@ -28,3 +28,10 @@ from the gated `build/` bytes and refuses any `.xex` / `media` / `assets` / `she
 copy the staged folder, run `tools/extract/futari_extract.py <gated F&F assets folder> --out <copy>/assets --shell <copy>/shell` (the
 "already-extracted disc folder" input), expect `Done. assets/ matches the reference manifest.` (58 files) + `shell/default.xex`, then
 `bash scripts/rc_smoke_win.sh <copy>`. First public form: 0.3.0-rc3 (GitHub pre-release).
+
+**2026-11-07 (w1107 config lane): settings + switching.** Also staged: `Settings.bat` (this folder, CRLF), `tools/settings/`
+(`futari_settings.py` + `futari.ini.template`) and `docs/SWITCHING_FROM_FUTARI_RECOMP.md`. `futari.ini` itself is NEVER shipped:
+the launcher creates it from the template on first run, so unzipping a new version over an old folder keeps the player's settings.
+The launcher no longer sets `RT_SAVE` / `RVK_WINSIZE` / `RT_PAD_HOST` / `RT_GAME_ROOT` directly; it passes them as
+`FUTARI_DEFAULTS` (lowest priority: environment > futari.ini > launcher default, applied by `host/futari_ini.h` in the engine).
+Smoke addition: in a staged copy with no `futari.ini`, run the bat once -> `futari.ini` appears, the log's first lines are `[ini]`.
