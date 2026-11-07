@@ -28,7 +28,7 @@ case "$KIN_MODEIDX" in 2) MODNAME=palm_normal;; 3) MODNAME=palm_abnormal;; 4) MO
   6) MODNAME=hirow_normal;; 7) MODNAME=hirow_abnormal;; *) echo "KIN_MODEIDX must be 2..7"; exit 2;; esac
 case "$KIN_MODEIDX" in 2|4|6) SUB="ARCADE";; *) SUB="XBOX-360 MODE";; esac; TITLE=$(( KIN_MODEIDX / 2 ))
 mkdir -p _local/kin3
-RVK_DRAWCENSUS=2 RVK_TITLEPROBE=1 KIN_STEPS="$STEPS" bash scripts/kiniro_boot_mac.sh "$TAG" "$BIN" "${HOLD:-120}" > "_local/kin3/${TAG}_drive.out" 2>&1
+RT_NAVMOD=1 RVK_DRAWCENSUS=2 RVK_TITLEPROBE=1 KIN_STEPS="$STEPS" bash scripts/kiniro_boot_mac.sh "$TAG" "$BIN" "${HOLD:-120}" > "_local/kin3/${TAG}_drive.out" 2>&1
 B="_local/nav_mac/$TAG"; G="$B/guest.log"; V="$B/verdict.txt"; : > "$V"
 [ -s "$G" ] || { echo "FAIL no guest log ($G)" | tee -a "$V"; exit 1; }
 FAIL=0
@@ -43,7 +43,12 @@ tail -n +"$SW" "$G" | grep -q '\[p0build\] menu_game_title' && ok hub || bad "hu
 ST=$(tail -n +"$SW" "$G" | grep -n 'BGM cue1 (m02_stg1)' | head -1 | cut -d: -f1)
 GO=$(tail -n +"$SW" "$G" | grep -n 'BGM cue4 (m05_govr)' | head -1 | cut -d: -f1)
 [ -n "$ST" ] && ok "stage (m02_stg1)" || bad "stage (no m02_stg1 BGM)"
-[ -n "$GO" ] && ok "gameover (m05_govr)" || bad "gameover (no m05_govr BGM)"
+# w1107: Arrange and Novice (palm_*) play NO m05_govr (nor any BGM cue after m02_stg1) on this route; their game over is
+# the module's own teardown edge, [navmod] scene=2 (RT_NAVMOD, live-controlled per module against the reco control: the
+# same scene 5 -> 2 edge reco shows at its m05_govr). Used ONLY when m05_govr is absent, and named in the verdict line.
+GO2=""; if [ -z "$GO" ] && [ -n "$ST" ]; then GO2=$(tail -n +"$SW" "$G" | tail -n +"$ST" | grep -n '^\[navmod\] .* scene=2 ' | head -1 | cut -d: -f1); [ -n "$GO2" ] && GO=$(( ST + GO2 - 1 )); fi
+if [ -n "$GO2" ]; then ok "gameover ([navmod] scene=2 after the stage; this module plays no m05_govr)"
+else [ -n "$GO" ] && ok "gameover (m05_govr)" || bad "gameover (no m05_govr BGM, no [navmod] scene=2 after the stage)"; fi
 if [ -n "$ST" ] && [ -n "$GO" ]; then
   MX=$(tail -n +"$SW" "$G" | sed -n "${ST},${GO}p" | grep -o '^\[nvk\] f[0-9]* draws=[0-9]*' | sed 's/.*draws=//' | sort -n | tail -1)
   [ "${MX:-0}" -ge 150 ] && ok "draws (max $MX/frame in the stage)" || bad "draws (max ${MX:-0}/frame between stage and game over)"

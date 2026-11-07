@@ -296,7 +296,7 @@ package from their console (DUMPING.md "Black Label DLC"). Nothing else is block
 **Timing: after the RC1 cut** (PLAN_RC1 §6). A third module changes the bundle, the hosted mask, the top menu, the
 modes drive and the swap gate, so it would invalidate RC1's measurements.
 
-**Bring-up log:** Black Label steps 0-2 (recompiler fixes, `out_kiniro*/` trees, 62+62 jump tables) are done statically, 2026-10-30: see `docs/PLAN_kiniro_bringup.md`.
+**Bring-up log:** w1107 (2026-11-07) bound all four remaining modules, see §6. Black Label steps 0-2 (recompiler fixes, `out_kiniro*/` trees, 62+62 jump tables) are done statically, 2026-10-30: see `docs/PLAN_kiniro_bringup.md`.
 
 ---
 
@@ -313,3 +313,47 @@ modes drive and the swap gate, so it would invalidate RC1's measurements.
 - **Recommended order:** Black Label pair → Ver 1.01 pair → Arrange → Novice. **Ruled 2026-10-12:** Black Label pair → Arrange → Novice → Ver 1.01 pair (user: 1.01 is the least wanted); DLC ownership confirmed.
 - **Timing:** start **after the RC1 cut**, because a third module changes the bundle and the smoke.
 - The silent-wrong-mode bridge bug from July is already fixed. Unhosted modes grey out and decline cleanly.
+
+---
+
+## §6 w1107 BRING-UP (2026-11-07, Mac, MAC-MODULES lane): Ver 1.01 pair, Arrange, Novice -- 8 of 8 modules bound
+
+Recipe = §2 as the kiniro bring-up ran it (docs/PLAN_kiniro_bringup.md). Evidence (logs, PREREGs, verdicts, shots under
+`png.noindex/`) is banked in `_local/rc/w1107_mod/` on the Mac, timeline in its `PROGRESS.md`. Host `build/w1107`
+(`MODULES="normal abn kiniro kiniro_abn hirow hirow_abn palm palm_abn" OUTDIR=build/w1107 OBJSFX=_w1107`):
+`[modreg] 8/8 module DLL(s) bound, hosted modeIdx mask=0xFF`. The four new modules are OPT-IN (never in the default MODULES).
+
+| Module (modeIdx) | Tree / map | Static result | Gate (scripts/mod_gate_mac.sh) |
+|---|---|---|---|
+| hirow_normal, Ver 1.01 ARCADE (6) | out_hirow / hirow_symbol_map.h | 0 dropped insns, 57 tables, 186 hooks mapped / 33 dropped | `h6_gate1` **15/15** |
+| hirow_abnormal, Ver 1.01 XBOX 360 (7) | out_hirow_abn / hirow_abn_symbol_map.h | +8 twin (keep <= 0x880DE3E0, +8 >= 0x880DE4D8, 8242/8242), .data +0x60 | `h7_gate1` **15/15** |
+| palm_normal, Arrange (2) | out_palm / palm_symbol_map.h | image 0x910000, 0 dropped insns (mulhdu handled), 164 mapped / 55 dropped | see below |
+| palm_abnormal, Novice (3) | out_palm_abn / palm_abn_symbol_map.h | code REBASED 0x88080000, image 0x7D0000, 196 mapped / 23 dropped | see below |
+
+What was new relative to kiniro:
+1. **Chain-break aliases** (tools/modbringup/modtools.py `emit_map`): hirow's early engine is displaced +0x10, so reco
+   0x8807EC90 maps onto 0x8807ECA0, which is itself a reco hook key. Such targets are spelled `sub_X_HCH`, declared with an
+   asm label naming the real Mach-O symbol, so the preprocessor never rescans into the next #define.
+2. **Registry swap UNION-ZERO** (host/module_registry.cpp step 4): zero both modules' image + table windows on every swap.
+   Proven by the swap-back gate `scripts/mod_swap_mac.sh`: `p2_swap1` (reco -> palm_normal -> reco) 11/11, both
+   retirements residue=0, `UNION-ZERO 0x88000000..0x88CD4AC0`, reco_normal reaches m02_stg1 after the swap back.
+3. **RT_DIVGUARD per module.** Ver 1.01 and Arrange divide the blink period by an IMMEDIATE (hirow `li r10,500`; Arrange's
+   ship draw sub_882295D8 has no data-word divwu at all), so the dropped hook is moot there. Novice installs the reco hook on
+   its body twin sub_88240988 and now guards its own word 0x887CCEB0 (FUTARI_DIVGUARD_ADDR). Finding, not changed:
+   reco_abnormal's twin divides by 0x887ACE74 (+0x60), so the reco hook's literal 0x887ACE14 is not its divisor there.
+4. **New kgates**: hooks INSTALLED under hirow/palm but dropped under kiniro carry reco-literal writes behind env levers
+   (RT_MENUADV, RT_START352, RT_LIVEPLAY, RT_DECIDE, RT_CHARSELHOLD, RT_CSHOLD, RT_SLOTHOLD); each now also passes
+   rt_kgate (constant true on the reco pair). tools/modbringup/audit_literals.py lists them per map.
+5. **Live controls** (RT_NAVMOD + RT_DESCPROBE, drives nav0/6/2/3 vs the reco control): scene_fsm, select_d76 (one of the two
+   candidates; the other is refuted on each module), slot0 and credit give the control's identical 17-edge sequence on
+   hirow_normal, palm_normal and palm_abnormal; field_active, gm_frame_gate and mb_credited move as on the control;
+   asset_commit / mb_reload / mb_mode64 stay flat on the control too (not discriminated).
+6. **Arrange and Novice play no BGM cue after m02_stg1** on the gate route: no m05_govr on the CONTINUE? -> GAME OVER ->
+   replay-save sequence, and no boss cue when Novice reaches the stage-1 boss. Whether that is authentic is UNVERIFIED (no
+   reference run). The gate therefore takes the module's own `[navmod] scene=2` teardown edge (controlled above) as game over
+   when m05_govr is absent, and says so in the verdict line.
+7. **Scores** (Mac, build/w1107, 8/8 bound mask=0xFF): gates `h6_gate1` 15/15, `h7_gate1` 15/15, `p2_gate2` 15/15, `p3_gate2`
+   15/15 (first palm runs p2_gate1 13/14 and p3_gate1 12/13 failed only the m05_govr assumption and a truncated-PNG crash);
+   swap-back `h6_swap2`, `h7_swap1`, `p2_swap1`, `p3_swap1` 11/11 each; non-regression on the same build: Ver 1.5 ARCADE
+   `w1107_nr` fatal/vkerr/dropout/underruns 0, XBOX 360 `w1107_nr360` fatal/vkerr/underruns 0 with 10 dropouts all in the
+   census's named authentic classes. Not done: hands-on play, the Linux/Windows build arms, an RC-style soak per module.
