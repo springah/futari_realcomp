@@ -40,7 +40,7 @@ grep -q "ENGINE FAILED STEPS: none" "$SRC_RD/SMOKE.md" && ! grep -q '\*\*FAIL\*\
 codesign --verify --deep --strict "$SRC_APP" 2>/dev/null || die "the gated bundle's signature does not verify"
 ( cd "$SRC_APP" && while read -r h f; do [ "$(md5 -q "$f")" = "$h" ] || { echo "$f: $(md5 -q "$f") != $h"; exit 1; }; done < "$SRC_RD/MACHO_MD5.txt" ) || die "gated bundle Mach-Os differ from MACHO_MD5.txt"
 [ -d "$SRC_APP/Contents/Resources/assets" ] || die "the gated bundle has no Contents/Resources/assets (already stripped?)"
-for f in tools/extract/futari_extract.py tools/extract/extract_assets.sh tools/extract/manifest_v1.tsv docs/DUMPING.md docs/RC_KNOWN_ISSUES.md docs/RC1_HANDS_CHECKLIST.md; do
+for f in tools/extract/futari_extract.py tools/extract/extract_assets.sh tools/extract/manifest_v1.tsv docs/DUMPING.md docs/RC_KNOWN_ISSUES.md docs/RC1_HANDS_CHECKLIST.md docs/SWITCHING_FROM_FUTARI_RECOMP.md tools/settings/futari_settings.py tools/settings/futari.ini.template; do
   [ -e "$f" ] || die "missing $f"; done
 HR=$(git rev-parse HEAD); HRS=$(git rev-parse --short HEAD)
 DIRTY=$(git status --porcelain | grep -v '^?? ')
@@ -51,7 +51,7 @@ grep -a -q "$TAGS" "$SRC_APP/Contents/MacOS/futari_merged" || die "the gated eng
 if [ "$TAGC" != "$HR" ]; then
   # nothing is rebuilt here, so HEAD may sit above the tag; the engine bytes are proven to be the gated ones below (MACHO_MD5.txt)
   git merge-base --is-ancestor "$TAGC" HEAD 2>/dev/null || die "tag $TAGV ($TAGS) is not an ancestor of HEAD $HRS"
-  NONDOC=$(git diff --name-only "$TAGC" HEAD | grep -v -E '^(docs/|scripts/|dist/|tools/extract/|STATUS\.md$|README\.md$)' | tr '\n' ' ')
+  NONDOC=$(git diff --name-only "$TAGC" HEAD | grep -v -E '^(docs/|scripts/|dist/|tools/extract/|tools/settings/|STATUS\.md$|README\.md$)' | tr '\n' ' ')
   log "HEAD $HRS is above tag $TAGV ($TAGS): tree recorded as-is, engine commit = the tag${NONDOC:+ (sources touched since the tag, NOT in these bytes: $NONDOC)}"
 fi
 ENGINE_COMMIT="$TAGS"
@@ -70,7 +70,22 @@ ditto "$SRC_APP" "$APP" || die "ditto of the bundle failed"
 rm -rf "$APP/Contents/Resources/assets"
 cp tools/extract/futari_extract.py tools/extract/manifest_v1.tsv tools/extract/extract_assets.sh "$ST/tools/extract/"
 chmod +x "$ST/tools/extract/extract_assets.sh"
-cp docs/DUMPING.md docs/RC_KNOWN_ISSUES.md docs/RC1_HANDS_CHECKLIST.md "$ST/docs/"
+cp docs/DUMPING.md docs/RC_KNOWN_ISSUES.md docs/RC1_HANDS_CHECKLIST.md docs/SWITCHING_FROM_FUTARI_RECOMP.md "$ST/docs/"
+# futari.ini (2026-11-07): the settings tool + template beside the app; the launcher keeps the live file in
+# ~/Library/Application Support/Futari Realcomp/futari.ini (created from the bundle's own copy of the template)
+mkdir -p "$ST/tools/settings"; cp tools/settings/futari_settings.py tools/settings/futari.ini.template "$ST/tools/settings/"
+cat > "$ST/Settings.command" <<'EOC'
+#!/bin/bash
+# Double-click me: edits ~/Library/Application Support/Futari Realcomp/futari.ini (window size, fullscreen, vsync,
+# rotation, keyboard, save folder). Needs Python 3.8+; without it, open that file in TextEdit -- every key is explained.
+cd "$(dirname "$0")" || exit 1
+PY=""; for c in python3 /opt/homebrew/bin/python3 /usr/local/bin/python3 /usr/bin/python3; do command -v "$c" >/dev/null 2>&1 && { PY="$c"; break; }; done
+INI="$HOME/Library/Application Support/Futari Realcomp/futari.ini"
+if [ -z "$PY" ]; then mkdir -p "$(dirname "$INI")"; [ -f "$INI" ] || cp tools/settings/futari.ini.template "$INI"; open -e "$INI"; exit 0; fi
+"$PY" tools/settings/futari_settings.py "$@"
+echo; echo "The new settings apply the next time you start Futari Realcomp."
+EOC
+chmod +x "$ST/Settings.command"
 cat > "$ST/Extract Game Data.command" <<'EOC'
 #!/bin/bash
 # Double-click me (Finder opens a Terminal window): builds assets/ next to "Futari Realcomp.app" from YOUR dump of
@@ -139,6 +154,12 @@ CONTROLS
 
 $(cat docs/RC_KNOWN_ISSUES.md)
 
+SETTINGS
+  ~/Library/Application Support/Futari Realcomp/futari.ini: window size, fullscreen, vsync, rotation, keyboard, save
+  folder. Double-click "Settings.command" or edit the file; every key is explained inside. Coming from futari_recomp:
+  point "Extract Game Data.command" at the folder holding its Futari-*.app (game data, DLC and save come over);
+  docs/SWITCHING_FROM_FUTARI_RECOMP.md has the details.
+
 SAVES AND LOGS
   Saves:  ~/Library/Application Support/Futari Realcomp/save    (back this up to keep settings + scores)
   Logs:   ~/Library/Logs/Futari Realcomp/                        (one file per session)
@@ -153,8 +174,10 @@ FILES
     futari_game_normal.dylib     ARCADE 1.5 module
     futari_game_abn.dylib        XBOX 360 mode module$BL_FILES
   Extract Game Data.command    first-run extraction (double-click)
+  Settings.command             window size, fullscreen, vsync, rotation, keyboard, save folder (writes futari.ini)
   tools/extract/               the asset extractor + reference manifest (+ extract_assets.sh, the Terminal form)
-  docs/                        DUMPING.md, RC_KNOWN_ISSUES.md, RC1_HANDS_CHECKLIST.md
+  tools/settings/              the settings tool + the futari.ini template
+  docs/                        DUMPING.md, RC_KNOWN_ISSUES.md, RC1_HANDS_CHECKLIST.md, SWITCHING_FROM_FUTARI_RECOMP.md
   assets/                      built by the extractor from YOUR dump (not shipped)
 
 BUILD (docs/PLAN_RC1.md section 6; public form of the macOS $VER cut: the gated bundle minus its game data)
@@ -184,7 +207,7 @@ log "re-sealed: signature verifies; engine + $NMOD module dylibs + Frameworks by
 
 # ---- hashes + build block
 ( cd "$ST" && md5 -r "Futari Realcomp.app/Contents/MacOS/futari_merged" "Futari Realcomp.app/Contents/MacOS/"futari_game_*.dylib "Futari Realcomp.app/Contents/MacOS/Futari Realcomp" \
-  "Futari Realcomp.app/Contents/Frameworks/"*.dylib "Extract Game Data.command" tools/extract/extract_assets.sh tools/extract/futari_extract.py tools/extract/manifest_v1.tsv ) > "$ST/MD5.txt"
+  "Futari Realcomp.app/Contents/Frameworks/"*.dylib "Extract Game Data.command" tools/extract/extract_assets.sh tools/extract/futari_extract.py tools/extract/manifest_v1.tsv "Settings.command" tools/settings/futari_settings.py tools/settings/futari.ini.template ) > "$ST/MD5.txt"
 { echo "version=$VER platform=macos form=public-asset-free"; echo "realcomp=$HR"; echo "engine_commit=$ENGINE_COMMIT"; echo "decomp=$HD"; echo "tag=$TAGV@$TAGC"
   echo "gated_bundle=$SRC_APP"; echo "gated_smoke=ALL-PASS ($SRC_RD/SMOKE.md)"; echo "engine_bytes=identical-to-gated (MACHO_MD5.txt, launcher re-signed $LAUNCHER_MD5_BEFORE->$LAUNCHER_MD5_AFTER)"
   echo "staged=$(date -Iseconds 2>/dev/null || date '+%Y-%m-%dT%H:%M:%S%z')"; } > "$ST/BUILD.txt"

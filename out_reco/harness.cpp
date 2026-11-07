@@ -25,6 +25,23 @@
 #include <sys/mman.h>
 #include <unistd.h>   // alarm/usleep/_exit (macOS libc++ does not pull it in transitively)
 #endif
+// futari.ini -> env levers (2026-11-07, w1107 config lane): host/futari_ini.h. Relative path, no -I.
+#include "../host/futari_ini.h"
+// Applied BEFORE main(), not just at its top: some host TUs resolve levers in file-scope initializers before main() runs (the
+// shell/gen/rt_audio.cpp [env] banner caches RT_SINKWASAPI, RT_AUDIO* in function-local statics at static-init time;
+// the decomp census banners read theirs). So the ini is applied from a pointer in .CRT$XCT on Windows -- the CRT runs
+// .CRT$XCA..XCZ in name order and every ordinary C++ dynamic initializer lives in .CRT$XCU -- and from a priority-101
+// constructor elsewhere (ELF honours it; on macOS the bundle launcher has already applied the ini before exec, see
+// mac-build/launcher.c). main() calls apply_once() again as the fallback; whichever runs first wins.
+#if defined(_WIN32)
+static void __cdecl futari_ini_pre_static_init(void){ futari_ini::apply_once("engine, before static init"); }
+#pragma section(".CRT$XCT", read)
+extern "C" __declspec(allocate(".CRT$XCT")) __attribute__((used)) void (__cdecl* const futari_ini_xct)(void) = futari_ini_pre_static_init;
+#elif defined(__APPLE__)   // Mach-O has no constructor priorities; the launcher applied the ini before exec anyway
+__attribute__((constructor)) static void futari_ini_pre_static_init(void){ futari_ini::apply_once("engine, before static init"); }
+#else
+__attribute__((constructor(101))) static void futari_ini_pre_static_init(void){ futari_ini::apply_once("engine, before static init"); }
+#endif
 #if defined(_WIN32) || defined(__APPLE__)
 // C23 round-half-to-even the recompiler emits (glibc has it; MSVC UCRT and Apple libm do not --
 // the combined host's ABI table takes &roundevenf, so macOS needs the definition too, 2026-10-04).
@@ -222,12 +239,14 @@ RT_SVC_CB(0) RT_SVC_CB(1) RT_SVC_CB(2) RT_SVC_CB(3)
 extern "C" int rvk_run_on_main_thread(int (*fn)(int, char**), int argc, char** argv) __attribute__((weak));
 static int guest_main(int argc,char**argv);
 int main(int argc,char**argv){
+  futari_ini::apply_once("engine, main");   // normally already applied before static init; RVK_WINDOW below is already a lever read
   if(std::getenv("RVK_WINDOW") && rvk_run_on_main_thread) return rvk_run_on_main_thread(guest_main,argc,argv);
   return guest_main(argc,argv);
 }
 static int guest_main(int argc,char**argv){
 #else
 int main(int argc,char**argv){
+  futari_ini::apply_once("engine, main");   // normally already applied before static init; before the handler, the arena, SDL, Vulkan, any module DLL
 #endif
 #ifdef _WIN32
   AddVectoredExceptionHandler(1, onsig_veh);

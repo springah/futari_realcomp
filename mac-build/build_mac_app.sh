@@ -74,6 +74,7 @@ rm -rf "$APP"; mkdir -p "$C/MacOS" "$C/Frameworks" "$C/Resources"
 cp "${RC_OUTDIR}_launcher" "$C/MacOS/Futari Realcomp"
 cp "$OUT" "$C/MacOS/futari_merged"            # the engine keeps its historical name inside the bundle (launcher.c execs it)
 cp "${MODDYLIBS[@]}" "$C/MacOS/"
+cp tools/settings/futari.ini.template "$C/Resources/futari.ini.template"   # launcher.c copies it to Application Support on first launch
 
 echo "[4/8] dylibs -> Contents/Frameworks, load commands rewritten"
 SDL_DYLIB=$(ls external/SDL/build/libSDL3.*.dylib | head -1)

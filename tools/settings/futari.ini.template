@@ -1,0 +1,74 @@
+# futari.ini -- Mushihimesama Futari (futari_realcomp) player settings
+#
+# Edit this file with any text editor, then start the game again. Nothing here is read while the game runs.
+# Or run the settings tool instead of editing by hand:
+#   Windows:  Settings.bat  (next to "Futari 1.5.bat")
+#   macOS:    "Settings.command"  (next to "Futari Realcomp.app")
+#
+# Where this file lives:
+#   Windows:  next to futari_combined.exe
+#   macOS:    ~/Library/Application Support/Futari Realcomp/futari.ini
+#
+# Rules:
+#   * An empty value ("key =") means "the default". Deleting a line means the same.
+#   * Relative paths are relative to the folder this file is in.
+#   * An environment variable that is already set (e.g. RVK_WINSIZE=1280x720 typed in a terminal before starting the
+#     game) wins over this file. Every key below names the variable it sets.
+#   * The session log lists what this file did, one "[ini]" line per key, at the very top.
+#   * Game options (difficulty, button layout, TATE/yoko, sound volumes, ...) are NOT here: they are the game's own
+#     OPTIONS menus and are kept in the save.
+
+[display]
+# Window size as WIDTHxHEIGHT. The game draws 1280x720 and scales it into the window.
+# Default: 1920x1080 on Windows, 1280x720 on macOS.                                       (RVK_WINSIZE)
+window_size =
+# Start in borderless fullscreen. F11 switches between fullscreen and the window either way.    (RVK_FULLSCREEN)
+fullscreen = false
+# auto = tear-free without blocking (Vulkan MAILBOX) where the driver offers it, else on.
+# on   = wait for the display refresh (FIFO).
+# off  = show every frame at once (may tear; for testing whether a machine is fast enough).   (RVK_VSYNC)
+vsync = auto
+# false = the F11 key does nothing.                                                          (RVK_NOF11)
+f11_fullscreen = true
+# Rotate the window picture for a monitor turned on its side: 0, 90 or 270.
+# This turns the WINDOW. The game's own vertical (TATE) layout is in its OPTIONS menu.        (RT_ROTATE)
+rotate = 0
+# Part of the graphics card's name to use, e.g. NVIDIA or Intel (case matters). Empty = a discrete
+# card first, then integrated. The log lists the candidates ("gpu candidate").               (RVK_GPU)
+gpu =
+
+[audio]
+# sdl    = the default sound output (SDL3).
+# wasapi = Windows only: the older direct WASAPI output, kept as a fallback.                 (RT_SINKWASAPI)
+sink = sdl
+
+[input]
+# The keyboard as player 1: arrows, Z = A (shot), X = B (bomb), C = X, V = Y, Enter = START, Right Shift = BACK.
+# Controllers work either way.                                                              (RT_PAD_HOST)
+keyboard = true
+# Windows: read the keyboard even when the game window is not in front (normally keys only count while
+# the game has focus, so typing in another window does not fire shots).                     (RT_PAD_UNFOCUSED)
+background_input = false
+# Windows: false = ignore XInput (Xbox-style) controllers.                                   (RT_NOXINPUT)
+xinput = true
+
+[storage]
+# Save folder (settings, high scores, replays). Default: "save" next to the exe on Windows,
+# ~/Library/Application Support/Futari Realcomp/save on macOS.                              (RT_SAVE)
+save_dir =
+# The extracted game data folder (holds default.xex and media/). Default: "assets" next to the exe
+# (Windows) or next to the app (macOS).                                                       (RT_GAME_ROOT)
+game_data =
+# An extra folder searched for the Black Label DLC files. Default: "dlc" beside the save folder.   (RT_DLC_ROOT)
+dlc_dir =
+
+[memory]
+# Hand long-unused game memory back to the system after this many milliseconds; 0 = never.
+# Default: 0 (off) on Windows, 10000 on macOS. Lowers memory use in long attract-demo sessions
+# (about 720 MB -> 400 MB measured on macOS); on Windows it is not yet release-tested.        (RT_POOLRELEASE)
+pool_release_ms =
+
+[env]
+# Advanced: any engine lever by its variable name (RT_*, RVK_*, XR_*), for testing what a bug report asks for.
+# Example:
+# RVK_FPS = 1

@@ -41,7 +41,7 @@ case "$BID" in
   "$HRS") ;;
   "$HRS-dirty") [ "${ALLOW_DIRTY:-0}" = 1 ] || die "exe stamped -dirty: commit, rebuild";;
   "") [ "${ALLOW_DIRTY:-0}" = 1 ] || die "exe carries no recent commit's build id: rebuild";;
-  *) if git merge-base --is-ancestor "$BID" HEAD 2>/dev/null && [ -z "$(git diff --name-only "$BID" HEAD | grep -v -E '^(docs/|scripts/|dist/|STATUS\.md$|README\.md$)')" ]; then
+  *) if git merge-base --is-ancestor "$BID" HEAD 2>/dev/null && [ -z "$(git diff --name-only "$BID" HEAD | grep -v -E '^(docs/|scripts/|dist/|tools/extract/|tools/settings/|STATUS\.md$|README\.md$)')" ]; then
        ENGINE_COMMIT="$BID"; log "exe build id $BID is an ancestor of HEAD $HRS with docs/scripts-only changes between: accepted (engine commit $BID)"
      else [ "${ALLOW_DIRTY:-0}" = 1 ] || die "exe build id ($BID) is not HEAD ($HRS) and engine sources changed since: rebuild"; fi;;
 esac
@@ -55,7 +55,10 @@ cp build/futari_combined.exe $MODDLLS "$ST/"
 tr -d '\r' < "dist/next_release/Futari 1.5.bat" | sed 's/$/\r/' > "$ST/Futari 1.5.bat"
 cp shell/default.xex "$ST/shell/"
 cp -r save_freshcard "$ST/save_freshcard"
-cp docs/RC_KNOWN_ISSUES.md docs/RC1_HANDS_CHECKLIST.md "$ST/docs/"
+cp docs/RC_KNOWN_ISSUES.md docs/RC1_HANDS_CHECKLIST.md docs/SWITCHING_FROM_FUTARI_RECOMP.md "$ST/docs/"
+# futari.ini (2026-11-07): the template + settings tool; the launcher creates futari.ini from the template on first run
+mkdir -p "$ST/tools/settings"; cp tools/settings/futari_settings.py tools/settings/futari.ini.template "$ST/tools/settings/"
+tr -d '\r' < dist/next_release/Settings.bat | sed 's/$/\r/' > "$ST/Settings.bat"
 log "copying assets (1.1 GB) ..."; cp -r assets "$ST/assets"
 
 # ---- README: the Mac RC text, Windows-adapted (dist/next_release/README.txt is the asset-free public form -- not this)

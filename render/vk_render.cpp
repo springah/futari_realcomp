@@ -4541,6 +4541,12 @@ bool initVk() {
 // since 2026-10-03). The Vulkan side (swapchain, blit, present) is shared; only the window,
 // the surface and the event pump are per platform.
 // ============================================================================
+// RVK_FULLSCREEN=1 (2026-11-07, futari.ini display.fullscreen): open the window already in the F11 borderless
+// fullscreen. Read once at window bring-up; F11 still toggles back and forth afterwards.
+static bool rvkStartFullscreen() {
+  const char* e = std::getenv("RVK_FULLSCREEN");
+  return e && std::atoi(e) != 0;
+}
 #ifdef _WIN32
 // ★ F11 fullscreen toggle (2026-08-03, beta1 user request). Borderless-fullscreen on the
 // window's current monitor; F11 again restores the saved windowed style+rect. No exclusive
@@ -4617,8 +4623,8 @@ extern "C" void rvk_request_quit(const char* why) {
   if (!stay) { std::fflush(nullptr); std::_Exit(0); }
 }
 static void rvkToggleFullscreenSdl() {
-  static bool fs = false;
-  fs = !fs;
+  // the window's own flag, not a private static: RVK_FULLSCREEN may have opened it fullscreen
+  bool fs = !(SDL_GetWindowFlags(gw.sdlWin) & SDL_WINDOW_FULLSCREEN);
   if (!SDL_SetWindowFullscreen(gw.sdlWin, fs)) { fs = !fs; std::fprintf(stderr, "[rvk][win] F11 fullscreen toggle FAILED: %s\n", SDL_GetError()); return; }
   int w = 0, h = 0; SDL_GetWindowSizeInPixels(gw.sdlWin, &w, &h);
   std::fprintf(stderr, fs ? "[rvk][win] F11 -> fullscreen %dx%d\n" : "[rvk][win] F11 -> windowed\n", w, h);
@@ -4682,7 +4688,9 @@ static void rvkWindowPump() {
 struct RvkWinCreate { uint32_t w, h; bool ok; };
 static void rvkWindowCreateNativeCb(void* ud) {
   RvkWinCreate* c = (RvkWinCreate*)ud; c->ok = false;
-  gw.sdlWin = SDL_CreateWindow("Mushihimesama Futari - futari_realcomp", (int)c->w, (int)c->h, SDL_WINDOW_VULKAN);
+  const bool fs0 = rvkStartFullscreen();
+  gw.sdlWin = SDL_CreateWindow("Mushihimesama Futari - futari_realcomp", (int)c->w, (int)c->h, SDL_WINDOW_VULKAN | (fs0 ? SDL_WINDOW_FULLSCREEN : 0));
+  if (gw.sdlWin && fs0) std::fprintf(stderr, "[rvk][win] RVK_FULLSCREEN=1: starting fullscreen\n");
   if (!gw.sdlWin) { std::fprintf(stderr, "[rvk][win] SDL_CreateWindow FAILED: %s\n", SDL_GetError()); return; }
   if (!SDL_Vulkan_CreateSurface(gw.sdlWin, g.instance, nullptr, &gw.surface)) {
     std::fprintf(stderr, "[rvk][win] SDL_Vulkan_CreateSurface FAILED: %s\n", SDL_GetError()); return;
@@ -5094,6 +5102,7 @@ bool rvkWindowInit() {
                             nullptr, nullptr, wc.hInstance, nullptr);
   if (!gw.hwnd) { std::fprintf(stderr, "[rvk][win] CreateWindow FAILED\n"); gw.failed = true; return false; }
   ShowWindow(gw.hwnd, SW_SHOWNORMAL);
+  if (rvkStartFullscreen()) { std::fprintf(stderr, "[rvk][win] RVK_FULLSCREEN=1: starting fullscreen\n"); rvkToggleFullscreen(gw.hwnd); }
   VkWin32SurfaceCreateInfoKHR wsci{VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
   wsci.hinstance = wc.hInstance; wsci.hwnd = gw.hwnd;
   if (vkCreateWin32SurfaceKHR(g.instance, &wsci, nullptr, &gw.surface) != VK_SUCCESS) {
