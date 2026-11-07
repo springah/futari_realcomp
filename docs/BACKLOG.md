@@ -1,5 +1,25 @@
 # BACKLOG.md — ranked open work (re-rank of 2026-07-27, the long-queued t3)
 
+## 2026-11-07 — w1107 WIN-DRIVER (PC): getenv hot-path caching (M1) + Windows RT_POOLRELEASE arm (M2), gated on the PC · default stays OFF on Windows
+- ✅ **M1 getenv caching** (static audit `_local/rc/w1107_driver/getenv_audit.tsv`: 1,388 sites, 120 per-call-hot): the hot sites in out_reco/{rt,stubs}.cpp,
+  out_reco/merged/merged_{game,shell}.cpp, render/vk_render.cpp, shell/gen/{rt,stubs}.cpp read once per call site via `RT_ENVC(name)` (a static-local
+  lambda). Review: every change is the mechanical getenv -> RT_ENVC swap; nothing in the engine calls putenv/setenv/SetEnvironmentVariable, so no lever
+  changes at runtime and nothing was reverted. Every Windows census below: `UNDERRUN=0 SINKSTALL=0`.
+- ✅ **M2 Windows arm of rt_poolReleaseSweep** (out_reco/rt_phys.cpp): VirtualFree(MEM_DECOMMIT) + immediate VirtualAlloc(MEM_COMMIT) of each quarantined
+  pool block's page interior (demand-zero, = the Darwin MAP_FIXED remap), a VEH that retries an access violation landing in the in-flight window, and
+  scratch positive controls RT_POOLRELEASE_PC=1/2. Binary md5 9f4861578b20 (main 0d75a67 + this tree), evidence `_local/rc/w1107_driver/`:
+  PC1 (decommit, no recommit) crashes deterministically at guest 0x041C0000 right after release #11 (allocator zeroing re-touches a released page) =
+  the recommit is load-bearing. ARCADE 12 min: control +193 MB PASS, arm +32 MB PASS (41 `[poolrelease]` lines, 264 MB released; 4-min sawtooth,
+  the t+12 endpoint sits on a peak; t+2->t+12 +18). XBOX 360 6 min: arm PASS on rerun (t+1->t+6 +31 vs control +69; the first arm leg's FAIL = a
+  census-sampler stale frame read, see below). gstart lever on: 10 + 9 probes, 0 leaks. rc_chain all + T2 + CX lever on: one E1_arcade remap-nav
+  FAIL and one CX_x360 FAIL under 100 % CPU from the owner's other build; both re-ran PASS lever ON and OFF on a quiet box. Pre-registered bands
+  P1 (+100..+150) / P2 (<= +20) / P4 (<= +20) MISSED as written (Windows control ramps faster; endpoint definitions), see PREREG_w1107.txt.
+  ⚖ OWED (owner): flip RT_POOLRELEASE default on for Windows, on this evidence.
+- ⚠️ **Census sampler defect (Windows, unfixed)**: in `w1107_x360arm` the t+0 sample read frame 8701 (= the log as of ~line 12311) although the
+  script had already matched `[modswap] #2 DONE` at line 12525 (real tick p8854) -> a false 62.5 fps first minute. A replay shows the 20 KB `[tick]`
+  window is NOT the cause; mechanism unconfirmed (stale-EOF read of a file another process is appending?). TODO: log the frame source and file size
+  per sample before changing the sampler.
+
 ## 2026-11-04 — 🎉 0.3.0-rc5 CUT ON THE MAC (attempt 7, ALL-PASS on the one-window rule) · both tags pushed · macOS public zip staged + smoked · NOT uploaded
 - ✅ **rc5 Mac cut attempt 7 (2026-11-04 20:04-21:11): ALL-PASS.** User ruling "rerun as is" (no episode rule). q1_census PASS both modes,
   `UNDERRUN=0 SINKSTALL=0`, ZERO `[vblank] stall` markers in either guest.log (ARCADE 0 named / 0 other; 360 1 named / 0 other) -- the box was

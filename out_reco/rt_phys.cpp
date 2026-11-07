@@ -33,6 +33,8 @@
 #include <mutex>
 #include <chrono>
 #include <vector>
+#include <atomic>
+#include <iterator>
 #ifdef _WIN32
 #include "win_compat.h"
 #else
@@ -55,6 +57,13 @@ std::multimap<uint32_t, FreeEnt> g_pool;     // size -> entries; freedMs feeds o
 
 uint64_t nowMs(){ return (uint64_t)std::chrono::duration_cast<std::chrono::milliseconds>(
   std::chrono::steady_clock::now().time_since_epoch()).count(); }
+#ifdef _WIN32
+thread_local bool t_inPhys = false;          // this thread holds g_mu inside the allocator (RT_POOLRELEASE_PC=2 classifier)
+struct PhysScope { PhysScope(){ t_inPhys = true; } ~PhysScope(){ t_inPhys = false; } };
+#define RT_PHYS_SCOPE PhysScope rt_phys_scope_
+#else
+#define RT_PHYS_SCOPE do {} while (0)
+#endif
 }
 
 // ===== ALLOCATION EPOCH TABLE ==============================================================
@@ -130,6 +139,7 @@ static bool frontierRetreat(uint64_t now, uint32_t minAgeMs){
 // ===== ALLOC ===============================================================================
 static uint32_t allocImpl(uint32_t size, uint32_t align, int zero){
   std::lock_guard<std::mutex> lk(g_mu);
+  RT_PHYS_SCOPE;
   if (align < 1) align = 1;
   uint32_t asz;                               // law 5: granule-quantize big sizes
   if (size >= GRANULE){ asz = (size + GRANULE - 1) & ~(GRANULE - 1); if (align < GRANULE) align = GRANULE; }
@@ -219,6 +229,7 @@ extern "C" uint32_t rt_alloc_raw(uint32_t size, uint32_t align){ return allocImp
 extern "C" void rt_free_ex(uint32_t addr, uint64_t /*callerLr*/){
   if (!addr) return;
   std::lock_guard<std::mutex> lk(g_mu);
+  RT_PHYS_SCOPE;
   auto it = g_live.find(addr); if (it == g_live.end()) return;   // foreign/interior/double: no-op
   { static long fN = 0; static double fMB = 0.0; fMB += it->second/(1024.0*1024.0);
     if ((++fN % 500) == 0) std::fprintf(stderr, "[pool] freed n=%ld cum=%.0fMB pooled=%zu\n", fN, fMB, g_pool.size() + 1); }
@@ -252,13 +263,18 @@ static bool decommitOn(){ static int v = [](){ const char* e = getenv("RT_DECOMM
 // Mechanism: Darwin/Linux mmap(MAP_FIXED|MAP_ANONYMOUS|MAP_PRIVATE|MAP_NORESERVE) over the interior
 // (deterministic zeros, pages non-resident until touched, RSS drops at once; the arena is itself
 // such a mapping, harness.cpp). RT_POOLRELEASE_MODE=1 uses madvise instead (Darwin
-// MADV_FREE_REUSABLE / Linux MADV_DONTNEED) for A/B. Windows: no-op (its decommit lever exists).
+// MADV_FREE_REUSABLE / Linux MADV_DONTNEED) for A/B. Windows (2026-11-07): VirtualFree(MEM_DECOMMIT) + immediate
+// VirtualAlloc(MEM_COMMIT) of the interior = the same deterministic-zero, lazily resident result (see the _WIN32 branch of
+// rt_poolReleaseSweep). rt_decomSweep's MEM_RESET+VirtualUnlock lever is NOT this: it serves g_decomQ, the guest's own
+// NtFreeVirtualMemory(MEM_DECOMMIT) ranges inside LIVE blocks (RT_DECOMMIT=1, default off), never g_pool, and its pages keep
+// undefined content (MEM_RESET) instead of zeros.
 // Lever: RT_POOLRELEASE=<quarantine ms>. DEFAULT ON (10000 ms) on macOS/Linux -- OWNER RULING 2026-10-30 "flip it on"
 // after the gate set passed with the lever armed (NOTE_fnf_shell_defects.md 2026-10-30: PREREG_q5 oracle control +139 MB
 // vs pilots +9 / +6 MB, x360 soak +8 MB, stagepix PASS, boss plate PASS 46/46 lockstep, rc_chain A swap x5 residue=0).
 // RT_POOLRELEASE=0 = the pre-10-30 allocator byte-for-byte. Known residual, ruled acceptable: a deterministic 7-frame
 // title-element dropout mode in 3 of 11 lever-on vs 0 of 9 lever-off runs, always before the first release (not the
-// remap). Windows: always off. Log: [poolrelease].
+// remap). Windows: DEFAULT OFF (opt-in RT_POOLRELEASE=10000; the arm exists from 2026-11-07, default flip = owner ruling).
+// Log: [poolrelease].
 // RT_POOLRELEASE_MIN=<bytes> (default 0): only pool entries at least this large are released. The RSS lives in the
 // big asset blocks; a floor keeps the small, frequently recycled granule entries untouched (A/B lever, 10-30).
 static uint32_t poolReleaseMs(){ static uint32_t v = [](){ const char* e = getenv("RT_POOLRELEASE");
@@ -270,11 +286,85 @@ static uint32_t poolReleaseMs(){ static uint32_t v = [](){ const char* e = geten
   }(); return v; }
 static int poolReleaseMode(){ static int v = [](){ const char* e = getenv("RT_POOLRELEASE_MODE"); return e ? atoi(e) : 0; }(); return v; }
 static uint32_t poolReleaseMin(){ static uint32_t v = [](){ const char* e = getenv("RT_POOLRELEASE_MIN"); return e ? (uint32_t)strtoul(e, nullptr, 0) : 0u; }(); return v; }
+#ifdef _WIN32
+static int poolReleasePC(){ static int v = [](){ const char* e = getenv("RT_POOLRELEASE_PC"); return e ? atoi(e) : 0; }(); return v; }
+static std::atomic<uint64_t> g_relSeq{0};      // odd while a decommit+recommit is in flight
+static std::atomic<long> g_pcTouch[4];         // PC=2 touch census: 0 live (handed out) 1 pooled (STALE reader) 2 under g_mu 3 neither
+static LONG CALLBACK rt_poolrel_veh(EXCEPTION_POINTERS* ep){
+  const EXCEPTION_RECORD* er = ep->ExceptionRecord;
+  if (er->ExceptionCode != EXCEPTION_ACCESS_VIOLATION || er->NumberParameters < 2 || !g_base) return EXCEPTION_CONTINUE_SEARCH;
+  if (er->ExceptionInformation[0] > 1) return EXCEPTION_CONTINUE_SEARCH;   // only READ (0) / WRITE (1); never retry a DEP (8) fault
+  const uint8_t* h = (const uint8_t*)er->ExceptionInformation[1];
+  if (h < g_base || h >= g_base + 0x100000000ull) return EXCEPTION_CONTINUE_SEARCH;
+  for (int spin = 0; (g_relSeq.load(std::memory_order_acquire) & 1u) && spin < 200000; ++spin) SwitchToThread();
+  MEMORY_BASIC_INFORMATION mbi{};
+  if (!VirtualQuery(h, &mbi, sizeof mbi)) return EXCEPTION_CONTINUE_SEARCH;
+  if (mbi.State == MEM_COMMIT && mbi.Protect == PAGE_READWRITE) return EXCEPTION_CONTINUE_EXECUTION;  // the in-flight window: retry
+  if (mbi.State != MEM_RESERVE || poolReleasePC() == 0) return EXCEPTION_CONTINUE_SEARCH;            // a real fault: the harness reports it
+  const uint32_t ga = (uint32_t)(h - g_base);
+  int cls = 3;
+  if (t_inPhys) cls = 2;
+  else { std::lock_guard<std::mutex> lk(g_mu);
+    auto it = g_live.upper_bound(ga);
+    if (it != g_live.begin() && ga < std::prev(it)->first + std::prev(it)->second) cls = 0;
+    else for (auto& kv : g_pool) if (ga >= kv.second.addr && ga < kv.second.addr + kv.first){ cls = 1; break; } }
+  long n = g_pcTouch[cls].fetch_add(1) + 1;
+  static const char* const nm[4] = {"live(handed-out)", "POOLED(stale-reader)", "alloc-zeroing(under g_mu)", "neither"};
+  if (n <= 8 || (n & (n - 1)) == 0)
+    std::fprintf(stderr, "[poolrelease] PC touch guest=0x%08X %s %s n=%ld rip=%p\n", ga, nm[cls],
+      er->ExceptionInformation[0] ? "WRITE" : "READ", n, er->ExceptionAddress);
+  if (poolReleasePC() == 1){
+    std::fprintf(stderr, "[poolrelease] POSITIVE CONTROL: first touch of a released (decommitted) page -> crash as expected\n");
+    std::fflush(stderr); return EXCEPTION_CONTINUE_SEARCH; }
+  VirtualAlloc((void*)((uintptr_t)h & ~(uintptr_t)0xFFF), 0x1000, MEM_COMMIT, PAGE_READWRITE);   // PC=2: lazy recommit, zero page
+  return EXCEPTION_CONTINUE_EXECUTION;
+}
+static void rt_poolrel_veh_install(){ static bool done = [](){ AddVectoredExceptionHandler(1, rt_poolrel_veh); return true; }(); (void)done; }
+#endif
 static void rt_poolReleaseSweep(uint64_t now){   // caller holds g_mu
   const uint32_t quar = poolReleaseMs(); if (!quar || !g_base) return;
   static uint64_t lastSweep = 0; if (now - lastSweep < 1000) return; lastSweep = now;
 #ifdef _WIN32
-  (void)now;
+  // WINDOWS ARM (2026-11-07, w1107 WIN-DRIVER M2). The arena is ONE VirtualAlloc(MEM_RESERVE|MEM_COMMIT) region (win_compat.h
+  // xr_guest_arena). Release = VirtualFree(MEM_DECOMMIT) of the page-aligned interior, then at once VirtualAlloc(MEM_COMMIT) of the
+  // same range: the physical pages go back to the OS (working set drops now), the range stays committed as demand-zero pages
+  // (deterministic zeros, resident only when touched) -- exactly the Darwin/Linux MAP_FIXED remap. Nothing is ever left
+  // decommitted, so no allocator path (exact-fit, split/carve, coalesce, frontier retreat + re-bump, the LINE defense) and no
+  // stale guest reader can fault on a released page; there is no per-path recommit to forget. The one window that exists, between
+  // the two calls, is closed by rt_poolrel_veh: an access violation on an arena page while a release is in flight waits for it to
+  // finish and retries (the page is committed again by then). Laws as on the Mac: law 2 quarantine untouched, law 1 zeros.
+  // RT_POOLRELEASE_MODE=1: MEM_RESET + VirtualUnlock instead (content after reset is UNDEFINED, i.e. not law-1 deterministic; A/B only).
+  // RT_POOLRELEASE_PC=1 POSITIVE CONTROL (scratch only): skip the recommit -> the first touch of a released page must CRASH (access
+  // violation inside the arena, reported by the harness VEH); =2 skip it and let rt_poolrel_veh recommit each touched page, counting
+  // the touches by owner (handed-out block / still-pooled block = a stale reader / allocator zeroing under g_mu).
+  rt_poolrel_veh_install();
+  static long rn = 0, rfail = 0; static double rMB = 0.0;
+  const uint32_t PG = 0x1000u;
+  for (auto& kv : g_pool){
+    FreeEnt& e = kv.second;
+    if (e.released || now - e.freedMs < quar) continue;
+    uint32_t a = (e.addr + PG - 1) & ~(PG - 1), end = (e.addr + kv.first) & ~(PG - 1);
+    e.released = true;                        // small/unaligned/under-floor entries: nothing to release, never retried
+    if (end <= a || kv.first < poolReleaseMin()) continue;
+    bool ok;
+    if (poolReleaseMode() == 1){
+      ok = VirtualAlloc(g_base + a, end - a, MEM_RESET, PAGE_READWRITE) != nullptr;
+      VirtualUnlock(g_base + a, end - a);      // fails with ERROR_NOT_LOCKED but trims the pages from the working set (rt_decomSweep idiom)
+    } else {
+      g_relSeq.fetch_add(1, std::memory_order_acq_rel);          // odd: a release is in flight (rt_poolrel_veh waits)
+      ok = VirtualFree(g_base + a, end - a, MEM_DECOMMIT) != 0;
+      if (ok && poolReleasePC() == 0)
+        ok = VirtualAlloc(g_base + a, end - a, MEM_COMMIT, PAGE_READWRITE) == (void*)(g_base + a);
+      if (!ok && rfail < 8) std::fprintf(stderr, "[poolrelease] FAILED 0x%X..0x%X GetLastError=%lu\n", a, end, (unsigned long)GetLastError());
+      g_relSeq.fetch_add(1, std::memory_order_acq_rel);          // even: done
+    }
+    if (!ok){ ++rfail; continue; }
+    rMB += (end - a)/(1024.0*1024.0);
+    if ((++rn % 32) == 1 || end - a >= 0x100000u)   // every 32nd, plus every block of 1 MB or more (the size histogram)
+      std::fprintf(stderr, "[poolrelease] #%ld 0x%X..0x%X (%.1fMB) cum=%.0fMB pooled=%zu mode=%d quar=%ums min=0x%X%s\n",
+        rn, a, end, (end - a)/(1024.0*1024.0), rMB, g_pool.size(), poolReleaseMode(), quar, poolReleaseMin(),
+        poolReleasePC() ? " POSITIVE-CONTROL(no recommit)" : "");
+  }
 #else
   static const uint32_t PG = (uint32_t)sysconf(_SC_PAGESIZE);
   static long rn = 0, rfail = 0; static double rMB = 0.0;

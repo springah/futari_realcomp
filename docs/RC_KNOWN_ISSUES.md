@@ -8,7 +8,8 @@ KNOWN ISSUES (release candidate; each is documented, not new)
     see it, say WHERE (title, top menu, hub, in play) and on which display. docs/NOTE_fnf_shell_defects.md, 2026-07-28 flicker arc.
   - ARCADE mode memory grows to about 720 MB over the first ~20 minutes of a session and then stays flat (bounded, no crash seen in a 60-minute run).
     docs/PLAN_RC1.md section 2.1, Q5/Q6. From 0.3.0-rc3 on macOS/Linux the engine hands idle pool pages back and the ramp is flat (RT_POOLRELEASE,
-    default on there; =0 reverts). WINDOWS: still applies -- the lever is off by default on Windows; RT_POOLRELEASE=10000 opts in.
+    default on there; =0 reverts). WINDOWS: still applies by default -- the lever is off by default on Windows; from 2026-11-07 the Windows engine
+    has the same lever as an opt-in, RT_POOLRELEASE=10000 (12-minute ARCADE attract run: +32 MB with it vs +193 MB without, no audio or frame-rate cost).
   - Five Xbox 360 system calls the game asks about (display info, display gamma, the system command buffer, the console config settings, the Xbox
     LIVE user id) are stand-ins, so the game reads placeholder values (time-zone names, display size). Nothing visible is known to depend on it.
     docs/AUDIT_kstub_sizes.md, PLAN_RC1 section 0.5.
