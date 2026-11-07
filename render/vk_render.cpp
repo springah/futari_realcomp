@@ -4689,7 +4689,11 @@ struct RvkWinCreate { uint32_t w, h; bool ok; };
 static void rvkWindowCreateNativeCb(void* ud) {
   RvkWinCreate* c = (RvkWinCreate*)ud; c->ok = false;
   const bool fs0 = rvkStartFullscreen();
-  gw.sdlWin = SDL_CreateWindow("Mushihimesama Futari - futari_realcomp", (int)c->w, (int)c->h, SDL_WINDOW_VULKAN | (fs0 ? SDL_WINDOW_FULLSCREEN : 0));
+  // Created WINDOWED at RVK_WINSIZE, then switched: a window created with SDL_WINDOW_FULLSCREEN on macOS has no floating
+  // size of its own, so F11 -> windowed came back screen-sized (1800x1036 on a 1800x1169 desktop) instead of RVK_WINSIZE
+  // (w1107 MAC-CONFIG-VERIFY, _local/rc/w1107_cfgmac/v5/open_ini_fs.log). Same order as the Win32 arm and the F11 key.
+  gw.sdlWin = SDL_CreateWindow("Mushihimesama Futari - futari_realcomp", (int)c->w, (int)c->h, SDL_WINDOW_VULKAN);
+  if (gw.sdlWin && fs0 && !SDL_SetWindowFullscreen(gw.sdlWin, true)) std::fprintf(stderr, "[rvk][win] RVK_FULLSCREEN=1: SDL_SetWindowFullscreen FAILED: %s\n", SDL_GetError());
   if (gw.sdlWin && fs0) std::fprintf(stderr, "[rvk][win] RVK_FULLSCREEN=1: starting fullscreen\n");
   if (!gw.sdlWin) { std::fprintf(stderr, "[rvk][win] SDL_CreateWindow FAILED: %s\n", SDL_GetError()); return; }
   if (!SDL_Vulkan_CreateSurface(gw.sdlWin, g.instance, nullptr, &gw.surface)) {
