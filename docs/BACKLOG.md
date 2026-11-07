@@ -1,6 +1,6 @@
 # BACKLOG.md — ranked open work (re-rank of 2026-07-27, the long-queued t3)
 
-## 2026-11-07 — w1107 WIN-DRIVER (PC): getenv hot-path caching (M1) + Windows RT_POOLRELEASE arm (M2), gated on the PC · default stays OFF on Windows
+## 2026-11-07 — w1107 WIN-DRIVER (PC): getenv hot-path caching (M1) + Windows RT_POOLRELEASE arm (M2), gated on the PC · default FLIPPED ON by owner ruling (same day)
 - ✅ **M1 getenv caching** (static audit `_local/rc/w1107_driver/getenv_audit.tsv`: 1,388 sites, 120 per-call-hot): the hot sites in out_reco/{rt,stubs}.cpp,
   out_reco/merged/merged_{game,shell}.cpp, render/vk_render.cpp, shell/gen/{rt,stubs}.cpp read once per call site via `RT_ENVC(name)` (a static-local
   lambda). Review: every change is the mechanical getenv -> RT_ENVC swap; nothing in the engine calls putenv/setenv/SetEnvironmentVariable, so no lever
@@ -14,7 +14,7 @@
   census-sampler stale frame read, see below). gstart lever on: 10 + 9 probes, 0 leaks. rc_chain all + T2 + CX lever on: one E1_arcade remap-nav
   FAIL and one CX_x360 FAIL under 100 % CPU from the owner's other build; both re-ran PASS lever ON and OFF on a quiet box. Pre-registered bands
   P1 (+100..+150) / P2 (<= +20) / P4 (<= +20) MISSED as written (Windows control ramps faster; endpoint definitions), see PREREG_w1107.txt.
-  ⚖ OWED (owner): flip RT_POOLRELEASE default on for Windows, on this evidence.
+  ⚖ RULED 2026-11-07 ("sure flip on"): RT_POOLRELEASE default ON for Windows (out_reco/rt_phys.cpp poolReleaseMs 10000 on both arms; =0 reverts). RC_KNOWN_ISSUES + README updated.
 - ⚠️ **Census sampler defect (Windows, unfixed)**: in `w1107_x360arm` the t+0 sample read frame 8701 (= the log as of ~line 12311) although the
   script had already matched `[modswap] #2 DONE` at line 12525 (real tick p8854) -> a false 62.5 fps first minute. A replay shows the 20 KB `[tick]`
   window is NOT the cause; mechanism unconfirmed (stale-EOF read of a file another process is appending?). TODO: log the frame source and file size
