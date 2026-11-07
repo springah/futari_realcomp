@@ -1,0 +1,22 @@
+# XenonRecomp config for hirow_abnormal.xex
+#   = Mushihimesama Futari Ver 1.01, XBOX 360 card / MODULE_102_HI / modeIdx 7 (ROM Rom/cg_v102hi.bin, on the disc)
+#   Authored 2026-11-07 (w1107 MAC-MODULES lane; recipe docs/PLAN_other_modes.md §2, precedent docs/PLAN_kiniro_bringup.md).
+#
+# Regenerate with:  bash scripts/regen_mod_mac.sh hirow_abnormal      (-> out_hirow_abn/)
+#
+# Section layout (xexflat on the flat image, 2026-11-07): entry 0x88070598 | .text 0x88070000..0x8824BE38 | image 0x7B0000 (expected +8 twin of hirow_normal)
+# Millicode anchors: NOTE_other_modes §3, VERIFIED 2026-11-07 by byte comparison against reco_normal's image
+# (the 20/19/19/19 words at each anchor are identical to reco_normal's 0x88071120/70, 0x88088230/7C).
+# Jump tables: futari_switches_hirow_abn.toml, GENERATED from this module's own image by out_kiniro/tools_kiniro/scan_switches.py
+# (positive-controlled on the reco pair, 57/57 + 57/57 exact, every regen).
+# Indirect-call-only functions: harvested from the port's own [indirect] UNMAPPED lines (bring-up step 3).
+[main]
+file_path = "assets/media/Module/hirow_abnormal.xex"
+out_directory_path = "out_hirow_abn"
+
+restgprlr_14_address = 0x88071180
+savegprlr_14_address = 0x88071130
+restfpr_14_address = 0x8808828C
+savefpr_14_address = 0x88088240
+
+switch_table_file_path = "futari_switches_hirow_abn.toml"

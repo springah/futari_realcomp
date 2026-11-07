@@ -26,7 +26,7 @@ MARK=0; mark(){ MARK=$(wc -l < "$LOGF" | tr -d ' '); }
 press(){ echo "$1" > "$FIFO"; sleep 0.2; echo 0 > "$FIFO"; }
 waitnew(){ local pat="$1" n=$(( ${2:-10}*2 )) i; for ((i=0;i<n;i++)); do tail -n +"$((MARK+1))" "$LOGF" | grep -q -- "$pat" && return 0; sleep 0.5; done; return 1; }
 step(){ local pad="$1" pat="$2" to="${3:-10}" st="${4:-2}"; mark; press "$pad"; if waitnew "$pat" "$to"; then say "ok pad $pad ($pat)"; else say "TIMEOUT pad $pad ($pat)"; fi; sleep "$st"; }
-N=0; shot(){ N=$((N+1)); sleep 0.3; cp "$B/png.noindex/nvk_last.png" "$(printf '%s/shot_%02d_%s.png' "$B" "$N" "$1")" 2>/dev/null; }
+N=0; shot(){ N=$((N+1)); sleep 0.3; cp "$B/png.noindex/nvk_last.png" "$(printf '%s/png.noindex/shot_%02d_%s.png' "$B" "$N" "$1")" 2>/dev/null; }
 # probe <screen> <pad> <name>: press, dwell 4 s, report module deltas since the press
 probe(){ local scr="$1" pad="$2" nm="$3"; mark; press "$pad"; sleep 4
   local d; d=$(tail -n +"$((MARK+1))" "$LOGF" | grep -E '\[navreal\] (st|d76)|\[nav360\].*(st|d76) [0-9-]+->|\[startwire\]|\[cb2gate\]|\[decide\]|GameEntry\(msg=(1[0-9]|[0-9]),' | grep -v 'msg=5' | head -12)

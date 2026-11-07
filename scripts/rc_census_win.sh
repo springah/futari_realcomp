@@ -17,16 +17,38 @@
 #   ticks (NOTE_fnf_shell_defects.md 2026-10-12 "360 NOW-LOADING ring particles").  Named-class hits are listed as INFO.
 # DRIVE LOCK: mkdir /c/tmp/futari_drive.lock, 60 s polls up to LOCKWAIT s (default 7200), also waits while `pgrep -x futari_merged` (someone is playing);
 # rmdir only a lock this process created. Bank: ${RCC_ROOT:-_local/rc/census}/<tag>/.
+# OPT-IN ARMS (2026-11-07; both unset = the gate above, unchanged):
+#   CENSUS_APP=<path to .app> (BIN arg ignored, pass -): launch THE BUNDLE through LaunchServices (`open --env ... -a`, as app_smoke_mac.sh;
+#     the pad FIFO must show on the [padhost] line) instead of a bare engine copy, the census levers passed by --env, RT_SAVE still a private
+#     copy under _local/saves/. CENSUS_FS=1 (the default in this arm; 0 = windowed control of the same bundle) presses F11 at the title through
+#     mac-build/fs_inject.m (DYLD_INSERT_LIBRARIES; posts a real F11 NSEvent into the app's own queue -- ssh cannot type keys, it is not
+#     Accessibility-trusted) and requires "[rvk][win] F11 -> fullscreen". Game Mode is READ from gamepolicyd (`log stream`, subsystem
+#     com.apple.gamepolicyd: "Full screen gaming session is now active", "Game mode status is now on|paused|off") and reported as INFO
+#     gamemode=ON(held)|ON(lost..)|PAUSED|OFF|NONE -- it never changes RESULT. This arm scores every underrun (RT_CENSUS_NOFORGIVE defaults to 1).
+#     Engine kills target only the pid this run started (never `pkill -x futari_merged`).
+#   CENSUS_INFO=1 (any arm; implied by CENSUS_APP): INFO lines with the `[vblank] stall` marker count and the CPU of mediaanalysisd /
+#     mds_stores / mdworker_shared / mds before, per minute (backgrounded after the frame sample) and after -- arm-symmetric instruments.
 set -u
 source "$(dirname "$0")/win_shim.sh"   # Windows: pkill/pgrep/ps/md5 shims, /c/tmp
 cd "$(dirname "$0")/.."
 TAG="${1:?tag}"; BIN="${2:?bin}"; MODE="${3:?arcade|x360}"; MIN="${4:-6}"; PN="$(basename "$BIN")"
+APPARM=0; INFO="${CENSUS_INFO:-0}"
+if [ -n "${CENSUS_APP:-}" ]; then APPARM=1; INFO=1; FS="${CENSUS_FS:-1}"; : "${RT_CENSUS_NOFORGIVE=1}"
+  [ "$(uname)" = Darwin ] || { echo "CENSUS_APP is macOS-only"; exit 2; }
+  [ -x "$CENSUS_APP/Contents/MacOS/Futari Realcomp" ] || { echo "no launcher in $CENSUS_APP"; exit 2; }
+  BIN="$(cd "$CENSUS_APP" && pwd -P)/Contents/MacOS/futari_merged"; PN=""
+  FSLIB="$PWD/build/fs_inject.dylib"
+  if [ "$FS" = 1 ] && { [ ! -f "$FSLIB" ] || [ mac-build/fs_inject.m -nt "$FSLIB" ]; }; then mkdir -p build
+    clang -dynamiclib -fobjc-arc -framework AppKit -o "$FSLIB" mac-build/fs_inject.m || { echo "fs_inject build failed"; exit 2; }; fi
+fi
+kpn(){ if [ $APPARM = 1 ]; then [ -n "${PID:-}" ] && kill "$PID" 2>/dev/null; else pkill -x "$PN" 2>/dev/null; fi; }
+dcpu(){ top -l 2 -s 1 -stats command,cpu 2>/dev/null | awk -v t="$1" '/^COMMAND/{blk++} blk==2 && $1~/^(mediaanalysisd|mds_stores|mdworker_shared|mds)$/{c[$1]+=$2} END{printf "%s", t; for(k in c) printf " %s=%.1f", k, c[k]; print ""}'; }
 [ -x "$BIN" ] || { echo "no $BIN"; exit 2; }
 case "$MODE" in arcade|x360) ;; *) echo "mode arcade|x360"; exit 2;; esac
 B="${RCC_ROOT:-_local/rc/census}/$TAG"; rm -rf "$B"; mkdir -p "$B/png.noindex"; OUT="$B/steps.txt"; : > "$OUT"; V="$B/VERDICT.txt"; : > "$V"
 LOCK=/c/tmp/futari_drive.lock; HAVE=0
 rel(){ [ "$HAVE" = 1 ] && rmdir "$LOCK" 2>/dev/null; HAVE=0; }
-trap 'pkill -x "$PN" 2>/dev/null; rel' EXIT
+trap 'kpn; [ -n "${GMPID:-}" ] && kill "$GMPID" 2>/dev/null; rel' EXIT
 W=0
 while :; do
   if mkdir "$LOCK" 2>/dev/null; then HAVE=1
@@ -50,12 +72,30 @@ export RT_NVKPNG=300 RVK_DUMPDIR="$PWD/$B/png.noindex"
 export RVK_DRAWCENSUS=2 RVK_TITLEPROBE=1
 [ "${TICKLOG:-0}" = 1 ] && export RT_TICKLOG=1   # opt-in (Windows gates pass TICKLOG=1): one [tick] p<N> line per present, an EXACT frame count for the sampler below
 [ "$MODE" = x360 ] && export RT_NAV360=1
+[ "$INFO" = 1 ] && dcpu pre > "$B/daemon_cpu.txt"
+if [ $APPARM = 1 ]; then
+  ALOGS="$HOME/Library/Logs/Futari Realcomp"; PREV=$(ls -t "$ALOGS"/futari_*.log 2>/dev/null | head -1)
+  log stream --style compact --predicate 'subsystem == "com.apple.gamepolicyd"' > "$B/gamepolicy.log" 2>&1 & GMPID=$!
+  ENVS=(--env "RT_PAD_HOST_FIFO=$FIFO" --env "RT_SAVE=$PWD/$SAVE" --env RT_SAMPLES=0 --env RT_AUDIOSTARVE=1 --env RT_NVKPNG=300
+        --env "RVK_DUMPDIR=$PWD/$B/png.noindex" --env RVK_DRAWCENSUS=2 --env RVK_TITLEPROBE=1)
+  [ -n "${RT_TICKLOG:-}" ] && ENVS+=(--env RT_TICKLOG=1); [ "$MODE" = x360 ] && ENVS+=(--env RT_NAV360=1)
+  [ "$FS" = 1 ] && ENVS+=(--env "DYLD_INSERT_LIBRARIES=$FSLIB" --env "FUTARI_FS_TRIGGER=$PWD/$B/fs_now")
+  sleep 1; open "${ENVS[@]}" -a "$CENSUS_APP" || { echo "open failed" | tee -a "$OUT"; exit 1; }
+  NL=""; for ((i=0;i<60;i++)); do NL=$(ls -t "$ALOGS"/futari_*.log 2>/dev/null | head -1); [ -n "$NL" ] && [ "$NL" != "$PREV" ] && break; NL=""; sleep 0.5; done
+  [ -n "$NL" ] || { echo "no new log in $ALOGS" | tee -a "$OUT"; exit 1; }
+  L="$NL"; PID=""
+  for ((i=0;i<40;i++)); do PID=$(pgrep -f -- "$BIN" | while read -r p; do ps -o command= -p "$p" 2>/dev/null | grep -qF -- "$BIN" && echo "$p"; done | head -1); [ -n "$PID" ] && break; sleep 0.25; done
+  [ -n "$PID" ] || { echo "bundle engine not found" | tee -a "$OUT"; exit 1; }
+else
 "$BIN" 8208A2B8 0 "$XR_SHELL_XEX" 2>"$L" &
 PID=$!
+fi
 T0=$(date +%s); say(){ echo "t+$(( $(date +%s)-T0 ))s $*" | tee -a "$OUT"; }
 say "census $TAG mode=$MODE min=$MIN bin=$BIN pid=$PID log=$L lockwait=${W}s start=$(date '+%F %T')"
 cnt(){ grep -a -c -- "$1" "$L"; }
-fin(){ kill "$PID" 2>/dev/null; sleep 2; kill -9 "$PID" 2>/dev/null; wait "$PID" 2>/dev/null; pkill -x "$PN" 2>/dev/null
+fin(){ [ -n "${GMPID:-}" ] && { kill "$GMPID" 2>/dev/null; GMPID=""; }   # stop reading gamepolicyd BEFORE the engine exits (its exit flips the status off)
+  kill "$PID" 2>/dev/null; sleep 2; kill -9 "$PID" 2>/dev/null; wait "$PID" 2>/dev/null; kpn
+  [ "$INFO" = 1 ] && dcpu post >> "$B/daemon_cpu.txt"
   grep -a 'DROPOUT-CONFIRMED\|\[census\] status' "$L" > "$B/census_lines.txt"; grep -a 'DROPOUT-CONFIRMED' "$L" > "$B/dropouts.txt"; cp "$L" "$B/guest.log"; rel; }
 verdict(){ # $1 = abort reason or empty
   local f=$(cnt FATAL) v=$(cnt 'VK_ERROR\|VUID') s=$(cnt '\[slowframe\]') u st bad named
@@ -70,6 +110,13 @@ verdict(){ # $1 = abort reason or empty
   { echo "census $TAG mode=$MODE minutes=$MIN"; echo "FATAL=$f VKERR=$v SLOW=$s UNDERRUN=$u SINKSTALL=$st"
     echo "INFO named-class dropouts: $named (0x2530000 strobe / 0x34E0000 card-LEFT / 0x49C4000 pair / 0x1C?[48]000 360 loading rings)"
     echo "dropouts outside the named classes: $bad"; echo "hands-off minutes off 3600+-10 frames (60 s samples): $fr"
+    if [ "$INFO" = 1 ]; then echo "INFO [vblank] stall markers: $(cnt '\[vblank\] stall') (forgive rule $([ -n "${RT_CENSUS_NOFORGIVE:-}" ] && echo OFF || echo ON))"
+      echo "INFO daemon CPU % (top, 1 s): $(head -1 "$B/daemon_cpu.txt" 2>/dev/null) | max per minute: $(grep '^m' "$B/daemon_cpu.txt" 2>/dev/null | awk '{for(i=2;i<=NF;i++){split($i,a,"=");if(a[2]+0>m[a[1]]+0)m[a[1]]=a[2]}} END{for(k in m) printf "%s=%.1f ", k, m[k]}')| $(grep '^post' "$B/daemon_cpu.txt" 2>/dev/null)"; fi
+    if [ $APPARM = 1 ]; then local g="$B/gamepolicy.log" gm fsl
+      fsl=$(grep -a -c '\[rvk\]\[win\] F11 -> fullscreen' "$L")
+      gm=$(awk '/Game mode status is now on/{s="on"; seen=1; next} /Game mode status is now (paused|off)/{ if(seen) lost=1; s=($0~/paused/)?"paused":"off" }
+               END{ if(seen && !lost) print "ON(held)"; else if(seen) print "ON(lost,last=" s ")"; else if(s=="paused") print "PAUSED"; else if(s=="off") print "OFF"; else print "NONE" }' "$g" 2>/dev/null)
+      echo "INFO app arm: bundle=$CENSUS_APP fs=$FS F11-fullscreen-lines=$fsl gamemode=$gm (gamepolicyd: $(grep -a -c 'Full screen gaming session is now active' "$g" 2>/dev/null) full-screen-session-active, $(grep -a -c 'Game mode status is now on' "$g" 2>/dev/null) status-on, $(grep -a -c 'Game mode status is now paused' "$g" 2>/dev/null) paused, $(grep -a -c 'Game mode status is now off' "$g" 2>/dev/null) off; log $g)"; fi
     [ -n "$1" ] && echo "ABORT: $1"; } >> "$V"
   local r=PASS; { [ -n "$1" ] || [ "$f" != 0 ] || [ "$v" != 0 ] || [ "$s" != 0 ] || [ "$u" != 0 ] || [ "$st" != 0 ] || [ "$bad" != 0 ] || [ "$fr" != 0 ] || [ $pr = 1 ]; } && r=FAIL
   echo "RESULT: $r" >> "$V"; say "RESULT $r"; cat "$V"; [ $r = PASS ]; }
@@ -80,6 +127,11 @@ waitnew(){ local pat="$1" n="${2:-20}" i; for ((i=0;i<n;i++)); do tail -n +"$((M
 step(){ local pad="$1" pat="$2" settle="$3" try; for try in 1 2; do mark; press "$pad"; waitnew "$pat" && { say "pad $pad -> $pat"; sleep "$settle"; return 0; }; done; die "no $pat after pad $pad"; }
 for ((i=0;i<120;i++)); do grep -a -q "name='motion/title.lzx'" "$L" && break; kill -0 "$PID" 2>/dev/null || die "process died before title"; sleep 1; done
 grep -a -q "name='motion/title.lzx'" "$L" || die "no title"
+if [ $APPARM = 1 ]; then grep -a -q "padhost\] ACTIVE.*host FIFO" "$L" || die "pad FIFO NOT wired into the app (no '+ host FIFO' on the [padhost] line)"; say "app arm: pid=$PID log=$L pad FIFO wired"; fi
+if [ $APPARM = 1 ] && [ "$FS" = 1 ]; then sleep 2; mark; touch "$B/fs_now"
+  waitnew '\[rvk\]\[win\] F11 -> fullscreen' 30 || die "F11 posted but no '[rvk][win] F11 -> fullscreen' line"; say "fullscreen: $(tail -n +"$((MARK+1))" "$L" | grep -a -m1 'F11 -> fullscreen')"
+  for ((i=0;i<30;i++)); do grep -a -q 'Game mode status is now on' "$B/gamepolicy.log" && break; sleep 0.5; done
+  say "gamepolicyd after F11: $(grep -a 'Game mode status is now\|Full screen gaming session' "$B/gamepolicy.log" | tail -2 | sed 's/.*Common\] //' | tr '\n' ';')"; fi
 say "shell title loaded; idle ${SHELL_SECS:-120} s"; sleep 4; sleep "${SHELL_SECS:-120}"
 step 10   'SYS_BGM cue0 (mushifuta_Menu02)' 4
 step 1000 'SYS_SE cue1 (SE_OK01)' 3
@@ -102,5 +154,6 @@ TS0=$(date +%s)   # sample on an ALIGNED minute grid: the frame criterion (3600 
 for ((m=1; m<=MIN; m++)); do   # sleep is "until TS0 + 60*m", not "60 s after the previous sample" (a slow RSS probe -- 2 s on Windows -- would stretch it)
   sleep $(( TS0 + 60*m - $(date +%s) > 0 ? TS0 + 60*m - $(date +%s) : 0 )); samp || { say "t+${m}m: PROCESS GONE"; fin; verdict "engine died during the hands-off phase"; exit 1; }
   say "t+${m}m rss=${RSSNOW}MB frames=$FNOW fatal=$(cnt FATAL) slowframe=$(cnt '\[slowframe\]') dropout=$(cnt 'DROPOUT-CONFIRMED')"
+  [ "$INFO" = 1 ] && { dcpu "m$m" >> "$B/daemon_cpu.txt" & }
 done
 fin; verdict ""

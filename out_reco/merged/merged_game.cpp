@@ -564,7 +564,7 @@ PPC_FUNC(sub_88103048){
     }
   }
   static const bool rtDecide = std::getenv("RT_DECIDE")!=nullptr;
-  if(rtDecide){
+  if(rtDecide && rt_kgate("RT_DECIDE")){   // w1107: kgate (installed under palm_abnormal)
     static std::atomic<long long> n{0}; long long i=n.fetch_add(1)+1;
     uint32_t sess=PPC_LOAD_U16(0x884D678Cu), out=PPC_LOAD_U32(0x884D66A8u);
     if(out==5u && sess<=4u){
@@ -1573,6 +1573,16 @@ PPC_FUNC(sub_88090480){
       constexpr uint32_t NV_SCENE=0x884CBF58u, NV_D76A=0x884CC03Cu, NV_D76B=0x884CC044u, NV_DEATH=0x884CC130u, NV_SLOT0=0x884CC69Cu, NV_CRED=0x884CC69Eu;
 #elif FUTARI_MODULE == 5
       constexpr uint32_t NV_SCENE=0x884CC058u, NV_D76A=0x884CC13Cu, NV_D76B=0x884CC144u, NV_DEATH=0x884CC230u, NV_SLOT0=0x884CC79Cu, NV_CRED=0x884CC79Eu;
+#elif FUTARI_MODULE == 2   // palm_normal (w1107): modtools.py desc scene +0x1445C0 25/25, death +0x1445C4 8/8, slot0 +0x1446C8 3/3;
+      // d76 no referencing twin: "a" = the +0x1445C0 run its neighbours sit in, "b" = death's shift
+      constexpr uint32_t NV_SCENE=0x8861AC68u, NV_D76A=0x8861AD4Cu, NV_D76B=0x8861AD50u, NV_DEATH=0x8861AE3Cu, NV_SLOT0=0x8861B3B0u, NV_CRED=0x8861B3B2u;
+#elif FUTARI_MODULE == 3   // palm_abnormal (w1107): scene +0x20088 25/25, d76 +0x20088 1/1 ("a"; "b" = death's +0x2008C), death 10/10, slot0 7/7
+      constexpr uint32_t NV_SCENE=0x884F6730u, NV_D76A=0x884F6814u, NV_D76B=0x884F6818u, NV_DEATH=0x884F6904u, NV_SLOT0=0x884F6D74u, NV_CRED=0x884F6D76u;
+#elif FUTARI_MODULE == 6   // hirow_normal (w1107): modtools.py desc twin votes scene -0x1530 25/25, death -0x1520 7/7, slot0 -0x1520 7/7;
+      // d76 had no referencing twin: "a" = scene's shift, "b" = the -0x1520 run its neighbours 0x884D677C/0x884D6794 sit in
+      constexpr uint32_t NV_SCENE=0x884D5178u, NV_D76A=0x884D525Cu, NV_D76B=0x884D526Cu, NV_DEATH=0x884D5358u, NV_SLOT0=0x884D57C8u, NV_CRED=0x884D57CAu;
+#elif FUTARI_MODULE == 7   // hirow_abnormal: every field +0x60 (modtools.py dtwin, unanimous)
+      constexpr uint32_t NV_SCENE=0x884D51D8u, NV_D76A=0x884D52BCu, NV_D76B=0x884D52CCu, NV_DEATH=0x884D53B8u, NV_SLOT0=0x884D5828u, NV_CRED=0x884D582Au;
 #else
       const uint32_t D=futari_desc()->dshift;   // reco pair: one shift (0 / +0x60), the RT_NAV360 cluster
       const uint32_t NV_SCENE=0x884D66A8u+D, NV_D76A=0x884D678Cu+D, NV_D76B=0x884D678Cu+D, NV_DEATH=0x884D6878u+D, NV_SLOT0=0x884D6CE8u+D, NV_CRED=0x884D6CEAu+D;
@@ -1966,7 +1976,7 @@ PPC_FUNC(sub_88137ED8){
   // and any transient char-select "bounces" straight back. Force-clear 67cc at d76==2 once the
   // screen widgets exist (6748!=0) so sub_88137168 takes its advance-to-3 branch. This is a REAL
   // unwedge (matches the decomp's intended flow), not a cosmetic clamp. Env-gated; default off.
-  if(RT_ENVC("RT_CHARSELHOLD")){
+  if(RT_ENVC("RT_CHARSELHOLD") && rt_kgate("RT_CHARSELHOLD")){   // w1107: kgate (installed under palm_abnormal)
     if(PPC_LOAD_U16(0x884D678Cu)==2 && PPC_LOAD_U32(0x884D67CCu)!=0 && PPC_LOAD_U32(0x884D6748u)!=0){
       PPC_STORE_U32(0x884D67CCu,0);
       static int lg=0; if(lg++<8) std::fprintf(stderr,"[charselhold] d76==2 & widgets ready: force 67cc 1->0 (unwedge -> browse d76=3)\n");
@@ -1982,7 +1992,7 @@ PPC_FUNC(sub_88137ED8){
   // RT_CSHOLD_FLOOR (opt) sets the low-water mark (default 8); RT_CSHOLD_ARM the re-armed value
   // (default 0x40). Does NOT block sub-screen advance: slot+2 confirms still cycle mode->char->shot
   // DURING the held browse (sub_88137498 tail runs every tick at d76==3).
-  if(RT_ENVC("RT_CSHOLD")){
+  if(RT_ENVC("RT_CSHOLD") && rt_kgate("RT_CSHOLD")){   // w1107: kgate (installed under palm_abnormal)
     if(PPC_LOAD_U16(0x884D678Cu)==3){
       int floor = RT_ENVC("RT_CSHOLD_FLOOR") ? atoi(RT_ENVC("RT_CSHOLD_FLOOR")) : 8;
       int arm   = RT_ENVC("RT_CSHOLD_ARM")   ? atoi(RT_ENVC("RT_CSHOLD_ARM"))   : 0x40;
@@ -2001,7 +2011,7 @@ PPC_FUNC(sub_88137ED8){
     // ARCADE-TRUE: identical to a player continuously wiggling the stick (input activity resets
     // the same grace on hardware, holding the screen). Confirms (slot+2 latch) still step
     // screens normally. Env-gated; default off (byte-identical).
-    if(RT_ENVC("RT_SLOTHOLD") && PPC_LOAD_U16(0x884D678Cu)==3){
+    if(RT_ENVC("RT_SLOTHOLD") && rt_kgate("RT_SLOTHOLD") && PPC_LOAD_U16(0x884D678Cu)==3){   // w1107: kgate (installed under palm_abnormal)
       if(PPC_LOAD_U32(0x884D6890u) < 8u){
         PPC_STORE_U32(0x884D6890u, 8u);
         static int sh=0; if(sh++<4) std::fprintf(stderr,"[slothold] d76==3: pin input-grace 6890=8 (freeze per-slot timeout advance)\n");
@@ -2019,7 +2029,7 @@ PPC_FUNC(sub_88137ED8){
   // when the id46 fade dies sub_88136890 takes its ELSE branch -> state 8 -> outer 5->2->3 LIVE
   // STAGES (instead of the +352==0 && 6e84==0 -> state6 NAME-ENTRY branch). Paired with the
   // step-(1) +328 clear in the sub_88137498 wrapper above. Env-gated; default off.
-  if(RT_ENVC("RT_LIVEPLAY") && PPC_LOAD_U16(0x884D678Cu)==5){
+  if(RT_ENVC("RT_LIVEPLAY") && rt_kgate("RT_LIVEPLAY") && PPC_LOAD_U16(0x884D678Cu)==5){   // w1107: kgate (installed under palm_abnormal)
     if(PPC_LOAD_U32(0x884D68A0u)==0){
       PPC_STORE_U32(0x884D68A0u,1);   // +352 = 1 -> state5 fade-death routes to state8 STAGES
       // RT_LIVEPLAY>=2 (2026-07-23): ALSO replicate the confirm-widget case-0xC credited-ARM
@@ -2059,7 +2069,7 @@ PPC_FUNC(sub_88137708){
   // sub_88137498 wrapper + [wall4x] EXIT log to localize the hang (498 vs post-498/id-46 request).
   static int menuadv = std::getenv("RT_MENUADV") ? atoi(std::getenv("RT_MENUADV")) : 0;
   bool cleared=false;
-  if(menuadv && PPC_LOAD_U16(0x884D678Cu)==4){
+  if(menuadv && rt_kgate("RT_MENUADV") && PPC_LOAD_U16(0x884D678Cu)==4){   // w1107: kgate (installed under palm_abnormal)
     // Clear BOTH transition gates sub_88137708 checks: +312 (checked before) and +328 (checked
     // at loc_881377DC — sub_88137498 fails to zero it in merged). With both 0 + +352==0 it should
     // request id 46 and advance +76->5. menuadv>=3 also clears +324.
@@ -2764,7 +2774,7 @@ PPC_FUNC(sub_88137498){
   // RT_MENUADV: sub_88137498 leaves +328=1 in merged (native zeroing at loc_88137518 doesn't
   // stick), which then makes sub_88137708 exit at loc_881377DC. Clear it here (post-call) at
   // +76==4 so the id-46/+76->5 advance can proceed. +324 too under menuadv>=3.
-  if(menuadv && PPC_LOAD_U16(0x884D678Cu)==4){
+  if(menuadv && rt_kgate("RT_MENUADV") && PPC_LOAD_U16(0x884D678Cu)==4){   // w1107: kgate (installed under hirow/palm)
     PPC_STORE_U32(0x884D6740u+328u,0);
     if(menuadv>=3) PPC_STORE_U32(0x884D6740u+324u,0);
   }
@@ -2774,7 +2784,7 @@ PPC_FUNC(sub_88137498){
   // set +352=1 (route to the id=48 gameplay branch) + clear +312 (the pre-gate). Leave +328 alone.
   // If +1860!=0 the branch diverts (loc_881377B4) — clear it too so id=48 fires. Success = +76->7,
   // [res] REQ id=48, scene leaves the menu, a stage/gameplay asset loads.
-  if(RT_ENVC("RT_START352") && PPC_LOAD_U16(0x884D678Cu)==4){
+  if(RT_ENVC("RT_START352") && rt_kgate("RT_START352") && PPC_LOAD_U16(0x884D678Cu)==4){   // w1107: kgate
     PPC_STORE_U32(0x884D6740u+352u,1);   // +352 = 1  (take the id=48 branch)
     PPC_STORE_U32(0x884D6740u+312u,0);   // +312 = 0  (pass the pre-gate)
     if(atoi(RT_ENVC("RT_START352"))>=2) PPC_STORE_U32(0x884D6740u+1860u,0); // force id=48 (not loc_881377B4)
@@ -2796,7 +2806,7 @@ PPC_FUNC(sub_88137498){
   //   (2) at state 5 (below, in the sub_88137ED8 wrapper) set +352=1 -> when the fade dies,
   //       sub_88136890's ELSE branch fires -> state 8 -> outer state 3 LIVE STAGES.
   // This is the step-(1) half. Env-gated; default off (byte-identical). Verify with RT_SCENELOG.
-  if(RT_ENVC("RT_LIVEPLAY") && PPC_LOAD_U16(0x884D678Cu)==4){
+  if(RT_ENVC("RT_LIVEPLAY") && rt_kgate("RT_LIVEPLAY") && PPC_LOAD_U16(0x884D678Cu)==4){   // w1107: kgate
     uint32_t p352=PPC_LOAD_U32(0x884D68A0u), p328=PPC_LOAD_U32(0x884D6888u), p312=PPC_LOAD_U32(0x884D6878u);
     if(p352==0 && p328!=0){
       PPC_STORE_U32(0x884D6888u,0);   // +328 = 0  -> sub_88137708 takes the id46-FADE branch -> state 5
@@ -4482,15 +4492,24 @@ PPC_FUNC(sub_8824E698){
 // Repair-not-crash, same convention as sub_82114628 above: if the divisor is ever seen at 0,
 // set it to 1 (denominator floor) so the blink math degenerates harmlessly instead of
 // faulting, then call through. The 0->1 repair stays sound under the corrected identity.
+// w1107: the divisor word is per-module where this hook is INSTALLED: reco_normal 0x887ACE14; palm_abnormal installs it
+// on its body twin sub_88240988 and divides by its own word 0x887CCEB0 (tools/modbringup/modtools.py desc, section 3).
+// Modules 0/1 read and write the same word and print the same text as before. NOTE reco_abnormal: its twin divides by 0x887ACE74 (+0x60;
+// modtools.py desc control), so the literal this hook has always used there is NOT its divisor -- reported, not changed.
+#if FUTARI_MODULE == 3
+#define FUTARI_DIVGUARD_ADDR 0x887CCEB0u
+#else
+#define FUTARI_DIVGUARD_ADDR 0x887ACE14u
+#endif
 extern "C" void __imp__sub_882272E8(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_882272E8){
   // CODE_REVIEW_0804: this WRITES guest state (unlike the skip-only sub_82114628 sibling) and
   // had no off-switch — RT_DIVGUARD=0 now reverts, per the every-behaviour-change-gets-a-lever rule.
   static const bool divGuard = [](){ const char* e=std::getenv("RT_DIVGUARD"); return !(e&&e[0]=='0'&&!e[1]); }();
-  if(divGuard && PPC_LOAD_U32(0x887ACE14u)==0){
-    PPC_STORE_U32(0x887ACE14u, 1u);
+  if(divGuard && PPC_LOAD_U32(FUTARI_DIVGUARD_ADDR)==0){
+    PPC_STORE_U32(FUTARI_DIVGUARD_ADDR, 1u);
     static int lg=0; if(lg++<8)
-      std::fprintf(stderr,"[sfpe] sub_882272E8 divisor@0x887ACE14 was 0 -> repaired to 1\n");
+      std::fprintf(stderr,"[sfpe] sub_882272E8 divisor@0x%08X was 0 -> repaired to 1\n", (unsigned)FUTARI_DIVGUARD_ADDR);
   }
   __imp__sub_882272E8(ctx,base);
 }

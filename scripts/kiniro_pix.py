@@ -36,7 +36,10 @@ def richness(tag, first):
     best = None
     for n, p in shots(tag):
         if n < first: continue
-        c, e, b, w = S.metric(p)
+        try:
+            c, e, b, w = S.metric(p)
+        except OSError as ex:                        # w1107: a shot copied while the renderer was still writing it
+            print('PIX-RICH note: shot_%d unreadable (%s) -- skipped' % (n, ex)); continue
         if w >= 0.97: continue                       # the display-off trap, as in stagepix
         if best is None or (c, e) > (best[1], best[2]): best = (n, c, e, b, w)
     if best is None:
