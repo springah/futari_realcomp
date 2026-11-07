@@ -1,4 +1,11 @@
 #include "ppc_recomp_shared.h"
+#include <cstdlib>
+#ifndef RT_ENVC
+// (2026-11-07 w1107 M1, getenv hot-path audit) per-site cached getenv. The MSVC CRT getenv takes the environment
+// lock and _strnicmp-scans the whole block on EVERY call (WIN-AUDIO-1, 0f23859); nothing in the process mutates the
+// environment after startup, so caching the first lookup per call site is semantically identical.
+#define RT_ENVC(name) ([]() -> const char* { static const char* const rt_envc_v = std::getenv(name); return rt_envc_v; }())
+#endif
 #include <cstdio>
 #include <cstdlib>
 #include <atomic>
@@ -23,7 +30,7 @@ PPC_FUNC_IMPL(__imp__DbgPrint){g_import_calls++;uint32_t p=ctx.r3.u32;
 // links before shell TUs) — the RT_XCFGTRACE tracer lived only in the DEAD shell/gen/stubs.cpp
 // copy, so the one open stub-audit suspect could never be observed. Tracer lives here now.
 PPC_FUNC_IMPL(__imp__ExGetXConfigSetting){static bool o=false;if(!o){o=true;std::fprintf(stderr,"  [import] __imp__ExGetXConfigSetting\n");}g_import_calls++;
-  if(std::getenv("RT_XCFGTRACE")){
+  if(RT_ENVC("RT_XCFGTRACE")){
     static std::atomic<long> n{0}; long k=n.fetch_add(1)+1;
     if(k<=64) std::fprintf(stderr,"[xcfg] #%ld category=0x%X setting=0x%X buf=0x%X size=%u req=0x%X lr=0x%X\n",
                            k,ctx.r3.u32,ctx.r4.u32,ctx.r5.u32,ctx.r6.u32,ctx.r7.u32,(uint32_t)ctx.lr);

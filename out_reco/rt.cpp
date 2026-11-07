@@ -1,4 +1,11 @@
 #include "ppc_recomp_shared.h"
+#include <cstdlib>
+#ifndef RT_ENVC
+// (2026-11-07 w1107 M1, getenv hot-path audit) per-site cached getenv. The MSVC CRT getenv takes the environment
+// lock and _strnicmp-scans the whole block on EVERY call (WIN-AUDIO-1, 0f23859); nothing in the process mutates the
+// environment after startup, so caching the first lookup per call site is semantically identical.
+#define RT_ENVC(name) ([]() -> const char* { static const char* const rt_envc_v = std::getenv(name); return rt_envc_v; }())
+#endif
 #include <cstdio>
 #include <map>
 #include <set>
@@ -960,7 +967,7 @@ extern "C" void rt_indirect_call(PPCContext& ctx, uint8_t* base, uint32_t target
   // renders. This stub hands out valid unique ids to TEST whether valid-ids-alone lets the
   // game proceed to draw (via its msg-9 shell callbacks) or whether real shell resource
   // storage is required for pixels -- and logs the first descriptors being registered (RE).
-  if((uint32_t)ctx.lr==0x880903F8u && getenv("RT_STUBREG")){
+  if((uint32_t)ctx.lr==0x880903F8u && RT_ENVC("RT_STUBREG")){
     static std::atomic<unsigned> g_stubid{0};
     static std::atomic<long> g_stublog{0};
     unsigned myid = (g_stubid.fetch_add(1)+1) & 0x7FFF;  // valid 16-bit id, != 0xFFFF

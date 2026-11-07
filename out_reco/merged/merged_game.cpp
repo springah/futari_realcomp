@@ -4,6 +4,13 @@
 // _tmpscripts/dll_packaging_plan.md §2.3/§2.4.  Original: merged_xex.cpp.bak_l2split.
 // Shared scaffolding lives in merged_common.h.
 #include "merged_common.h"
+#include <cstdlib>
+#ifndef RT_ENVC
+// (2026-11-07 w1107 M1, getenv hot-path audit) per-site cached getenv. The MSVC CRT getenv takes the environment
+// lock and _strnicmp-scans the whole block on EVERY call (WIN-AUDIO-1, 0f23859); nothing in the process mutates the
+// environment after startup, so caching the first lookup per call site is semantically identical.
+#define RT_ENVC(name) ([]() -> const char* { static const char* const rt_envc_v = std::getenv(name); return rt_envc_v; }())
+#endif
 
 // ---- DEBUG wrappers (RT_DBGSPAWN=1): trace the game msg-2 boot routine + thread-spawn
 // trampoline to see whether the game-main ExCreateThread(ctx=0x88168D48) is reached. ----
@@ -68,7 +75,7 @@ PPC_FUNC(sub_8808DA28){
   // -> corrupts the caller's r26 (game-main fn ptr) and every other saved-reg-dependent value.
   // Enforce the ABI contract the buggy recomp violates by restoring r26/r27/r28 to entry. This
   // is the true fix (vs the lr-keyed RT_FIXSPAWN stopgap) and repairs ALL clobbered spawns.
-  if(std::getenv("RT_FIXCLOB")){ ctx.r26.u32=save26; ctx.r27.u32=save27; ctx.r28.u32=save28; }
+  if(RT_ENVC("RT_FIXCLOB")){ ctx.r26.u32=save26; ctx.r27.u32=save27; ctx.r28.u32=save28; }
   rt_heapdump(base, "DA28-exit");
   if(n<=4){ std::fprintf(stderr, "[r26] DA28-exit r26=%08X\n", (uint32_t)ctx.r26.u32); std::fflush(stderr); }
   if(log) std::fprintf(stderr,"[dbg] sub_8808DA28 EXIT call#%lld r3=0x%X\n",n,ctx.r3.u32);
@@ -104,7 +111,7 @@ PPC_FUNC(sub_88083200){
   // (mtctr r3;bctrl) calls garbage and the game main never runs. Force the correct fn ptr at THIS
   // exact spawn site (return addr lr=0x8808FF20) so sub_88168D48 runs. (Real fix = find the
   // clobbering callee; this proves the theory + unblocks downstream testing.)
-  if(std::getenv("RT_FIXSPAWN") && rt_kgate("RT_FIXSPAWN") && (uint32_t)ctx.lr==0x8808FF20u && ctx.r6.u32!=0x88168D48u){
+  if(RT_ENVC("RT_FIXSPAWN") && rt_kgate("RT_FIXSPAWN") && (uint32_t)ctx.lr==0x8808FF20u && ctx.r6.u32!=0x88168D48u){
     std::fprintf(stderr,"[fixspawn] forcing game-main ctx r6 0x%X -> 0x88168D48\n",ctx.r6.u32);
     ctx.r6.u32=0x88168D48u;
   }
@@ -122,7 +129,7 @@ PPC_FUNC(sub_88083200){
 extern "C" void __imp__sub_88092C28(PPCContext& __restrict, uint8_t*);
 extern "C" void __imp__NtCreateEvent(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_88092C28){
-  if(std::getenv("RT_PUMPFIX") && rt_kgate("RT_PUMPFIX") && PPC_LOAD_U32(0x887ACD30u)==0){
+  if(RT_ENVC("RT_PUMPFIX") && rt_kgate("RT_PUMPFIX") && PPC_LOAD_U32(0x887ACD30u)==0){
     uint32_t scratch = ctx.r1.u32 - 64;   // transient guest scratch below the worker's SP
     uint32_t h[2]={0,0};
     for(int k=0;k<2;++k){
@@ -265,7 +272,7 @@ PPC_FUNC(sub_88133DB0){
   // this writes the marker the join is supposed to write, then lets the game's OWN scan+arm run — so
   // the player is armed with the ranking slot's real data (its +158 field). Slot0 of the joining
   // side's row. Test-only: reveals whether the natural arm yields real lives.
-  if(std::getenv("RT_JOINMARK") && rt_kgate("RT_JOINMARK") && g_in_id47.load()>0 && jl_p1>=0x82000000u && jl_p1<0x8B000000u){
+  if(RT_ENVC("RT_JOINMARK") && rt_kgate("RT_JOINMARK") && g_in_id47.load()>0 && jl_p1>=0x82000000u && jl_p1<0x8B000000u){
     uint32_t side=PPC_LOAD_U8(jl_p1+1u), idx=PPC_LOAD_U8(jl_p1+8u), B=PPC_LOAD_U32(jl_p1+0x80u);
     if(side==0 && B>=0x82000000u && B<0x8B000000u){
       uint32_t F54=PPC_LOAD_U32(B+0x54u);
@@ -426,7 +433,7 @@ PPC_FUNC(sub_880939F0){
 // after the join. Object state = piVar10[1] via the 0x88449d4c list keyed by FUN_88071158().
 extern "C" void __imp__sub_880EA968(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_880EA968){
-  if(std::getenv("RT_JOINP")){
+  if(RT_ENVC("RT_JOINP")){
     // replicate the object lookup: iVar3=FUN_88071158() return is r3 after call; instead read via the
     // list head 0x88449d4c, entry+8==key. We can't cheaply call FUN_88071158 here, so just log flags +
     // the char-select FSM state; the state itself is dumped by scanning the list for any node.
@@ -453,7 +460,7 @@ PPC_FUNC(sub_880EA968){
 // "ticking but stuck in an early case".
 extern "C" void __imp__sub_880EE880(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_880EE880){
-  if(std::getenv("RT_JOINP")){
+  if(RT_ENVC("RT_JOINP")){
     static std::atomic<uint32_t> n{0}; uint32_t k=n.fetch_add(1)+1;
     uint32_t st=PPC_LOAD_U32(0x884E7D5Cu), cd=PPC_LOAD_U32(0x884E7D60u), sub=PPC_LOAD_U32(0x884E7D7Cu);
     static uint32_t lastSt=0xFFFFFFFF;
@@ -577,7 +584,7 @@ PPC_FUNC(sub_88103048){
   // are DIFFERENT objects -> confirms land on an object the FSM never reads (the folded-base/object-
   // identity miss). Also captures +744 and the per-page confirm counters +0x73c..0x740 before AND after
   // the real body: does the confirm CALL TREE (FUN_881366d0/881332e8) touch +744 at all? Default-off.
-  bool p744on = std::getenv("RT_744P")!=nullptr;
+  bool p744on = RT_ENVC("RT_744P")!=nullptr;
   uint32_t P_Wc=0,P_pre744=0xFFFFFFFFu,P_pre73c=0; bool P_valid=false; uint32_t P_edge=0;
   if(p744on){
     P_Wc=PPC_LOAD_U32(ctx.r4.u32+0x2cu);
@@ -602,7 +609,7 @@ PPC_FUNC(sub_88103048){
 //     (iVar1) MUST equal Wf(=DAT_8844a3a8) for the confirm to register on the object the FSM reads.
 extern "C" void __imp__sub_881332E8(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_881332E8){
-  bool on=std::getenv("RT_744P")!=nullptr;
+  bool on=RT_ENVC("RT_744P")!=nullptr;
   uint32_t b80=0,cntobj=0,pre=0; bool valid=false;
   if(on){
     uint32_t r3=ctx.r3.u32;
@@ -637,7 +644,7 @@ extern "C" void __imp__sub_8814F558(PPCContext& __restrict, uint8_t*);
 static std::atomic<uint32_t> g_hb_708{0}, g_hb_498{0}, g_hb_ff0{0}, g_hb_b378{0}, g_hb_d400{0}, g_hb_f558{0};
 PPC_FUNC(sub_8814F558){
   g_hb_f558.fetch_add(1);
-  bool on=std::getenv("RT_744P")!=nullptr;
+  bool on=RT_ENVC("RT_744P")!=nullptr;
   uint32_t Wf=0,lvl=0xFFFFFFFFu; bool valid=false;
   if(on){
     Wf=PPC_LOAD_U32(0x8844A3A8u); valid=(Wf>=0x82000000u&&Wf<0x8B000000u);
@@ -674,7 +681,7 @@ PPC_FUNC(sub_8814F558){
 //     (never advancing), a3cc/a3c8 stay equal and the FSM backs out. Log page + W+0x58/+0x5c each call.
 extern "C" void __imp__sub_88136BC8(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_88136BC8){
-  if(std::getenv("RT_744P")){
+  if(RT_ENVC("RT_744P")){
     uint32_t page=ctx.r4.u32, W=ctx.r3.u32; bool v=(W>=0x82000000u&&W<0x8B000000u);
     std::fprintf(stderr,"[744p] 88136BC8 CREATE page=%u W=%08X pre[+58tgt=%u +5ccur=%u] adv353036=%u csfsm=%u d76=%u\n",
       page,W, v?PPC_LOAD_U32(W+0x58u):0, v?PPC_LOAD_U32(W+0x5cu):0,
@@ -687,7 +694,7 @@ PPC_FUNC(sub_88136BC8){
 //     widget is live at shot-select and whether its a3cc/a3c8 pages set up the +744==2 path at all.
 extern "C" void __imp__sub_8814FDF8(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_8814FDF8){
-  if(std::getenv("RT_744P")){
+  if(RT_ENVC("RT_744P")){
     uint32_t W=ctx.r4.u32; bool v=(W>=0x82000000u&&W<0x8B000000u);
     std::fprintf(stderr,"[744p] 8814FDF8 INSTALL W=%08X | +54(mode)=%u +58(tgtpg)=%u +5c(curpg)=%u +60=%u +744=%u csfsm=%u d76=%u\n",
       W, v?PPC_LOAD_U32(W+0x54u):0, v?PPC_LOAD_U32(W+0x58u):0, v?PPC_LOAD_U32(W+0x5cu):0,
@@ -845,7 +852,7 @@ PPC_FUNC(sub_881F1968){
   //     27-block is reachable on this build".
   //   ⚠ AND IF 881F0BC8 IS INSTALLED AND THEN ITS OWN BODY RE-READS C2, IT WILL SEE THE RESTORED
   //     9.  That is deliberate and is the honest behaviour: only the gate was lied to.
-  if(rt_f1968() && std::getenv("RT_F1968_POKE")){
+  if(rt_f1968() && RT_ENVC("RT_F1968_POKE")){
     const uint32_t own=ctx.r3.u32;
     auto ok=[](uint32_t a){ return a>=0x1000u && a<0xFFFF0000u; };
     const uint32_t st=ok(own)?PPC_LOAD_U32(own+2304u):0u;
@@ -1314,7 +1321,7 @@ PPC_FUNC(sub_88093418){
   g_gmain_tid.store(xr_gettid(), std::memory_order_relaxed);
   // [spin] (2026-07-23 sequencer leg): heartbeat with tid — tells whether the game main is alive
   // and spinning on the gate (this fn runs every spin iteration) when the FSM/pump cadence dies.
-  if(std::getenv("RT_JOINP")){ static std::atomic<long long> sp{0}; long long s=sp.fetch_add(1)+1;
+  if(RT_ENVC("RT_JOINP")){ static std::atomic<long long> sp{0}; long long s=sp.fetch_add(1)+1;
     if(s%1200==0) std::fprintf(stderr,"[spin] 88093418 #%lld tid=%ld gate=%u\n",
       s,(long)xr_gettid(),PPC_LOAD_U32(GA_GM_FRAME_GATE)); }
   bool gm93=(xr_gettid()==g_gm_loop_tid.load(std::memory_order_relaxed));
@@ -1464,7 +1471,7 @@ PPC_FUNC(sub_880FFCE8){
     if(i<=3 || (i%120)==0){ double s=std::chrono::duration<double>(std::chrono::steady_clock::now()-t0).count();
       std::fprintf(stderr,"[tickrate] glyphstep#%lld t=%.1fs avg=%.1f/s\n", i, s, s>0? i/s:0.0); }
     static std::atomic<int> traced{0};
-    if(std::getenv("RT_TICKTRACE") && traced.fetch_add(1) < 4) rt_ticktrace_dump("glyphstep");
+    if(RT_ENVC("RT_TICKTRACE") && traced.fetch_add(1) < 4) rt_ticktrace_dump("glyphstep");
   }
   __imp__sub_880FFCE8(ctx,base);
 }
@@ -1583,7 +1590,7 @@ PPC_FUNC(sub_88090480){
     } }
   // [gmstage] sampler print (this cb thread survives the game-main freeze): odd stage = the
   // main is INSIDE that callee. 1/2=A738 3/4=91448 5/6=138F00 7/8=93950 9/10=93418.
-  if(std::getenv("RT_JOINP") && (n%2000)==0)
+  if(RT_ENVC("RT_JOINP") && (n%2000)==0)
     std::fprintf(stderr,"[gmstage] stage=%d (pump#%lld) frameRets=%lld fa68=%lld gate=%u evt6528=%08X period=%d\n",
       g_gm_stage.load(std::memory_order_relaxed),n,
       g_gm_frame_returns.load(),g_fa68_calls.load(),PPC_LOAD_U32(GA_GM_FRAME_GATE),
@@ -1591,7 +1598,7 @@ PPC_FUNC(sub_88090480){
   // RT_AUDIOGATE probe: DAT_887ad50c is the game's audio-driver object (null => the sound-command
   // consumer 0x880E4CD0 gated OFF at 0x88090480; game BGM/SE never drained -> silent). DAT_887ad510
   // is the installed consumer fn ptr. Log the transition so we see if/when audio init lands.
-  if(std::getenv("RT_AUDIOGATE")){
+  if(RT_ENVC("RT_AUDIOGATE")){
     static uint32_t last50c=0xDEADBEEF; uint32_t v=PPC_LOAD_U32(0x887AD50Cu);
     if(v!=last50c){ last50c=v;
       std::fprintf(stderr,"[audiogate] DAT_887ad50c=0x%08X DAT_887ad510(consumer)=0x%08X DAT_887ad50c!=0 -> consumer %s (pump#%lld)\n",
@@ -1709,7 +1716,7 @@ PPC_FUNC(sub_88093950){
   extern "C" void __imp__##FN(PPCContext& __restrict, uint8_t*); \
   static std::atomic<int> g_sm_##FN{0}; \
   PPC_FUNC(FN){ \
-    int n=g_sm_##FN.fetch_add(1); bool t=std::getenv("RT_TRACESM")&&(n<3); \
+    int n=g_sm_##FN.fetch_add(1); bool t=RT_ENVC("RT_TRACESM")&&(n<3); \
     if(t) std::fprintf(stderr,"[sm] " #FN " ENTER#%d\n",n); \
     const bool wg=rt_wgate(); \
     const uint32_t wa=wg?PPC_LOAD_U32(0x884D6D04u):0u, wb=wg?PPC_LOAD_U32(0x884D6DC8u):0u; \
@@ -1738,7 +1745,7 @@ PPC_FUNC(sub_88152CF0){
   static std::atomic<int> n{0}; int i=n.fetch_add(1);
   // [pumpcnt] (2026-07-23 sequencer leg): if [seq]/[csa] stop while this keeps counting, their
   // records were destroyed; if this stops too, the pump's caller (shell msg-5 drive) halted.
-  if(std::getenv("RT_JOINP") && i>0 && i%60==0){
+  if(RT_ENVC("RT_JOINP") && i>0 && i%60==0){
     uint32_t cnt=0, ids[12]={0};
     for(uint32_t nd=PPC_LOAD_U32(0x88449D4Cu); nd && cnt<64; nd=PPC_LOAD_U32(nd)){
       if(cnt<12) ids[cnt]=PPC_LOAD_U32(nd+8); cnt++; }
@@ -1757,7 +1764,7 @@ PPC_FUNC(sub_88152CF0){
     PPCContext ic=ctx; ic.r3.u32=h; ic.r4.u32=0x884D6740u;
     __imp__sub_88226EB0(ic,base);
   }
-  if(std::getenv("RT_TRACERES") && i>0 && (i%600)==0){
+  if(RT_ENVC("RT_TRACERES") && i>0 && (i%600)==0){
     uint32_t nd=PPC_LOAD_U32(0x88449D4Cu); int k=0;
     std::fprintf(stderr,"[rr] pump#%d list:",i);
     while(nd>=0x1000 && nd<0xFFFF0000u && k<24){
@@ -1790,7 +1797,7 @@ extern "C" void rvk_handback_invalidate(void);
 extern "C" void __imp__sub_8813A5F0(PPCContext& __restrict, uint8_t*);
 static std::atomic<int> g_sm_sub_8813A5F0{0};
 PPC_FUNC(sub_8813A5F0){
-  int n=g_sm_sub_8813A5F0.fetch_add(1); bool t=std::getenv("RT_TRACESM")&&(n<3);
+  int n=g_sm_sub_8813A5F0.fetch_add(1); bool t=RT_ENVC("RT_TRACESM")&&(n<3);
   if(t) std::fprintf(stderr,"[sm] sub_8813A5F0 ENTER#%d\n",n);
   rvk_handback_invalidate();
   __imp__sub_8813A5F0(ctx,base);
@@ -1802,7 +1809,7 @@ PPC_FUNC(sub_8813A5F0){
 extern "C" void __imp__sub_88152738(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_88152738){
   static std::atomic<int> n{0}; int i=n.fetch_add(1);
-  if(std::getenv("RT_TRACERES") && i<400)
+  if(RT_ENVC("RT_TRACERES") && i<400)
     std::fprintf(stderr,"[rr] RESET-52738#%d lr=0x%X live=%u seq=%u a074=%u\n",
       i,(uint32_t)ctx.lr,PPC_LOAD_U32(0x88449D44u),PPC_LOAD_U32(0x88449D40u),PPC_LOAD_U32(0x8844A074u));
   __imp__sub_88152738(ctx,base);
@@ -1812,7 +1819,7 @@ PPC_FUNC(sub_88152738){
 extern "C" void __imp__sub_881025D0(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_881025D0){
   static std::atomic<long> n{0}; long i=n.fetch_add(1);
-  if(std::getenv("RT_S5") && (i<5 || (i%2000)==0))
+  if(RT_ENVC("RT_S5") && (i<5 || (i%2000)==0))
     std::fprintf(stderr,"[s5host] 881025D0 call#%ld r3=0x%X\n",i,ctx.r3.u32);
   __imp__sub_881025D0(ctx,base);
 }
@@ -1824,7 +1831,7 @@ extern "C" void __imp__sub_881366D0(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_881366D0){
   uint32_t side=ctx.r3.u32;
   int logit=0;
-  if(std::getenv("RT_JOINP")){
+  if(RT_ENVC("RT_JOINP")){
     uint32_t t674c=PPC_LOAD_U32(0x884D674Cu); int busy=rt_gs_busy(base,t674c);
     uint32_t g6870=PPC_LOAD_U32(0x884D6870u), g6878=PPC_LOAD_U32(0x884D6878u);
     uint32_t guard=PPC_LOAD_U32(0x884D6740u+side*4+0x3c);
@@ -1833,7 +1840,7 @@ PPC_FUNC(sub_881366D0){
     if(q<80) std::fprintf(stderr,"[joinp] *** 881366D0 ENTER slot=%u 674c=0x%X busy=%d 6870=%u 6878=%u guard+3c=%u jflag5a8=0x%X %s ***\n",
       side,t674c,busy,g6870,g6878,guard,jflag,(busy==0&&g6870==0&&g6878==0&&guard==0)?"WILL-JOIN":"EXECUTOR-BLOCKED");
   }
-  if(std::getenv("RT_S5")){
+  if(RT_ENVC("RT_S5")){
     static std::atomic<int> n366{0}; int i=n366.fetch_add(1);
     if(i<40){ logit=1;
       std::fprintf(stderr,"[confirm366] call#%d side=%u sel308=0x%X f312=0x%X f328=0x%X f352=0x%X | gates +304=0x%X +60[s]=0x%X busy12h=0x%X\n",
@@ -1856,7 +1863,7 @@ PPC_FUNC(sub_881366D0){
 // early-outs (phase +78!=0 or the mode64 path needs more).
 extern "C" void __imp__sub_88137C28(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_88137C28){
-  if(std::getenv("RT_S5")){
+  if(RT_ENVC("RT_S5")){
     uint32_t p1=PPC_LOAD_U32(0x885C33D8u), p2=PPC_LOAD_U32(0x885C3430u);
     uint32_t start=(p1|p2)&0x8000u;
     static std::atomic<int> nc{0}; int i=nc.fetch_add(1);
@@ -1875,7 +1882,7 @@ PPC_FUNC(sub_88137C28){
 // how often — distinguishes "menu widget re-registers every frame" from "stalled async load".
 extern "C" void __imp__sub_88135D20(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_88135D20){
-  if(std::getenv("RT_S5")){
+  if(RT_ENVC("RT_S5")){
     static std::atomic<int> nd{0}; int i=nd.fetch_add(1);
     uint32_t r4=ctx.r4.u32, lr=(uint32_t)ctx.lr;
     bool menubase=(r4==0x884D6740u);
@@ -1895,7 +1902,7 @@ PPC_FUNC(sub_88137ED8){
   // sub-screen ticks all stop ~500-650 frames after d76-entry on NORMAL PLAY while d76 stays 4 in
   // memory. If [hb2] keeps printing past that point the session tick is alive (partial teardown
   // below it); if [hb2] stops too, the walker above died. Every 300 calls under RT_S5.
-  if(std::getenv("RT_S5")){
+  if(RT_ENVC("RT_S5")){
     static std::atomic<uint32_t> ed8c{0}; uint32_t ei=ed8c.fetch_add(1);
     if((ei%300)==0)
       std::fprintf(stderr,"[hb2] #%u c708=%u c498=%u cff0=%u cb378=%u cd400=%u cf558=%u | d76=%u d78=%u OUTER=%u t6790=%u +328=%u slot0=0x%X slot2=%u conf=%u m8c=%u 67bc=%u 67b8=0x%X\n",
@@ -1906,7 +1913,7 @@ PPC_FUNC(sub_88137ED8){
         (uint32_t)PPC_LOAD_U32(0x884D6D0Cu),(uint32_t)PPC_LOAD_U32(0x884D6D74u),
         PPC_LOAD_U32(0x884D67BCu),PPC_LOAD_U32(0x884D67B8u));
   }
-  if(std::getenv("RT_S5")){
+  if(RT_ENVC("RT_S5")){
     static std::atomic<int> nt{0}; int i=nt.fetch_add(1);
     uint32_t disp=PPC_LOAD_U16(0x884D678Cu);
     if(i<10 || (i%4000)==0)
@@ -1919,7 +1926,7 @@ PPC_FUNC(sub_88137ED8){
   // d76>=3, so a d76-stuck-at-2 explains the freeze. This panel logs, per menu-tick on-change,
   // a WIDE set of candidate sub-screen/confirm/cancel/timer words so the exact word that flips
   // char->mode can be caught by cross-referencing the RVK_COMPDBG 640x512->512x512 atlas edge.
-  if(std::getenv("RT_BOUNCEDBG")){
+  if(RT_ENVC("RT_BOUNCEDBG")){
     static std::atomic<int> bn{0}; int i=bn.fetch_add(1);
     auto L16=[&](uint32_t a){return (uint32_t)PPC_LOAD_U16(a);};
     auto L32=[&](uint32_t a){return PPC_LOAD_U32(a);};
@@ -1959,7 +1966,7 @@ PPC_FUNC(sub_88137ED8){
   // and any transient char-select "bounces" straight back. Force-clear 67cc at d76==2 once the
   // screen widgets exist (6748!=0) so sub_88137168 takes its advance-to-3 branch. This is a REAL
   // unwedge (matches the decomp's intended flow), not a cosmetic clamp. Env-gated; default off.
-  if(std::getenv("RT_CHARSELHOLD")){
+  if(RT_ENVC("RT_CHARSELHOLD")){
     if(PPC_LOAD_U16(0x884D678Cu)==2 && PPC_LOAD_U32(0x884D67CCu)!=0 && PPC_LOAD_U32(0x884D6748u)!=0){
       PPC_STORE_U32(0x884D67CCu,0);
       static int lg=0; if(lg++<8) std::fprintf(stderr,"[charselhold] d76==2 & widgets ready: force 67cc 1->0 (unwedge -> browse d76=3)\n");
@@ -1975,10 +1982,10 @@ PPC_FUNC(sub_88137ED8){
   // RT_CSHOLD_FLOOR (opt) sets the low-water mark (default 8); RT_CSHOLD_ARM the re-armed value
   // (default 0x40). Does NOT block sub-screen advance: slot+2 confirms still cycle mode->char->shot
   // DURING the held browse (sub_88137498 tail runs every tick at d76==3).
-  if(std::getenv("RT_CSHOLD")){
+  if(RT_ENVC("RT_CSHOLD")){
     if(PPC_LOAD_U16(0x884D678Cu)==3){
-      int floor = std::getenv("RT_CSHOLD_FLOOR") ? atoi(std::getenv("RT_CSHOLD_FLOOR")) : 8;
-      int arm   = std::getenv("RT_CSHOLD_ARM")   ? atoi(std::getenv("RT_CSHOLD_ARM"))   : 0x40;
+      int floor = RT_ENVC("RT_CSHOLD_FLOOR") ? atoi(RT_ENVC("RT_CSHOLD_FLOOR")) : 8;
+      int arm   = RT_ENVC("RT_CSHOLD_ARM")   ? atoi(RT_ENVC("RT_CSHOLD_ARM"))   : 0x40;
       uint32_t t = PPC_LOAD_U32(0x884D6790u);
       if((int32_t)t <= floor){
         PPC_STORE_U32(0x884D6790u,(uint32_t)arm);
@@ -1994,7 +2001,7 @@ PPC_FUNC(sub_88137ED8){
     // ARCADE-TRUE: identical to a player continuously wiggling the stick (input activity resets
     // the same grace on hardware, holding the screen). Confirms (slot+2 latch) still step
     // screens normally. Env-gated; default off (byte-identical).
-    if(std::getenv("RT_SLOTHOLD") && PPC_LOAD_U16(0x884D678Cu)==3){
+    if(RT_ENVC("RT_SLOTHOLD") && PPC_LOAD_U16(0x884D678Cu)==3){
       if(PPC_LOAD_U32(0x884D6890u) < 8u){
         PPC_STORE_U32(0x884D6890u, 8u);
         static int sh=0; if(sh++<4) std::fprintf(stderr,"[slothold] d76==3: pin input-grace 6890=8 (freeze per-slot timeout advance)\n");
@@ -2012,7 +2019,7 @@ PPC_FUNC(sub_88137ED8){
   // when the id46 fade dies sub_88136890 takes its ELSE branch -> state 8 -> outer 5->2->3 LIVE
   // STAGES (instead of the +352==0 && 6e84==0 -> state6 NAME-ENTRY branch). Paired with the
   // step-(1) +328 clear in the sub_88137498 wrapper above. Env-gated; default off.
-  if(std::getenv("RT_LIVEPLAY") && PPC_LOAD_U16(0x884D678Cu)==5){
+  if(RT_ENVC("RT_LIVEPLAY") && PPC_LOAD_U16(0x884D678Cu)==5){
     if(PPC_LOAD_U32(0x884D68A0u)==0){
       PPC_STORE_U32(0x884D68A0u,1);   // +352 = 1 -> state5 fade-death routes to state8 STAGES
       // RT_LIVEPLAY>=2 (2026-07-23): ALSO replicate the confirm-widget case-0xC credited-ARM
@@ -2021,13 +2028,13 @@ PPC_FUNC(sub_88137ED8){
       // These are the natural "player side armed for credited play" markers; the forced FSM route
       // reached state 8 without them, landing in the ATTRACT DEMO. Test whether setting them turns
       // credited play on (DEMONSTRATION off, player-controllable ship).
-      if(atoi(std::getenv("RT_LIVEPLAY"))>=2){
+      if(atoi(RT_ENVC("RT_LIVEPLAY"))>=2){
         PPC_STORE_U32(0x884D77C8u,1); PPC_STORE_U32(0x884D789Cu,1);
         PPC_STORE_U32(0x884D7970u,1); PPC_STORE_U32(0x884D7A44u,1);
       }
       static std::atomic<int> l5{0}; int q=l5.fetch_add(1);
       if(q<8||(q%2000)==0) std::fprintf(stderr,"[liveplay] state5: set +352(68a0)=1%s (fade-death -> state8 -> outer3); 6e84=0x%X 77c8=%u\n",
-        atoi(std::getenv("RT_LIVEPLAY"))>=2?" +4arm-flags":"",PPC_LOAD_U32(0x884D6E84u),PPC_LOAD_U32(0x884D77C8u));
+        atoi(RT_ENVC("RT_LIVEPLAY"))>=2?" +4arm-flags":"",PPC_LOAD_U32(0x884D6E84u),PPC_LOAD_U32(0x884D77C8u));
     }
   }
   __imp__sub_88137ED8(ctx,base);
@@ -2039,7 +2046,7 @@ PPC_FUNC(sub_88137ED8){
 extern "C" void __imp__sub_88137708(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_88137708){
   g_hb_708.fetch_add(1);
-  if(std::getenv("RT_S5")){
+  if(RT_ENVC("RT_S5")){
     static std::atomic<int> nc{0}; int i=nc.fetch_add(1);
     if(i<8 || (i%4000)==0)
       std::fprintf(stderr,"[wall4] call#%d +1876=0x%X +312=0x%X +352=0x%X +328=0x%X +324=0x%X +308=0x%X +76=%u\n",
@@ -2087,7 +2094,7 @@ PPC_FUNC(sub_88137708){
   // restart a phase counter and dump 2s (120 frames) into each phase. Drive holds L,R,L,R so the
   // ship X must satisfy dump0≈dump2 (both left) and dump1≈dump3 (both right) — a far stronger
   // constraint than "between". Slots: 0..3.
-  if(std::getenv("RT_XSCAN")){
+  if(RT_ENVC("RT_XSCAN")){
     static int lastDir=-1, phaseN=0, slot=0;
     uint32_t pad=PPC_LOAD_U32(0x885C33D4u);
     int dir = (pad&0x04u)?1 : ((pad&0x08u)?2 : 0);
@@ -2106,7 +2113,7 @@ PPC_FUNC(sub_88137708){
   // [fielddiff] leg 22 (2026-07-25, post-retraction): d76=4 is PLAY-RUNNING (corrected ladder).
   // Training reaches a REAL stage here; normal play leaves the ROM in ATTRACT. Sample the field/
   // handoff state periodically during state 4 on BOTH paths — the diff names the handoff.
-  if(std::getenv("RT_S5")){
+  if(RT_ENVC("RT_S5")){
     static std::atomic<int> fc{0}; int fi=fc.fetch_add(1);
     if((fi%180)==0 && fi<3600)
       std::fprintf(stderr,"[fielddiff] #%d d76=%u | field(885C1A20)=%u 574(INMODE)=%u 6e84=%u 6878=%u 6e94=%u 66a8=%u | 6738(stage)=%u 6794=%u 6798=%u 679c=%u 67b4=%u | 6870=%u 67c0=%u 67cc=%u 66a0=%u | +328=%u +352=%u slot0=0x%X\n",
@@ -2122,7 +2129,7 @@ PPC_FUNC(sub_88137708){
   // [slotdiff] leg 20 (2026-07-25): at the d76 4->5 stage-entry edge, dump the FULL player-slot
   // record (0x884D6CE8, 0xC4 bytes) + the registration/mode globals. Run on BOTH training (plays)
   // and normal play (playerless) — the diff names the field the gameplay needs. Read-only.
-  if(std::getenv("RT_S5") && d76pre==4 && PPC_LOAD_U16(0x884D678Cu)==5){
+  if(RT_ENVC("RT_S5") && d76pre==4 && PPC_LOAD_U16(0x884D678Cu)==5){
     static std::atomic<int> once{0};
     if(once.fetch_add(1)==0){
       char b[900]; int o=0;
@@ -2158,7 +2165,7 @@ extern "C" void __imp__sub_88136FF0(PPCContext& __restrict, uint8_t*);
 extern "C" void __imp__sub_88152B00(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_88136FF0){
   g_hb_ff0.fetch_add(1);
-  if(std::getenv("RT_S5")){
+  if(RT_ENVC("RT_S5")){
     static std::atomic<int> cnt{0}; static uint64_t lastkey=~0ull;
     uint32_t slot=ctx.r3.u32, MB=ctx.r4.u32;
     int side=(int8_t)PPC_LOAD_U8(slot+1);
@@ -2278,7 +2285,7 @@ PPC_FUNC(sub_8809BE18){
 //   a measurement.  Read-only; logs every call (they are rare) plus the gate operands.
 extern "C" void __imp__sub_88136D60(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_88136D60){
-  if(std::getenv("RT_SCENEID")||std::getenv("RT_S5")){
+  if(RT_ENVC("RT_SCENEID")||RT_ENVC("RT_S5")){
     static std::atomic<int> c{0}; int i=c.fetch_add(1);
     if(i<64)
       std::fprintf(stderr,"[d60] #%d SUBSCREEN-SCENE-CREATE r3=0x%X r4=0x%X lr=0x%08X | d76=%u 66a0=%u +332=%u +328=%u\n",
@@ -2298,7 +2305,7 @@ PPC_FUNC(sub_88136D60){
 // training completes all 3. These probes name the stuck stage. Read-only, RT_S5-gated.
 extern "C" void __imp__sub_8814B930(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_8814B930){
-  if(std::getenv("RT_S5")){
+  if(RT_ENVC("RT_S5")){
     uint32_t s2a=PPC_LOAD_U16(0x884D6CEAu), cfa=PPC_LOAD_U32(0x884D6D0Cu);
     uint32_t r60a=PPC_LOAD_U32(0x8844A8F8u), r64a=PPC_LOAD_U32(0x8844A8FCu);
     __imp__sub_8814B930(ctx,base);
@@ -2314,7 +2321,7 @@ PPC_FUNC(sub_8814B930){
 extern "C" void __imp__sub_8814B378(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_8814B378){
   g_hb_b378.fetch_add(1);
-  if(std::getenv("RT_S5") && ctx.r3.u32==0x8844A898u){
+  if(RT_ENVC("RT_S5") && ctx.r3.u32==0x8844A898u){
     uint32_t rec=ctx.r3.u32;
     uint32_t p60=PPC_LOAD_U32(rec+0x60u), p64=PPC_LOAD_U32(rec+0x64u);
     uint32_t obj=PPC_LOAD_U32(rec+0x68u);
@@ -2355,25 +2362,25 @@ static void xr_dump_setblk(const char* tag, PPCContext& ctx, uint8_t* base, uint
 }
 extern "C" void __imp__sub_8808F1E8(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_8808F1E8){
-  uint32_t p1=ctx.r3.u32, p2=ctx.r4.u32; bool on=!!std::getenv("RT_S5");
+  uint32_t p1=ctx.r3.u32, p2=ctx.r4.u32; bool on=!!RT_ENVC("RT_S5");
   __imp__sub_8808F1E8(ctx,base);
   if(on){ std::fprintf(stderr,"[set] msg15/F1E8 p2=0x%X:\n",p2); xr_dump_setblk("msg15/F1E8",ctx,base,p1); }
 }
 extern "C" void __imp__sub_8808EFA8(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_8808EFA8){
-  uint32_t p1=ctx.r3.u32; bool on=!!std::getenv("RT_S5");
+  uint32_t p1=ctx.r3.u32; bool on=!!RT_ENVC("RT_S5");
   __imp__sub_8808EFA8(ctx,base);
   if(on) xr_dump_setblk("msg18/EFA8(train)",ctx,base,p1);
 }
 extern "C" void __imp__sub_8808F150(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_8808F150){
-  uint32_t p1=ctx.r3.u32; bool on=!!std::getenv("RT_S5");
+  uint32_t p1=ctx.r3.u32; bool on=!!RT_ENVC("RT_S5");
   __imp__sub_8808F150(ctx,base);
   if(on) xr_dump_setblk("msg16/F150(replay)",ctx,base,p1);
 }
 extern "C" void __imp__sub_8808F098(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_8808F098){
-  uint32_t p1=ctx.r3.u32; bool on=!!std::getenv("RT_S5");
+  uint32_t p1=ctx.r3.u32; bool on=!!RT_ENVC("RT_S5");
   __imp__sub_8808F098(ctx,base);
   if(on) xr_dump_setblk("msg17/F098(scoreatk)",ctx,base,p1);
 }
@@ -2385,7 +2392,7 @@ static std::atomic<int> g_trk_force{0};
 // destroys with lr to catch who kills the 0x2b timeline scene (key logged by [25c8]).
 extern "C" void __imp__sub_88152C60(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_88152C60){
-  if(std::getenv("RT_S5")){
+  if(RT_ENVC("RT_S5")){
     static std::atomic<int> c{0}; int i=c.fetch_add(1);
     if(i<48) std::fprintf(stderr,"[c60] #%d DESTROY handle=0x%X lr=0x%X d76=%u\n",
       i,ctx.r3.u32,(uint32_t)ctx.lr,(uint32_t)PPC_LOAD_U16(0x884D678Cu));
@@ -2399,7 +2406,7 @@ PPC_FUNC(sub_88152C60){
 // — so either A58 never runs, or the 0x2b scene's tick never dispatches. These wrappers decide.
 extern "C" void __imp__sub_88136A58(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_88136A58){
-  if(std::getenv("RT_S5")){
+  if(RT_ENVC("RT_S5")){
     static std::atomic<int> c{0}; int i=c.fetch_add(1);
     // ★ r23-w16 D4: THE RETURN ADDRESS IS APPENDED, NOT INSERTED.  w15 settled that 88136A58 is
     //   A committer and not THE committer (881378A0 @88137B84 duplicates the +0x58:=+0x5c commit),
@@ -2416,7 +2423,7 @@ PPC_FUNC(sub_88136A58){
 }
 extern "C" void __imp__sub_881325C8(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_881325C8){
-  if(std::getenv("RT_S5")){
+  if(RT_ENVC("RT_S5")){
     static std::atomic<int> c{0}; int i=c.fetch_add(1);
     uint32_t p2=ctx.r4.u32, key=ctx.r3.u32;
     std::fprintf(stderr,"[25c8] #%d TIMELINE-INIT r3=0x%X r4(W)=0x%X W+58(page)=%u W+5c=%u d76=%u\n",
@@ -2448,7 +2455,7 @@ PPC_FUNC(sub_881325C8){
 // active track 76F8, scan idx 76FC, and ALL FOUR track frames (884D7710+t*0xD4). RT_S5-gated.
 extern "C" void __imp__sub_88131C30(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_88131C30){
-  if(std::getenv("RT_S5")){
+  if(RT_ENVC("RT_S5")){
     static std::atomic<int> c{0}; int i=c.fetch_add(1);
     static std::atomic<uint64_t> lk{~0ull};
     uint32_t scr=PPC_LOAD_U32(0x884D7700u), p58=PPC_LOAD_U32(0x884D6798u), p5c=PPC_LOAD_U32(0x884D679Cu);
@@ -2505,7 +2512,7 @@ PPC_FUNC(sub_88131C30){
 // Answers: does the timeline ever reach a card spawn on the port? RT_S5-gated, read-only.
 extern "C" void __imp__sub_880957A8(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_880957A8){
-  if(std::getenv("RT_S5")){
+  if(RT_ENVC("RT_S5")){
     uint32_t ty=ctx.r3.u32, fr=ctx.r4.u32;
     static std::atomic<int> c{0}; int i=c.fetch_add(1);
     static std::atomic<uint32_t> lastScr{0xFFFFFFFFu}; static std::atomic<int> ndump{0};
@@ -2547,7 +2554,7 @@ PPC_FUNC(sub_880957A8){
 // edge word + every gate operand to name the reject. RT_S5-gated, logs nonzero edges + heartbeat.
 extern "C" void __imp__sub_8814BF10(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_8814BF10){
-  if(std::getenv("RT_S5")){
+  if(RT_ENVC("RT_S5")){
     uint32_t p1=ctx.r3.u32, obj=ctx.r5.u32;
     uint32_t e0=p1?PPC_LOAD_U32(p1):0xDEADu, e1=p1?PPC_LOAD_U32(p1+4):0xDEADu;
     uint32_t st=(obj>=0x82000000u&&obj<0x8A000000u)?PPC_LOAD_U8(obj+0x54u):0xEEu;
@@ -2593,7 +2600,7 @@ PPC_FUNC(sub_88104230){
 // the poller (or its absence) on normal-play vs training. Read-only, RT_S5-gated, change-keyed.
 extern "C" void __imp__sub_88135D98(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_88135D98){
-  if(std::getenv("RT_S5")){
+  if(RT_ENVC("RT_S5")){
     uint32_t lr=(uint32_t)ctx.lr, p1=ctx.r3.u32, p2=ctx.r4.u32;
     __imp__sub_88135D98(ctx,base);
     uint32_t ret=ctx.r3.u32;
@@ -2617,7 +2624,7 @@ PPC_FUNC(sub_88135D98){
 // pre/post, the hold word, and the callback ptr on every call under RT_S5.
 extern "C" void __imp__sub_881339C8(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_881339C8){
-  if(std::getenv("RT_S5")){
+  if(RT_ENVC("RT_S5")){
     uint32_t slot=ctx.r3.u32;
     uint16_t pre=(uint16_t)PPC_LOAD_U16(slot+2u);
     uint32_t mb=PPC_LOAD_U32(slot+128u);
@@ -2736,7 +2743,7 @@ PPC_FUNC(sub_880A9878){
 extern "C" void __imp__sub_88137498(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_88137498){
   g_hb_498.fetch_add(1);
-  int menuadv = std::getenv("RT_MENUADV") ? atoi(std::getenv("RT_MENUADV")) : 0;
+  int menuadv = RT_ENVC("RT_MENUADV") ? atoi(RT_ENVC("RT_MENUADV")) : 0;
   static std::atomic<int> e{0};
   bool log = menuadv>=2 && e.load()<4;
   if(log){ e++; std::fprintf(stderr,"[498] ENTER\n"); }
@@ -2744,7 +2751,7 @@ PPC_FUNC(sub_88137498){
   // LEG-15 REVIEW: log the ACTUAL post-reset gate values sub_88137708 will check at loc_881377DC
   // (+1876/+312/+352/+328 — advance to +76=5 needs ALL of +312,+352,+328 == 0). This is BEFORE the
   // RT_MENUADV clear below, so it shows the NATURAL blocker. RT_S5-gated, first 20 + on-change.
-  if(std::getenv("RT_S5")){
+  if(RT_ENVC("RT_S5")){
     uint32_t g1876=PPC_LOAD_U32(0x884D6740u+1876u), g312=PPC_LOAD_U32(0x884D6740u+312u);
     uint32_t g352=PPC_LOAD_U32(0x884D6740u+352u), g328=PPC_LOAD_U32(0x884D6740u+328u);
     static uint32_t last=0xFFFFFFFFu; uint32_t key=(g1876?8:0)|(g312?4:0)|(g352?2:0)|(g328?1:0);
@@ -2767,10 +2774,10 @@ PPC_FUNC(sub_88137498){
   // set +352=1 (route to the id=48 gameplay branch) + clear +312 (the pre-gate). Leave +328 alone.
   // If +1860!=0 the branch diverts (loc_881377B4) — clear it too so id=48 fires. Success = +76->7,
   // [res] REQ id=48, scene leaves the menu, a stage/gameplay asset loads.
-  if(std::getenv("RT_START352") && PPC_LOAD_U16(0x884D678Cu)==4){
+  if(RT_ENVC("RT_START352") && PPC_LOAD_U16(0x884D678Cu)==4){
     PPC_STORE_U32(0x884D6740u+352u,1);   // +352 = 1  (take the id=48 branch)
     PPC_STORE_U32(0x884D6740u+312u,0);   // +312 = 0  (pass the pre-gate)
-    if(atoi(std::getenv("RT_START352"))>=2) PPC_STORE_U32(0x884D6740u+1860u,0); // force id=48 (not loc_881377B4)
+    if(atoi(RT_ENVC("RT_START352"))>=2) PPC_STORE_U32(0x884D6740u+1860u,0); // force id=48 (not loc_881377B4)
     static std::atomic<int> s3{0}; int q=s3.fetch_add(1);
     if(q<5||(q%2000)==0) std::fprintf(stderr,"[start352] set +352=1 +312=0 at d76=4 #%d (+1860=0x%X)\n",q,PPC_LOAD_U32(0x884D6740u+1860u));
   }
@@ -2789,7 +2796,7 @@ PPC_FUNC(sub_88137498){
   //   (2) at state 5 (below, in the sub_88137ED8 wrapper) set +352=1 -> when the fade dies,
   //       sub_88136890's ELSE branch fires -> state 8 -> outer state 3 LIVE STAGES.
   // This is the step-(1) half. Env-gated; default off (byte-identical). Verify with RT_SCENELOG.
-  if(std::getenv("RT_LIVEPLAY") && PPC_LOAD_U16(0x884D678Cu)==4){
+  if(RT_ENVC("RT_LIVEPLAY") && PPC_LOAD_U16(0x884D678Cu)==4){
     uint32_t p352=PPC_LOAD_U32(0x884D68A0u), p328=PPC_LOAD_U32(0x884D6888u), p312=PPC_LOAD_U32(0x884D6878u);
     if(p352==0 && p328!=0){
       PPC_STORE_U32(0x884D6888u,0);   // +328 = 0  -> sub_88137708 takes the id46-FADE branch -> state 5
@@ -2813,7 +2820,7 @@ PPC_FUNC(sub_88137320){
 }
 extern "C" void __imp__sub_8808D1B8(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_8808D1B8){
-  if(std::getenv("RT_HUB")){ static std::atomic<int> n{0}; int i=n++;
+  if(RT_ENVC("RT_HUB")){ static std::atomic<int> n{0}; int i=n++;
     if(i<20) std::fprintf(stderr,"[hub] D1B8 bit-notify#%d r3=%u slot610={fn=0x%X arg=0x%X}\n",
       i,ctx.r3.u32,PPC_LOAD_U32(0x887AD610u),PPC_LOAD_U32(0x887AD614u)); }
   __imp__sub_8808D1B8(ctx,base);
@@ -2825,7 +2832,7 @@ PPC_FUNC(sub_8808D1B8){
 // pairs = it self-heals. Also logs the existence guard *(0x8829AE1C) (== -1 => handshake skipped).
 extern "C" void __imp__sub_88092460(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_88092460){
-  bool lg = std::getenv("RT_QDIAG")!=nullptr;
+  bool lg = RT_ENVC("RT_QDIAG")!=nullptr;
   static std::atomic<int> seq{0}; int i=lg?seq++:0;
   if(lg && (i<12||(i%200)==0))
     std::fprintf(stderr,"[q] 92460 ENTER#%d guard(8829AE1C)=0x%X flag(887AD1AC)=0x%X\n",
@@ -2865,7 +2872,7 @@ PPC_FUNC(sub_88138F00){
   // host render throughput — the correctness-class defect the panel named. Logs a 5s-window
   // rate + the gameplay-field flag (0x885C1A20) + outer state, so one drive yields per-phase
   // rates (menu vs in-stage). Default-off, read-only, byte-inert.
-  if(std::getenv("RT_TICKRATE")){
+  if(RT_ENVC("RT_TICKRATE")){
     static std::chrono::steady_clock::time_point tr0 = std::chrono::steady_clock::now();
     static int trn0 = n; static long trwin = 0;
     double dt = std::chrono::duration<double>(std::chrono::steady_clock::now() - tr0).count();
@@ -2894,7 +2901,7 @@ PPC_FUNC(sub_88138F00){
   //     before __imp__ clears it (@126020).  ==1 (msg13) => outer state5->2 reset.
   //   * 763c/7640 = per-player join gates (NO game-side writer). credited flags 77c8/789c/7970/7a44.
   // Logs on change of the decisive subset + >=1/2s. Default-off, byte-inert (read-only).
-  if(std::getenv("RT_CREDLOG")){
+  if(RT_ENVC("RT_CREDLOG")){
     uint32_t inmode=PPC_LOAD_U32(0x887AD574u), pause=PPC_LOAD_U32(GA_MB_RELOAD),
              vstart=PPC_LOAD_U32(0x887AD59Cu), p1buf=PPC_LOAD_U16(0x887AD5B0u),
              fld=PPC_LOAD_U16(0x885C33D4u), fldedge=PPC_LOAD_U16(0x885C33D8u),
@@ -2928,7 +2935,7 @@ PPC_FUNC(sub_88138F00){
   //   confirm FSM DAT_8844a3b8; widget DAT_8844a3a8 (+0x744=confirm level, +0x760=shot id);
   //   commit +328(0x884D6888)/+352(0x884D68A0); session d76 (0x884D678C U16); INMODE 574.
   // Default-off, byte-inert (read-only). Logs on change of the decisive subset + >=1/2s.
-  if(std::getenv("RT_INTAP")){
+  if(RT_ENVC("RT_INTAP")){
     uint32_t p1=PPC_LOAD_U16(0x887AD5B0u),
              d4=PPC_LOAD_U32(0x885C33D4u), d0=PPC_LOAD_U32(0x885C33D0u),
              d8=PPC_LOAD_U32(0x885C33D8u), p2=PPC_LOAD_U32(0x885C342Cu),
@@ -2967,7 +2974,7 @@ PPC_FUNC(sub_88138F00){
   //      Now a 32-bit load (same bug still lurks at the other 33D4 U16 reads in this file).
   // VALIDATED against the leg-27 xscan dumps: held LEFT -> X=8.00 (exact left clamp), held RIGHT
   // -> X=232.00 (exact right clamp), Y constant 49.00 under pure horizontal input, 2P=0xFFFFFFFF.
-  if(std::getenv("RT_SHIPX")){
+  if(RT_ENVC("RT_SHIPX")){
     static int32_t sxmin=0x7fffffff,sxmax=-0x7fffffff,sxfirst=0,sxlast=0; static uint32_t fmin=0xFFFFFFFFu,fmax=0;
     static int32_t symin=0x7fffffff,symax=-0x7fffffff;
     static int have=0, cnt=0;
@@ -3004,7 +3011,7 @@ PPC_FUNC(sub_88138F00){
   // exactly at d76 3->4 play entry (f3708), and one more set in the post-death flow (f5588,
   // join[P1]=0 — the timeout-confirm arm the draft predicted). Each 0->1 edge = one commit event.
   // USE: watch edges of 0x884D6870 as the scene-side commit oracle in any select drive.
-  if(std::getenv("RT_PICK130")){
+  if(RT_ENVC("RT_PICK130")){
     uint32_t v=PPC_LOAD_U32(0x884D6870u);
     static uint32_t lv=0xDEADBEEFu; static int nlog=0;
     if(v!=lv){
@@ -3020,7 +3027,7 @@ PPC_FUNC(sub_88138F00){
   // (attract replay) while a field is active. Tests whether the live pad reaches the ship once the
   // replay-mode lock is removed (register-true target is FUN_88137320 firing; this isolates the
   // input-mode gate). Default-off.
-  if(const char* im=std::getenv("RT_INMODE")){
+  if(const char* im=RT_ENVC("RT_INMODE")){
     if(PPC_LOAD_U32(0x887AD574u)==4u){
       PPC_STORE_U32(0x887AD574u,(uint32_t)atoi(im));
       static int lg=0; if(lg++<6) std::fprintf(stderr,"[inmode] forced 887ad574 4->%d (was attract replay)\n",atoi(im));
@@ -3038,7 +3045,7 @@ PPC_FUNC(sub_88138F00){
   // widget to case 0xC (=> +352/credited flags set NATURALLY). Gate: outer state 5 (st==5), 574==2,
   // and the select is live (session d76 in 1..4). Default off => byte-identical. Verify via RT_SELEDGE
   // (33d4 should start tracking the pad) + RT_CREDLOG (INMODE574 should read 0).
-  if(std::getenv("RT_FORCELIVE") && st==5){
+  if(RT_ENVC("RT_FORCELIVE") && st==5){
     uint32_t d76fl=PPC_LOAD_U16(0x884D678Cu);
     if(PPC_LOAD_U32(0x887AD574u)==2u && d76fl>=1u && d76fl<=4u){
       PPC_STORE_U32(0x887AD574u,0u);
@@ -3057,7 +3064,7 @@ PPC_FUNC(sub_88138F00){
   // state 8 (returns 0 -> outer 5->2->3), gated by the select-CONFIRM COMMIT +352(0x884D68A0) /
   // +328(0x884D6888) and credits 0x884D6E84. Logs both FSM states + gates + id46/stage handles + the
   // full draw-list membership (priority:fn per node) on change and >=1/s. Default-off, byte-inert.
-  if(std::getenv("RT_SCENELOG")){
+  if(RT_ENVC("RT_SCENELOG")){
     // Read widths per proven prior-hook accesses: session state d76 @0x884D678C = U16 ([m5s]);
     // commit gates +352(0x884D68A0)/+328(0x884D6888) = U32 (RT_STARTACT). OUTER `st` already U32 above.
     uint32_t s67=PPC_LOAD_U16(0x884D678Cu);
@@ -3099,24 +3106,24 @@ PPC_FUNC(sub_88138F00){
   // [s5] state-5 residency + per-state tick histogram + tracked handle. Prints the state
   // histogram every 4000 ticks so we can see whether state 5 HOLDS or oscillates 5<->3, and
   // what its tracked handle is (to cross-ref [res] POLL completion).
-  if(std::getenv("RT_S5")){
+  if(RT_ENVC("RT_S5")){
     static long hist[8]={0}; if(st<8) hist[st]++;
     static long m=0; if((m++%4000)==0)
       std::fprintf(stderr,"[s5] hist s0=%ld s1=%ld s3=%ld s5=%ld s6=%ld | cur=%u h=0x%X\n",
         hist[0],hist[1],hist[3],hist[5],hist[6],st,PPC_LOAD_U32(0x884D66B4u));
   }
-  if(std::getenv("RT_TRACESM") && (n<60 || st!=prev))
+  if(RT_ENVC("RT_TRACESM") && (n<60 || st!=prev))
     std::fprintf(stderr,"[smf] tick#%d state=%u (prev=%d)\n",n,st,(int)prev);
   // [fsm] cycle-2 rate diagnosis (RT_TRACERES): first 5 + every 1000th call, with tracked
   // handle, lifecycle slot 0x88252D58 (read+set-to--1 per call), head latches, pump count.
-  if(std::getenv("RT_TRACERES") && (n<5 || n%1000==0))
+  if(RT_ENVC("RT_TRACERES") && (n<5 || n%1000==0))
     std::fprintf(stderr,"[fsm] F00#%d state=%u h66B4=0x%X slot2D58=%d latch8=0x%X latch16=0x%X latch20=0x%X\n",
       n,st,PPC_LOAD_U32(0x884D66B4u),(int32_t)PPC_LOAD_U32(0x88252D58u),
       PPC_LOAD_U32(GA_MB_RELOAD),PPC_LOAD_U32(0x887AD594u),PPC_LOAD_U32(0x887AD598u));
   // [q] RT_QDIAG: state + reload-flag *(0x887AD58C) + mode64 *(0x887AD584) on EVERY change of any of
   // the three — exposes a state-6<->state-2 oscillation (reload flag stuck at 1) that the 1000-tick
   // [fsm] sampler misses. This is the "does the FSM re-teardown forever" test.
-  if(std::getenv("RT_QDIAG")){
+  if(RT_ENVC("RT_QDIAG")){
     static uint32_t ls=0xFFFFFFFFu, lr=0xFFFFFFFFu, lm=0xFFFFFFFFu;
     uint32_t rl=PPC_LOAD_U32(GA_MB_RELOAD), md=PPC_LOAD_U32(GA_MB_MODE64);
     if(st!=ls||rl!=lr||md!=lm){ ls=st; lr=rl; lm=md;
@@ -3127,7 +3134,7 @@ PPC_FUNC(sub_88138F00){
   // byte *(0x88449A0E) == 18 (r29=0x88449A00 from the prologue lis/addi; pad words r27/r26 =
   // *(0x885C33D8)/*(0x885C3430), tested vs bit 0x8000). Log byte transitions + pad words to
   // learn merged's value across the attract rotation (does 18 ever appear? at which slot?).
-  if(std::getenv("RT_G14")){
+  if(RT_ENVC("RT_G14")){
     static uint32_t lastb=0xFFFFu; static long k=0; static int prints=0;
     uint32_t b=PPC_LOAD_U8(0x88449A0Eu); bool chg=(b!=lastb); lastb=b;
     if((chg || (k%4000)==0) && prints<400)
@@ -3160,7 +3167,7 @@ PPC_FUNC(sub_88138F00){
   // RT_MODE64=<v>[:startTick] diagnostic: force mode64 *(0x887AD584)=v. mode64 selects the
   // confirm branch (1=read confirm byte; 0/2=auto-select; 3=skip). If the SDK has mode64==1 at
   // this menu and merged has 0, forcing 1 should route START through the confirm-byte path.
-  if(const char* mf=std::getenv("RT_MODE64")){
+  if(const char* mf=RT_ENVC("RT_MODE64")){
     int v=atoi(mf); const char* c=std::strchr(mf,':'); int at=c?atoi(c+1):0;
     if(n>=at){ PPC_STORE_U32(GA_MB_MODE64,(uint32_t)v);
       static int lg=0; if(lg++<2) std::fprintf(stderr,"[mode64] tick#%d forced mode64=%d\n",n,v); }
@@ -3170,7 +3177,7 @@ PPC_FUNC(sub_88138F00){
   // sub_88137C28 whose OWN gate halfwords live at 0x884D678C(+76)/0x884D678E(+78): the pad
   // read (loc_88137CEC) only runs when +78 == 0. Now also logs the confirm byte 0x885C6837 and
   // the full raw pad word 0x885C33D8 so we see exactly what the menu tick sees.
-  if(std::getenv("RT_S5")){
+  if(RT_ENVC("RT_S5")){
     static uint64_t lastKey=0xFFFFFFFFFFFFFFFFull;
     uint32_t sub=PPC_LOAD_U16(0x884D6774u);
     uint32_t c76=PPC_LOAD_U16(0x884D678Cu), c78=PPC_LOAD_U16(0x884D678Eu);
@@ -3184,7 +3191,7 @@ PPC_FUNC(sub_88138F00){
   // RT_FSMRESET=2: wedge WATCHDOG — the stale-handle wedge (state 1, unchanged handle, no
   // progress) recurs on NATIVE transitions (e.g. START press), not just the scripted modecmd.
   // Detect: state==1 with the same tracked handle for 500 consecutive ticks -> zero it.
-  if(const char* fr=std::getenv("RT_FSMRESET"); fr && atoi(fr)>=2){
+  if(const char* fr=RT_ENVC("RT_FSMRESET"); fr && atoi(fr)>=2){
     static int thresh=[&]{ const char* t=std::getenv("RT_WDTICKS"); return t?atoi(t):120; }();
     static uint32_t lastH=0xFFFFFFFFu; static int stuck=0; static int resets=0;
     uint32_t h=PPC_LOAD_U32(0x884D66B4u);
@@ -3208,7 +3215,7 @@ PPC_FUNC(sub_88138F00){
   // RT_START352's raw poke — runs the cleanup, sticks). Gate to fire ONCE at the RIGHT time:
   // side 0 committed (MB+308 bit0) AND MB+352==0 AND MB+1860==0 AND in the menu (state 5, d76 in
   // {1,4}). Firing before side0 is committed would reference an uninitialized side record.
-  if(const char* sa=std::getenv("RT_STARTACT")){
+  if(const char* sa=RT_ENVC("RT_STARTACT")){
     int lvl=atoi(sa);
     static bool fired=false;
     uint32_t d76=PPC_LOAD_U16(0x884D678Cu);
@@ -3238,14 +3245,14 @@ PPC_FUNC(sub_88138F00){
   // gate 88449a13 (nonzero => FUN_88103048 skips the ENTIRE confirm block => +0x744 never reaches 2
   // => case-8 wall). Log on change of any key field (+ first 40 frames). RT_SELEDGE>=2 also FORCES
   // 88449a13=0 (grounded: the game itself zeroes it at reco 124100/124155) to test that gate.
-  if(std::getenv("RT_SELEDGE")){
+  if(RT_ENVC("RT_SELEDGE")){
     uint32_t wdg=PPC_LOAD_U32(0x8844A3A8u);
     uint32_t w744=wdg?PPC_LOAD_U32(wdg+0x744u):0xFFFFFFFF, w760=wdg?PPC_LOAD_U32(wdg+0x760u):0;
     uint32_t a3b8=PPC_LOAD_U32(0x8844A3B8u), a3d0=PPC_LOAD_U32(0x8844A3D0u);
     uint32_t a3cc=PPC_LOAD_U32(0x8844A3CCu), a3c8=PPC_LOAD_U32(0x8844A3C8u);
     uint32_t e5b0=PPC_LOAD_U32(0x887AD5B0u)&0x8000u, e33d4=PPC_LOAD_U32(0x885C33D4u)&0x8000u, e33d8=PPC_LOAD_U32(0x885C33D8u)&0x8000u;
     uint8_t a13=PPC_LOAD_U8(0x88449A13u);
-    if(std::atoi(std::getenv("RT_SELEDGE"))>=2 && a13){ PPC_STORE_U8(0x88449A13u,0);
+    if(std::atoi(RT_ENVC("RT_SELEDGE"))>=2 && a13){ PPC_STORE_U8(0x88449A13u,0);
       static std::atomic<int> f{0}; if(f.fetch_add(1)<3) std::fprintf(stderr,"[seledge] FORCED 88449a13 %u->0 (confirm-gate)\n",a13); }
     static std::atomic<int> sn{0}; int si=sn.fetch_add(1);
     static uint64_t lk=~0ull;
@@ -3280,7 +3287,7 @@ PPC_FUNC(sub_88138F00){
   if(g_armcred_on && st==5){
     static std::atomic<int> settle{0}; static std::atomic<int> armed{0};
     uint32_t d76=PPC_LOAD_U16(0x884D678Cu);
-    int lvl=std::atoi(std::getenv("RT_ARMCRED"));
+    int lvl=std::atoi(RT_ENVC("RT_ARMCRED"));
     // lvl>=3: require the select to have COMPLETED (d76 reached >=5 once) before arming.
     bool postGate = (lvl<3) || (g_armcred_post.load()!=0);
     // wait until the game-module select menu exists (session d76>=2) then settle ~90 ticks
@@ -3305,7 +3312,7 @@ PPC_FUNC(sub_88138F00){
     static std::atomic<int> eio{0};
     bool gmf=(xr_gettid()==g_gm_loop_tid.load(std::memory_order_relaxed));
     if(gmf) g_gm_stage.store(5,std::memory_order_relaxed);
-    if(std::getenv("RT_JOINP")){ int e=eio.fetch_add(1)+1;
+    if(RT_ENVC("RT_JOINP")){ int e=eio.fetch_add(1)+1;
       if(e%120==0) std::fprintf(stderr,"[fsmio] 88138F00 ENTER#%d st=%u\n",e,st);
       __imp__sub_88138F00(ctx,base);
       if(e%120==0) std::fprintf(stderr,"[fsmio] 88138F00 EXIT#%d\n",e);
@@ -3328,7 +3335,7 @@ PPC_FUNC(sub_88138F00){
   // RT_NAVREAL>=2 it additionally SUSTAINS the confirmed real field (clamp teardown flag
   // 0x884D6878=0 + re-arm slot0 credits 0x884D6CEA), gated on the real-field signal so it never
   // holds the attract demo. Default OFF => byte-identical.
-  if(std::getenv("RT_NAVREAL")){
+  if(RT_ENVC("RT_NAVREAL")){
     static uint32_t lst=0xFFFFFFFFu, ld76=0xFFFFFFFFu;
     uint32_t d76nr=PPC_LOAD_U16(0x884D678Cu);
     uint32_t goflag=PPC_LOAD_U32(0x884D6878u);   // game-over/teardown flag (death chain)
@@ -3363,7 +3370,7 @@ PPC_FUNC(sub_88138F00){
     if(held && !fieldSeen && field!=0u){ fieldSeen=true;
       std::fprintf(stderr,"[navreal] REAL-FIELD CONFIRMED: field_active=%u d76=%u maxD76=%u slot0-active=%u cred=%u -- credited stage-1\n",
         field,d76nr,maxD76,PPC_LOAD_U8(0x884D6CE8u),cred); }
-    if(held && atoi(std::getenv("RT_NAVREAL"))>=2){
+    if(held && atoi(RT_ENVC("RT_NAVREAL"))>=2){
       // (a) keep the player slot LIVE + credits floored so no game-over/replay-save is ever reached.
       if(PPC_LOAD_U8(0x884D6CE8u)==0u){ PPC_STORE_U8(0x884D6CE8u,1u);
         static int sl=0; if(sl++<8) std::fprintf(stderr,"[navreal] re-activated player slot0 (0x884D6CE8 0->1)\n"); }
@@ -3404,7 +3411,7 @@ PPC_FUNC(sub_88138F00){
   // can see (a) whether the 1P join ever writes a -1 marker into a slot (the thing the id47 scan
   // looks for) and (b) the side-record join bit/credit-countdown timeline. If NO -1 marker ever
   // appears anywhere, the natural join-assign step is missing (the smoking gun). Byte-inert unset.
-  if(std::getenv("RT_JOINLOG")){
+  if(RT_ENVC("RT_JOINLOG")){
     static uint32_t ljd=0xFFFFFFFFu;
     uint32_t d76=PPC_LOAD_U16(0x884D678Cu);
     if(d76!=ljd){ ljd=d76;
@@ -3448,7 +3455,7 @@ PPC_FUNC(sub_88138F00){
   // TEST HARNESS lever (hold the field so renderer fixes can be captured), NOT shipped play.
   // Default OFF (env unset) => byte-identical. Runs on the MAIN-thread FSM tick, same thread as the
   // teardown, so the clamp pre-empts the flag before the teardown acts on it.
-  if(std::getenv("RT_FIELDHOLD")){
+  if(RT_ENVC("RT_FIELDHOLD")){
     static bool held=false;
     if(!held && PPC_LOAD_U32(GA_FIELD_ACTIVE)!=0u){ held=true;
       std::fprintf(stderr,"[fieldhold] field_active latched (0x885C1A20=%u) -- holding stage-1 field\n",
@@ -3478,7 +3485,7 @@ PPC_FUNC(sub_881526C0){
   //   (confirm widget) and the 0xD8/0xD9 child spawn; a roster that is missing one NAMES the
   //   missing scene-create.  Roster capped at 512 (LAWS: INSTRUMENT SATURATION — cap-hit is
   //   printed, so a saturated roster can never read as a complete one).  Default-off, read-only.
-  if(std::getenv("RT_SCENEID")){
+  if(RT_ENVC("RT_SCENEID")){
     static std::atomic<uint32_t> seen[512]; static std::atomic<int> nseen{0};
     bool have=false; int n=nseen.load();
     for(int j=0;j<n&&j<512;j++) if(seen[j].load()==id){ have=true; break; }
@@ -3497,7 +3504,7 @@ PPC_FUNC(sub_881526C0){
   // empty here, the init-time populator (suspect: msg-2 DA28 -> sub_880750A0 builds,
   // the session-5 count=0 debt) is the last-mile defect.
   { static std::atomic<int> once{0};
-    if(std::getenv("RT_TRACERES") && once.fetch_add(1)==0){
+    if(RT_ENVC("RT_TRACERES") && once.fetch_add(1)==0){
       uint32_t head=PPC_LOAD_U32(0x88449D4Cu);
       std::fprintf(stderr,"[desc] at first REQ: list head *(0x88449D4C)=0x%X nodes:",head);
       uint32_t node=head; int k=0;
@@ -3513,13 +3520,13 @@ PPC_FUNC(sub_881526C0){
   __imp__sub_881526C0(ctx,base);
   // [desc] ring/pump counters after each REQ: entryCount *(0x88449A1C), writeSeq *(0x88449D20),
   // pumpPending *(0x8844A054) — mismatch between enqueue side and pump side = the defect.
-  if(std::getenv("RT_TRACERES")){
+  if(RT_ENVC("RT_TRACERES")){
     static std::atomic<int> rq{0}; int q=rq.fetch_add(1);
     if(q<12) std::fprintf(stderr,"[desc] postREQ#%d cnt=%u seq=%u pumpPend=%u\n",q,
       PPC_LOAD_U32(0x88449A1Cu),PPC_LOAD_U32(0x88449D20u),PPC_LOAD_U32(0x8844A054u));
   }
   int n=g_req.fetch_add(1);
-  if(std::getenv("RT_TRACERES") && n<2000)
+  if(RT_ENVC("RT_TRACERES") && n<2000)
     std::fprintf(stderr,"[res] REQ#%d id=%u arg3=0x%X arg5=0x%X -> handle=0x%X\n",n,id,a3,a5,ctx.r3.u32);
 }
 // [kick] LEG-27/40 ring-window: sub_88080298 = the GAME d3d9 primary-ring writer + kick
@@ -3533,7 +3540,7 @@ PPC_FUNC(sub_88080298){
   static int probe = std::getenv("RVK_RINGPROBE")?atoi(std::getenv("RVK_RINGPROBE")):0;
   // RT_TICKRATE: kicks/sec = the ROM render loop's true iteration rate (the attract task family
   // measured 6-10/s vs ~60Hz presents — is the whole ROM loop throttled, or just the task slice?)
-  if(std::getenv("RT_TICKRATE")){
+  if(RT_ENVC("RT_TICKRATE")){
     static std::atomic<long long> kn{0}; long long ki=kn.fetch_add(1)+1;
     static const auto kt0=std::chrono::steady_clock::now();
     if(ki<=3 || (ki%120)==0){ double s=std::chrono::duration<double>(std::chrono::steady_clock::now()-kt0).count();
@@ -3625,7 +3632,7 @@ PPC_FUNC(sub_881538C0){
         ++en; std::fprintf(stderr,"[emittrace] lr=%08X id=%u x=%08X y=%08X prio=%u rec=%08X attr=%08X tl=(%08X,%08X) c=(%08X,%08X) uv=(%u,%u) wh=(%u,%u)\n",
           etlr,etid,etx,ety,etp,r,PPC_LOAD_U32(r),PPC_LOAD_U32(r+4),PPC_LOAD_U32(r+8),PPC_LOAD_U32(r+12),PPC_LOAD_U32(r+16),
           PPC_LOAD_U32(r+28),PPC_LOAD_U32(r+32),PPC_LOAD_U32(r+36),PPC_LOAD_U32(r+40)); } } }
-  if(std::getenv("RT_TRACERES")){
+  if(RT_ENVC("RT_TRACERES")){
     bool win=(i>=500000&&i<500040)||(i>=1500000&&i<1500040);
     if(win){
       static uint32_t prev=0;
@@ -3644,7 +3651,7 @@ extern "C" void __imp__sub_8822BE60(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_8822BE60){
   static std::atomic<int> n{0}; int i=n.fetch_add(1);
   __imp__sub_8822BE60(ctx,base);
-  if(std::getenv("RT_TRACERES") && (i<10 || (i%600)==0))
+  if(RT_ENVC("RT_TRACERES") && (i<10 || (i%600)==0))
     std::fprintf(stderr,"[fade] BE60#%d st=%u c1=%u c2=%u fl=%u\n",i,
       PPC_LOAD_U32(0x884EBC44u),PPC_LOAD_U32(0x884EBC48u),PPC_LOAD_U32(0x884EBC4Cu),PPC_LOAD_U32(0x884EBC50u));
 }
@@ -3657,7 +3664,7 @@ PPC_FUNC(sub_88091288){
   static std::atomic<int> n{0}; int i=n.fetch_add(1);
   uint32_t r3=ctx.r3.u32,r4=ctx.r4.u32,r5=ctx.r5.u32,r6=ctx.r6.u32;
   __imp__sub_88091288(ctx,base);
-  if(std::getenv("RT_TRACERES") && (i<40 || (i%500)==0)){
+  if(RT_ENVC("RT_TRACERES") && (i<40 || (i%500)==0)){
     char nm[25]; nm[0]=0;
     if(r6>=0x1000&&r6<0xFFFF0000u){ for(int k=0;k<24;++k){ char c=(char)*(base+r6+k); nm[k]=(c>=32&&c<127)?c:0; if(!c) break; } nm[24]=0; }
     uint32_t tbl=PPC_LOAD_U32(0x887AD4F8u); int occ=0;
@@ -3668,14 +3675,14 @@ PPC_FUNC(sub_88091288){
 extern "C" void __imp__sub_88091068(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_88091068){
   static std::atomic<int> n{0}; int i=n.fetch_add(1);
-  if(std::getenv("RT_TRACERES") && (i<20 || (i%5000)==0))
+  if(RT_ENVC("RT_TRACERES") && (i<20 || (i%5000)==0))
     std::fprintf(stderr,"[tt] EXEC-1068#%d r3=0x%X lr=0x%X\n",i,ctx.r3.u32,(uint32_t)ctx.lr);
   __imp__sub_88091068(ctx,base);
 }
 extern "C" void __imp__sub_88090F38(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_88090F38){
   static std::atomic<int> n{0}; int i=n.fetch_add(1);
-  if(std::getenv("RT_TRACERES") && (i<20 || (i%5000)==0))
+  if(RT_ENVC("RT_TRACERES") && (i<20 || (i%5000)==0))
     std::fprintf(stderr,"[tt] EXEC-F38#%d r3=0x%X lr=0x%X\n",i,ctx.r3.u32,(uint32_t)ctx.lr);
   __imp__sub_88090F38(ctx,base);
 }
@@ -3687,7 +3694,7 @@ PPC_FUNC(sub_88152900){
   if(e>=0x1000&&e<0xFFFF0000u){ h=PPC_LOAD_U32(e+4); id=PPC_LOAD_U32(e+8); }
   uint32_t live=PPC_LOAD_U32(0x88449D44u);
   __imp__sub_88152900(ctx,base);
-  if(std::getenv("RT_TRACERES")){
+  if(RT_ENVC("RT_TRACERES")){
     static std::atomic<int> n{0}; int i=n.fetch_add(1);
     if(ctx.r3.u32==0){
       static std::atomic<int> d{0}; int j=d.fetch_add(1);
@@ -3705,7 +3712,7 @@ PPC_FUNC(sub_881527B8){
   uint32_t w[5]={0,0,0,0,0};
   if(e>=0x1000&&e<0xFFFF0000u) for(int k=0;k<5;++k) w[k]=PPC_LOAD_U32(e+k*4);
   __imp__sub_881527B8(ctx,base);
-  if(std::getenv("RT_TRACERES") && i<2000)
+  if(RT_ENVC("RT_TRACERES") && i<2000)
     std::fprintf(stderr,"[desc] 27B8#%d e=0x%X {%08X %08X %08X %08X %08X} -> 0x%X\n",
       i,e,w[0],w[1],w[2],w[3],w[4],ctx.r3.u32);
 }
@@ -3713,12 +3720,12 @@ PPC_FUNC(sub_88152B00){
   uint32_t h=ctx.r3.u32;
   __imp__sub_88152B00(ctx,base);
   int n=g_poll.fetch_add(1);
-  if(std::getenv("RT_TRACERES") && n<12)
+  if(RT_ENVC("RT_TRACERES") && n<12)
     std::fprintf(stderr,"[res] POLL#%d handle=0x%X -> loaded=%d\n",n,h,ctx.r3.u32);
   // The interesting signal is the STUCK resource: log the first few loaded=0 per distinct
   // handle, plus a periodic summary of every handle still returning 0. (A hot state-3 wait
   // loop polls the full set each frame — millions of loaded=1 lines are noise.)
-  if(std::getenv("RT_TRACERES")){
+  if(RT_ENVC("RT_TRACERES")){
     static std::mutex m; static std::unordered_map<uint32_t,std::pair<int,uint32_t>> hs; // handle -> {zero_logs, last}
     std::lock_guard<std::mutex> l(m);
     auto& e=hs[h]; e.second=ctx.r3.u32;
@@ -3746,17 +3753,17 @@ PPC_FUNC(sub_88152B00){
 // msg-1 (ppc_recomp.32.cpp:21658). Log them to confirm they're null + why (RT_TRACERES).
 extern "C" void __imp__sub_88090360(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_88090360){
-  if(std::getenv("RT_TRACERES")){
+  if(RT_ENVC("RT_TRACERES")){
     uint32_t h0=PPC_LOAD_U32(0x885C5BB4u),h1=PPC_LOAD_U32(0x885C5BD4u),h2=PPC_LOAD_U32(0x885C5BF4u);
     std::fprintf(stderr,"[reg] sub_88090360 ENTER handlers h0=0x%X(vt=0x%X) h1=0x%X(vt=0x%X) h2=0x%X(vt=0x%X)\n",
       h0, h0?PPC_LOAD_U32(h0):0, h1, h1?PPC_LOAD_U32(h1):0, h2, h2?PPC_LOAD_U32(h2):0);
   }
   __imp__sub_88090360(ctx,base);
-  if(std::getenv("RT_TRACERES")) std::fprintf(stderr,"[reg] sub_88090360 EXIT r3=%d (1=all 157 registered)\n",ctx.r3.u32);
+  if(RT_ENVC("RT_TRACERES")) std::fprintf(stderr,"[reg] sub_88090360 EXIT r3=%d (1=all 157 registered)\n",ctx.r3.u32);
   // RT_AUDIOCRUX: after registration, report handler slots, loaded-flags, and how many of the 256
   // cue-table entries got a real waveIndex (!=0xFFFF). This tells us whether the empty-table defect
   // is upstream (null handlers / no cue names resolved) — read-only, default-OFF.
-  if(std::getenv("RT_AUDIOCRUX")){
+  if(RT_ENVC("RT_AUDIOCRUX")){
     uint32_t h0=PPC_LOAD_U32(0x885C5BB4u),h1=PPC_LOAD_U32(0x885C5BD4u),h2=PPC_LOAD_U32(0x885C5BF4u);
     uint32_t l0=PPC_LOAD_U32(0x885C5BCCu),l1=PPC_LOAD_U32(0x885C5BECu),l2=PPC_LOAD_U32(0x885C5C0Cu);
     int filled=0, firstc=-1, firstbt=-1, firstwi=-1;
@@ -3791,9 +3798,9 @@ extern "C" int  rt_audio_cuebridge_enabled(void);                  // rt_audio.c
 // the crux dispatch below is suppressed while the cue bridge is on. RT_CUEBRIDGE=0 restores it.
 static bool rt_crux_dispatch_on(){ return rt_audio_cuebridge_enabled()==0; }
 PPC_FUNC(sub_88090588){
-  bool crux   = std::getenv("RT_AUDIOCRUX")!=nullptr;
+  bool crux   = RT_ENVC("RT_AUDIOCRUX")!=nullptr;
   bool bridge = rt_audio_bridge_enabled()!=0;
-  bool bgmf   = std::getenv("RT_BGMFUNNEL")!=nullptr;
+  bool bgmf   = RT_ENVC("RT_BGMFUNNEL")!=nullptr;
   if(!crux && !bridge && !bgmf){ __imp__sub_88090588(ctx,base); return; }
 
   // Resolve the gate inputs read-only (same ladder as the disassembly; see gate map above).
@@ -3925,7 +3932,7 @@ PPC_FUNC(sub_88090588){
     // submixes' child lists (master 0x36A090+0x22c, category 0x372F10+0x22c); and the live wave's
     // send-list. (a) send-list empty + renderer list empty => attach never called. (b) send-list
     // non-empty / renderer list has entry but submix child empty => create/attach fails a gate.
-    if(std::getenv("RT_AUDIOROUTE") && prepared){
+    if(RT_ENVC("RT_AUDIOROUTE") && prepared){
       static std::atomic<int> rn{0};
       if(rn.fetch_add(1)<8){
         uint32_t eng=drv, rend=eng?PPC_LOAD_U32(eng+0x24):0;
@@ -3978,7 +3985,7 @@ extern "C" void __imp__sub_88093830(PPCContext& __restrict, uint8_t*);  // BGM-e
 extern "C" void __imp__sub_880E4948(PPCContext& __restrict, uint8_t*);  // BGM dispatch (cmd type==3)
 extern "C" void __imp__sub_880E49D8(PPCContext& __restrict, uint8_t*);  // SE  dispatch (cmd type==2) ref
 PPC_FUNC(sub_88093760){
-  if(std::getenv("RT_BGMFUNNEL")){
+  if(RT_ENVC("RT_BGMFUNNEL")){
     static std::atomic<long> n{0}; long c=n.fetch_add(1)+1;
     std::fprintf(stderr,"[funnel] *** BGM sub_88093760 #%ld slot=%u cueId=%u p3=%u p4(orig r6)=0x%X -> crux(param4=1)\n",
       c, ctx.r3.u32&0x7, ctx.r4.u32&0xFF, ctx.r5.u32&0xFF, ctx.r6.u32);
@@ -3986,7 +3993,7 @@ PPC_FUNC(sub_88093760){
   __imp__sub_88093760(ctx,base);
 }
 PPC_FUNC(sub_880937C8){
-  if(std::getenv("RT_BGMFUNNEL")){
+  if(RT_ENVC("RT_BGMFUNNEL")){
     static std::atomic<long> n{0}; long c=n.fetch_add(1)+1;
     if(c<=8||(c%50)==0)
       std::fprintf(stderr,"[funnel] SE  sub_880937C8 #%ld slot=%u cueId=%u p3=%u -> crux(param4=0)\n",
@@ -3995,7 +4002,7 @@ PPC_FUNC(sub_880937C8){
   __imp__sub_880937C8(ctx,base);
 }
 PPC_FUNC(sub_88093830){
-  if(std::getenv("RT_BGMFUNNEL")){
+  if(RT_ENVC("RT_BGMFUNNEL")){
     static std::atomic<long> n{0}; long c=n.fetch_add(1)+1;
     std::fprintf(stderr,"[funnel] *** ENGINE sub_88093830 #%ld cmdptr=0x%X hword0=%d -> crux\n",
       c, ctx.r3.u32, (int)(int16_t)PPC_LOAD_U16(ctx.r3.u32));
@@ -4003,7 +4010,7 @@ PPC_FUNC(sub_88093830){
   __imp__sub_88093830(ctx,base);
 }
 PPC_FUNC(sub_880E4948){
-  if(std::getenv("RT_BGMFUNNEL")){
+  if(RT_ENVC("RT_BGMFUNNEL")){
     static std::atomic<long> n{0}; long c=n.fetch_add(1)+1;
     std::fprintf(stderr,"[bgmdisp] *** sub_880E4948 #%ld ENTER (a type-3 BGM sound-command was consumed) r3=%u r4=%u r5=%u r6=%u\n",
       c, ctx.r3.u32&0xFF, ctx.r4.u32&0xFF, ctx.r5.u32&0xFF, ctx.r6.u32&0xFF);
@@ -4011,7 +4018,7 @@ PPC_FUNC(sub_880E4948){
   __imp__sub_880E4948(ctx,base);
 }
 PPC_FUNC(sub_880E49D8){
-  if(std::getenv("RT_BGMFUNNEL")){
+  if(RT_ENVC("RT_BGMFUNNEL")){
     static std::atomic<long> n{0}; long c=n.fetch_add(1)+1;
     if(c<=8||(c%50)==0)
       std::fprintf(stderr,"[sedisp] sub_880E49D8 #%ld ENTER (type-2 SE sound-command consumed) [reference]\n", c);
@@ -4025,7 +4032,7 @@ PPC_FUNC(sub_880E49D8){
 extern "C" void __imp__sub_880E3128(PPCContext& __restrict, uint8_t*);  // BGM producer (type==3)
 extern "C" void __imp__sub_880E31B0(PPCContext& __restrict, uint8_t*);  // SE  producer (type==2) ref
 PPC_FUNC(sub_880E3128){
-  if(std::getenv("RT_BGMFUNNEL")){
+  if(RT_ENVC("RT_BGMFUNNEL")){
     static std::atomic<long> n{0}; long c=n.fetch_add(1)+1;
     std::fprintf(stderr,"[prod] *** BGM-ENQUEUE sub_880E3128 #%ld (type=3) p1=%u p2=%u p3=%u p4=%u caller-lr=0x%X\n",
       c, ctx.r3.u32&0xFF, ctx.r4.u32&0xFF, ctx.r5.u32&0xFF, ctx.r6.u32&0xFF, (uint32_t)ctx.lr);
@@ -4033,7 +4040,7 @@ PPC_FUNC(sub_880E3128){
   __imp__sub_880E3128(ctx,base);
 }
 PPC_FUNC(sub_880E31B0){
-  if(std::getenv("RT_BGMFUNNEL")){
+  if(RT_ENVC("RT_BGMFUNNEL")){
     static std::atomic<long> n{0}; long c=n.fetch_add(1)+1;
     if(c<=6||(c%100)==0)
       std::fprintf(stderr,"[prod] SE-ENQUEUE sub_880E31B0 #%ld (type=2) caller-lr=0x%X [reference]\n", c, (uint32_t)ctx.lr);
@@ -4335,8 +4342,8 @@ PPC_FUNC(sub_8824E698){
   // (*(u32*)r4) the same way the msg-10 dispatch arm at 0x8824E960 does (lwz r10,0(r3) after the
   // dispatcher's own r3<-r4 swap), BEFORE __imp__sub_8824E698 runs the dispatch, so the value is
   // the sender's payload, not anything the arm itself wrote. Default-off (bank/r23/w52/read_train_mechanism_w52.md).
-  if(m==10 && ctx.r4.u32 && std::getenv("RT_MSG10PAY")) std::fprintf(stderr,"[gemsg] msg=10 payload[0]=0x%X r4=0x%X\n",(unsigned)PPC_LOAD_U32(ctx.r4.u32),ctx.r4.u32);
-  const bool verbose = std::getenv("RT_MSGLOG")!=nullptr;
+  if(m==10 && ctx.r4.u32 && RT_ENVC("RT_MSG10PAY")) std::fprintf(stderr,"[gemsg] msg=10 payload[0]=0x%X r4=0x%X\n",(unsigned)PPC_LOAD_U32(ctx.r4.u32),ctx.r4.u32);
+  const bool verbose = RT_ENVC("RT_MSGLOG")!=nullptr;
   // The rare, credited-flow-relevant messages: arm/config setters + the msg-14 credited trigger.
   bool crit = (m==9||m==10||m==11||m==12||m==13||m==14||m==15||m==16||m==17||m==18||m==19||m==20);
   // RT_DRVSTREAM (2026-08-15, decomp/shell/driver_msgs.cpp gate lane): widen [msglog] to EVERY
@@ -4348,7 +4355,7 @@ PPC_FUNC(sub_8824E698){
   // merged_game.cpp (the DLLs), which is IDENTICAL in both arms, so the tap is arm-symmetric:
   // the arms differ only by decomp_driver_msgs.o on the host link line.
   // Default-off; when unset the behaviour is exactly the prior logger.
-  const bool stream = std::getenv("RT_DRVSTREAM")!=nullptr;
+  const bool stream = RT_ENVC("RT_DRVSTREAM")!=nullptr;
   if(stream) crit = true;
   if((verbose||stream) && crit && n>0 && (stream || n<=6)){
     uint32_t r4=ctx.r4.u32; uint32_t w0=0,w1=0,w2=0,w3=0;
@@ -5460,7 +5467,7 @@ static void s88_poll(uint8_t* base){
   //   INVISIBLE to it, so a small change count is a LOWER BOUND and must never be reported as
   //   "only N writes happened".  The INITIAL line exists so that a zero is falsifiable (LAW M+:
   //   a canary's zero is unreadable without an armed banner).
-  if(std::getenv("RT_D6E70")){
+  if(RT_ENVC("RT_D6E70")){
     static uint32_t d6q=0; static bool d6have=false; static std::atomic<int> d6n{0};
     const uint32_t d6v = PPC_LOAD_U32(0x884D6E70u);
     if(!d6have){
@@ -5648,7 +5655,7 @@ namespace {
 }
 extern "C" void __imp__sub_88102A78(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_88102A78){
-  if(std::getenv("RT_C64CTOR")){
+  if(RT_ENVC("RT_C64CTOR")){
     static std::atomic<int> c{0}; const int k=c.fetch_add(1);
     if(k<400){
       std::fprintf(stderr,"[c64ctor] #%d t+%lldms r3=0x%08X lr=0x%08X | pg58=%u pg5c=%u d76=%u\n",

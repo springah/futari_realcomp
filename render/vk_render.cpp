@@ -10,6 +10,13 @@
 //     VS/PS + per-texture descriptor sets, kept verbatim as an A/B / regression fallback.
 // Both share the device/instance/offscreen target/renderpass/readback/PNG writer.
 #include "vk_render.h"
+#include <cstdlib>
+#ifndef RT_ENVC
+// (2026-11-07 w1107 M1, getenv hot-path audit) per-site cached getenv. The MSVC CRT getenv takes the environment
+// lock and _strnicmp-scans the whole block on EVERY call (WIN-AUDIO-1, 0f23859); nothing in the process mutates the
+// environment after startup, so caching the first lookup per call site is semantically identical.
+#define RT_ENVC(name) ([]() -> const char* { static const char* const rt_envc_v = std::getenv(name); return rt_envc_v; }())
+#endif
 #include "shaders_spv.h"
 #include "xrgen_shaders.h"   // GENERATED (XenosRecomp glvl-d3d9) SPIR-V for the ROM shader set
 #include "rotate_spirv.h"    // GENERATED (tools/gen_rotate_spirv.py): RT_ROTATE present pass SPIR-V
@@ -3198,7 +3205,7 @@ uint32_t getTexIndexReal(uint32_t base, uint32_t w, uint32_t h, uint32_t fmt, ui
   // or inside an INDIRECT_BUFFER whose live guest memory is recycled by present time, so the decoder
   // reads base=0 here and silently binds white.
   if (!base || w == 0 || h == 0 || w > 2048 || h > 2048) {
-    if (std::getenv("RVK_TEXWHITE")) {
+    if (RT_ENVC("RVK_TEXWHITE")) {
       static long twN = 0, twBase0 = 0, twDim = 0;
       ++twN; if (!base) ++twBase0; else ++twDim;
       if ((twN % 200) == 0)
@@ -3212,12 +3219,12 @@ uint32_t getTexIndexReal(uint32_t base, uint32_t w, uint32_t h, uint32_t fmt, ui
     if (!warned.count(fmt)) { std::fprintf(stderr, "[rvk] unsupported texture fmt=%u base=0x%X %ux%u — using white\n", fmt, base, w, h); warned[fmt] = true;
       // RVK_DUMP_ON_WHITE (2026-07-23 dim-quad hunt): first unsupported-fmt fallback arms the
       // per-draw ops dump for the next few frames — catches the offending draw's vs/ps/blend.
-      extern bool g_dumpWhiteTrig; if (std::getenv("RVK_DUMP_ON_WHITE")) g_dumpWhiteTrig = true; }
+      extern bool g_dumpWhiteTrig; if (RT_ENVC("RVK_DUMP_ON_WHITE")) g_dumpWhiteTrig = true; }
     // RVK_ALIASPROBE (2026-07-16): Fable's verdict is that "the wash" is this white fallback taken for
     // a RESOLVE-COPY texture whose fetch-constant base carries a PHYSICAL-ALIAS bit (e.g. 0x1116D000)
     // that g_resolveTex.find(base) misses because the resolve registered at the un-aliased 0x116D000.
     // Log whether masking the alias bits WOULD have hit a registered resolve. res=1 = alias miss proven.
-    if (std::getenv("RVK_ALIASPROBE")) {
+    if (RT_ENVC("RVK_ALIASPROBE")) {
       static std::unordered_map<uint32_t,int> seen;
       if (seen.size() < 40 && !seen.count(base)) { seen[base]=1;
         std::fprintf(stderr, "[aliasprobe] WHITE base=0x%X fmt=%u %ux%u | raw_res=%d masked(0x1FFFFFFF)=0x%X masked_res=%d\n",
@@ -3531,7 +3538,7 @@ uint32_t getTexIndexReal(uint32_t base, uint32_t w, uint32_t h, uint32_t fmt, ui
   // RVK_CYANDBG (2026-07-14): one-shot per base — dump the decoded fmt/dims/tiling of every sampled
   // texture. Distinguishes cyan-tint hypothesis rank2 (is the cave terrain 0x120F7000 fmt6 or a
   // hand-guessed fmt like 26?) from rank1 (resolve dest-swap). Diagnostic only, default off.
-  if (std::getenv("RVK_CYANDBG")) {
+  if (RT_ENVC("RVK_CYANDBG")) {
     static std::unordered_map<uint32_t,int> cyanTexLogged;
     if (!cyanTexLogged.count(base)) { cyanTexLogged[base] = 1;
       std::fprintf(stderr, "[cyandbg][tex] base=0x%X %ux%u fmt=%u %s tf0=0x%X fpitch=%u\n",
@@ -3539,7 +3546,7 @@ uint32_t getTexIndexReal(uint32_t base, uint32_t w, uint32_t h, uint32_t fmt, ui
   }
   // RVK_RAWDUMP=0xBASE (portrait-decode RE 2026-07-15): one-shot raw contiguous guest-byte dump of a
   // watched texture base, so the untiling can be brute-forced offline. Diagnostic only, default off.
-  if (const char* rd = std::getenv("RVK_RAWDUMP")) {
+  if (const char* rd = RT_ENVC("RVK_RAWDUMP")) {
     uint32_t rb = (uint32_t)std::strtoul(rd, nullptr, 0);
     // rb==1 => AUTO: capture up to 16 distinct fmt3 256x256 portrait bases across the FULL portrait
     // range (0x12000000..0x18100000, matching RVK_ZSCAN) so a whole char-select roster can be decoded
@@ -3587,7 +3594,7 @@ uint32_t getTexIndexReal(uint32_t base, uint32_t w, uint32_t h, uint32_t fmt, ui
     // guest memory, so rendering is untouched). A LIVE-vs-SNAP comparison that cannot report a
     // difference is worthless evidence; with this armed the census MUST come back sigMatch=0 on
     // most rects. Doctrine: an instrument lies until a positive control says otherwise.
-    if (std::getenv("RVK_TRIPUV_POISON")) {
+    if (RT_ENVC("RVK_TRIPUV_POISON")) {
       for (size_t pi = 0; pi + 4 <= s.bytes.size(); pi += 16 * 4) s.bytes[pi + 1] ^= 0x40;   // every 16th dword
       std::fprintf(stderr, "[tripuv][snap] base=0x%X SNAPSHOT POISONED (RVK_TRIPUV_POISON) -- expect sigMatch=0\n", base);
     }
@@ -5955,7 +5962,7 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
   // RVK_DUMP_ON_WHITE: armed by the first unsupported-fmt white fallback (see rTexIndex) —
   // dump the trigger frame's remaining draws + the next 2 full frames.
   { extern bool g_dumpWhiteTrig; static long trigFrames = 0; static long lastTrigF = -1;
-    long trigCap = std::getenv("RVK_WHITE_FRAMES") ? std::strtol(std::getenv("RVK_WHITE_FRAMES"), nullptr, 10) : 3;
+    long trigCap = RT_ENVC("RVK_WHITE_FRAMES") ? std::strtol(RT_ENVC("RVK_WHITE_FRAMES"), nullptr, 10) : 3;
     if (g_dumpWhiteTrig && trigFrames < trigCap) {
       dumpOps = true;
       if (frame != lastTrigF) { lastTrigF = frame; trigFrames++; }
@@ -6006,7 +6013,7 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
     // (guarded by arenaDumped) lands on the first proper kick-arena frame (ndraw>=80, start in
     // the rt_alloc heap) without having to guess the K-th field frame. Only active under
     // RVK_ARENADUMP, so it never perturbs normal runs.
-    if ((g_rt_realstage || std::getenv("RVK_ARENA_ANYFIELD")) && std::getenv("RVK_ARENADUMP")) { fieldTrig = true; render = true; }
+    if ((g_rt_realstage || RT_ENVC("RVK_ARENA_ANYFIELD")) && RT_ENVC("RVK_ARENADUMP")) { fieldTrig = true; render = true; }
   }
   static bool dumpedOps = false;
   std::unordered_map<uint32_t, uint32_t> opHist;   // TYPE3 op -> count
@@ -6383,7 +6390,7 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
               // RVK_DUMP_ON_VEIL: arm the per-draw ops dump when the SUMMON veil appears (not
               // the boot white fallback) — lands the dump on the frames where the menu panels
               // exist. Distinct from RVK_DUMP_ON_WHITE (boot-early).
-              extern bool g_dumpWhiteTrig; if (std::getenv("RVK_DUMP_ON_VEIL")) g_dumpWhiteTrig = true;
+              extern bool g_dumpWhiteTrig; if (RT_ENVC("RVK_DUMP_ON_VEIL")) g_dumpWhiteTrig = true;
             }
           }
           // ★ FNF-3 (2026-07-26 diagnosis, 2026-07-27 SHIPPED). The TOP MENU's illustrated
@@ -6560,7 +6567,7 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
                 curVsScreenHost = curVsModelHost = (float*)sl.host;
               }
             }
-            if (render && std::getenv("RVK_DEBUG_CONSTS"))
+            if (render && RT_ENVC("RVK_DEBUG_CONSTS"))
               std::fprintf(stderr, "[rvk][debug] draw%d snap c0=(%.4f,%.4f,%.4f,%.4f) c1=(%.4f,%.4f,%.4f,%.4f) c3=(%.4f,%.4f,%.4f,%.4f) degen=%d v0=(%.1f,%.1f) n=%u\n",
                 ndraw, g_vsConstF[0],g_vsConstF[1],g_vsConstF[2],g_vsConstF[3], g_vsConstF[4],g_vsConstF[5],g_vsConstF[6],g_vsConstF[7],
                 g_vsConstF[12],g_vsConstF[13],g_vsConstF[14],g_vsConstF[15], (int)curVsDegen, bef(va), bef(va + 4), n);
@@ -6600,7 +6607,7 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
           // tiles (0x120F7000/0x12117000) carry a DIFFERENT c255 (scroll transform) than the
           // sprites/HUD — the c255 clobber below forces them all to g_c255v, which would collapse
           // any tile whose real transform differs.
-          if (fieldTrig && g_curVsIdx == 48 && curVsHost && std::getenv("RVK_C255PROBE")) {
+          if (fieldTrig && g_curVsIdx == 48 && curVsHost && RT_ENVC("RVK_C255PROBE")) {
             uint32_t pbase = ((tf[1] >> 12) & 0xFFFFF) << 12;
             static int cpl = 0; if (cpl++ < 40)
               std::fprintf(stderr, "[rvk][c255probe] vs48 base=0x%X guestC255={%.5f,%.5f,%.5f,%.5f} clobbered=%d (g_c255v={%.5f,%.5f,%.5f,%.5f})\n",
@@ -6695,7 +6702,7 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
           // dwords for each distinct sampled fmt-3 256x256 portrait-range base, one-shot. dword_1 carries
           // the ENDIANNESS field (bits 6..7) that getTexIndexReal ignores (it always be16-swaps) -- the
           // prime suspect for why 0x17xxxxxx pages shred while 0x12xxxxxx pages decode clean. Diagnostic.
-          if (std::getenv("RVK_TFDUMP") && fmt == 3 && tw == 256 && th == 256 &&
+          if (RT_ENVC("RVK_TFDUMP") && fmt == 3 && tw == 256 && th == 256 &&
               base >= 0x12000000u && base < 0x18100000u) {
             static std::unordered_map<uint32_t,int> tfLogged;
             if (!tfLogged.count(base)) { tfLogged[base] = 1;
@@ -7035,7 +7042,7 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
                   std::fprintf(stderr, "[rvk][atest] ARMED: colorCtl=0x%X func=%u ref=%.4f (first armed batch)\n", colorCtl, atFunc, aref); }
               } else athresh = 0.5f;
             }
-            if (const char* ae = std::getenv("RVK_ATHRESH")) athresh = (float)atof(ae);
+            if (const char* ae = RT_ENVC("RVK_ATHRESH")) athresh = (float)atof(ae);
             std::memcpy(sc + 272, &athresh, 4);
             auto sl = arenaAlloc(512); std::memcpy(sl.host, sc, 512);
             curSharedBDA = sl.addr;
@@ -7321,7 +7328,7 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
           static long meshDumpLines = 0;
           if (!meshDumpInit) {
             meshDumpInit = true;
-            if (const char* e = std::getenv("RVK_MESHDUMP")) {
+            if (const char* e = RT_ENVC("RVK_MESHDUMP")) {
               meshDumpBase[0] = (uint32_t)strtoul(e, nullptr, 16);
               if (const char* comma = std::strchr(e, ',')) meshDumpBase[1] = (uint32_t)strtoul(comma + 1, nullptr, 16);
               meshDumpFp = std::fopen(rvkDumpPath("meshdump.txt"), "a");
@@ -7350,7 +7357,7 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
           static bool onlyBaseInit = false;
           static uint32_t onlyBase = 0u, onlyBaseBlend = 0u; static bool onlyBaseHasBlend = false;
           if (!onlyBaseInit) { onlyBaseInit = true;
-            if (const char* e = std::getenv("RVK_ONLYBASE")) {
+            if (const char* e = RT_ENVC("RVK_ONLYBASE")) {
               onlyBase = (uint32_t)strtoul(e, nullptr, 16);
               if (const char* colon = std::strchr(e, ':')) { onlyBaseBlend = (uint32_t)strtoul(colon + 1, nullptr, 16); onlyBaseHasBlend = true; }
             }
@@ -7457,7 +7464,7 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
           // spent on the first menu draws past 1500. RVK_SHEARDBG_CAP overrides the line budget.
           static long shearFrom = std::getenv("RVK_SHEARDBG") ? std::strtol(std::getenv("RVK_SHEARDBG"), nullptr, 10) : -1;
           static long shearCap = std::getenv("RVK_SHEARDBG_CAP") ? std::strtol(std::getenv("RVK_SHEARDBG_CAP"), nullptr, 10) : 80;
-          if (std::getenv("RVK_SHEARDBG") && frame > (shearFrom > 1 ? shearFrom : 1500) && g_curVsIdx == 48 && n >= 6) {
+          if (RT_ENVC("RVK_SHEARDBG") && frame > (shearFrom > 1 ? shearFrom : 1500) && g_curVsIdx == 48 && n >= 6) {
             static long shd = 0;
             if (shd++ < shearCap) {
               const char* topo = (prim == 8 && (n % 3) == 0) ? "RECTLIST"
@@ -7490,7 +7497,7 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
               // [vscdiff] find the guest's ANIMATED VS constant (the fade/material color the synth48
               // shader ignores): diff the full VS float-constant file across consecutive tile draws
               // and print the slots that changed. The legal fly-in fade must show up here.
-              if (std::getenv("RVK_VSCDIFF")) {
+              if (RT_ENVC("RVK_VSCDIFF")) {
                 static float prevC[1024]; static bool has = false; static long lastF = -1;
                 if (frame != lastF) {
                   if (has) {
@@ -7522,7 +7529,7 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
               // [vfetchdump] the decode follows ONLY vfetch pair 0x48BE/BF; the real guest vs48
               // (0xF4C1040) may fetch a per-vertex/material COLOR from a SECOND vfetch slot we
               // never read (the missing fade path). Dump the tail of the fetch-constant file.
-              if (std::getenv("RVK_VFETCHDUMP")) {
+              if (RT_ENVC("RVK_VFETCHDUMP")) {
                 static long vfd = 0;
                 if (vfd++ < 12) {
                   std::fprintf(stderr, "[vfetchdump] f%ld d%d FULL fetch file 0x4800-0x48BF:\n", frame, ndraw);
@@ -7537,7 +7544,7 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
               // through the SAME tiledOff used at upload: does the glyph-cache cell (0..32,0..32) of
               // the bound fmt-3 atlas hold DIFFERENT content NOW than at first-sample/upload time?
               // (dynamic glyph atlas ⇒ our never-invalidated texture cache would diverge.)
-              if (std::getenv("RVK_TILEPROBE")) {
+              if (RT_ENVC("RVK_TILEPROBE")) {
                 uint32_t tb = 0;
                 for (auto& kv : g.rTexIndex) if (kv.second == texIdx) { tb = (uint32_t)(kv.first >> 8); break; }
                 if (tb) {
@@ -7955,7 +7962,7 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
 
   // [s5r] correlate draws-per-frame with the game FSM state (shared address space): every
   // 600th frame print fsm + ndraw so we see whether the menu (state 5) actually emits draws.
-  if (std::getenv("RVK_S5") && g_base) {
+  if (RT_ENVC("RVK_S5") && g_base) {
     static long fc = 0;
     if ((fc++ % 600) == 0) {
       uint32_t fsm = __builtin_bswap32(*(const uint32_t*)(g_base + 0x884D66A8u));
@@ -8244,7 +8251,7 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
       // RVK_PERSISTLOG (2026-07-19 PERSIST-retirement study): log every engagement so the A/B
       // (PERSIST heuristic vs the guest's own VS5RECTALL frame-base restore draw) knows WHICH
       // frames/screens the heuristic actually protects in a given run shape. Capped, default off.
-      if (persist && std::getenv("RVK_PERSISTLOG")) {
+      if (persist && RT_ENVC("RVK_PERSISTLOG")) {
         static long plN = 0;
         if (plN++ < 120) std::fprintf(stderr, "[persistlog] f%ld ENGAGED nb=%d peak=%d\n", frame, nb, peakBatches);
       }
@@ -8286,7 +8293,7 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
           vkCmdSetViewport(g.cmd, 0, 1, &tvp); lastVp = tvp;
         }
         vkCmdPushConstants(g.cmd, g.rPlLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(pc), &pc);
-        if (std::getenv("RVK_BATCHDBG")) {
+        if (RT_ENVC("RVK_BATCHDBG")) {
           std::fprintf(stderr, "[rvk][batchdbg] frame%ld seg-batch pipe=%p idxCount=%u firstIdx=%u vp={%.0f,%.0f,%.0f,%.0f} vs=%llx ps=%llx\n",
             frame, (void*)b.pipeline, b.indexCount, b.firstIndex, b.vp.x, b.vp.y, b.vp.width, b.vp.height,
             (unsigned long long)b.vsBDA, (unsigned long long)b.psBDA);
@@ -8561,7 +8568,7 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
         // each batch's texture identity so we can see whether the white grid = these quads sampling
         // the 1x1 white (idx 0) / an empty resolve. This is the batch-level datum the gated manifest
         // could not reach. One-shot per (rt.dst,batch-slot) to keep the log short.
-        if (std::getenv("RVK_SEGWHO")) {
+        if (RT_ENVC("RVK_SEGWHO")) {
           static std::set<uint64_t> shown;
           uint64_t k = ((uint64_t)rt.idx << 40) | ((uint64_t)(bi2 - b0) << 8) | (b.texIdx & 0xFF);
           if (shown.size() < 80 && shown.insert(k).second) {
@@ -8969,7 +8976,7 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
             // vs a per-layer skip can be A/B'd on the atlas itself. Writes /tmp/atlasdump_WxH_seq.png.
             // NOTE: valid bytes only under RVK_HDR=0 (LDR/UNORM8 scratch); under HDR the R16F scratch
             // is misread by writePng (same caveat as DUMPRES). Default off = byte-identical.
-            if (std::getenv("RVK_ATLASDUMP") && scratch.w >= 512 && scratch.image) {
+            if (RT_ENVC("RVK_ATLASDUMP") && scratch.w >= 512 && scratch.image) {
               segBatchFlush();   // RVK_SEGBATCH: the dump reads the scratch — settle deferred renders first
               static long adSeq = 0; static long adEvery = [](){ const char* e = std::getenv("RVK_ATLASDUMP_EVERY"); long v = e ? std::atol(e) : 30; return v > 0 ? v : 30; }();
               if ((adSeq % adEvery) == 0) {
@@ -9254,7 +9261,7 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
       if (rvkRingOn()) g.ringPending[g.ringIdx] = true; else VKC(rvkWaitFences(g.dev, 1, &g.fence, VK_TRUE, 10000000000ull), "wait(rbrt)");
       return true;
     };
-    if (std::getenv("RVK_BATCHDBG")) {
+    if (RT_ENVC("RVK_BATCHDBG")) {
       std::fprintf(stderr, "[rvk][segdbg] frame%ld resolves=%zu batches=%zu finalSeg=[%zu,%zu) (empty=%d)",
         frame, resolves.size(), batches.size(), b0, batches.size(), (int)(b0 >= batches.size()));
       for (auto& r : resolves) std::fprintf(stderr, " rdst=0x%X(%ux%u)", r.dst, r.w, r.h);
@@ -9463,7 +9470,7 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
       lastMenuHb = g_rt_menu_heartbeat;
       const bool doOverlay = menuOverlay && ovN > 0 && menuLive;
       // RVK_OVLLOG (capped, timing-safe — not behind compDbg): why doOverlay is/ isn't set.
-      if (std::getenv("RVK_OVLLOG")) { static long oi = 0; if (oi++ < 5000) {
+      if (RT_ENVC("RVK_OVLLOG")) { static long oi = 0; if (oi++ < 5000) {
         std::fprintf(stderr, "[ovllog] f%ld hb=%u resolves=%zu ov=[%zu,%zu) ovN=%d menuLive=%d do=%d |", frame, g_rt_menu_heartbeat, resolves.size(), ovB0, ovB1, ovN, (int)menuLive, (int)doOverlay);
         for (auto& r : resolves) std::fprintf(stderr, " 0x%X(%ux%u@%zu)", r.dst, r.w, r.h, r.batchIdx);
         std::fprintf(stderr, "\n"); } }
@@ -9565,13 +9572,13 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
             float v = cur * fad + fls;
             if (v > 0.f && v < 1.f) wallDimV = v;
           }
-          if (std::getenv("RVK_WALLDIMLOG")) { static long wl = 0; if ((wl++ % 60) == 0)
+          if (RT_ENVC("RVK_WALLDIMLOG")) { static long wl = 0; if ((wl++ % 60) == 0)
             std::fprintf(stderr, "[walldim] mgr=0x%X tgt=%.3f cur=%.3f fade=%.3f flash=%.3f hid=%u menuLive=%d -> v=%.3f\n",
               mgr, tgt, cur, fad, fls, hid, (int)menuLive, wallDimV); }
-        } else if (std::getenv("RVK_WALLDIMLOG")) { static bool o = false; if (!o) { o = true;
+        } else if (RT_ENVC("RVK_WALLDIMLOG")) { static bool o = false; if (!o) { o = true;
           std::fprintf(stderr, "[walldim] manager ptr [0x821F8574] is NULL — dim inactive\n"); } }
       }
-      const bool wallFixed = std::getenv("RVK_WALLFILE") != nullptr;
+      const bool wallFixed = RT_ENVC("RVK_WALLFILE") != nullptr;
       // RVK_WPFORCE=<n>: pin the wallpaper index (deterministic A/B of the reload/cache path;
       // also a user-facing manual override). Guest tracking wins otherwise.
       static int wpForce = std::getenv("RVK_WPFORCE") ? std::atoi(std::getenv("RVK_WPFORCE")) : 0;
@@ -10012,7 +10019,7 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
     // is the 0x660000 1280x720 front-buffer composite. Answers definitively whether submitSeg's
     // render of the settle [0,49) batch list is the full UI or bg-only (the deferred routing
     // question), deterministically + crash-independently. Default off. Best under RVK_HDR=0.
-    if (std::getenv("RVK_SETTLEDUMP") && !(pillarbox && panelRt)) {
+    if (RT_ENVC("RVK_SETTLEDUMP") && !(pillarbox && panelRt)) {
       static bool dumped = false;
       bool has660 = false; for (auto& r : resolves) if (r.dst == 0x660000u) has660 = true;
       if (!dumped && has660 && g_base && be32(GA_FIELD_ACTIVE) != 0) {
@@ -10033,7 +10040,7 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
     // RVK_DUMPRES=2 (2026-07-19 oracle-diff pass): frame-numbered filenames (res_f<frame>_...), so a
     // BURST of multi-shot sigdump touches across the submit->death window keeps every dump set
     // instead of clobbering one path — pick the live-field set offline. =1 keeps the stable names.
-    if (fieldTrig && std::getenv("RVK_DUMPRES")) {
+    if (fieldTrig && RT_ENVC("RVK_DUMPRES")) {
       static int dumpResMode = std::atoi(std::getenv("RVK_DUMPRES"));
       for (auto& kv : g_resolveTex) {
         ResolveTex& rt = kv.second;
@@ -10263,7 +10270,7 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
   // separate centered-placement draw: the guest composites the whole frame in one batch list, so
   // "honoring the composite kick" == rendering that full [0,N) batch list (what DISPLAYALL already
   // does). Any TATE centering therefore lives in the vertex transforms, not a distinct kick.
-  if (std::getenv("RVK_KICKLOG") && render) {
+  if (RT_ENVC("RVK_KICKLOG") && render) {
     bool has660 = false; uint32_t termDst = resolves.empty() ? 0u : resolves.back().dst;
     std::fprintf(stderr, "[rvk][kicklog] frame%ld batches=%zu resolves=%zu term=0x%X:", frame, batches.size(), resolves.size(), termDst);
     for (auto& r : resolves) { std::fprintf(stderr, " 0x%X(%ux%u)", r.dst, r.w, r.h); if (r.dst == 0x660000u) has660 = true; }
@@ -10292,7 +10299,7 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
     // held stage-1 field (arcade-select FSM submitted, maxD76>=8) — excludes the attract-under-menu
     // field and any config-menu frame (both also satisfy fieldTrig/ndraw>=80). When RT_NAVREAL isn't
     // driving (flag never set), RVK_ARENA_ANYFIELD=1 falls back to the old ndraw-only heuristic.
-    bool realStageGate = g_rt_realstage != 0 || std::getenv("RVK_ARENA_ANYFIELD");
+    bool realStageGate = g_rt_realstage != 0 || RT_ENVC("RVK_ARENA_ANYFIELD");
     // RVK_ARENA_DST=0xADDR (LEG-48, 2026-07-14 composite-kick capture): only capture a frame whose
     // resolve list contains ADDR. The kick topology (RVK_KICKLOG/FIELDMANIFEST) proved the guest
     // resolves the FIELD kick to 0xF95D000 (640x512 playfield) on some presents and the FULL
@@ -10307,7 +10314,7 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
     // gameplay has 110+). Diagnostic log of every field-frame window so we can see what's available.
     static long   arenaMinDraw  = std::getenv("RVK_ARENA_MINDRAW")  ? std::strtol(std::getenv("RVK_ARENA_MINDRAW"), nullptr, 10) : 80;
     static uint32_t arenaMinStart = std::getenv("RVK_ARENA_MINSTART") ? (uint32_t)std::strtoul(std::getenv("RVK_ARENA_MINSTART"), nullptr, 16) : 0x10000000u;
-    if (!arenaDumped && std::getenv("RVK_ARENADUMP") && realStageGate && fieldTrig && g_base) {
+    if (!arenaDumped && RT_ENVC("RVK_ARENADUMP") && realStageGate && fieldTrig && g_base) {
       static long adiag = 0;
       if (adiag++ < 40) std::fprintf(stderr, "[rvk][arenagate] field-frame ndraw=%d start=0x%X end=0x%X (need draw>=%ld start>=0x%X)\n",
         ndraw, start, end, arenaMinDraw, arenaMinStart);
@@ -10316,7 +10323,7 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
     // qualifying attract frames are the "Now Loading… REPLAY" transition screen; the actual cave
     // terrain replays a few frames later, so a skip lands the capture on real stage geometry.
     static long arenaSkip = std::getenv("RVK_ARENA_SKIP") ? std::strtol(std::getenv("RVK_ARENA_SKIP"), nullptr, 10) : 0;
-    if (!arenaDumped && std::getenv("RVK_ARENADUMP") && realStageGate && fieldTrig && g_base && arenaDstOk && ndraw >= arenaMinDraw && start >= arenaMinStart && end > start) {
+    if (!arenaDumped && RT_ENVC("RVK_ARENADUMP") && realStageGate && fieldTrig && g_base && arenaDstOk && ndraw >= arenaMinDraw && start >= arenaMinStart && end > start) {
       if (arenaSkip > 0) { --arenaSkip; std::fprintf(stderr, "[rvk][arenagate] qualifying frame skipped (ndraw=%d, %ld to go)\n", ndraw, arenaSkip); }
       else {
       arenaDumped = true;
@@ -10339,7 +10346,7 @@ bool renderFrameReal(long frame, uint32_t start, uint32_t end, bool render) {
       }
     }
   }
-  if (std::getenv("RVK_DEBUG_CONSTS")) {
+  if (RT_ENVC("RVK_DEBUG_CONSTS")) {
     std::fprintf(stderr, "[rvk][debug] M2LibMatrix row0=(%.6f,%.6f,%.6f,%.6f) row1=(%.6f,%.6f,%.6f,%.6f)\n",
       g_vsConstF[0],g_vsConstF[1],g_vsConstF[2],g_vsConstF[3], g_vsConstF[4],g_vsConstF[5],g_vsConstF[6],g_vsConstF[7]);
     std::fprintf(stderr, "[rvk][debug] row2=(%.6f,%.6f,%.6f,%.6f) row3=(%.6f,%.6f,%.6f,%.6f)\n",
@@ -10425,7 +10432,7 @@ static bool renderHookedFrame(uint8_t* base, const uint32_t* vpool, uint32_t vpo
   // byte-identical. Best paired with RT_COMPOSE OFF (so the field passes aren't skipped).
   static bool panelOn = getenv("RVK_PANEL") != nullptr;
   float pnx0 = -0.42f, pnx1 = 0.42f, pny0 = -1.f, pny1 = 1.f;
-  if (panelOn) { if (const char* pr = getenv("RVK_PANELRECT")) std::sscanf(pr, "%f:%f:%f:%f", &pnx0, &pnx1, &pny0, &pny1); }
+  if (panelOn) { if (const char* pr = RT_ENVC("RVK_PANELRECT")) std::sscanf(pr, "%f:%f:%f:%f", &pnx0, &pnx1, &pny0, &pny1); }
   for (int d = 0; d < nDraws && nv + 4 <= kMaxVerts && ni + 6 <= kMaxIndices; ++d) {
     const RvkHookDraw& hd = draws[d];
     // RVK_CMPPROBE: catch every hook draw that SAMPLES A RESOLVE (the shell's gameplay composite)
@@ -10910,7 +10917,7 @@ static void rvkAsyncDispatch(long f, uint32_t start, uint32_t end, uint8_t* base
       std::thread([] {
         // RVK_TESTCRASH=1 (default-off): AV on the worker thread — positive control for
         // rvkCrashFilter (models the silent playtest death; worker has no SEH containment).
-        if (std::getenv("RVK_TESTCRASH") && atoi(std::getenv("RVK_TESTCRASH")) != 0)
+        if (RT_ENVC("RVK_TESTCRASH") && atoi(RT_ENVC("RVK_TESTCRASH")) != 0)
           { volatile int* p = nullptr; *p = 1; }
 #ifdef _WIN32
         // ★ 2026-07-27 transition-spike leg: the 250-260ms transition frames are PREEMPTION,
@@ -11111,7 +11118,7 @@ extern "C" void rvk_present(uint8_t* base, uint32_t frame_start, uint32_t frame_
       std::fprintf(stderr, "[rvk][inline] present#%ld field=%u win=[0x%X,0x%X) sz=0x%X\n",
                    q, faI, frame_start, frame_end, frame_end - frame_start); } }
   rvkServiceInvalidations();   // CODE_REVIEW_0804: before this path's white guards (swap reset rebuilds them)
-  bool passthrough = std::getenv("RVK_PASSTHROUGH") != nullptr;
+  bool passthrough = RT_ENVC("RVK_PASSTHROUGH") != nullptr;
   if (passthrough && !g.white.set) {
     ((uint32_t*)g.stagingMap)[0] = 0xFFFFFFFFu;
     if (!uploadTexToDesc(1, 1, g.white)) { g.failed = true; return; }

@@ -1,4 +1,11 @@
 #include <set>
+#include <cstdlib>
+#ifndef RT_ENVC
+// (2026-11-07 w1107 M1, getenv hot-path audit) per-site cached getenv. The MSVC CRT getenv takes the environment
+// lock and _strnicmp-scans the whole block on EVERY call (WIN-AUDIO-1, 0f23859); nothing in the process mutates the
+// environment after startup, so caching the first lookup per call site is semantically identical.
+#define RT_ENVC(name) ([]() -> const char* { static const char* const rt_envc_v = std::getenv(name); return rt_envc_v; }())
+#endif
 #ifndef _WIN32
 #include <execinfo.h>
 #endif
@@ -1215,7 +1222,7 @@ PPC_FUNC_IMPL(__imp__VdSetGraphicsInterruptCallback){ LOGN("VdSetGraphicsInterru
                     static std::atomic<long> dn{0}; long d=dn.fetch_add(1)+1;
                     // B1-plus dead-end trace (RT_AUDIOCRUX): does DoWork EVER fill the wave ring or
                     // attach a source voice to the ticked submix (0x372F10)? Scan over time.
-                    if(getenv("RT_AUDIOCRUX") && (d<=3||(d%4000)==0)){
+                    if(RT_ENVC("RT_AUDIOCRUX") && (d<=3||(d%4000)==0)){
                       uint32_t wt=rt_be32(B,0x887AD504u);
                       uint32_t ring=(wt&&wt<0xF0000000u)?rt_be32(B,wt+12):0;
                       int nz=0; if(ring&&ring<0xF0000000u){ for(int b=0;b<16384;b+=4) if(rt_be32(B,ring+(uint32_t)b)) nz++; }
@@ -1524,7 +1531,7 @@ static int64_t rt_waitmax_us(){ static int64_t v=[](){ const char* e=std::getenv
   long ms=e?atol(e):10000; if(ms<1)ms=1; return (int64_t)ms*1000; }(); return v; }
 static uint32_t rt_wait_to(uint32_t k, uint8_t* base, uint32_t timeoutp, uint32_t lr=0){ RtObj*o=rt_get(k);
   if(rt_pt_on() && k && k==g_pt_consumed.load()) g_pt_cw_single.fetch_add(1);
-  bool dbg = std::getenv("RT_DBGSPAWN")!=nullptr;
+  bool dbg = RT_ENVC("RT_DBGSPAWN")!=nullptr;
   if(dbg) std::fprintf(stderr,"[e8] rt_wait ENTER k=0x%X o=%p is_event=%d is_thread=%d top=0x%X\n",k,(void*)o,
     (int)(dynamic_cast<RtEvent*>(o)!=nullptr),(int)(dynamic_cast<RtThread*>(o)!=nullptr),timeoutp);
   static bool legacy = std::getenv("RT_WAITLEGACY") && atoi(std::getenv("RT_WAITLEGACY"))!=0;
@@ -1924,7 +1931,7 @@ PPC_FUNC_IMPL(__imp__VdSwap){ LOGN("VdSwap");
   // complete, replayable game frame. Pair with RT_CAPLOW_MB=256 to include the >64MB textures.
   static bool g_capDone = false;
   bool capGate;
-  if (getenv("RT_CAPONPLAY")) {
+  if (RT_ENVC("RT_CAPONPLAY")) {
     uint32_t gfsm = rt_be32(base, 0x884D66A8u);
     // RT_CAPDELAY = number of FSM=5 frames to skip before capturing, so we grab a SETTLED
     // gameplay frame (green playfield + sprites) rather than the first (text/transitional) one.
@@ -2217,7 +2224,7 @@ PPC_FUNC(sub_820A8638){
   // (dev+0x2ACC) advanced only 4 times ever (all on the first ring 0x452000) and CP_RB_WPTR
   // (MMIO 0x7FC80714) is pinned at 0x1F across the whole run, while 985 later kicks show idx:19->19.
   // So submissions do NOT go through the ring; the kick itself must carry the segment. Log its args.
-  if(getenv("RT_KICKARGS")){
+  if(RT_ENVC("RT_KICKARGS")){
     static std::atomic<long> ka{0}; long kn=ka.fetch_add(1);
     if(kn<24){
       // r6 == the ring triple's LEN (verified: kick#0 r6=0xB vs ring "C0013F00 0046A040 0000000B";
@@ -2713,7 +2720,7 @@ PPC_FUNC(sub_820A5408){
   // now sample the rendered resolves via getTexture's g_resolveTex lookup (render/vk_render.cpp).
   // Fixes the hybrid-era classes in one move: wallpaper vanishing in gameplay, surround
   // white-wash, mirrored HUD text (all were legacy-full-frame artifacts).
-  bool compose = getenv("RT_COMPOSE") && rt_hookrender() && rvk_present_hooked && rt_vk_on()
+  bool compose = RT_ENVC("RT_COMPOSE") && rt_hookrender() && rvk_present_hooked && rt_vk_on()
                  && rvk_present && rt_rom_render(base);
   bool hybridToLegacy = !compose && rt_hookrender() && rvk_present_hooked && rt_hybrid_on() && rt_vk_on() && rvk_present
                          && rt_rom_render(base);
@@ -2736,7 +2743,7 @@ PPC_FUNC(sub_820A5408){
   // chrome + HUD). Before discarding, log each distinct texture base once — if one matches a
   // legacy-branch "[rvk][resolve] target dst=" address, the playfield-window link is PROVEN and
   // the composed-frame architecture (legacy fills resolves, hookrender composes) replaces hybrid.
-  if(hybridToLegacy && getenv("RT_COMPOSEPROBE")){
+  if(hybridToLegacy && RT_ENVC("RT_COMPOSEPROBE")){
     static std::set<uint32_t> seenTb; static int probes=0;
     if(probes<40){ probes++;
       for(int i=0;i<g_hkdN;i++){
@@ -3262,7 +3269,7 @@ PPC_FUNC(sub_8209D800){
     // viewport = destination rectangle). To find the viewport's device-struct mirror, dump the
     // raw device struct at the WALLPAPER draw (known viewport 0,0,1280,720) and at the PLAYFIELD
     // WINDOW draw (expected ~centered 3:4 rect) and diff offline for viewport-shaped values.
-    if(getenv("RT_VPPROBE") && g_d3d_device && primType==8 && count==3){
+    if(RT_ENVC("RT_VPPROBE") && g_d3d_device && primType==8 && count==3){
       uint32_t tb = g_hk_tf[1] ? (((g_hk_tf[1]>>12)&0xFFFFF)<<12) : 0u;
       uint32_t tw=(g_hk_tf[2]&0x1FFF)+1, th=((g_hk_tf[2]>>13)&0x1FFF)+1;
       static bool gotWall=false, gotWin=false;
@@ -3281,7 +3288,7 @@ PPC_FUNC(sub_8209D800){
     // IS the guest card-draw function (decompile it). Also logs the matrix translation (tx,ty) so a
     // draw placed off the right edge is visible as a mispositioned card. Menu-only: gate on present.
     static bool hkcallers=getenv("RT_HKCALLERS")!=nullptr;
-    if(hkcallers && g_hk_present>=(getenv("RT_HKCALLERS_AFTER")?atol(getenv("RT_HKCALLERS_AFTER")):350)){
+    if(hkcallers && g_hk_present>=(RT_ENVC("RT_HKCALLERS_AFTER")?atol(RT_ENVC("RT_HKCALLERS_AFTER")):350)){
       static std::set<uint64_t> seen;
       uint32_t tb = g_hk_tf[1] ? (((g_hk_tf[1]>>12)&0xFFFFF)<<12) : 0u;
       uint64_t key = ((uint64_t)(uint32_t)ctx.lr<<20) ^ tb;

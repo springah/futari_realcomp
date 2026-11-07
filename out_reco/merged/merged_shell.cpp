@@ -4,6 +4,13 @@
 // _tmpscripts/dll_packaging_plan.md §2.3/§2.4.  Original: merged_xex.cpp.bak_l2split.
 // Shared scaffolding lives in merged_common.h.
 #include "merged_common.h"
+#include <cstdlib>
+#ifndef RT_ENVC
+// (2026-11-07 w1107 M1, getenv hot-path audit) per-site cached getenv. The MSVC CRT getenv takes the environment
+// lock and _strnicmp-scans the whole block on EVERY call (WIN-AUDIO-1, 0f23859); nothing in the process mutates the
+// environment after startup, so caching the first lookup per call site is semantically identical.
+#define RT_ENVC(name) ([]() -> const char* { static const char* const rt_envc_v = std::getenv(name); return rt_envc_v; }())
+#endif
 static bool rt_crux_on();   // defined with the RT_WAITPROF engine profile (round 5)
 extern "C" uint32_t rt_alloc(uint32_t size, uint32_t align);
 extern "C" void __imp__sub_821706E8(PPCContext& __restrict ctx, uint8_t* base);  // real idle/render loop
@@ -257,7 +264,7 @@ HEAPLOCK_WRAP(sub_8208D880)
 // sub_8808D1B8 (bit 43 = id-46 completion) through slot pair 0x887AD610/614.
 extern "C" void __imp__sub_820E8F88(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_820E8F88){
-  if(std::getenv("RT_HUB")){
+  if(RT_ENVC("RT_HUB")){
     static std::atomic<int> n{0}; int i=n++;
     if(i<8 || (i%2000)==0){
       uint32_t t=ctx.r3.u32, vt=0, nx=0;
@@ -269,7 +276,7 @@ PPC_FUNC(sub_820E8F88){
 }
 extern "C" void __imp__sub_821CA5F0(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_821CA5F0){
-  if(std::getenv("RT_HUB")){ static std::atomic<int> n{0}; int i=n++;
+  if(RT_ENVC("RT_HUB")){ static std::atomic<int> n{0}; int i=n++;
     if(i<6) std::fprintf(stderr,"[hub] CA5F0 (hub-creator) ENTER#%d this=0x%X\n",i,ctx.r3.u32); }
   __imp__sub_821CA5F0(ctx,base);
 }
@@ -339,7 +346,7 @@ static void rt_mt_dump(uint8_t* base, const char* why, uint32_t v, uint32_t vt, 
 extern "C" void __imp__sub_821000A0(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_821000A0){
   static bool mt = std::getenv("RT_MIXTRACE")!=nullptr;
-  bool route = std::getenv("RT_AUDIOROUTE")!=nullptr;
+  bool route = RT_ENVC("RT_AUDIOROUTE")!=nullptr;
   if(mt || route){
     uint32_t p1=ctx.r3.u32, p2=ctx.r4.u32; uint8_t loop=ctx.r5.u8; int p3=(int)(int8_t)loop;
     uint32_t rl0 = mt?PPC_LOAD_U32(0x360CF0u+0x10):0;
@@ -368,7 +375,7 @@ PPC_FUNC(sub_821000A0){
 // LR (ctx.lr) at entry to learn WHO issues routing, plus the send TARGET, then decompile that caller.
 extern "C" void __imp__sub_820EE2C8(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_820EE2C8){
-  if(std::getenv("RT_AUDIOROUTE2")){
+  if(RT_ENVC("RT_AUDIOROUTE2")){
     static std::atomic<long> sn{0}; long n=sn.fetch_add(1)+1;
     uint32_t self=ctx.r3.u32, lr=(uint32_t)ctx.lr, pv=ctx.r4.u32;
     uint32_t cnt=pv?PPC_LOAD_U32(pv):0, arr=pv?PPC_LOAD_U32(pv+4):0, tgt0=arr?PPC_LOAD_U32(arr):0;
@@ -380,7 +387,7 @@ PPC_FUNC(sub_820EE2C8){
 }
 extern "C" void __imp__sub_820ED3C0(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_820ED3C0){
-  if(std::getenv("RT_AUDIOROUTE2")){
+  if(RT_ENVC("RT_AUDIOROUTE2")){
     static std::atomic<long> sn{0}; long n=sn.fetch_add(1)+1;
     uint32_t self=ctx.r3.u32, lr=(uint32_t)ctx.lr, tgtIdx=ctx.r4.u32;
     if(n<=24||(n%200)==0)
@@ -411,19 +418,19 @@ PPC_FUNC(sub_820ED3C0){
 // deeper blocker. Read-only entry counters.
 extern "C" void __imp__sub_820ECBA0(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_820ECBA0){
-  if(std::getenv("RT_AUDIOROUTE2")){ static std::atomic<long> c{0}; long n=c.fetch_add(1)+1;
+  if(RT_ENVC("RT_AUDIOROUTE2")){ static std::atomic<long> c{0}; long n=c.fetch_add(1)+1;
     if(n<=4||(n%4000)==0) std::fprintf(stderr,"[route2] per-instance-update sub_820ECBA0 #%ld this=0x%X\n",n,ctx.r3.u32); }
   __imp__sub_820ECBA0(ctx,base);
 }
 extern "C" void __imp__sub_820F8168(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_820F8168){
-  if(std::getenv("RT_AUDIOROUTE2")){ static std::atomic<long> c{0}; long n=c.fetch_add(1)+1;
+  if(RT_ENVC("RT_AUDIOROUTE2")){ static std::atomic<long> c{0}; long n=c.fetch_add(1)+1;
     if(n<=8||(n%4000)==0) std::fprintf(stderr,"[route2] RETRIGGER sub_820F8168 #%ld\n",n); }
   __imp__sub_820F8168(ctx,base);
 }
 extern "C" void __imp__sub_820F7F88(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_820F7F88){
-  if(std::getenv("RT_AUDIOROUTE2")){ static std::atomic<long> c{0}; long n=c.fetch_add(1)+1;
+  if(RT_ENVC("RT_AUDIOROUTE2")){ static std::atomic<long> c{0}; long n=c.fetch_add(1)+1;
     if(n<=16||(n%1000)==0) std::fprintf(stderr,"[route2] START sub_820F7F88 #%ld (attaches iff inst-state==3)\n",n); }
   __imp__sub_820F7F88(ctx,base);
 }
@@ -432,7 +439,7 @@ PPC_FUNC(sub_820F7F88){
 // send-list is empty at play time (the source of fork a). Read-only.
 extern "C" void __imp__sub_820ED268(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_820ED268){
-  if(std::getenv("RT_AUDIOROUTE")){
+  if(RT_ENVC("RT_AUDIOROUTE")){
     static std::atomic<long> pn{0}; long n=pn.fetch_add(1)+1;
     uint32_t wav=ctx.r3.u32;
     uint32_t sgate=wav?PPC_LOAD_U32(wav+0x160):0, shead=wav?PPC_LOAD_U32(wav+0x168):0, ssent=wav?(wav+0x164):0;
@@ -875,7 +882,7 @@ extern "C" void rt_audio_set_category_volume(int cat, double vol);
 // the three above do not, the shell is stopping voices by a path that bypasses the cue object.
 extern "C" void __imp__sub_820EF018(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_820EF018){
-  if(std::getenv("RT_STOPTRACE")){
+  if(RT_ENVC("RT_STOPTRACE")){
     static std::atomic<long> n{0}; long i=n.fetch_add(1)+1;
     if(i<=40) std::fprintf(stderr,"[stoptrace] SoundBank::Stop sub_820EF018 #%ld bank=0x%X cueIdx=%u flags=0x%X lr=0x%X\n",
                            i,ctx.r3.u32,ctx.r4.u32&0xFFFFu,ctx.r5.u32,(uint32_t)ctx.lr);
@@ -884,7 +891,7 @@ PPC_FUNC(sub_820EF018){
 }
 extern "C" void __imp__sub_820E8B98(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_820E8B98){
-  if(std::getenv("RT_STOPTRACE")){
+  if(RT_ENVC("RT_STOPTRACE")){
     static std::atomic<long> n{0}; long i=n.fetch_add(1)+1;
     if(i<=40) std::fprintf(stderr,"[stoptrace] engine stop-walker sub_820E8B98 #%ld eng=0x%X bank=0x%X cueIdx=%u imm=%u wait=%u lr=0x%X\n",
                            i,ctx.r3.u32,ctx.r4.u32,ctx.r5.u32&0xFFFFu,ctx.r6.u32,ctx.r7.u32,(uint32_t)ctx.lr);
@@ -913,7 +920,7 @@ static void rt_dchain_tally(int i, const char* nm, PPCContext& ctx){
 extern "C" void __imp__sub_820F80B0(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_820F80B0){
   rt_dchain_tally(2,"waveStop",ctx);
-  if(std::getenv("RT_STOPTRACE")){
+  if(RT_ENVC("RT_STOPTRACE")){
     static std::atomic<long> n{0}; long i=n.fetch_add(1)+1;
     if(i<=40) std::fprintf(stderr,"[stoptrace] voice-stop sub_820F80B0 #%ld inst=0x%X imm=%u lr=0x%X\n",
                            i,ctx.r3.u32,ctx.r4.u32,(uint32_t)ctx.lr);
@@ -993,7 +1000,7 @@ PPC_FUNC(sub_821CAA60){
     if(si<=8) std::fprintf(stderr,"[segain] SetCategoryVolume(\"%s\") %.4f x%.4f -> %.4f  (RT_SEGAIN=1 reverts)\n",
                            nm,before,(double)segain,(double)ctx.f1.f64);
   }
-  if(std::getenv("RT_STOPTRACE")){
+  if(RT_ENVC("RT_STOPTRACE")){
     static std::atomic<long> n{0}; long i=n.fetch_add(1)+1;
     if(i<=80) std::fprintf(stderr,"[volt] SetCategoryVolume(\"%s\", %.3f) lr=0x%X\n",
                            nm?nm:"(null)",(double)ctx.f1.f64,(uint32_t)ctx.lr);
@@ -1019,7 +1026,7 @@ PPC_FUNC(sub_821CAC08){
   // of THIS tick is a mute/unmute latch keyed on an app-state word, and [stoptrace] showed cats
   // 3/6 pushed to 0.000 once from lr=0x821CAE0C and never restored. Print that word and the latch
   // once a second so "is the shell muting because it thinks we are inactive?" is a measurement.
-  if(std::getenv("RT_MUTETRACE")){
+  if(RT_ENVC("RT_MUTETRACE")){
     static std::atomic<long> mn{0}; long mi=mn.fetch_add(1)+1;
     if((mi % 60) == 1 && mi <= 60*180){
       uint32_t root = PPC_LOAD_U32(0x821F8588u);
@@ -1084,14 +1091,14 @@ PPC_FUNC(sub_821CAC08){
 // other branch. Tracing both shows whether a fade is actually running and where it lands.
 extern "C" void __imp__sub_821CA078(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_821CA078){
-  if(std::getenv("RT_STOPTRACE")){
+  if(RT_ENVC("RT_STOPTRACE")){
     static std::atomic<long> n{0}; long i=n.fetch_add(1)+1;
     if(i<=80) std::fprintf(stderr,"[volt] fade-apply sub_821CA078 idx=%u vol=%.3f lr=0x%X\n",
                            ctx.r5.u32,(double)ctx.f1.f64,(uint32_t)ctx.lr);
   }
   // Under RT_FADETRACE log only the FRACTIONAL applications — i.e. an actual ramp in flight —
   // so the handover fade is visible without the boot-time 0.0/1.0 churn burying it.
-  if(std::getenv("RT_FADETRACE")){
+  if(RT_ENVC("RT_FADETRACE")){
     double v = (double)ctx.f1.f64;
     if(v > 0.0001 && v < 0.9999){
       static std::atomic<long> n2{0}; long j=n2.fetch_add(1)+1;
@@ -1108,7 +1115,7 @@ PPC_FUNC(sub_821CA078){
 }
 extern "C" void __imp__sub_821CA108(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_821CA108){
-  if(std::getenv("RT_STOPTRACE")){
+  if(RT_ENVC("RT_STOPTRACE")){
     static std::atomic<long> n{0}; long i=n.fetch_add(1)+1;
     if(i<=80) std::fprintf(stderr,"[volt] fade-off sub_821CA108 idx=%u lr=0x%X\n",
                            ctx.r3.u32,(uint32_t)ctx.lr);
@@ -1122,7 +1129,7 @@ PPC_FUNC(sub_821CA108){
 // does the armer RE-ARM per frame while a scene state holds? lr names the caller.
 extern "C" void __imp__sub_821CA008(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_821CA008){
-  if(std::getenv("RT_STOPTRACE")){
+  if(RT_ENVC("RT_STOPTRACE")){
     static std::atomic<long> n{0}; long i=n.fetch_add(1)+1;
     if(i<=400) std::fprintf(stderr,"[fadearm] sub_821CA008 idx=%u frames=%u lr=0x%X\n",
                             ctx.r3.u32,ctx.r4.u32,(uint32_t)ctx.lr);
@@ -1131,7 +1138,7 @@ PPC_FUNC(sub_821CA008){
 }
 extern "C" void __imp__sub_821CA1B8(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_821CA1B8){
-  if(std::getenv("RT_STOPTRACE")){
+  if(RT_ENVC("RT_STOPTRACE")){
     static std::atomic<long> n{0}; long i=n.fetch_add(1)+1;
     if(i<=400) std::fprintf(stderr,"[fadecancel] sub_821CA1B8 idx=%u r4=0x%X lr=0x%X\n",
                             ctx.r3.u32,ctx.r4.u32,(uint32_t)ctx.lr);
@@ -1146,7 +1153,7 @@ PPC_FUNC(sub_821CA1B8){
 // touching the cue objects, which is exactly the shape the attract evidence points at.
 extern "C" void __imp__sub_820E91E0(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_820E91E0){
-  if(std::getenv("RT_STOPTRACE")){
+  if(RT_ENVC("RT_STOPTRACE")){
     static std::atomic<long> n{0}; long i=n.fetch_add(1)+1;
     if(i<=40) std::fprintf(stderr,"[stoptrace] engine::Stop(category) sub_820E91E0 #%ld cat=%u flags=0x%X lr=0x%X\n",
                            i,ctx.r4.u32,ctx.r5.u32,(uint32_t)ctx.lr);
@@ -1155,7 +1162,7 @@ PPC_FUNC(sub_820E91E0){
 }
 extern "C" void __imp__sub_820E7628(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_820E7628){
-  if(std::getenv("RT_STOPTRACE")){
+  if(RT_ENVC("RT_STOPTRACE")){
     static std::atomic<long> n{0}; long i=n.fetch_add(1)+1;
     // ⚠ THE GATE (disassembly @0x820e7684): after looking the category up through the category
     // manager at engine+0xb8 (vtable[+4]), the guest reads the record's byte at +9 and applies the
@@ -1189,7 +1196,7 @@ PPC_FUNC(sub_820EC958){
   rt_dchain_tally(1,"cueStop",ctx);
   const bool on = rt_audio_bridge_enabled()!=0 && rt_audio_cuebridge_enabled()!=0
                   && rt_audio_cuestop_enabled()!=0;
-  if(std::getenv("RT_STOPTRACE")){
+  if(RT_ENVC("RT_STOPTRACE")){
     static std::atomic<long> n{0}; long i=n.fetch_add(1)+1;
     uint32_t o=ctx.r3.u32;
     if(i<=40) std::fprintf(stderr,"[stoptrace] cue::Stop sub_820EC958 #%ld obj=0x%X imm=%u bankField(+0x134)=0x%X cueField(+0x13C)=%u lr=0x%X\n",
@@ -1225,7 +1232,7 @@ PPC_FUNC(sub_820EEE00){
   // shifted +2 (DoWork lands on index 7 = 0x820E8F88, CreateSoundBank on 8 = 0x820E80C0 and
   // RegisterNotification on 14 = 0x820E8400, all three already confirmed), which puts
   // GetCategory at 16 (+0x40), Stop at 17 (+0x44) and SetVolume at 18 (+0x48). Dump them.
-  if(std::getenv("RT_STOPTRACE")){
+  if(RT_ENVC("RT_STOPTRACE")){
     static std::atomic<int> vonce{0};
     if(vonce.fetch_add(1)==0 && bank && bank<0xF0000000u){
       uint32_t eng=PPC_LOAD_U32(bank+24u);
@@ -1444,7 +1451,7 @@ PPC_FUNC(sub_820E8400){
 extern "C" void __imp__sub_820E8970(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_820E8970){
   static bool bp = std::getenv("RT_BGMPROBE")!=nullptr;
-  if(std::getenv("RT_AUDIOCRUX") || bp){
+  if(RT_ENVC("RT_AUDIOCRUX") || bp){
     long n=g_xcommit.fetch_add(1)+1;
     uint32_t eng=ctx.r3.u32;
     uint32_t reg=(eng&&eng<0xF0000000u)?PPC_LOAD_U32(eng+0x4c):0;
@@ -2270,7 +2277,7 @@ PPC_FUNC(sub_820EF0C0){
   uint32_t handler=ctx.r3.u32, desc=ctx.r4.u32;
   uint32_t c24 = (handler&&handler<0xF0000000u)?PPC_LOAD_U32(handler+24):0;
   __imp__sub_820EF0C0(ctx,base);
-  if(std::getenv("RT_TRACEREG") && n<12)
+  if(RT_ENVC("RT_TRACEREG") && n<12)
     std::fprintf(stderr,"[reg2] sub_820EF0C0#%d handler=0x%X (+24=0x%X) desc=0x%X -> id=0x%X\n",n,handler,c24,desc,ctx.r3.u32&0xFFFF);
 }
 
@@ -2337,7 +2344,7 @@ PPC_FUNC(sub_8216AC18){
 // byte and forces scene state 6 every frame. Applied on every sub_8216EA68 tick (a per-frame hook),
 // so it wins even if the game continually rewrites the location.
 static void rt_apply_pokes(uint8_t* base){
-  const char* p=std::getenv("RT_POKE");
+  const char* p=RT_ENVC("RT_POKE");
   if(!p) return;
   static std::atomic<int> logged{0};
   bool first = logged.fetch_add(1)==0;
@@ -2359,7 +2366,7 @@ PPC_FUNC(sub_8216EA68){
   rt_apply_pokes(base);
   // RT_FORCESTATE: force the mode-runner r28's state field (+8) off 0 once, to test whether the
   // resource-kind factory is gated purely on the state value (would flip S+16 on a later tick).
-  { const char* fs=std::getenv("RT_FORCESTATE");
+  { const char* fs=RT_ENVC("RT_FORCESTATE");
     if(fs && g_r28.load()){ uint32_t r28=g_r28.load();
       static std::atomic<int> forced{0};
       if(PPC_LOAD_U32(r28+8)==0 && forced.fetch_add(1)<8){
@@ -2388,7 +2395,7 @@ PPC_FUNC(sub_8216EA68){
           // at the same lifecycle point ("driver init done") the native path would.
           { uint32_t f116=PPC_LOAD_U32(di+116),f120=PPC_LOAD_U32(di+120),f124=PPC_LOAD_U32(di+124),f244=PPC_LOAD_U32(di+244);
             std::fprintf(stderr,"[ntick] inner+116=0x%X +120=0x%X +124=0x%X +244=0x%X\n",f116,f120,f124,f244);
-            if(std::getenv("RT_NATIVETICK")){
+            if(RT_ENVC("RT_NATIVETICK")){
               if(f124!=4){ PPC_STORE_U32(di+124,4); std::fprintf(stderr,"[ntick] set inner+124=4 (was 0x%X)\n",f124); }
               if(f120!=0){ PPC_STORE_U32(di+120,0); std::fprintf(stderr,"[ntick] set inner+120=0 (was 0x%X)\n",f120); }
             }
@@ -2397,7 +2404,7 @@ PPC_FUNC(sub_8216EA68){
             // modectx dispatch — the native carrier of frame-event/commit/sprites — engages.
             // Record table: *(*(*(0x821F8588)+76)+80), 132-byte records, tick uses index
             // *(modectx+128) (=0 here). Experiment knob to validate the downstream chain.
-            if(std::getenv("RT_ARMREC")){
+            if(RT_ENVC("RT_ARMREC")){
               uint32_t G=PPC_LOAD_U32(0x821F8588u), m=G?PPC_LOAD_U32(G+76):0, T=m?PPC_LOAD_U32(m+80):0;
               if(T){ uint32_t rec=T+0*132, old=PPC_LOAD_U32(rec+68);
                 PPC_STORE_U32(rec+68, 2);
@@ -2828,7 +2835,7 @@ static void rt_contlife_born_container(uint8_t* base,uint32_t c,uint32_t lr){
 #define R1_TRAP(FN) \
   extern "C" void __imp__##FN(PPCContext& __restrict, uint8_t*); \
   PPC_FUNC(FN){ \
-    static const bool contain = std::getenv("RT_EHCONTAIN")!=nullptr; \
+    static const bool contain = RT_ENVC("RT_EHCONTAIN")!=nullptr; \
     if(contain){ \
       PPCContext save = ctx; __imp__##FN(ctx,base); uint64_t r3=ctx.r3.u64; \
       bool leaked = (ctx.r1.u64 != save.r1.u64); \
@@ -3196,7 +3203,7 @@ PPC_FUNC(sub_821D11C0){
   if(i<=6||i%600==0) std::fprintf(stderr,"[ptask] sub_821D11C0#%ld r3=0x%X page(+0x44)=%u lr=0x%X\n",
     i,t,page,(uint32_t)ctx.lr);
   __imp__sub_821D11C0(ctx,base);
-  const char* p2=std::getenv("RT_PAGE2");
+  const char* p2=RT_ENVC("RT_PAGE2");
   if(p2 && page!=3 && page!=4){
     static std::atomic<int> did{0};
     if(!did.exchange(1)){
@@ -3523,7 +3530,7 @@ PPC_FUNC(sub_82195AB0){
   // writes differently (scripts/boss1/fnf15_funcbisect_mac.sh named the function; both reads
   // of its text came back "clean"). Default off; no behaviour change.
   if(vt==0x82050F00u){
-    static bool dumped=false; const char* dp=std::getenv("RT_FNF15DUMP");
+    static bool dumped=false; const char* dp=RT_ENVC("RT_FNF15DUMP");
     if(dp && !dumped){ dumped=true;
       // Structured, pointer-NORMALISED walk (a raw image diff drowned in heap-layout pointer
       // shifts): the panel object, its container (self+80, child list head +16 / next +4 /
@@ -4102,7 +4109,7 @@ PPC_FUNC(sub_821C69F0){
     // [watchrec] RT_WATCHREC: once the mode-record table resolves, guard-page-watch the whole
     // 5-record block (5*0x84) to catch the flags(+0x44) writers by host RIP (symbolicate via
     // futari_merged.map). Dynamic arm — table is heap-allocated.
-    if(T && std::getenv("RT_WATCHREC")){
+    if(T && RT_ENVC("RT_WATCHREC")){
       static std::atomic<int> armed{0};
       if(!armed.exchange(1)) rt_watch_arm_dyn(T, 5*0x84);
     }
@@ -4110,7 +4117,7 @@ PPC_FUNC(sub_821C69F0){
     // into user-0's edge word (rec0+0x44) once/sec — the bit FUN_821C6860 steps its counter on.
     // Diagnostic for the mode-menu chain: with RT_TICKGATE, counter should move -> 6860 true ->
     // 69F0 modectx dispatch runs -> menu/page UI. (Writer proven: sub_82191340 edge derive.)
-    if(T && std::getenv("RT_EDGETEST")){
+    if(T && RT_ENVC("RT_EDGETEST")){
       static std::atomic<int> et{0}; int e=et.fetch_add(1)+1;
       // alternate 0x8000 (cursor++) / 0x4000 (cursor--) so the cursor keeps moving and 6560
       // keeps re-rendering the page strip (a saturated cursor stops the pageChanged path).
@@ -4172,7 +4179,7 @@ PPC_FUNC(sub_821C69F0){
   // [engpump] RT_ENGPUMP: the menu engine's +0x48 state fn is never pumped by the port (root
   // gap, d528701 — sibling 0x37E530 gets pumped, engine doesn't). Diagnostic: tick it ourselves
   // once per 69F0 tick. r3=engine; the d50/d70 thunks dispatch engine->vt[0x30]/[0x34]; r4=0.
-  if(mc && std::getenv("RT_ENGPUMP")){
+  if(mc && RT_ENVC("RT_ENGPUMP")){
     uint32_t eng=PPC_LOAD_U32(mc+0xf4);
     // Hardware pump = sub_82173B98 per object: if (*(obj+0x20)==0) call obj->vt[0xC] (the TICK
     // virtual — which for this family reads/steps +0x48 AND services children like the +0x40
@@ -4192,7 +4199,7 @@ PPC_FUNC(sub_821C69F0){
         // RT_DARKBD: at cursor==4 the 5998-show backdrop color formula yields 0xFFFFFFFF —
         // opaque white — and the quad covers the screen. If the menu text draws white too,
         // the whole overlay is white-on-white. Force a dark backdrop to reveal it.
-        if(std::getenv("RT_DARKBD")){
+        if(RT_ENVC("RT_DARKBD")){
           uint32_t bd=PPC_LOAD_U32(eng+0xd8);
           if(bd) PPC_STORE_U32(bd+8,0x202040FFu);
         }
@@ -4244,14 +4251,14 @@ PPC_FUNC(sub_821C5998){
   static std::atomic<long> n{0}; long i=n.fetch_add(1)+1;
   uint32_t val=(uint32_t)ctx.r4.u32;
   uint32_t bdjEng=ctx.r3.u32, bdjLr=(uint32_t)ctx.lr;   // captured BEFORE the body: r3/lr are scratch after it
-  if(std::getenv("RT_DISPLOG")){
+  if(RT_ENVC("RT_DISPLOG")){
     if(i<=40||i%600==0||val==1) std::fprintf(stderr,"[disp] 821C5998#%ld engine=0x%X val=%u lr=0x%X\n",
       i,ctx.r3.u32,val,(uint32_t)ctx.lr);
   }
   // RT_NOCLOSER: the hide path spawns the closer fade (FUN_821be9d0) whenever 8c was 1 — in our
   // port nothing ticks it, so it wedges a fullscreen WHITE quad. Zero 8c pre-hide: the closer
   // branch is skipped (8c already 0), the rest of hide (timer clear) proceeds unchanged.
-  if(val==0 && std::getenv("RT_NOCLOSER") && ctx.r3.u32) PPC_STORE_U8(ctx.r3.u32+0x8c,0);
+  if(val==0 && RT_ENVC("RT_NOCLOSER") && ctx.r3.u32) PPC_STORE_U8(ctx.r3.u32+0x8c,0);
   __imp__sub_821C5998(ctx,base);
   // ★ r23-w17 C1(d) [bdjoin] — THE FORMULA HALF.  Read AFTER the real body, so bdcol is the value
   //   the guest ACTUALLY WROTE rather than a re-derivation of its arithmetic here: re-deriving it
@@ -4483,7 +4490,7 @@ PPC_FUNC(sub_821CE400){
           // entry polls loaded=1 -> state-1 takes the already-loaded branch -> E38 can't advance from 1
           // -> permanent wedge). Clear the tracked handle so state-1 re-requests fresh (what a real
           // release would leave behind).
-          if(std::getenv("RT_FSMRESET")){
+          if(RT_ENVC("RT_FSMRESET")){
             uint32_t oldh=PPC_LOAD_U32(0x884D66B4u);
             PPC_STORE_U32(0x884D66B4u, 0);
             std::fprintf(stderr,"[modecmd] RT_FSMRESET: cleared FSM tracked handle 0x884D66B4 (was 0x%X)\n",oldh);
@@ -4512,7 +4519,7 @@ PPC_FUNC(sub_821CE400){
           PPC_STORE_U32(T+68, old|0x2u); lastPost=i; ++posted;
           std::fprintf(stderr,"[submitcmd] CE400#%ld fsm=2 d76=%u post-submit: rec[0]+68 0x%X->0x%X (post #%d/total %d)\n",
             i,d,old,old|0x2u,posted,++totalPosted);
-          if(posted==1 && std::getenv("RT_FSMRESET")){
+          if(posted==1 && RT_ENVC("RT_FSMRESET")){
             uint32_t oldh=PPC_LOAD_U32(0x884D66B4u);
             PPC_STORE_U32(0x884D66B4u, 0);
             std::fprintf(stderr,"[submitcmd] cleared FSM tracked handle (was 0x%X)\n",oldh); } }
@@ -4604,7 +4611,7 @@ PPC_FUNC(sub_821CD378){
 extern "C" void __imp__sub_821B7CC0(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_821B7CC0){
   static std::atomic<long> n{0}; long i=n.fetch_add(1)+1;
-  if(std::getenv("RT_TRACERES") && (i<=20 || i%600==0)){
+  if(RT_ENVC("RT_TRACERES") && (i<=20 || i%600==0)){
     uint32_t G=PPC_LOAD_U32(0x821F8588u), o=G?PPC_LOAD_U32(G+116):0;
     uint32_t f172=o?PPC_LOAD_U32(o+172):0xEE, f176=o?PPC_LOAD_U32(o+176):0xEE;
     uint32_t f180=o?PPC_LOAD_U8(o+180):0xEE, f188=o?PPC_LOAD_U32(o+188):0xEE, f192=o?PPC_LOAD_U32(o+192):0xEE;
@@ -4696,7 +4703,7 @@ PPC_FUNC(sub_821B80D0){
 }
 extern "C" void __imp__sub_82191AA8(PPCContext& __restrict, uint8_t*);
 PPC_FUNC(sub_82191AA8){
-  if(std::getenv("RT_TRACERES")){
+  if(RT_ENVC("RT_TRACERES")){
     static std::atomic<int> n{0}; int i=n.fetch_add(1)+1;
     if(i<=40) std::fprintf(stderr,"[gsel] AA8#%d obj=0x%X +188:=%u lr=0x%X\n",i,ctx.r3.u32,ctx.r4.u32,(uint32_t)ctx.lr);
   }
@@ -4707,9 +4714,9 @@ PPC_FUNC(sub_821897C0){
   uint32_t from=(uint32_t)ctx.lr;
   __imp__sub_821897C0(ctx,base);
   static std::atomic<long> n{0}; long i=n.fetch_add(1)+1;
-  if(std::getenv("RT_TRACERES") && (i<=8 || i%600==0))
+  if(RT_ENVC("RT_TRACERES") && (i<=8 || i%600==0))
     std::fprintf(stderr,"[gsel] 897C0#%ld lr=0x%X -> %u\n",i,from,ctx.r3.u32);
-  if(ctx.r3.u32==0 && from==0x821B7DF0u && std::getenv("RT_DEVFREE")){
+  if(ctx.r3.u32==0 && from==0x821B7DF0u && RT_ENVC("RT_DEVFREE")){
     static std::atomic<int> f{0}; int k=f.fetch_add(1)+1;
     if(k<=6) std::fprintf(stderr,"[gsel] RT_DEVFREE: forcing 897C0 -> 1 at game-select confirm (#%d)\n",k);
     ctx.r3.u64=1;
