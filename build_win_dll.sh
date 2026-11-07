@@ -19,7 +19,7 @@
 #     MODULES="normal abn"            forces the 2-module shape      HOST_ONLY=1 / MODULES_ONLY=1   one half (host-only ~5 min)
 #
 #   2026-11-07 w1107 WIN-MODULES: Ver 1.01 ARCADE / XBOX 360 (hirow / hirow_abn, modeIdx 6/7, out_hirow*/) and Arrange / Novice
-#   (palm / palm_abn, 2/3, out_palm*/) -- the build_mac_dll.sh w1107 arms. OPT-IN, as on the Mac (never in the default MODULES):
+#   (palm / palm_abn, 2/3, out_palm*/) -- the build_mac_dll.sh w1107 arms. DEFAULT since 2026-11-07 ("Cut rc6, default on") whenever the trees exist; MODULES= still overrides:
 #     MODULES="normal abn kiniro kiniro_abn hirow hirow_abn palm palm_abn" bash build_win_dll.sh       (8/8, mask 0xFF)
 #   Each named module adds -DFUTARI_HOST_<MOD>=1 to the host (its g_slots[] row), force-includes <tree>/<tag>_symbol_map.h
 #   (tools/modbringup/modtools.py; the chain-break asm labels carry a COFF arm), links nvk_game_hooks + <tree>/<tag>_hook_stubs.cpp
@@ -90,6 +90,11 @@ if [ -z "${MODULES:-}" ]; then
   MODULES="normal abn"
   [ -f out_kiniro/ppc_recomp.0.cpp ] && [ -f out_kiniro/kiniro_symbol_map.h ] && MODULES="$MODULES kiniro"
   [ -f out_kiniro_abn/ppc_recomp.0.cpp ] && [ -f out_kiniro_abn/kiniro_abn_symbol_map.h ] && MODULES="$MODULES kiniro_abn"
+  # 2026-11-07 owner ruling "Cut rc6, default on": Ver 1.01 / Arrange / Novice ride the default shape whenever their trees exist (8/8).
+  [ -f out_hirow/ppc_recomp.0.cpp ]     && [ -f out_hirow/hirow_symbol_map.h ]         && MODULES="$MODULES hirow"
+  [ -f out_hirow_abn/ppc_recomp.0.cpp ] && [ -f out_hirow_abn/hirow_abn_symbol_map.h ] && MODULES="$MODULES hirow_abn"
+  [ -f out_palm/ppc_recomp.0.cpp ]      && [ -f out_palm/palm_symbol_map.h ]           && MODULES="$MODULES palm"
+  [ -f out_palm_abn/ppc_recomp.0.cpp ]  && [ -f out_palm_abn/palm_abn_symbol_map.h ]   && MODULES="$MODULES palm_abn"
 fi
 HAS_KINIRO=0; HAS_KINIRO_ABN=0; for m in $MODULES; do [ "$m" = kiniro ] && HAS_KINIRO=1; [ "$m" = kiniro_abn ] && HAS_KINIRO_ABN=1; done
 KIN_HOST=""; [ "$HAS_KINIRO" = 1 ] && KIN_HOST="-DFUTARI_HOST_KINIRO=1"; [ "$HAS_KINIRO_ABN" = 1 ] && KIN_HOST="$KIN_HOST -DFUTARI_HOST_KINIRO_ABN=1"

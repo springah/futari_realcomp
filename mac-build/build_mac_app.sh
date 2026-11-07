@@ -58,7 +58,7 @@ otool -L "$OUT" | grep -q avcodec && { echo "ERROR: engine still links libavcode
 # Module dylibs: the Ver 1.5 pair always; the two Black Label modules when build_mac_dll.sh produced them (its default
 # MODULES includes them whenever the kiniro trees exist, 2026-10-31). They are inert without the player's DLC data.
 MODDYLIBS=("$RC_OUTDIR/futari_game_normal.dylib" "$RC_OUTDIR/futari_game_abn.dylib")
-for k in kiniro kiniro_abn; do [ -f "$RC_OUTDIR/futari_game_$k.dylib" ] && MODDYLIBS+=("$RC_OUTDIR/futari_game_$k.dylib"); done
+for k in kiniro kiniro_abn hirow hirow_abn palm palm_abn; do [ -f "$RC_OUTDIR/futari_game_$k.dylib" ] && MODDYLIBS+=("$RC_OUTDIR/futari_game_$k.dylib"); done   # 8/8 from rc6 (2026-11-07 owner ruling)
 echo "   modules: ${#MODDYLIBS[@]} dylibs ($(for d in "${MODDYLIBS[@]}"; do basename "$d" .dylib | sed 's/futari_game_//'; done | tr '\n' ' '))"
 for f in "$OUT" "${MODDYLIBS[@]}"; do
   m=$(otool -l "$f" | awk '/LC_BUILD_VERSION/{f=1} f&&/minos/{print $2; exit}'); echo "   $(basename "$f"): minos $m"

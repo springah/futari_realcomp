@@ -62,6 +62,9 @@ SMOKE_HD=$(grep -o 'futari_decomp `[0-9a-f]*`' "$SRC_RD/SMOKE.md" | head -1 | gr
 NMOD=$(ls "$SRC_APP/Contents/MacOS"/futari_game_*.dylib | wc -l | tr -d ' ')
 BL_FILES=""; [ -f "$SRC_APP/Contents/MacOS/futari_game_kiniro.dylib" ] && BL_FILES="$BL_FILES"$'\n'"    futari_game_kiniro.dylib     Black Label ARCADE module (grey in the menu until your Black Label DLC data is found)"
 [ -f "$SRC_APP/Contents/MacOS/futari_game_kiniro_abn.dylib" ] && BL_FILES="$BL_FILES"$'\n'"    futari_game_kiniro_abn.dylib Black Label XBOX 360 mode module (same DLC gate)"
+for k in "hirow:Ver 1.01 ARCADE module (new in rc6; disc data, no DLC needed)" "hirow_abn:Ver 1.01 XBOX 360 mode module (new in rc6)" "palm:Arrange module (new in rc6)" "palm_abn:Novice module (new in rc6)"; do
+  m="${k%%:*}"; [ -f "$SRC_APP/Contents/MacOS/futari_game_$m.dylib" ] && BL_FILES="$BL_FILES"$'\n'"    $(printf '%-28s' "futari_game_$m.dylib") ${k#*:}"
+done
 log "gated bundle: $SRC_APP ($(du -sh "$SRC_APP" | cut -f1)); engine commit $ENGINE_COMMIT (tag $TAGV); HEAD $HRS; decomp ${HD:0:12}; $NMOD module dylibs"
 
 # ---- layout: a copy of the gated bundle minus the game data, plus the extractor + docs

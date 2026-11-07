@@ -26,6 +26,10 @@ for f in build/futari_combined.exe build/futari_game_normal.dll build/futari_gam
 MODDLLS=$(ls build/futari_game_*.dll); NMOD=$(echo $MODDLLS | wc -w | tr -d ' ')
 BL_FILES=""; [ -f build/futari_game_kiniro.dll ] && BL_FILES="$BL_FILES"$'\n'"  futari_game_kiniro.dll     Black Label ARCADE module (grey in the menu until your Black Label DLC data is found: RT_DLC_ROOT)"
 [ -f build/futari_game_kiniro_abn.dll ] && BL_FILES="$BL_FILES"$'\n'"  futari_game_kiniro_abn.dll Black Label XBOX 360 mode module (same DLC gate)"
+[ -f build/futari_game_hirow.dll ]     && BL_FILES="$BL_FILES"$'\n'"  futari_game_hirow.dll      Ver 1.01 ARCADE module (new in rc6; disc data, no DLC needed)"
+[ -f build/futari_game_hirow_abn.dll ] && BL_FILES="$BL_FILES"$'\n'"  futari_game_hirow_abn.dll  Ver 1.01 XBOX 360 mode module (new in rc6)"
+[ -f build/futari_game_palm.dll ]      && BL_FILES="$BL_FILES"$'\n'"  futari_game_palm.dll       Arrange module (new in rc6)"
+[ -f build/futari_game_palm_abn.dll ]  && BL_FILES="$BL_FILES"$'\n'"  futari_game_palm_abn.dll   Novice module (new in rc6)"
 for f in tools/extract/futari_extract.py tools/extract/extract_assets.bat tools/extract/manifest_v1.tsv docs/DUMPING.md \
          docs/RC_KNOWN_ISSUES.md docs/RC1_HANDS_CHECKLIST.md "dist/next_release/Futari 1.5.bat" save_freshcard          dist/next_release/Settings.bat tools/settings/futari_settings.py tools/settings/futari.ini.template docs/SWITCHING_FROM_FUTARI_RECOMP.md; do
   [ -e "$f" ] || die "missing $f"; done

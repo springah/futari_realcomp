@@ -64,6 +64,11 @@ if [ -z "${MODULES:-}" ]; then
   MODULES="normal abn"
   [ -f out_kiniro/ppc_recomp.0.cpp ] && [ -f out_kiniro/kiniro_symbol_map.h ] && MODULES="$MODULES kiniro"
   [ -f out_kiniro_abn/ppc_recomp.0.cpp ] && [ -f out_kiniro_abn/kiniro_abn_symbol_map.h ] && MODULES="$MODULES kiniro_abn"
+  # 2026-11-07 owner ruling "Cut rc6, default on": Ver 1.01 / Arrange / Novice ride the default shape whenever their trees exist (8/8).
+  [ -f out_hirow/ppc_recomp.0.cpp ]     && [ -f out_hirow/hirow_symbol_map.h ]         && MODULES="$MODULES hirow"
+  [ -f out_hirow_abn/ppc_recomp.0.cpp ] && [ -f out_hirow_abn/hirow_abn_symbol_map.h ] && MODULES="$MODULES hirow_abn"
+  [ -f out_palm/ppc_recomp.0.cpp ]      && [ -f out_palm/palm_symbol_map.h ]           && MODULES="$MODULES palm"
+  [ -f out_palm_abn/ppc_recomp.0.cpp ]  && [ -f out_palm_abn/palm_abn_symbol_map.h ]   && MODULES="$MODULES palm_abn"
 fi
 HAS_KINIRO=0; HAS_KINIRO_ABN=0; for m in $MODULES; do [ "$m" = kiniro ] && HAS_KINIRO=1; [ "$m" = kiniro_abn ] && HAS_KINIRO_ABN=1; done
 # w1107 (2026-11-07): the four further modules, opt-in only. NEWMOD_HOST = their host flags (one g_slots[] row each).

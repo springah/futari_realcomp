@@ -28,3 +28,14 @@ KNOWN ISSUES (release candidate; each is documented, not new)
   - Fixed since beta 3, worth re-checking by eye: START in the hub or in OPTION no longer starts the game behind the shell (G-START); START at the
     CONTINUE? countdown now continues instead of opening PAUSE (DC-2: the START shortcut now waits for the shell's own pause check; fallback lever
     RT_STARTWIRE_RAWLEVEL=1 restores the old timing). docs/NOTE_fnf_shell_defects.md, G-START and DC-2 entries.
+  - NEW in 0.3.0-rc6: all eight of the disc's game modes are hosted -- Ver 1.5 ARCADE and XBOX 360 MODE, Black Label ARCADE and XBOX 360 MODE (your DLC),
+    and now Ver 1.01 ARCADE / XBOX 360 MODE, Arrange and Novice (disc data, no DLC). Each new mode was driven to game over and back to the top menu on both
+    seats (docs/PLAN_other_modes.md section 6). Two things to listen and look for in the new modes: in Arrange and Novice the scripted runs heard no new
+    music cue after the stage-1 track (no boss or game-over track); whether the original does the same is not yet known, so say if you hear music there.
+    In Arrange, one NOW-LOADING-shaped sparkle dropout (2-3 frames) after the module switch is expected (the same effect as the XBOX 360 MODE note above).
+  - NEW in 0.3.0-rc6: player settings live in futari.ini (Windows: next to the exe, created by the launcher; macOS: ~/Library/Application Support/Futari
+    Realcomp/futari.ini). Settings.bat / Settings.command edit it; a lever set in the environment always wins over the file. Moving from futari_recomp:
+    docs/SWITCHING_FROM_FUTARI_RECOMP.md (assets, DLC, saves and replays import as they are). Windows: starting full screen (display.fullscreen = true)
+    is proven; pressing F11 to go back to the window size has not been checked by hand yet -- say if it misbehaves. macOS: F11 may need fn+F11.
+  - From 0.3.0-rc6 the Windows engine also hands idle pool pages back (RT_POOLRELEASE on by default, as on macOS since rc3): ARCADE memory now stays
+    near 400 MB instead of ramping to ~720 MB. RT_POOLRELEASE=0 restores the rc5 allocator if anything looks wrong.
