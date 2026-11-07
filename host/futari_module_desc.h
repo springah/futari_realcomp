@@ -224,6 +224,112 @@ constexpr FutariModuleDesc g_futari_desc_kiniro_abnormal = {
     nullptr, 0u
 };
 
+// hirow_normal = Ver 1.01 ARCADE (MODULE_102, title 3 / sub 0 = modeIdx 6), w1107 2026-11-07. An INDEPENDENT game
+// build like kiniro (the original arcade port): reco's 0x7B0000 image layout, but code displaced (+0x10 in the early
+// engine, entry 0x88070598) and .data moved PIECEWISE (-0x1520..-0x1570 around the descriptor fields), so every value
+// is an explicit literal from tools/modbringup/modtools.py `desc` (reco_normal -> hirow_normal twin vote; the same
+// walk reproduces reco_abnormal's +0x60 law 13/13 as its control):
+//   entry 0x88070598 / entry_ord1 0x8824B658   XEX entry header + export table ordinal 1 (control: reco pair exact)
+//   field_active  0x885C04D8  twin vote 8/8   (reco 0x885C1A20, -0x1548)
+//   gm_frame_gate 0x887AB3F0  1/1             (-0x1568)
+//   asset_commit  0x887AB40B  4/4             (-0x1568)
+//   mb_reload     0x887AC01C  NO reco-referencing twin: INTERPOLATED from its mailbox cluster (mb_credited / mb_mode64 /
+//                             the START callback slot all move -0x1570); hirow_abnormal's twin vote then sees hirow_normal
+//                             code REFERENCE exactly this word 15/15, so it is a live .data word of the module
+//   mb_credited   0x887ABFD7  1/1             (-0x1570)
+//   mb_mode64     0x887AC014  4/4             (-0x1570)
+// dshift = -0x1564 (0xFFFFEA9C): the START EXCH twin delta only (0x88699894 -> 0x88698330, 2/2), as kiniro's, so the
+// one consumer that WRITES through dshift (RT_STARTWIRE) lands on the candidate. Status: STRUCTURAL CANDIDATES until
+// RT_DESCPROBE on a live hirow drive (scripts/mod_gate_mac.sh) positive-controls them against the reco control.
+constexpr FutariModuleDesc g_futari_desc_hirow_normal = {
+    FUTARI_MODULE_ABI, (uint32_t)sizeof(FutariModuleDesc),
+    "hirow_normal",
+    0x88000000u, 0x7B0000u,
+    0x88070000u, 0x1DBE30u,         // out_hirow/ppc_config.h PPC_CODE_SIZE
+    0x887B0000u,
+    0x88070598u,                    // xstart: NOT reco's 0x88070588 (XEX entry header)
+    0x8824B658u,                    // entry_ord1 (XEX export table)
+    6u,                             // hosted_mode_idx: title 3 (Ver 1.01) / sub 0 (ARCADE)
+    0xFFFFEA9Cu,                    // dshift = -0x1564, START EXCH twin delta only
+    { 0x885C04D8u, 0x887AB3F0u, 0x887AB40Bu, 0x887AC01Cu, 0x887ABFD7u, 0x887AC014u },
+    nullptr, 0u
+};
+// hirow_abnormal = Ver 1.01 XBOX 360 MODE (MODULE_102_HI, modeIdx 7): the +8 TWIN of hirow_normal, exactly the reco pair's
+// shape: one 2-instruction insertion in sub_880DE3E0 (0xF8 -> 0x100 bytes); code keeps its address at/below 0x880DE3E0
+// and moves +8 at/above 0x880DE4D8 (8242/8242 function starts, modtools.py `split`), and .data moves +0x60 for EVERY
+// descriptor/nav/START field (modtools.py `dtwin`, unanimous: field_active 13/13, mb_reload 15/15, mb_mode64 9/9, ...).
+constexpr FutariModuleDesc g_futari_desc_hirow_abnormal = {
+    FUTARI_MODULE_ABI, (uint32_t)sizeof(FutariModuleDesc),
+    "hirow_abnormal",
+    0x88000000u, 0x7B0000u,
+    0x88070000u, 0x1DBE38u,         // code +8 (out_hirow_abn/ppc_config.h)
+    0x887B0000u,
+    0x88070598u,
+    0x8824B660u,                    // entry_ord1 = hirow_normal's + 8 (above the split; XEX export table agrees)
+    7u,                             // hosted_mode_idx: title 3 (Ver 1.01) / sub 1 (XBOX 360 MODE)
+    0xFFFFEAFCu,                    // dshift = -0x1504: START EXCH 0x88698390 (hirow_normal's +0x60)
+    { 0x885C0538u, 0x887AB450u, 0x887AB46Bu, 0x887AC07Cu, 0x887AC037u, 0x887AC074u },
+    nullptr, 0u
+};
+static_assert(g_futari_desc_hirow_normal.hosted_mode_idx == 6u && g_futari_desc_hirow_abnormal.hosted_mode_idx == 7u, "Ver 1.01 = title 3");
+static_assert(g_futari_desc_hirow_normal.table_base == g_futari_desc_hirow_normal.image_base + g_futari_desc_hirow_normal.image_size, "table window");
+static_assert(g_futari_desc_hirow_abnormal.table_base == g_futari_desc_hirow_abnormal.image_base + g_futari_desc_hirow_abnormal.image_size, "table window");
+static_assert(g_futari_desc_hirow_normal.image_size == g_futari_desc_reco_normal.image_size &&
+              g_futari_desc_hirow_abnormal.image_size == g_futari_desc_reco_normal.image_size, "hirow shares reco's image window");
+static_assert(g_futari_desc_hirow_abnormal.code_size == g_futari_desc_hirow_normal.code_size + 8u, "hirow twin: code +8");
+static_assert(g_futari_desc_hirow_abnormal.entry_ord1 == g_futari_desc_hirow_normal.entry_ord1 + 8u, "hirow twin: GameEntry +8");
+static_assert(g_futari_desc_hirow_abnormal.addrs.field_active  == g_futari_desc_hirow_normal.addrs.field_active  + 0x60u, "hirow twin .data +0x60");
+static_assert(g_futari_desc_hirow_abnormal.addrs.gm_frame_gate == g_futari_desc_hirow_normal.addrs.gm_frame_gate + 0x60u, "hirow twin .data +0x60");
+static_assert(g_futari_desc_hirow_abnormal.addrs.asset_commit  == g_futari_desc_hirow_normal.addrs.asset_commit  + 0x60u, "hirow twin .data +0x60");
+static_assert(g_futari_desc_hirow_abnormal.addrs.mb_reload     == g_futari_desc_hirow_normal.addrs.mb_reload     + 0x60u, "hirow twin .data +0x60");
+static_assert(g_futari_desc_hirow_abnormal.addrs.mb_credited   == g_futari_desc_hirow_normal.addrs.mb_credited   + 0x60u, "hirow twin .data +0x60");
+static_assert(g_futari_desc_hirow_abnormal.addrs.mb_mode64     == g_futari_desc_hirow_normal.addrs.mb_mode64     + 0x60u, "hirow twin .data +0x60");
+
+// palm_normal = ARRANGE (MODULE_ARRANGE, title 1 / sub 0 = modeIdx 2), w1107 2026-11-07. An independent build with a
+// LARGER image: 0x910000 (reco 0x7B0000), .data 0x88260000..0x88901B90, so its table window starts at 0x88910000 and
+// reco's table window lies INSIDE its image -- host/module_registry.cpp's swap UNION-ZERO (step 4) is what makes a
+// swap into or out of it safe. Values from tools/modbringup/modtools.py `desc` (reco_normal -> palm_normal twin vote,
+// control reco_abnormal +0x60 13/13): entry 0x88070598, ord1 0x88251D50 (XEX), field_active 0x88715DF0 10/10
+// (+0x1543D0), gm_frame_gate 0x88900D08 1/1, asset_commit 0x88900D23 4/4 (+0x1543B0), mb_credited 0x8890191B 2/2,
+// mb_mode64 0x88901958 4/4 (+0x1543D4), mb_reload 0x88901960 INTERPOLATED (no reco-referencing twin; its mailbox
+// cluster moves +0x1543D4). dshift = +0x1543B4 = the START EXCH twin delta (0x88699894 -> 0x887EDC48, 2/2).
+constexpr FutariModuleDesc g_futari_desc_palm_normal = {
+    FUTARI_MODULE_ABI, (uint32_t)sizeof(FutariModuleDesc),
+    "palm_normal",
+    0x88000000u, 0x910000u,         // ★ image 0x910000
+    0x88070000u, 0x1E2560u,         // out_palm/ppc_config.h
+    0x88910000u,                    // table window = image end
+    0x88070598u,
+    0x88251D50u,
+    2u,                             // hosted_mode_idx: title 1 (Arrange) / sub 0
+    0x001543B4u,                    // dshift: START EXCH twin delta only
+    { 0x88715DF0u, 0x88900D08u, 0x88900D23u, 0x88901960u, 0x8890191Bu, 0x88901958u },
+    nullptr, 0u
+};
+// palm_abnormal = NOVICE / EASY (MODULE_EASY, title 1 / sub 1 = modeIdx 3): NOT a twin of palm_normal. Its CODE is
+// REBASED +0x10000 (code_base 0x88080000, entry 0x88080588) and its image is 0x7D0000 (.data 0x88270000..0x887CD830,
+// table window 0x887D0000), so it too needs the swap UNION-ZERO (reco's table window starts inside its image).
+// Twin vote (modtools.py desc): field_active 0x885E1AB8 8/8, gm_frame_gate 0x887CC9F0 1/1, asset_commit 0x887CCA0B 5/5
+// (+0x20098), mb_reload 0x887CD62C 10/10, mb_credited 0x887CD5E7 3/3, mb_mode64 0x887CD624 7/7 (+0x200A0); ord1
+// 0x88268088 (XEX); dshift = +0x20098 (START EXCH 0x886B992C, 2/2).
+constexpr FutariModuleDesc g_futari_desc_palm_abnormal = {
+    FUTARI_MODULE_ABI, (uint32_t)sizeof(FutariModuleDesc),
+    "palm_abnormal",
+    0x88000000u, 0x7D0000u,         // ★ image 0x7D0000
+    0x88080000u, 0x1E88A0u,         // ★ code REBASED to 0x88080000 (out_palm_abn/ppc_config.h)
+    0x887D0000u,
+    0x88080588u,
+    0x88268088u,
+    3u,                             // hosted_mode_idx: title 1 (Arrange row) / sub 1
+    0x00020098u,
+    { 0x885E1AB8u, 0x887CC9F0u, 0x887CCA0Bu, 0x887CD62Cu, 0x887CD5E7u, 0x887CD624u },
+    nullptr, 0u
+};
+static_assert(g_futari_desc_palm_normal.hosted_mode_idx == 2u && g_futari_desc_palm_abnormal.hosted_mode_idx == 3u, "Arrange row = title 1");
+static_assert(g_futari_desc_palm_normal.table_base == g_futari_desc_palm_normal.image_base + g_futari_desc_palm_normal.image_size, "table window");
+static_assert(g_futari_desc_palm_abnormal.table_base == g_futari_desc_palm_abnormal.image_base + g_futari_desc_palm_abnormal.image_size, "table window");
+static_assert(g_futari_desc_palm_abnormal.xstart >= g_futari_desc_palm_abnormal.code_base, "palm_abnormal entry inside its rebased code");
+
 // The +0x60 law, asserted rather than trusted.
 static_assert(g_futari_desc_reco_abnormal.addrs.field_active  == g_futari_desc_reco_normal.addrs.field_active  + 0x60u, "abn dshift");
 static_assert(g_futari_desc_reco_abnormal.addrs.gm_frame_gate == g_futari_desc_reco_normal.addrs.gm_frame_gate + 0x60u, "abn dshift");
@@ -299,8 +405,16 @@ constexpr const FutariModuleDesc* futari_desc() {
     return &g_futari_desc_kiniro_normal;
 #elif FUTARI_MODULE == 5
     return &g_futari_desc_kiniro_abnormal;
+#elif FUTARI_MODULE == 2
+    return &g_futari_desc_palm_normal;
+#elif FUTARI_MODULE == 3
+    return &g_futari_desc_palm_abnormal;
+#elif FUTARI_MODULE == 6
+    return &g_futari_desc_hirow_normal;
+#elif FUTARI_MODULE == 7
+    return &g_futari_desc_hirow_abnormal;
 #elif FUTARI_MODULE != 0
-#error "FUTARI_MODULE must be 0 (reco_normal), 1 (reco_abnormal), 4 (kiniro_normal) or 5 (kiniro_abnormal)"
+#error "FUTARI_MODULE must be 0/1 (reco), 2/3 (palm), 4/5 (kiniro) or 6/7 (hirow)"
 #else
     return &g_futari_desc_reco_normal;
 #endif

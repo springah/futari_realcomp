@@ -77,7 +77,7 @@ struct ModuleSlot {
 // The build's module inventory.  Adding a third module is one row plus its DLL — the mask, the
 // stub layers, the resolver and the swap all read this table and need no other edit.
 // (True for modules that share reco's image window -- futari_module_desc.h static_asserts it for
-// each one; palm_* will need the union-zero swap first, PLAN_other_modes §1.4.)
+// each one; palm_* need the union-zero swap, PLAN_other_modes §1.4 -- LANDED w1107 2026-11-07, step 4 of the swap.)
 // The kiniro_normal row (Black Label ARCADE, modeIdx 4, 2026-10-30 step 4a) is OPT-IN at compile time:
 // build_mac_dll.sh passes -DFUTARI_HOST_KINIRO=1 to the host only when MODULES names `kiniro`, so the
 // default two-module host (the rc path) keeps its 2-row table and its "[modreg] 2/2" line unchanged.
@@ -91,6 +91,20 @@ ModuleSlot g_slots[] = {
     // Black Label XBOX 360 MODE (modeIdx 5, step 4c 2026-10-31): its own opt-in flag, so a MODULES list with
     // `kiniro` but not `kiniro_abn` still gets a 3-row table and no "NOT FOUND" row.
     { "futari_game_kiniro_abn" FUTARI_MODULE_EXT, "kiniro_abnormal", 5u, nullptr, nullptr, 0 },
+#endif
+    // w1107 (2026-11-07): Ver 1.01 ARCADE / XBOX 360 (modeIdx 6/7) and Arrange / Novice (2/3), each opt-in through
+    // its own host flag (build_mac_dll.sh MODULES="... hirow hirow_abn palm palm_abn").
+#if defined(FUTARI_HOST_HIROW) && FUTARI_HOST_HIROW
+    { "futari_game_hirow" FUTARI_MODULE_EXT, "hirow_normal", 6u, nullptr, nullptr, 0 },
+#endif
+#if defined(FUTARI_HOST_HIROW_ABN) && FUTARI_HOST_HIROW_ABN
+    { "futari_game_hirow_abn" FUTARI_MODULE_EXT, "hirow_abnormal", 7u, nullptr, nullptr, 0 },
+#endif
+#if defined(FUTARI_HOST_PALM) && FUTARI_HOST_PALM
+    { "futari_game_palm" FUTARI_MODULE_EXT, "palm_normal", 2u, nullptr, nullptr, 0 },
+#endif
+#if defined(FUTARI_HOST_PALM_ABN) && FUTARI_HOST_PALM_ABN
+    { "futari_game_palm_abn" FUTARI_MODULE_EXT, "palm_abnormal", 3u, nullptr, nullptr, 0 },
 #endif
 };
 constexpr int NSLOT = (int)(sizeof(g_slots) / sizeof(g_slots[0]));
@@ -268,10 +282,27 @@ extern "C" int futari_registry_switch(const FutariModuleDesc* d, uint8_t* base) 
     //       0x00300000 (out_reco/harness.cpp:28) capped far below 0x88000000 — asserted here.
     //       At BOOT (cur == nullptr) there is nothing to clean and the harness may already have
     //       memcpy'd an argv-supplied XEX into this window, so the zero is swap-only.
+    //       ★ UNION-ZERO (w1107, 2026-11-07; PLAN_other_modes §1.4 / §3.6): the windows are only SHARED while both
+    //       modules have reco's image base and size. palm_normal's image is 0x910000 (its .data runs to 0x88901B90)
+    //       and palm_abnormal's is 0x7D0000 (.data to 0x887CD830), so reco's TABLE window 0x887B0000..0x88B6DD60
+    //       lies INSIDE their images: on a palm -> reco swap the old step 4 zeroed only reco's image window and
+    //       step 5 then installed reco's slots over palm's left-over .data -- every slot reco does not install
+    //       would hold palm bytes and be dispatched as a host pointer. So the zero now covers the UNION of BOTH
+    //       modules' image AND table windows: [min(image_base), max(table_base + code_size*2)). For two modules
+    //       that share reco's layout this adds only the shared table window, which step 3's residue check has
+    //       just proven empty (residue=0) -- byte-for-byte the old outcome. Still swap-only and RT_SWAPZERO-gated.
+    //       The guest heap (0x00300000.., far below 0x88000000) and the shell (0x82...) lie outside any window.
     if (cur && envon("RT_SWAPZERO", true)) {
-        std::memset(base + d->image_base, 0, d->image_size);
+        const uint64_t lo  = (uint64_t)(cur->image_base < d->image_base ? cur->image_base : d->image_base);
+        const uint64_t he1 = (uint64_t)cur->table_base + (uint64_t)cur->code_size * 2u;
+        const uint64_t he2 = (uint64_t)d->table_base   + (uint64_t)d->code_size * 2u;
+        const uint64_t hi  = he1 > he2 ? he1 : he2;
+        std::memset(base + lo, 0, (size_t)(hi - lo));
         std::fprintf(stderr, "[modswap]  zeroed guest image window 0x%08X..0x%08X (%u bytes)\n",
                      d->image_base, d->image_base + d->image_size, d->image_size);
+        std::fprintf(stderr, "[modswap]  UNION-ZERO 0x%08llX..0x%08llX (%llu bytes: images + table windows of %s and %s)\n",
+                     (unsigned long long)lo, (unsigned long long)hi, (unsigned long long)(hi - lo),
+                     cur->module_basename, d->module_basename);
     } else if (cur) {
         std::fprintf(stderr, "[modswap]  RT_SWAPZERO=0 — image window left dirty (A/B lever)\n");
     }

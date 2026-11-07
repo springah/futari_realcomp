@@ -49,6 +49,8 @@ EXTRA=(); if [ -n "${KIN_STEPS:-}" ]; then
 KIN_MODEIDX="${KIN_MODEIDX:-4}"
 ROWSTEPS=(2 's:1.5' 2 's:2.5'); SWAPSTEPS=('W:\[modswap\] #[0-9]* DONE' 's:5')
 if [ "$KIN_MODEIDX" = 0 ]; then ROWSTEPS=('s:2'); SWAPSTEPS=('s:8'); fi
+# w1107 (2026-11-07): the other title rows (row = modeIdx/2: 1 = Arrange/Novice, 3 = Ver 1.01), one DOWN per row
+case "$KIN_MODEIDX" in 2|3) ROWSTEPS=(2 's:2.5');; 6|7) ROWSTEPS=(2 's:1.5' 2 's:1.5' 2 's:2.5');; esac
 # odd modeIdx = the XBOX 360 MODE card: LEFT on the arcade_front panel first (the panel honours no decide for 3 s)
 SUBSTEPS=(); case "$KIN_MODEIDX" in 1|3|5|7) SUBSTEPS=(4 's:3.6');; esac
 # RSS sampler (G5-style soak figure for the module): one line per 30 s, "t_s,rss_mb", from the first engine process seen

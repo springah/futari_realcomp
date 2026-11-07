@@ -57,6 +57,11 @@ out_reco_abn/ppc_recomp.*.cpp
 # scripts/regen_kiniro_mac.sh in ~4 s); the support files, postregen and tools_kiniro/ are tracked.
 out_kiniro/ppc_recomp.*.cpp
 out_kiniro_abn/ppc_recomp.*.cpp
+# 2026-11-07 w1107 (scripts/regen_mod_mac.sh): Ver 1.01 (hirow) and Arrange/Novice (palm) trees, same rule as out_kiniro*.
+out_hirow/ppc_recomp.*.cpp
+out_hirow_abn/ppc_recomp.*.cpp
+out_palm/ppc_recomp.*.cpp
+out_palm_abn/ppc_recomp.*.cpp
 
 # --- Editor / OS noise ---
 .vs/
