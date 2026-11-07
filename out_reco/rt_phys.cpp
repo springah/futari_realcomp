@@ -273,13 +273,15 @@ static bool decommitOn(){ static int v = [](){ const char* e = getenv("RT_DECOMM
 // vs pilots +9 / +6 MB, x360 soak +8 MB, stagepix PASS, boss plate PASS 46/46 lockstep, rc_chain A swap x5 residue=0).
 // RT_POOLRELEASE=0 = the pre-10-30 allocator byte-for-byte. Known residual, ruled acceptable: a deterministic 7-frame
 // title-element dropout mode in 3 of 11 lever-on vs 0 of 9 lever-off runs, always before the first release (not the
-// remap). Windows: DEFAULT OFF (opt-in RT_POOLRELEASE=10000; the arm exists from 2026-11-07, default flip = owner ruling).
+// remap). Windows: DEFAULT ON (10000 ms) since 2026-11-07 -- OWNER RULING 2026-11-07 "sure flip on" after the w1107 gates
+// (ARCADE 12 min +193 MB control vs +32 MB arm, x360 +69 vs +31 from t+1, PC1 crash-as-designed, gstart 0 leaks, rc_chain PASS
+// both arms; _local/rc/w1107_driver). RT_POOLRELEASE=0 reverts to the pre-11-07 Windows allocator.
 // Log: [poolrelease].
 // RT_POOLRELEASE_MIN=<bytes> (default 0): only pool entries at least this large are released. The RSS lives in the
 // big asset blocks; a floor keeps the small, frequently recycled granule entries untouched (A/B lever, 10-30).
 static uint32_t poolReleaseMs(){ static uint32_t v = [](){ const char* e = getenv("RT_POOLRELEASE");
 #ifdef _WIN32
-    return e ? (uint32_t)atoi(e) : 0u;
+    return e ? (uint32_t)atoi(e) : 10000u;  // owner ruling 2026-11-07: on by default on Windows too (w1107 M2 gates)
 #else
     return e ? (uint32_t)atoi(e) : 10000u;  // owner ruling 2026-10-30: on by default on macOS/Linux
 #endif
