@@ -83,9 +83,11 @@ REQUIREMENTS
   64-bit Windows 10/11 with a Vulkan 1.1+ GPU driver (any current NVIDIA / AMD / Intel driver). No installer.
 
 MODES
-  Both Ver 1.5 modes are in this build: ARCADE (1.5 Original) and XBOX 360 MODE. Pick one at the in-game title
-  select; going back to the top menu and picking the other switches live, no relaunch. Ver 1.01 and Black Label
-  stay greyed (not included in the Windows build).
+  All eight of the disc's game modes are in this build (new in rc6): ARCADE (1.5 Original), XBOX 360 MODE, Ver 1.01 ARCADE
+  and XBOX 360 MODE, Arrange, Novice, and Black Label ARCADE and XBOX 360 MODE. Pick one at the in-game title select;
+  going back to the top menu and picking another switches live, no relaunch. The Black Label row stays greyed until the
+  game finds YOUR Black Label download content (no DLC data is included; the extractor takes it right after the disc).
+  Arrange and Novice: say if you hear music after the stage-1 track -- the scripted runs did not (docs/RC_KNOWN_ISSUES.md).
 
 RUN
   Double-click "Futari 1.5.bat". First run: the extraction wizard above, then a fresh save is copied from

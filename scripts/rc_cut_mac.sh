@@ -85,7 +85,7 @@ BUILD (docs/PLAN_RC1.md section 6)
   futari_decomp:      $HD   (tag realcomp-v$VER$([ "$DRY" = 1 ] && echo ", NOT tagged: dry run"); the decomp/ tree compiled into this bundle is a snapshot of exactly this commit)
   Decomp TUs:         $TU_U distinct source TUs in the snapshot (shell $TU_SH, game/ARCADE $TU_G, game_abn/360 $TU_A), all compiled and linked
   Source tree state:  $TREE
-  Engine:             combined host (shell + kernel + renderer + bridge) + 2 module dylibs, libavcodec NOT linked (FFM off), MoltenVK/SDL3 bundled,
+  Engine:             combined host (shell + kernel + renderer + bridge) + $(ls build/rc_app/futari_game_*.dylib 2>/dev/null | wc -l | tr -d " ") module dylibs, libavcodec NOT linked (FFM off), MoltenVK/SDL3 bundled,
                       macOS 13.0 minimum, ad-hoc signed. Launcher environment defaults: ${LAUNCH_ENV:-see mac-build/launcher.c}
 EOF
 log "build -> $APP"

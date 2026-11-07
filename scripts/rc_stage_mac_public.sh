@@ -108,7 +108,7 @@ BL_TEXT=""
 if [ -n "$BL_FILES" ]; then
 BL_TEXT="
 BLACK LABEL (your own DLC)
-  This build also contains the Black Label engine (ARCADE and XBOX 360 MODE). The row stays greyed until the game
+  The Black Label modules (ARCADE and XBOX 360 MODE) are in the build above. The row stays greyed until the game
   finds YOUR Black Label download content; no DLC data is included. \"Extract Game Data.command\" offers to take it
   right after the disc (point it at the folder holding your 496F816D... DLC package, or the console folder above it)
   and unpacks the three files it needs into assets/media/Rom/. Black Label has had far less testing than Ver 1.5.
@@ -140,8 +140,10 @@ FIRST LAUNCH ON A NEW MAC
   Documents): click Allow -- that is how it reads assets/ next to itself. Until you answer, the window stays blank.
 
 MODES
-  Both Ver 1.5 modes are in this build: ARCADE (1.5 Original) and XBOX 360 MODE. Pick one at the in-game title
-  select; going back to the top menu and picking the other switches live, no relaunch. Ver 1.01 stays greyed.
+  All eight of the disc's game modes are in this build (new in rc6): ARCADE (1.5 Original), XBOX 360 MODE, Ver 1.01 ARCADE
+  and XBOX 360 MODE, Arrange, Novice, and Black Label ARCADE and XBOX 360 MODE. Pick one at the in-game title select;
+  going back to the top menu and picking another switches live, no relaunch. Arrange and Novice: say if you hear music
+  after the stage-1 track -- the scripted runs did not (docs/RC_KNOWN_ISSUES.md).
 ${BL_TEXT}
 
 RUN
