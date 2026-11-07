@@ -15,10 +15,19 @@
 struct PPCContext;
 
 // ---- CHAIN-BREAK ALIASES (2): targets that are themselves renamed reco keys (see modtools.py emit_map) ----
+#if defined(_WIN32)
+void sub_8808FDF8_HCH(PPCContext& __restrict ctx, uint8_t* base) __asm__("?sub_8808FDF8@@YAXAEIAUPPCContext@@PEAE@Z");
+extern "C" void __imp__sub_8808FDF8_HCH(PPCContext& __restrict ctx, uint8_t* base) __asm__("__imp__sub_8808FDF8");
+void sub_88090A00_HCH(PPCContext& __restrict ctx, uint8_t* base) __asm__("?sub_88090A00@@YAXAEIAUPPCContext@@PEAE@Z");
+extern "C" void __imp__sub_88090A00_HCH(PPCContext& __restrict ctx, uint8_t* base) __asm__("__imp__sub_88090A00");
+#elif defined(__APPLE__)
 void sub_8808FDF8_HCH(PPCContext& __restrict ctx, uint8_t* base) __asm__("__Z12sub_8808FDF8R10PPCContextPh");
 extern "C" void __imp__sub_8808FDF8_HCH(PPCContext& __restrict ctx, uint8_t* base) __asm__("___imp__sub_8808FDF8");
 void sub_88090A00_HCH(PPCContext& __restrict ctx, uint8_t* base) __asm__("__Z12sub_88090A00R10PPCContextPh");
 extern "C" void __imp__sub_88090A00_HCH(PPCContext& __restrict ctx, uint8_t* base) __asm__("___imp__sub_88090A00");
+#else
+#error "chain-break asm labels are measured for Mach-O and COFF only (tools/modbringup/modtools.py emit_map)"
+#endif
 
 // ---- UNIQUE (188) ----
 #define sub_88072260         sub_88082260         // +0x10000 [merged_game]

@@ -94,9 +94,20 @@ def emit_map(mod, tdir, tag, res, refs, cnt, outdir=None, check=False, extra_hdr
     w('')
     if alias:
         w('// ---- CHAIN-BREAK ALIASES (%d): targets that are themselves renamed reco keys (see modtools.py emit_map) ----' % len(alias))
+        # The asm labels are object-format specific.  Windows (COFF x64, w1107 Windows lane): MSVC C++ mangling and no
+        # global underscore, measured with llvm-nm on a clang --target=x86_64-pc-windows-msvc probe of PPC_FUNC's
+        # signature (?sub_B@@YAXAEIAUPPCContext@@PEAE@Z / __imp__sub_B).  Any other format is unmeasured -> #error.
+        w('#if defined(_WIN32)')
+        for t in sorted(alias):
+            w('void sub_%08X_HCH(PPCContext& __restrict ctx, uint8_t* base) __asm__("?sub_%08X@@YAXAEIAUPPCContext@@PEAE@Z");' % (t, t))
+            w('extern "C" void __imp__sub_%08X_HCH(PPCContext& __restrict ctx, uint8_t* base) __asm__("__imp__sub_%08X");' % (t, t))
+        w('#elif defined(__APPLE__)')
         for t in sorted(alias):
             w('void sub_%08X_HCH(PPCContext& __restrict ctx, uint8_t* base) __asm__("__Z12sub_%08XR10PPCContextPh");' % (t, t))
             w('extern "C" void __imp__sub_%08X_HCH(PPCContext& __restrict ctx, uint8_t* base) __asm__("___imp__sub_%08X");' % (t, t))
+        w('#else')
+        w('#error "chain-break asm labels are measured for Mach-O and COFF only (tools/modbringup/modtools.py emit_map)"')
+        w('#endif')
         w('')
     for cls in ('UNIQUE', 'TIEBROKEN', 'AMBIGUOUS', 'NOMATCH'):
         w('// ---- %s (%d) ----' % (cls, len(by[cls])))

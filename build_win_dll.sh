@@ -18,6 +18,14 @@
 #   shim that lacks a symbol fails loudly at link, the same tripwire one step later -- as on the Mac).
 #     MODULES="normal abn"            forces the 2-module shape      HOST_ONLY=1 / MODULES_ONLY=1   one half (host-only ~5 min)
 #
+#   2026-11-07 w1107 WIN-MODULES: Ver 1.01 ARCADE / XBOX 360 (hirow / hirow_abn, modeIdx 6/7, out_hirow*/) and Arrange / Novice
+#   (palm / palm_abn, 2/3, out_palm*/) -- the build_mac_dll.sh w1107 arms. OPT-IN, as on the Mac (never in the default MODULES):
+#     MODULES="normal abn kiniro kiniro_abn hirow hirow_abn palm palm_abn" bash build_win_dll.sh       (8/8, mask 0xFF)
+#   Each named module adds -DFUTARI_HOST_<MOD>=1 to the host (its g_slots[] row), force-includes <tree>/<tag>_symbol_map.h
+#   (tools/modbringup/modtools.py; the chain-break asm labels carry a COFF arm), links nvk_game_hooks + <tree>/<tag>_hook_stubs.cpp
+#   and no other decomp/game TU, and uses the checked-in moduleshim/module_shim_<name>.cpp. The generated TUs are gitignored and
+#   Mac-regenerated (scripts/regen_mod_mac.sh; the Windows XenonRecomp lacks the eqv fixes): copy them from the Mac seat.
+#
 # L4+L5 of _tmpscripts/dll_packaging_plan.md.  Notes: _tmpscripts/l4l5_combined_notes.md.
 #
 # ############################################################################################
@@ -85,7 +93,15 @@ if [ -z "${MODULES:-}" ]; then
 fi
 HAS_KINIRO=0; HAS_KINIRO_ABN=0; for m in $MODULES; do [ "$m" = kiniro ] && HAS_KINIRO=1; [ "$m" = kiniro_abn ] && HAS_KINIRO_ABN=1; done
 KIN_HOST=""; [ "$HAS_KINIRO" = 1 ] && KIN_HOST="-DFUTARI_HOST_KINIRO=1"; [ "$HAS_KINIRO_ABN" = 1 ] && KIN_HOST="$KIN_HOST -DFUTARI_HOST_KINIRO_ABN=1"
-echo "MODULES: $MODULES  (host slots: 2$([ "$HAS_KINIRO" = 1 ] && echo +kiniro)$([ "$HAS_KINIRO_ABN" = 1 ] && echo +kiniro_abn))"
+# w1107: the four further modules, opt-in only (build_mac_dll.sh NEWMOD_HOST): one host g_slots[] row each.
+NEWMOD_HOST=""; NEWMOD_TAGS=""
+for m in $MODULES; do case "$m" in
+  hirow)     NEWMOD_HOST="$NEWMOD_HOST -DFUTARI_HOST_HIROW=1";     NEWMOD_TAGS="$NEWMOD_TAGS+hirow";;
+  hirow_abn) NEWMOD_HOST="$NEWMOD_HOST -DFUTARI_HOST_HIROW_ABN=1"; NEWMOD_TAGS="$NEWMOD_TAGS+hirow_abn";;
+  palm)      NEWMOD_HOST="$NEWMOD_HOST -DFUTARI_HOST_PALM=1";      NEWMOD_TAGS="$NEWMOD_TAGS+palm";;
+  palm_abn)  NEWMOD_HOST="$NEWMOD_HOST -DFUTARI_HOST_PALM_ABN=1";  NEWMOD_TAGS="$NEWMOD_TAGS+palm_abn";;
+esac; done
+echo "MODULES: $MODULES  (host slots: 2$([ "$HAS_KINIRO" = 1 ] && echo +kiniro)$([ "$HAS_KINIRO_ABN" = 1 ] && echo +kiniro_abn)$NEWMOD_TAGS)"
 
 fail=0
 banner(){ echo; echo "=============== $* ==============="; }
@@ -147,7 +163,7 @@ cc "game_harness" "out_reco/harness.cpp" $GI $RT
 cc "game_rt_phys" "out_reco/rt_phys.cpp" $GI $RT
 
 echo "-- module registry (load / bind / activate / swap)"
-cc "host_module_registry" "host/module_registry.cpp" $GI $RT $KIN_HOST   # Black Label slots only when their modules are built
+cc "host_module_registry" "host/module_registry.cpp" $GI $RT $KIN_HOST $NEWMOD_HOST   # non-reco slots only when their modules are built
 
 echo "-- merged host halves (bridge + shell; merged_game.cpp is DLL-side)"
 cc "merged_bridge" "out_reco/merged/merged_bridge.cpp" $GI $RT
@@ -239,6 +255,10 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
   MAP=""; [ "$MIDX" = "1" ] && MAP="-include $TREE/abn_symbol_map.h"
   [ "$MIDX" = "4" ] && MAP="-include $TREE/kiniro_symbol_map.h"
   [ "$MIDX" = "5" ] && MAP="-include $TREE/kiniro_abn_symbol_map.h"   # kiniro_normal's map composed with the +8 law (gen_symbol_map_abn.py)
+  [ "$MIDX" = "6" ] && MAP="-include $TREE/hirow_symbol_map.h"        # w1107: tools/modbringup/modtools.py symmap
+  [ "$MIDX" = "7" ] && MAP="-include $TREE/hirow_abn_symbol_map.h"    # w1107: hirow_normal's map composed with the +8 law (modtools.py twin)
+  [ "$MIDX" = "2" ] && MAP="-include $TREE/palm_symbol_map.h"         # w1107
+  [ "$MIDX" = "3" ] && MAP="-include $TREE/palm_abn_symbol_map.h"     # w1107
   i=0
   echo "-- generated tree"
   for f in $TREE/ppc_recomp.*.cpp; do n=$(basename "$f" .cpp); cc "gen_$n" "$f" $GI $RT; done
@@ -467,7 +487,8 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
     # NON-RECO MODULES (kiniro_normal 4 / kiniro_abnormal 5): every decomp/game TU is reco_normal content (bodies, .data literals,
     # MATCHED rows), so a different game build links NONE of them -- except the renderer bridge nvk_game_hooks, which every module
     # needs (w186 LAW 1). Same rule as build_mac_dll.sh.
-    if { [ "$MIDX" = "4" ] || [ "$MIDX" = "5" ]; } && [ "$n" != nvk_game_hooks ]; then continue; fi
+    # (w1107: every non-reco module -- modeIdx 2..7 -- follows the same rule.)
+    if [ "$MIDX" != "0" ] && [ "$MIDX" != "1" ] && [ "$n" != nvk_game_hooks ]; then continue; fi
     cc "decomp_$n" "$f" $GI -I . $RT $MAP
   done
   if [ "$MIDX" = "1" ]; then
@@ -476,6 +497,11 @@ build_dll(){                 # $1 name  $2 tree  $3 modidx  $4 dllout  $5.. extr
   if [ "$MIDX" = "4" ] || [ "$MIDX" = "5" ]; then
     echo "-- dropped-hook stubs (GENERATED with the kiniro symbol map: loud weak sub_X_KDROP definitions)"
     cc "modstub_kiniro_hook_stubs" "$TREE/kiniro_hook_stubs.cpp" $GI $RT
+  fi
+  if [ "$MIDX" != "0" ] && [ "$MIDX" != "1" ] && [ "$MIDX" != "4" ] && [ "$MIDX" != "5" ]; then
+    local STUBS; STUBS=$(basename "${MAP#-include }" _symbol_map.h)_hook_stubs.cpp
+    echo "-- dropped-hook stubs ($TREE/$STUBS, GENERATED with the map by tools/modbringup/modtools.py)"
+    cc "modstub_hook_stubs" "$TREE/$STUBS" $GI $RT
   fi
   echo "-- host-facing shim (moduleshim/, NEVER a glob-swept dir)"
   cc "module_shim" "moduleshim/module_shim_$NAME.cpp" $GI $RT
@@ -508,7 +534,14 @@ if [ "${HOST_ONLY:-0}" != "1" ]; then
     kiniro_abn) [ -f out_kiniro_abn/ppc_recomp.0.cpp ] || { echo "MISSING: out_kiniro_abn generated tree"; fail=1; continue; }
             [ -f out_kiniro_abn/kiniro_abn_symbol_map.h ] || { echo "MISSING: out_kiniro_abn/kiniro_abn_symbol_map.h (python out_kiniro/tools_kiniro/gen_symbol_map_abn.py)"; fail=1; continue; }
             build_dll kiniro_abnormal out_kiniro_abn 5 build/futari_game_kiniro_abn.dll;;
-    *)      echo "UNKNOWN MODULE '$m' (normal|abn|kiniro|kiniro_abn)"; fail=1;;
+    hirow|hirow_abn|palm|palm_abn)   # w1107 (2026-11-07), build_mac_dll.sh's arms: name tree map idx dll-stem
+            case "$m" in hirow) R="hirow_normal out_hirow hirow 6";; hirow_abn) R="hirow_abnormal out_hirow_abn hirow_abn 7";;
+                         palm) R="palm_normal out_palm palm 2";; palm_abn) R="palm_abnormal out_palm_abn palm_abn 3";; esac
+            set -- $R
+            [ -f "$2/ppc_recomp.0.cpp" ] || { echo "MISSING: $2 generated tree (Mac-regenerated: scripts/regen_mod_mac.sh $1, then copy)"; fail=1; continue; }
+            [ -f "$2/$3_symbol_map.h" ] || { echo "MISSING: $2/$3_symbol_map.h (tools/modbringup/modtools.py)"; fail=1; continue; }
+            build_dll "$1" "$2" "$4" "build/futari_game_$3.dll";;
+    *)      echo "UNKNOWN MODULE '$m' (normal|abn|kiniro|kiniro_abn|hirow|hirow_abn|palm|palm_abn)"; fail=1;;
   esac; done
 fi
 
