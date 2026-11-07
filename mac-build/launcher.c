@@ -15,7 +15,9 @@
 #include <unistd.h>
 #include "../host/futari_ini.h"   // futari.ini -> env (the engine applies the same file; see the header)
 
-static void def(const char* k, const char* v) { if (!getenv(k)) setenv(k, v, 1); }
+// "only if unset" -- and only if futari.ini did not decide the name (an off/auto ini value decides it as unset; see
+// futari_ini::decided). Called after futari_ini::apply("launcher").
+static void def(const char* k, const char* v) { if (!getenv(k) && !futari_ini::decided(k)) setenv(k, v, 1); }
 static bool isdir(const std::string& p) { struct stat st; return stat(p.c_str(), &st) == 0 && S_ISDIR(st.st_mode); }
 static bool isfile(const std::string& p) { struct stat st; return stat(p.c_str(), &st) == 0 && S_ISREG(st.st_mode); }
 static void mkdirs(const std::string& p) { std::string cmd = "mkdir -p '" + p + "'"; system(cmd.c_str()); }

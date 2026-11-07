@@ -208,6 +208,11 @@ inline bool was_applied_by_parent(const char* name) {
 
 inline void decide(State& st, const char* env, const std::string& origin, int rc, const std::string& val, const std::string& why) {
   for (auto& d : st.decided) if (d == env) { std::fprintf(stderr, "[ini]   %s: later line ignored (already decided)\n", origin.c_str()); return; }
+  if (rc == -2) {   // empty in the ini: the ini does not decide it, so a value already there is a default or an override, not "env wins"
+    if (env_set(env)) std::fprintf(stderr, "[ini]   %s -> %s not decided here (%s); '%s' from the environment / launcher\n", origin.c_str(), env, why.c_str(), std::getenv(env));
+    else std::fprintf(stderr, "[ini]   %s -> %s not decided here (%s)\n", origin.c_str(), env, why.c_str());
+    return;
+  }
   if (env_set(env)) {
     if (was_applied_by_parent(env)) std::fprintf(stderr, "[ini]   %s -> %s=%s (ini, applied by the launcher)\n", origin.c_str(), env, std::getenv(env));
     else { std::fprintf(stderr, "[ini]   %s -> %s kept '%s' (set in the environment; env wins over the ini)\n", origin.c_str(), env, std::getenv(env)); ++st.nenv; }
@@ -220,8 +225,6 @@ inline void decide(State& st, const char* env, const std::string& origin, int rc
   } else if (rc == 0) {
     st.decided.push_back(env);
     std::fprintf(stderr, "[ini]   %s -> %s left unset (engine default)\n", origin.c_str(), env);
-  } else if (rc == -2) {
-    std::fprintf(stderr, "[ini]   %s -> %s not decided here (%s)\n", origin.c_str(), env, why.c_str());
   } else {
     ++st.nbad; std::fprintf(stderr, "[ini]   %s: INVALID value '%s' (%s) -- ignored\n", origin.c_str(), val.c_str(), why.c_str());
   }
@@ -232,6 +235,12 @@ inline bool lever_name_ok(const std::string& n) {
   for (char c : n) if (!(std::isupper((unsigned char)c) || std::isdigit((unsigned char)c) || c == '_')) return false;
   return true;
 }
+
+// Every env name the last apply() decided (set from the ini, decided-unset by an off/auto value, or kept from the
+// environment). The macOS launcher's own "only if unset" defaults consult this, so e.g. input.keyboard = false is not
+// undone by the launcher's RT_PAD_HOST=1 default (the FUTARI_DEFAULTS rule above, for the launcher's def() calls).
+inline std::vector<std::string>& last_decided() { static std::vector<std::string> v; return v; }
+inline bool decided(const char* name) { for (auto& d : last_decided()) if (d == name) return true; return false; }
 
 // Apply the ini. `who` names the caller in the log ("engine" / "launcher"). Returns the number of variables set.
 inline int apply(const char* who) {
@@ -306,6 +315,7 @@ inline int apply(const char* who) {
     setenv("FUTARI_INI_APPLIED", (prev.empty() ? st.applied : prev + "," + st.applied).c_str(), 1);
 #endif
   }
+  last_decided() = st.decided;
   std::fprintf(stderr, "[ini] %s: %d set from the ini, %d kept from the environment, %d ignored -- applied before any engine init\n",
                who, st.nset, st.nenv, st.nbad);
   std::fflush(stderr);

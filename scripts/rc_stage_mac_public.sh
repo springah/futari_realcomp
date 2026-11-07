@@ -79,7 +79,9 @@ cat > "$ST/Settings.command" <<'EOC'
 # Double-click me: edits ~/Library/Application Support/Futari Realcomp/futari.ini (window size, fullscreen, vsync,
 # rotation, keyboard, save folder). Needs Python 3.8+; without it, open that file in TextEdit -- every key is explained.
 cd "$(dirname "$0")" || exit 1
-PY=""; for c in python3 /opt/homebrew/bin/python3 /usr/local/bin/python3 /usr/bin/python3; do command -v "$c" >/dev/null 2>&1 && { PY="$c"; break; }; done
+# a python3 that RUNS and is 3.8+ (a Mac without the Command Line Tools has a /usr/bin/python3 stub that only offers to install them)
+PY=""; for c in python3 /opt/homebrew/bin/python3 /usr/local/bin/python3 /usr/bin/python3; do command -v "$c" >/dev/null 2>&1 || continue
+  "$c" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)' >/dev/null 2>&1 && { PY="$c"; break; }; done
 INI="$HOME/Library/Application Support/Futari Realcomp/futari.ini"
 if [ -z "$PY" ]; then mkdir -p "$(dirname "$INI")"; [ -f "$INI" ] || cp tools/settings/futari.ini.template "$INI"; open -e "$INI"; exit 0; fi
 "$PY" tools/settings/futari_settings.py "$@"

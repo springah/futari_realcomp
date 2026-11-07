@@ -37,7 +37,8 @@
 static void __cdecl futari_ini_pre_static_init(void){ futari_ini::apply_once("engine, before static init"); }
 #pragma section(".CRT$XCT", read)
 extern "C" __declspec(allocate(".CRT$XCT")) __attribute__((used)) void (__cdecl* const futari_ini_xct)(void) = futari_ini_pre_static_init;
-#elif defined(__APPLE__)   // Mach-O has no constructor priorities; the launcher applied the ini before exec anyway
+#elif defined(__APPLE__)   // Mach-O ignores constructor priorities: the FIRST hook is host/futari_ini_preinit.cpp, first on the
+                           // link line (build_mac*.sh); this one is a no-op fallback (apply_once)
 __attribute__((constructor)) static void futari_ini_pre_static_init(void){ futari_ini::apply_once("engine, before static init"); }
 #else
 __attribute__((constructor(101))) static void futari_ini_pre_static_init(void){ futari_ini::apply_once("engine, before static init"); }
