@@ -1,5 +1,16 @@
 # STATUS — futari_realcomp (pointer, 2026-10-12)
 
+**2026-11-07 ~21:50 AEST (PC seat, banker) -- 🎉 0.3.0-rc6 CUT ON BOTH SEATS FROM 4969ba6: ALL 8 MODULES IN THE DEFAULT BUILD · Windows pool release ON · futari.ini. Owner rulings "Cut rc6, default on" then "Ship rc6".**
+- Mac (rc_cut_mac.sh, attempt 1, no reruns): app_smoke · gstart (10/9 probes, 0 leaks) · q1_ctest 60/60 · q1_census PASS both modes (0 underruns) · rc_chain 352/0. Tags pushed: v0.3.0-rc6 = cd2076ce -> 4969ba6; decomp realcomp-v0.3.0-rc6 -> 1d79e208.
+  Arrange leg on the cut engine 15/15. Public zip 44,055,589 B sha256 fa09ffbb1e0cfabe1738b788ebca2cdc7d1c35dd8d60fdf5c116cda1734d0f45 (re-staged 21:34 for the README MODES text; byte-identical binaries; rc_smoke_mac_public PASS twice).
+- Windows (build 4969ba6, exe md5 0ac1e5d4..., `[modreg] 8/8 ... mask=0xFF`): boot_smoke · gstart · q1_ctest · rc_chain 418/0 PASS; q1_census ARCADE PASS x2, XBOX 360 FAIL x2 (one 60 s interval short 20-27 frames) = the gate record.
+  WIN-PACE re-measure on the byte-identical exe, pre-registered: pool release OFF x2 PASS, ON x2 PASS, 24/24 intervals 59.88-59.97 fps, no loss adjacent to any [poolrelease] event -> H1 (pool release) REFUTED. The two FAILs: attempt 2 = one 37-present second
+  carrying `[padhost] window FOCUSED` (6 focus events in that log vs 1 in every quiet run = desktop interaction during the leg); attempt 1 log overwritten. The driver lane's earlier x360 "FAIL" was a HIGH interval = the census sampler's stale first read at the module swap.
+  Arrange leg on the staged exe 14/15 (rung 12 = known 0x1C9C000 NOW-LOADING-shaped pair; key unchanged). Public zip 42,791,696 B sha256 54c1b9a62a6724d49c9334b1d20a600961131f8173d7e712113e65afdcda5dfd (re-staged 21:33; file list + binaries identical to the gated stage; 0 game-data entries).
+  F&F zip (contains game data) -> Desktop/NSP/Futari-Realcomp-Windows-v0.3.0-rc6.zip sha256 ee51605a...; Mac F&F zip stays in the Mac's _rc/ (sha256 ec002725...).
+- Owner decision "Ship rc6": both public zips go up as the GitHub pre-release v0.3.0-rc6 (upload = owner's explicit yes, asked separately). Stage/cut README text fixed d987615; rc_chain frame-dump prune a625b23 (disk: 36 GB free found, 21.5 GB of dumps trashed).
+- Banks: _local/rc/0_3_0_rc6/ (both seats), _local/rc/w1107_{maccut,wincut,pace}/, projects/_rc/0.3.0-rc6-win/SMOKE.md (PC), ~/Desktop/projects/_rc/0.3.0-rc6/SMOKE.md (Mac). OWED: census sampler stale first read at the swap (mechanism known: last [tick] outside the 20 KB tail); x360 census leg = nobody at the desktop; rc6 hands checklist both seats -> 0.3.0; LICENSE; w1107-perf merge; dropout key.
+
 **2026-11-07 ~19:50 AEST (PC seat, banker) -- 🎉 FACTORY WINDOW w1107 CLOSED: 8/8 MODULE PARITY ON BOTH SEATS (opt-in) · Windows RT_POOLRELEASE gated + DEFAULT ON (owner ruling) · futari.ini + wizard settings + futari_recomp import.**
 Seven lanes over the day (banker + WIN-DRIVER, MAC-MODULES, CONFIG, MAC-CONFIG-VERIFY, WIN-MODULES, MAC-PERF, WIN-CONFIG-CHECK), every claim below spot-verified by the banker:
 - WIN-DRIVER (PC): getenv hot-path caching `RT_ENVC` in 7 TUs (3cdd26b) + the Windows RT_POOLRELEASE arm (d7f2db0: decommit + immediate recommit; PC1 positive control crashes as designed). 12-min ARCADE

@@ -87,10 +87,9 @@ Both games keep the game's own options (difficulty, buttons, TATE/yoko, volumes)
 
 ## What differs
 
-- **Modes.** futari_recomp runs all 8 game modules. realcomp's 0.3.0-rc5 release hosts 4: ARCADE (1.5 Original), XBOX 360
-  MODE, and Black Label ARCADE and XBOX 360 MODE (with your DLC); Arrange, Novice and Ver 1.01 ARCADE / XBOX 360 are
-  greyed in rc5's menu. Since 2026-11-07 the engine hosts all 8 on both seats (opt-in build, gated to game over on each
-  module); they reach a release when the owner cuts the next one.
+- **Modes.** Both run all 8 game modules from 0.3.0-rc6 on: ARCADE (1.5 Original), XBOX 360 MODE, Ver 1.01 ARCADE and
+  XBOX 360 MODE, Arrange, Novice, and Black Label ARCADE and XBOX 360 MODE (with your DLC). Each was gated to game over on
+  both seats; Arrange and Novice have had the least play, so say if music or anything else seems off there.
 - **Platforms.** Both: Windows 10/11 64-bit and macOS on Apple silicon. Neither ships Linux / Steam Deck builds now
   (for futari_recomp, futari-linux by cerroverb is the Linux port; realcomp's Deck build is a developer-only script).
 - **Renderer and GPU.** realcomp needs a Vulkan 1.1 driver on Windows (MoltenVK, bundled, on macOS); futari_recomp's

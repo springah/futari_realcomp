@@ -10,12 +10,12 @@ temporary scaffolding, not solutions.
 
 ## Download
 
-**[Latest test build: v0.3.0-rc5 (Windows + macOS)](https://github.com/springah/futari_realcomp/releases/tag/v0.3.0-rc5)** — looking for testers.
+**[Latest test build: v0.3.0-rc6 (Windows + macOS)](https://github.com/springah/futari_realcomp/releases/tag/v0.3.0-rc6)** — looking for testers.
 
 | platform | file | needs |
 |---|---|---|
-| Windows 10/11 64-bit | `Futari-Realcomp-Windows-v0.3.0-rc5-public.zip` | a Vulkan 1.1+ GPU driver; Python 3 for the one-time extraction |
-| macOS 13+ on Apple silicon | `Futari-Realcomp-macOS-v0.3.0-rc5-public.zip` | Python 3.10+ for the one-time extraction; the app is self-signed, so macOS asks once ("Open Anyway") |
+| Windows 10/11 64-bit | `Futari-Realcomp-Windows-v0.3.0-rc6-public.zip` | a Vulkan 1.1+ GPU driver; Python 3 for the one-time extraction |
+| macOS 13+ on Apple silicon | `Futari-Realcomp-macOS-v0.3.0-rc6-public.zip` | Python 3.10+ for the one-time extraction; the app is self-signed, so macOS asks once ("Open Anyway") |
 
 **No game data is included and never will be.** You need your own copy of the Xbox 360 game (title ID `435A07D7`): on first run
 the launcher (`Futari 1.5.bat` on Windows, `Extract Game Data.command` on macOS) asks for the `435A07D7` folder copied off your
@@ -30,15 +30,14 @@ picked at the title select. Known quirks: `docs/RC_KNOWN_ISSUES.md` in the zip. 
 `external/` are not in this repository either. Until that changes, the release zips above are the way to run it; the build
 sections below document the owner's seats.
 
-> **Status (2026-11-07):** release candidate `0.3.0-rc5` (rc4 superseded), cut from the same engine commit on the Mac and on Windows and
-> published as a GitHub pre-release on both platforms (the first public macOS build). Both cuts passed the scripted RC gates
-> (boot smoke, G-START, chained flows, frame census; the Windows audio census still logs the known, inaudible attract-loop
-> underrun class, measured to the game's own audio engine frame overrunning its 5.3 ms period on the PC CPU — a later rc).
-> Four game modules ship in rc5: **ARCADE 1.5 Original**, **XBOX 360 MODE**, and the two **Black Label** modes behind the
-> user's own DLC. Since 2026-11-07 the engine also hosts the other four (**Arrange**, **Novice**, **Ver 1.01** ARCADE and
-> XBOX 360 MODE) on both seats as an opt-in build -- all 8 of the disc's module XEXs, the same set as futari_recomp -- not
-> yet in a release. A `futari.ini` next to the exe (Windows) / in Application Support (macOS) now carries the player
-> settings (`docs/SWITCHING_FROM_FUTARI_RECOMP.md` covers moving over from futari_recomp, saves and assets included). Attract, menus, Normal Play, Training, Score Attack (offline), co-op, replays, saves and native audio all
+> **Status (2026-11-07):** release candidate `0.3.0-rc6` (rc5 superseded), cut from the same engine commit on the Mac and on Windows and
+> published as a GitHub pre-release on both platforms. Both cuts passed the scripted RC gates (boot smoke, G-START, chained
+> flows, frame + audio census with 0 underruns in both modes on both platforms). **All eight of the disc's game modules ship
+> in rc6:** ARCADE 1.5 Original, XBOX 360 MODE, Ver 1.01 ARCADE and XBOX 360 MODE, Arrange, Novice, and the two Black Label
+> modes behind the user's own DLC -- the same set as futari_recomp. A `futari.ini` next to the exe (Windows) / in Application
+> Support (macOS) carries the player settings, written by the wizard and `Settings.bat` / `Settings.command`
+> (`docs/SWITCHING_FROM_FUTARI_RECOMP.md` covers moving over from futari_recomp, saves and assets included). On Windows the
+> engine now hands idle pool pages back like macOS (ARCADE stays near 400 MB; `RT_POOLRELEASE=0` reverts). Attract, menus, Normal Play, Training, Score Attack (offline), co-op, replays, saves and native audio all
 > run. Since rc3: clean quit from the title (B/Esc), the audio-prefill accounting fix, the Black Label modules on both
 > seats. Owner's hands sign-off (`docs/RC1_HANDS_CHECKLIST.md`) still owed on both seats. Ranked open work: `docs/BACKLOG.md`.
 >
@@ -80,9 +79,9 @@ at `../_tools/xdk/xdk9328` (override with `MATCHLAB_CL`).
 ```bash
 bash build_win.sh        # combined executable
 bash build_win_dll.sh    # combined executable + the module DLLs (the shipping shape; 4 when the Black Label trees exist)
-bash scripts/rc_stage_win.sh 0.3.0-rc5   # stage the Windows family-and-friends folder + zip under ../_rc/
-bash scripts/rc_gates_win.sh 0.3.0-rc5   # the Mac RC gates on the staged folder (boot smoke, G-START, chained flows, census)
-bash scripts/rc_stage_win_public.sh 0.3.0-rc5   # the public asset-free zip (wizard extractor, no assets/ or shell/)
+bash scripts/rc_stage_win.sh 0.3.0-rc6   # stage the Windows family-and-friends folder + zip under ../_rc/
+bash scripts/rc_gates_win.sh 0.3.0-rc6   # the Mac RC gates on the staged folder (boot smoke, G-START, chained flows, census)
+bash scripts/rc_stage_win_public.sh 0.3.0-rc6   # the public asset-free zip (wizard extractor, no assets/ or shell/)
 ```
 
 The `*_win.sh` gate scripts are generated from the Mac originals by `scripts/win_port.sh` — edit the Mac file and
@@ -140,8 +139,8 @@ LINK_ONLY=1 bash build_mac.sh
 bash build_mac_dll.sh        # the shipping shape: build/futari_combined + futari_game_{normal,abn}.dylib (both modes; OUTDIR=/OBJSFX= for a private arm)
 bash mac-build/build_mac_app.sh   # -> "Futari Realcomp.app" (game data inside: family-and-friends only)
 bash scripts/run_mac.sh      # boot the shell in a window (BIN=build/futari_combined for the two-mode host)
-bash scripts/rc_cut_mac.sh 0.3.0-rc5   # a release candidate: pinned pair, bundle, zip, smoke + gates, SMOKE.md
-bash scripts/rc_stage_mac_public.sh 0.3.0-rc5   # the public asset-free zip; scripts/rc_smoke_mac_public.sh smokes it
+bash scripts/rc_cut_mac.sh 0.3.0-rc6   # a release candidate: pinned pair, bundle, zip, smoke + gates, SMOKE.md
+bash scripts/rc_stage_mac_public.sh 0.3.0-rc6   # the public asset-free zip; scripts/rc_smoke_mac_public.sh smokes it
 ```
 
 The gate scorers (`scripts/stagepix_mac.py`, `scripts/boss1/boss_plate_gate.py`) need numpy + Pillow; on a Mac whose

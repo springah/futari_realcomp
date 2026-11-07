@@ -1,5 +1,10 @@
 # BACKLOG.md — ranked open work (re-rank of 2026-07-27, the long-queued t3)
 
+## 2026-11-07 — 🎉 0.3.0-rc6 CUT + SHIPPING (both seats, 4969ba6): all 8 modules default · Windows pool release ON · futari.ini. STATUS.md ~21:50 entry.
+- (i) of the window list DONE. NEW: (j) rc_census_{win,mac}.sh sampler: the first hands-off sample at the module swap can read a stale [tick] (the last one falls outside the `tail -c 20000` grep) -> a false HIGH/LOW interval
+  (w1107_x360arm false FAIL); fix = widen the tail or read the count from the [tick] line nearest the sample time, and log frame source + file size per sample. (k) Gate law: the x360 census leg runs with nobody touching the
+  desktop; on a FAIL keep the guest log and grep `[padhost] window` before blaming the engine (rc6 attempt 2 lost its 23 frames in the second a FOCUSED event landed). (l) rc_census scripts still bank per-frame dumps (chain scripts fixed a625b23).
+
 ## 2026-11-07 — 🎉 w1107 FACTORY WINDOW CLOSED (banker, PC seat): 8/8 module parity both seats (opt-in) · Windows pool release DEFAULT ON · futari.ini + recomp import · Mac perf profile
 - Full ledger: STATUS.md 2026-11-07 ~19:50 entry. Banks: `_local/rc/w1107_{driver,mod,winmod,cfg,cfgmac,wincfg,perf,banker}/` (Mac: w1107_mod, w1107_cfgmac, w1107_perf = 866 MB mostly frame dumps, trash candidate).
 - NEW TODOs from the window: (a) x360 RT_DIVGUARD watches the wrong word (0x887ACE14 vs the +0x60 twin 0x887ACE74) -- fix + x360 boot gate; (b) Arrange/Novice no music cue after the stage-1 track on the gate
