@@ -871,7 +871,7 @@ def report_verification(out_dir, missing, mismatched, extra):
 #   dlc/         marketplace DLC as raw STFS packages (optional)
 #   futari.ini   its settings; [Storage] user_data_path moves its user data
 # and, in its user-data folder (user_data_path, else Documents\futari on
-# Windows, $XDG_DATA_HOME/futari or ~/futari on macOS), the SDK's content tree:
+# Windows, $XDG_DATA_HOME/futari or ~/.local/share/futari on macOS), the SDK's content tree:
 #   <xuid>/435A07D7/00000001/systemdata.bin/savegame.bin   settings + scores
 #   <xuid>/435A07D7/00000001/replaydata.bin/replaydata.bin the saved replay
 #   0000000000000000/435A07D7/00000002/<content id>/Rom/   installed DLC
@@ -949,10 +949,12 @@ def recomp_user_data(install: Path | None, override=None):
         if os.name == "nt":
             cands.append(_documents_dir() / "futari")
         else:
+            # the rexglue SDK's GetUserFolder() (src/core/filesystem_mac.cpp / _posix.cpp): $XDG_DATA_HOME, else
+            # ~/.local/share -- plus the app name. Found on the w1107 Mac: ~/.local/share/futari (not ~/futari).
             xdg = os.environ.get("XDG_DATA_HOME")
             if xdg:
                 cands.append(Path(xdg) / "futari")
-            cands.append(Path.home() / "futari")
+            cands.append(Path.home() / ".local" / "share" / "futari")
     for c in cands:
         if (c / "0000000000000000").is_dir() or any(recomp_profiles(c)):
             return c
@@ -1175,7 +1177,7 @@ def main():
                         "installed into its user-data folder.")
     g.add_argument("--recomp-user-data", metavar="DIR", default=None,
                    help="futari_recomp's user-data folder, if not the default "
-                        "(Documents\\futari on Windows, ~/futari on macOS, or its "
+                        "(Documents\\futari on Windows, ~/.local/share/futari on macOS, or its "
                         "futari.ini [Storage] user_data_path)")
     g.add_argument("--saves-to", metavar="SAVE_DIR", default=None,
                    help="Also import futari_recomp's save (settings, scores, replay) into "
@@ -1187,7 +1189,8 @@ def main():
     g.add_argument("--saves-only", action="store_true",
                    help="With --from-recomp/--recomp-user-data: import the save, skip the game data")
     g.add_argument("--dry-run", action="store_true",
-                   help="With --saves-to: show what would be imported, write nothing")
+                   help="With --from-recomp/--recomp-user-data: show what would be taken "
+                        "(game data, DLC, save), write nothing")
     g.add_argument("--link", action="store_true",
                    help="Hard-link the game files instead of copying them (same drive only; "
                         "falls back to copying). No extra disk space; the files are only read.")
@@ -1217,9 +1220,12 @@ def main():
                 src["dlc_dirs"] = find_unpacked_dlc(inst_dlc)
             print(f"  game data from {src['extracted']}; {len(src['dlc_pkgs'])} DLC package(s) in dlc/; "
                   f"{len(src['dlc_dirs'])} installed DLC folder(s) in the user data")
-            rc = build_assets(src, out_dir, shell_dir, args)
-            if rc:
-                return rc
+            if args.dry_run:
+                print(f"  (dry run: nothing written; the game data would go to {out_dir})")
+            else:
+                rc = build_assets(src, out_dir, shell_dir, args)
+                if rc:
+                    return rc
         if args.saves_to:
             if user_data is None:
                 sys.exit("futari_recomp's user-data folder was not found; pass --recomp-user-data DIR.")

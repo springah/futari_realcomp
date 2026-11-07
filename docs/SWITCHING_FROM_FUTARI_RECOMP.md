@@ -45,7 +45,7 @@ default.
 | settings (`futari.ini`) | next to `futari.exe` | realcomp's own `futari.ini` (different keys) | not converted: see the table below |
 
 futari_recomp's user-data folder is `[Storage] user_data_path` from its `futari.ini` if set, else `Documents\futari` on
-Windows and `~/futari` (or `$XDG_DATA_HOME/futari`) on macOS. `<profile>` is a 16-hex-digit folder (the SDK's profile id).
+Windows and `~/.local/share/futari` (or `$XDG_DATA_HOME/futari`) on macOS. `<profile>` is a 16-hex-digit folder (the SDK's profile id).
 The SDK also writes a `Headers\` folder beside the save; realcomp does not use it and the importer skips it.
 
 What was checked (Windows, 2026-11-07, copies of a real futari_recomp save, never the original): the importer copies the
