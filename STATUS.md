@@ -1,5 +1,29 @@
 # STATUS — futari_realcomp (pointer, 2026-10-12)
 
+**2026-11-07 ~19:50 AEST (PC seat, banker) -- 🎉 FACTORY WINDOW w1107 CLOSED: 8/8 MODULE PARITY ON BOTH SEATS (opt-in) · Windows RT_POOLRELEASE gated + DEFAULT ON (owner ruling) · futari.ini + wizard settings + futari_recomp import.**
+Seven lanes over the day (banker + WIN-DRIVER, MAC-MODULES, CONFIG, MAC-CONFIG-VERIFY, WIN-MODULES, MAC-PERF, WIN-CONFIG-CHECK), every claim below spot-verified by the banker:
+- WIN-DRIVER (PC): getenv hot-path caching `RT_ENVC` in 7 TUs (3cdd26b) + the Windows RT_POOLRELEASE arm (d7f2db0: decommit + immediate recommit; PC1 positive control crashes as designed). 12-min ARCADE
+  census: control +193 MB vs arm +32 MB (264 MB released, 0 underruns); x360 +69 vs +31 from t+1; gstart 0 leaks; rc_chain PASS both arms on a quiet box. OWNER "sure flip on" -> default ON on Windows
+  (5d56f8e, docs 4ce4ba3; `RT_POOLRELEASE=0` reverts). P1/P2/P4 bands missed on their DEFINITIONS (Windows ramps ~18 MB/min; sawtooth endpoint; pre-load t+0) -> re-band proposal in _local/rc/w1107_driver.
+  Census-sampler stale end-of-file read: unexplained TODO (BACKLOG).
+- MAC-MODULES (Mac, 6f0e4ad a83c67a): hirow_normal(6) hirow_abnormal(7) palm_normal(2) palm_abnormal(3) HOSTED-AND-PLAY, gates 15/15 each, swap-back 11/11 x4 with the new UNION-ZERO registry fix,
+  0 FATAL/VK_ERROR/UNMAPPED; ARCADE + x360 non-regression clean. FINDING (not changed): the shipped x360 RT_DIVGUARD watches 0x887ACE14 but reco_abnormal's twin divides by 0x887ACE74 (+0x60).
+  OPEN: Arrange/Novice play no music cue after the stage-1 track on the gate route (authentic vs defect unverified, no reference run).
+- WIN-MODULES (PC, 0a6a6c9): the same four on Windows -- `[modreg] 8/8 bound mask=0xFF`; hirow x2 + palm_abnormal 15/15, palm_normal 14/15 x2 (rung 12 = a NOW-LOADING-ring-shaped dropout pair on page
+  0x1C?C000, outside the key `0x1C?[48]000`; scored FAIL as pre-registered, key NOT widened -> owner). Generated trees tarred from the Mac (Windows XenonRecomp lacks mulhdu + the xex size fix); COFF
+  arm for the `_HCH` chain-break labels in the symbol maps; win_port.sh now ports nav/boot/gate/swap scripts. Non-regression ARCADE + x360 census PASS on the 8-module build with pool release ON.
+- CONFIG (PC worktree, branch w1107-config d6931d7 a3fd761) + MAC-CONFIG-VERIFY (Mac, 48d4aaa d9a4792 f41f551) -> merged 1ed512a: `futari.ini` -> existing RT_*/RVK_* levers, env > ini > launcher
+  defaults, applied before EVERY static initializer (.CRT$XCT on Windows; a pre-init TU first on the Mach-O link line -- Mach-O ignores constructor priority); new `RVK_FULLSCREEN`; wizard settings step +
+  Settings.bat/.command + tools/settings/; `futari_extract.py --from-recomp` (recomp's assets/ consumed directly, 58/58 manifest + DLC; saves are the same container: byte-identical copy, a recomp
+  replay plays back); docs/SWITCHING_FROM_FUTARI_RECOMP.md; docs/DESIGN_settings_overlay.md (F2 overlay ~2.3-2.5k lines, DESIGN-ONLY). WIN-CONFIG-CHECK re-proved the merged main on Windows
+  (build 1ed512a clean 3m34s, [ini] log line 1, env wins, invalid value reported, default shape 4/4, pool release ON in the census). F11 toggle-back on Windows after RVK_FULLSCREEN=1: UNTESTED (hands).
+- MAC-PERF (Mac, branch w1107-perf, UNMERGED): on the Mac the XAudio engine frame is 0.10-0.17 ms mean vs the 5.33 ms budget, 0 overruns, ~2.8 % of a core; process 0.67 cores at 59.9 fps, ~85 %
+  renderer incl. the deliberate fence spin (RVK_FENCESPIN=0 is WORSE; RVK_FENCEPOLL prototype = null). Host xWMA decode ceiling ~1.2 % of a core -> not worth it. docs/PLAN_perf_w1107.md on the branch.
+- Merges: af12cb5 (mac/main), 1ed512a (w1107-config). Landmine: `source futari_decomp/bank/r23/w30/w30_toolchain_env.sh` before build_win_dll.sh (else 'cstdint' not found + the pre-clean deletes the exe).
+OWNER DECISIONS OWED: (1) ship the 4 new modules default or opt-in in the next rc (both seats opt-in now); (2) widen the NOW-LOADING dropout key for the moved page or keep Arrange at 14/15;
+(3) a LICENSE file for this repo (none; recomp launcher code is BSD-3 by the same owner); (4) merge w1107-perf (all default-OFF instruments + plan) or leave it; (5) ini template defaults + the new
+"preset env var beats the .bat" precedence; (6) rc5 hands checklist both seats ("Later") -> promote rc5 to 0.3.0. Next cut = 0.3.0-rc6 or 0.3.1 with all of the above.
+
 **2026-11-04 22:40 (Mac seat) -- CORRECTION to the ssh "landmine" below: the key is FINE.** `ssh -T git@github.com` now answers "Hi springah!
 You've successfully authenticated" and `git ls-remote` over ssh works, with nothing changed on the Mac; githubstatus.com showed Git Operations
 + API Requests DEGRADED during the cut's tag push, the docs push (one 500) and the release upload (one vanished release) and OPERATIONAL now.

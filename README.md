@@ -34,8 +34,11 @@ sections below document the owner's seats.
 > published as a GitHub pre-release on both platforms (the first public macOS build). Both cuts passed the scripted RC gates
 > (boot smoke, G-START, chained flows, frame census; the Windows audio census still logs the known, inaudible attract-loop
 > underrun class, measured to the game's own audio engine frame overrunning its 5.3 ms period on the PC CPU — a later rc).
-> Four game modules are hosted: **ARCADE 1.5 Original**, **XBOX 360 MODE**, and the two **Black Label** modes behind the
-> user's own DLC; attract, menus, Normal Play, Training, Score Attack (offline), co-op, replays, saves and native audio all
+> Four game modules ship in rc5: **ARCADE 1.5 Original**, **XBOX 360 MODE**, and the two **Black Label** modes behind the
+> user's own DLC. Since 2026-11-07 the engine also hosts the other four (**Arrange**, **Novice**, **Ver 1.01** ARCADE and
+> XBOX 360 MODE) on both seats as an opt-in build -- all 8 of the disc's module XEXs, the same set as futari_recomp -- not
+> yet in a release. A `futari.ini` next to the exe (Windows) / in Application Support (macOS) now carries the player
+> settings (`docs/SWITCHING_FROM_FUTARI_RECOMP.md` covers moving over from futari_recomp, saves and assets included). Attract, menus, Normal Play, Training, Score Attack (offline), co-op, replays, saves and native audio all
 > run. Since rc3: clean quit from the title (B/Esc), the audio-prefill accounting fix, the Black Label modules on both
 > seats. Owner's hands sign-off (`docs/RC1_HANDS_CHECKLIST.md`) still owed on both seats. Ranked open work: `docs/BACKLOG.md`.
 >

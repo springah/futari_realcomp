@@ -1,5 +1,13 @@
 # BACKLOG.md — ranked open work (re-rank of 2026-07-27, the long-queued t3)
 
+## 2026-11-07 — 🎉 w1107 FACTORY WINDOW CLOSED (banker, PC seat): 8/8 module parity both seats (opt-in) · Windows pool release DEFAULT ON · futari.ini + recomp import · Mac perf profile
+- Full ledger: STATUS.md 2026-11-07 ~19:50 entry. Banks: `_local/rc/w1107_{driver,mod,winmod,cfg,cfgmac,wincfg,perf,banker}/` (Mac: w1107_mod, w1107_cfgmac, w1107_perf = 866 MB mostly frame dumps, trash candidate).
+- NEW TODOs from the window: (a) x360 RT_DIVGUARD watches the wrong word (0x887ACE14 vs the +0x60 twin 0x887ACE74) -- fix + x360 boot gate; (b) Arrange/Novice no music cue after the stage-1 track on the gate
+  route -- needs a reference run (hardware/Xenia) before it is called a defect; (c) palm_normal rung-12 dropout key ruling; (d) census-sampler stale end-of-file read (log frame source + file size per sample
+  before touching the sampler); (e) F11 toggle-back after RVK_FULLSCREEN=1 on Windows = hands; (f) the harness pad-FIFO poller re-opens the FIFO every poll (~5 % of a core in gates; players unaffected);
+  (g) "fn+F11" wording for macOS in the ini template/README; (h) Windows 8-module soak + hands-on play of the 4 new modules; (i) rc6 cut with the module decision applied, both seats, then rc_stage_*_public.
+- Re-banding for the next PREREG (driver lane proposal): P1 Windows control +170..+220 MB/12 min; P2 arm = least-squares slope over t+2..t+12 <= 3 MB/min (control ~18); P4 x360 score from t+1, <= +35 MB/5 min vs ~+70.
+
 ## 2026-11-07 — w1107 WIN-DRIVER (PC): getenv hot-path caching (M1) + Windows RT_POOLRELEASE arm (M2), gated on the PC · default FLIPPED ON by owner ruling (same day)
 - ✅ **M1 getenv caching** (static audit `_local/rc/w1107_driver/getenv_audit.tsv`: 1,388 sites, 120 per-call-hot): the hot sites in out_reco/{rt,stubs}.cpp,
   out_reco/merged/merged_{game,shell}.cpp, render/vk_render.cpp, shell/gen/{rt,stubs}.cpp read once per call site via `RT_ENVC(name)` (a static-local
